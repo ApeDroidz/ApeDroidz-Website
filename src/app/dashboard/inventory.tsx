@@ -172,16 +172,16 @@ const MintPromoCard = () => {
         </div>
 
         {/* Right: Content Stack */}
-        <div className="flex-1 flex flex-col justify-center items-start gap-1.5 min-w-0 pr-2">
+        <div className="flex-1 flex flex-col justify-center items-start gap-2 min-w-0 pr-2">
 
           {/* Text Title */}
-          <h3 className="text-xs md:text-sm font-black text-white leading-[1.1] uppercase tracking-tight">
+          <h3 className="text-sm md:text-sm font-black text-white leading-[1.1] uppercase tracking-tight">
             <span className="text-white">Mint</span><br />
             <span className="text-white/80">Batteries</span>
           </h3>
 
           {/* Button */}
-          <div className="h-6 md:h-7 px-3 md:px-4 flex items-center justify-center gap-1 bg-white text-black rounded-md font-black uppercase tracking-wide text-[9px] md:text-[10px] transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white shadow-lg">
+          <div className="h-7 md:h-7 w-full px-3 md:px-4 flex items-center justify-center gap-1 bg-white text-black rounded-md font-black uppercase tracking-wide text-[10px] md:text-[10px] transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white shadow-lg">
             Mint →
           </div>
 

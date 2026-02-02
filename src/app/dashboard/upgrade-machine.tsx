@@ -100,6 +100,15 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
   const hasOneItem = (selectedDroid && !selectedBattery) || (!selectedDroid && selectedBattery)
   const [isNewImageLoaded, setIsNewImageLoaded] = useState(false)
 
+  // Mobile detection for disabling heavy animations
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   // === 1. ГЛУБОКИЙ СКАН УРОВНЯ (ЧТОБЫ ЛОВИТЬ ДРОИДОВ 2 ЛВЛ) ===
   const getDroidLevel = (item: NFTItem | null): number => {
     if (!item) return 1;
@@ -229,22 +238,34 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
       <div className="relative w-full max-w-[1100px] flex flex-col items-center">
         <AnimatePresence mode="wait">
           {!showSuccessScreen ? (
-            <motion.div key="upgrade-machine" initial={{ opacity: 0, y: 0 }} animate={{ opacity: 1, y: [-10, 10, -10], rotate: [-1, 1, -1] }} transition={{ y: { duration: 6, repeat: Infinity, ease: "easeInOut" }, rotate: { duration: 6, repeat: Infinity, ease: "easeInOut" } }} className="relative w-[140%] sm:w-[85%] aspect-video flex items-center justify-center z-10" >
+            <motion.div
+              key="upgrade-machine"
+              initial={{ opacity: 0 }}
+              animate={isMobile
+                ? { opacity: 1 }
+                : { opacity: 1, y: [-10, 10, -10], rotate: [-1, 1, -1] }
+              }
+              transition={isMobile
+                ? { duration: 0.5 }
+                : { y: { duration: 6, repeat: Infinity, ease: "easeInOut" }, rotate: { duration: 6, repeat: Infinity, ease: "easeInOut" } }
+              }
+              className="relative w-[140%] sm:w-[85%] aspect-video flex items-center justify-center z-10"
+            >
               <GlitchContainer intensity={glitchIntensity}>
                 <div className="relative w-full h-full flex items-center justify-center">
                   <img src="/Upgrader.jpg" alt="Upgrade Device" className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(0,0,0,0.8)] rounded-xl relative z-10" style={{ pointerEvents: 'none' }} />
                   {/* Battery Screen - mobile: adjusted, desktop: original */}
                   <div className="absolute z-20 flex items-center justify-center 
-                    top-[28%] left-[22%] w-[16%] h-[22%]
+                    top-[30%] left-[24%] w-[18%] h-[24%]
                     sm:top-[28%] sm:left-[17.3%] sm:w-[20.5%] sm:h-[26%]"
-                    style={{ mixBlendMode: 'screen', backgroundColor: 'black', transform: 'perspective(1500px) rotateY(30deg) rotateX(15deg) rotateZ(-5.7deg) skewX(1deg)', clipPath: 'inset(0 round 10px)', borderRadius: '10px', overflow: 'hidden' }}>
+                    style={{ mixBlendMode: 'screen', backgroundColor: 'black', transform: 'perspective(1500px) rotateY(30deg) rotateX(15deg) rotateZ(-5.7deg) skewX(1deg)', clipPath: 'inset(0 round 12px)', borderRadius: '12px', overflow: 'hidden' }}>
                     {selectedBattery ? <ScreenContent item={selectedBattery} rounded={true} /> : <span className="text-white/30 font-mono text-[8px] sm:text-[10px] md:text-sm animate-pulse tracking-widest">BATTERY</span>}
                   </div>
                   {/* Droid Screen - mobile: adjusted, desktop: original */}
                   <div className="absolute z-20 flex items-center justify-center
                     top-[17%] left-[48%] w-[24%] h-[31%]
                     sm:top-[16%] sm:left-[50.8%] sm:w-[26%] sm:h-[33%]"
-                    style={{ mixBlendMode: 'screen', backgroundColor: 'black', transform: 'perspective(1600px) rotateY(-31deg) rotateX(14deg) rotateZ(5deg) skewY(-2.6deg)', clipPath: 'inset(0 round 10px)', borderRadius: '10px', overflow: 'hidden' }}>
+                    style={{ mixBlendMode: 'screen', backgroundColor: 'black', transform: 'perspective(1600px) rotateY(-31deg) rotateX(14deg) rotateZ(5deg) skewY(-2.6deg)', clipPath: 'inset(0 round 12px)', borderRadius: '12px', overflow: 'hidden' }}>
                     {selectedDroid ? <ScreenContent item={selectedDroid} showName={true} rounded={true} /> : <span className="text-white/30 font-mono text-[10px] md:text-sm animate-pulse tracking-widest">DROID</span>}
                   </div>
                 </div>
