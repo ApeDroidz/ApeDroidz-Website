@@ -11,7 +11,7 @@ const SUPABASE_PROJECT_URL = "https://jpbalgwwwalofynoaavv.supabase.co";
 // Хеши IPFS для всех уровней
 const IPFS_CIDS = {
   // CID 1-го уровня (из твоей базы)
-  LEVEL1: 'bafybeidliiqvd2at6iput5dvp5lsuzwdhp3w2gctxiulahwtnp5efj4iji',
+  LEVEL1: 'bafybeid3wb62bra43ncydhyzfp6jcrlbdoybp6rqdreuvqnugodncpw5ga',
   // CID 2-го уровня (Standard)
   LEVEL2: 'bafybeicp25ylfrxcvnzve2rnvuxmggajorbvvu47ws27tiybhui5dgtip4',
   // CID 2-го уровня (Super)
@@ -27,9 +27,13 @@ export const resolveImageUrl = (url: string | undefined | null): string => {
   // === 1. ГИБРИДНАЯ ПОДМЕНА (IPFS -> SUPABASE) ===
 
   // Если это LEVEL 1 -> папка level1
+  // Если это LEVEL 1 -> папка level1
   if (url.includes(IPFS_CIDS.LEVEL1)) {
-    const filename = url.split('/').pop(); // например "1.png"
-    // ВАЖНО: Убедись, что в Supabase папке level1 файлы лежат с такими же именами!
+    let filename = url.split('/').pop() || '';
+    // Если расширения нет -> добавляем .png, так как файлы в Supabase — это PNG
+    if (!filename.toLowerCase().endsWith('.png')) {
+      filename += '.png';
+    }
     return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/level1/${filename}`;
   }
 
