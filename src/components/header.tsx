@@ -7,7 +7,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Trophy, Menu, X } from "lucide-react";
+import { Trophy, Menu, X, LayoutDashboard } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -34,12 +34,12 @@ const SOCIALS = [
   },
   {
     name: "Magic Eden", url: "https://magiceden.io/collections/apechain/0x4e0edc9be4d47d414daf8ed9a6471f41e99577f3", icon: (
-      <img src="/MagicEden.svg" alt="ME" className="w-5 h-5 brightness-0 invert" />
+      <img src="/MagicEden.svg" alt="ME" className="w-5 h-5 opacity-40 hover:opacity-100 transition-opacity" />
     )
   },
   {
     name: "OpenSea", url: "https://opensea.io/collection/apedroidz", icon: (
-      <img src="/Opensea.svg" alt="OS" className="w-5 h-5 brightness-0 invert" />
+      <img src="/Opensea.svg" alt="OS" className="w-5 h-5 opacity-40 hover:opacity-100 transition-opacity" />
     )
   },
 ];
@@ -237,8 +237,9 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   <Link
                     href="/dashboard"
                     onClick={closeMenu}
-                    className="flex items-center justify-center w-full h-[52px] bg-white text-black font-bold rounded-xl hover:bg-blue-600 hover:text-white transition-colors"
+                    className="flex items-center justify-start gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
                   >
+                    <LayoutDashboard size={18} className="text-white/70" />
                     Go to Dashboard
                   </Link>
                 )}
@@ -264,7 +265,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                       href={social.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center w-[44px] h-[44px] bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors text-white/70 hover:text-white"
+                      className="flex items-center justify-center w-[44px] h-[44px] bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors text-white/40 hover:text-white"
                       title={social.name}
                     >
                       {social.icon}

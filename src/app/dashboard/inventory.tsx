@@ -22,24 +22,29 @@ type BatteryFilter = 'ALL' | 'STANDARD' | 'SUPER'
 
 // ... (GET MORE CARD ОСТАВЛЯЕМ КАК БЫЛ) ...
 const GetMoreCard = ({ type }: { type: 'droid' | 'battery' }) => {
-  // ... (код тот же) ...
+  const [isActive, setIsActive] = useState(false);
   const links = {
     droid: { os: "https://opensea.io/collection/apedroidz", me: "https://magiceden.io/collections/apechain/0x4e0edc9be4d47d414daf8ed9a6471f41e99577f3" },
     battery: { os: "https://opensea.io/collection/apedroidz", me: "https://magiceden.io/collections/apechain/..." }
   }
   const textSizeClass = type === 'battery' ? 'text-[9px] leading-none' : 'text-[10px] md:text-xs'
+
   return (
-    <div className="group relative aspect-square rounded-xl border-2 border-dashed border-white/20 overflow-hidden transition-all duration-300 hover:bg-white/5 hover:border-white/40">
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 group-hover:opacity-0 transition-opacity duration-300">
+    <div
+      onClick={() => setIsActive(!isActive)}
+      onMouseLeave={() => setIsActive(false)}
+      className="group relative aspect-square rounded-xl border-2 border-dashed border-white/20 overflow-hidden transition-all duration-300 hover:bg-white/5 hover:border-white/40 cursor-pointer"
+    >
+      <div className={`absolute inset-0 flex flex-col items-center justify-center gap-1 transition-opacity duration-300 ${isActive ? 'opacity-0' : 'group-hover:opacity-0'}`}>
         <span className="text-4xl font-medium text-white/30 leading-none mb-1">+</span>
         <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.15em] text-white/50 text-center leading-tight">Get <br /> {type === 'droid' ? 'Droid' : 'Battery'}</span>
       </div>
-      <div className="absolute inset-0 flex flex-col gap-1 p-1 z-10 translate-y-full group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/95 backdrop-blur-md">
-        <a href={links[type].os} target="_blank" rel="noreferrer" className={`group/btn flex-1 w-full flex items-center justify-center gap-1 bg-white/10 hover:bg-white hover:text-black border border-white/20 hover:border-white rounded-[8px] transition-all duration-200 uppercase font-black tracking-normal ${textSizeClass}`}>
+      <div className={`absolute inset-0 flex flex-col gap-1 p-1 z-10 transition-all duration-300 bg-black/95 backdrop-blur-md ${isActive ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100'}`}>
+        <a href={links[type].os} target="_blank" rel="noreferrer" className={`group/btn flex-1 w-full flex items-center justify-center gap-1 bg-white/10 hover:bg-white hover:text-black border border-white/20 hover:border-white rounded-[8px] transition-all duration-200 uppercase font-black tracking-normal ${textSizeClass}`} onClick={(e) => e.stopPropagation()}>
           <img src="/Opensea.svg" alt="OS" className="w-4 h-4 object-contain transition-all group-hover/btn:invert" />
           <span className="truncate px-1">OpenSea</span>
         </a>
-        <a href={links[type].me} target="_blank" rel="noreferrer" className={`group/btn flex-1 w-full flex items-center justify-center gap-1 bg-white/10 hover:bg-white hover:text-black border border-white/20 hover:border-white rounded-[8px] transition-all duration-200 uppercase font-black tracking-normal ${textSizeClass}`}>
+        <a href={links[type].me} target="_blank" rel="noreferrer" className={`group/btn flex-1 w-full flex items-center justify-center gap-1 bg-white/10 hover:bg-white hover:text-black border border-white/20 hover:border-white rounded-[8px] transition-all duration-200 uppercase font-black tracking-normal ${textSizeClass}`} onClick={(e) => e.stopPropagation()}>
           <img src="/MagicEden.svg" alt="ME" className="w-4 h-4 object-contain transition-all group-hover/btn:invert" />
           <span className="truncate px-1">Magic Eden</span>
         </a>
@@ -68,6 +73,22 @@ const InventoryCard = ({
   // State для загрузки изображения (вместо Skeleton компонента)
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Long press handler
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleTouchStart = () => {
+    timerRef.current = setTimeout(() => {
+      if (onDetailClick) onDetailClick(item);
+    }, 500); // 500ms long press
+  };
+
+  const handleTouchEnd = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
   // Рамка - всегда белая для выбранных элементов
   let borderColor = "border-white/20 hover:border-white/50";
   if (isSelected) {
@@ -82,6 +103,12 @@ const InventoryCard = ({
   return (
     <div
       onClick={() => onSelect(isSelected ? null : item)}
+      onDoubleClick={() => { if (onDetailClick) onDetailClick(item); }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onMouseDown={handleTouchStart}
+      onMouseUp={handleTouchEnd}
+      onMouseLeave={handleTouchEnd}
       className={`group relative aspect-square rounded-xl overflow-hidden cursor-pointer transition-all duration-300 border-2 ${borderColor} ${!isSelected && 'hover:bg-white/5'} bg-black`}
     >
       {/* 1. СКЕЛЕТ (Показывается пока грузится) */}
@@ -103,16 +130,17 @@ const InventoryCard = ({
         {displayId}
       </div>
 
-      {/* КНОПКА ДЕТАЛЕЙ */}
+      {/* КНОПКА ДЕТАЛЕЙ - HIDDEN ON MOBILE, VISIBLE ON DESKTOP HOVER */}
       <button
         onClick={(e) => {
           e.stopPropagation()
           if (onDetailClick) onDetailClick(item)
         }}
         className={`absolute bottom-3 ${detailsBtnStyle}
+                   hidden lg:block
                    bg-white/10 backdrop-blur-md border border-white/20 rounded-lg
                    text-[9px] font-black uppercase tracking-wider text-white
-                   opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300
+                   opacity-0 group-hover:opacity-100 transition-all duration-300
                    hover:bg-white hover:text-black hover:border-white z-30
                    cursor-pointer`}
       >
@@ -202,6 +230,24 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
   const [activeDroidFilter, setActiveDroidFilter] = useState<DroidFilter>('ALL')
   const [activeBatteryFilter, setActiveBatteryFilter] = useState<BatteryFilter>('ALL')
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showAll, setShowAll] = useState(false); // State for expanding list
+
+  // Force showAll on desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setShowAll(true);
+      } else {
+        setShowAll(false);
+      }
+    };
+
+    // Initial check
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleRefresh = async () => {
     if (!onRefresh) return;
@@ -230,12 +276,44 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
       return true
     })
   }, [items, activeDroidFilter, activeBatteryFilter, type])
+
+  // Mobile limit logic
+  // Batteries: 2 rows. MintPromo takes 1 row (col-span-2). So we need Promo + 2 items (1 row) = 2 items limit? Or if items take 2 rows themselves + promo?
+  // Let's assume "2 full rows" means 2 visual rows.
+  // Promo card is aspect-[2.1/1], essentially 1 row height.
+  // So Promo + 2 items = 2 rows.
+  // Droids: 3 rows. GetMoreCard is 1 item. So GetMore + 5 items = 6 items = 3 rows (2 cols).
+  const initialDisplayCount = type === 'battery' ? 2 : 5; // + Promo (2 slots) for battery, + GetMore (1 slot) for droid
+
+  const displayedItems = useMemo(() => {
+    if (showAll || singleRow) return filteredItems;
+    // Mobile check is CSS based usually, but here we control rendering.
+    // We'll apply this logic generally, assuming this component is responsive.
+    // However, on Desktop we might want full view.
+    // But requirement says "shows 2 full rows, with the rest scrollable... specific to mobile".
+    // We can use CSS `hidden` for items beyond limit on mobile, or slice.
+    // Slice is better for performance but "scrollable" implies they might be there but "Show All" button implies they are hidden until expanded.
+    // User said "Shows 2 full rows, with the rest scrollable" AND "SHOW ALL / HIDE button".
+    // "rest scrollable" might mean the container is scrollable?
+    // But "SHOW ALL" usually implies expanding a truncated list.
+    // Let's implement truncation with Show All.
+    return filteredItems.slice(0, initialDisplayCount);
+  }, [filteredItems, showAll, singleRow, initialDisplayCount]);
+
+  const hasHiddenItems = filteredItems.length > initialDisplayCount && !singleRow;
+
   const droidOptions = [{ label: 'All Droidz', value: 'ALL' }, { label: 'Level 1', value: 'LVL 1' }, { label: 'Level 2', value: 'LVL 2' }, { label: 'Level 2 Super', value: 'LVL 2 SUPER', color: 'orange' }, { label: 'Level 3', value: 'LVL 3', locked: true }];
   const batteryOptions = [{ label: 'All Batteriez', value: 'ALL' }, { label: 'Standard', value: 'STANDARD' }, { label: 'Super', value: 'SUPER', color: 'orange' }];
   const loadingSkeletons = Array.from({ length: singleRow ? 4 : 8 })
 
   return (
-    <div className="flex flex-col h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
+    <div className="flex flex-col h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-4 relative">
+      {/* MOBILE FILTER: Absolute Top Left (Above Header) */}
+      <div className="lg:hidden absolute -top-10 left-0 z-40">
+        {type === 'droid' ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />) : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />)}
+
+      </div>
+
       <div className="flex flex-col gap-2 mb-4 flex-shrink-0 relative z-30 lg:flex-row lg:justify-between lg:items-center">
         <div className="flex items-center gap-2">
           <h3 className="text-base font-bold tracking-wider text-white/90 uppercase">{title}</h3>
@@ -258,10 +336,13 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
             </button>
           )}
         </div>
-        <div className="relative z-30 self-end lg:self-auto">
+
+        {/* DESKTOP FILTER */}
+        <div className="relative z-30 self-end lg:self-auto hidden lg:block">
           {type === 'droid' ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />) : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />)}
         </div>
       </div>
+
       <div className={`flex-1 overflow-y-auto custom-scrollbar pr-1 ${singleRow ? 'min-h-0' : ''}`}>
         <div className={`grid gap-3 pb-2 ${singleRow ? 'grid-cols-4 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-4'}`}>
 
@@ -282,9 +363,40 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
             <GetMoreCard type="droid" />
           )}
 
-          {isLoading ? (loadingSkeletons.map((_, i) => (<div key={i} className="aspect-square rounded-xl overflow-hidden border-2 border-white/10 bg-white/5 animate-pulse"></div>))) : (filteredItems.map((item) => (<InventoryCard key={item.id} item={item} isSelected={selectedId === item.id} type={type} onSelect={onSelect} onDetailClick={onDetailClick} />)))}
+          {isLoading ? (loadingSkeletons.map((_, i) => (<div key={i} className="aspect-square rounded-xl overflow-hidden border-2 border-white/10 bg-white/5 animate-pulse"></div>))) : (
+            // Show displayedItems on mobile (via slice), but on desktop we might want all? 
+            // Logic above `displayedItems` handles slice.
+            // But wait, `displayedItems` will truncate on desktop too if we rely on `showAll`. 
+            // We should conditionally render all or sliced based on screen size (CSS) or check simple approach.
+            // Since "Show All" is requested, likely for mobile specifically. 
+            // But to keep it simple, we can apply "Show All" logic to both or just use CSS to hide extra rows and button to unhide?
+            // CSS grid is complex to limit by row count accurately without fixed height.
+            // JavaScript slice is reliable.
+            // I'll stick to slice. If user wants desktop full view, they can click "Show All" or I can default `showAll` to true on desktop (screen width check).
+            // Given limitations, I'll default slice.
+            (showAll || singleRow ? filteredItems : displayedItems).map((item) => (
+              <InventoryCard
+                key={item.id}
+                item={item}
+                isSelected={selectedId === item.id}
+                type={type}
+                onSelect={onSelect}
+                onDetailClick={onDetailClick}
+              />
+            ))
+          )}
 
         </div>
+
+        {/* SHOW ALL BUTTON (Mobile only, if has hidden items) */}
+        {!singleRow && hasHiddenItems && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="w-full py-3 mt-2 mb-4 bg-white/5 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all lg:hidden"
+          >
+            {showAll ? "Hide" : "Show All"}
+          </button>
+        )}
       </div>
     </div>
   )

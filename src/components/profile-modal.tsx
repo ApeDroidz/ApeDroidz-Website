@@ -275,8 +275,8 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
 
                                         <div className="w-full flex flex-col gap-3 mt-2 no-capture">
                                             <div className="grid grid-cols-2 gap-3">
-                                                <button onClick={handleCopyImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-4 bg-white text-black font-black uppercase tracking-[0.15em] rounded-2xl hover:bg-[#3b82f6] hover:text-white transition-all text-[10px] sm:text-xs shadow-xl"><Copy size={14} /> Copy IMG</button>
-                                                <button onClick={handleDownloadImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-4 bg-white/5 text-white/50 border border-white/10 font-black uppercase tracking-[0.15em] rounded-2xl hover:bg-white/10 hover:text-white transition-all text-[10px] sm:text-xs"><Download size={14} /> Download</button>
+                                                <button onClick={handleCopyImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-4 bg-white text-black font-black uppercase tracking-[0.15em] rounded-xl hover:bg-[#3b82f6] hover:text-white transition-all text-[10px] sm:text-xs shadow-xl"><Copy size={14} /> Copy IMG</button>
+                                                <button onClick={handleDownloadImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-4 bg-white/5 text-white/50 border border-white/10 font-black uppercase tracking-[0.15em] rounded-xl hover:bg-white/10 hover:text-white transition-all text-[10px] sm:text-xs"><Download size={14} /> Download</button>
                                             </div>
                                             <button onClick={handleDisconnect} className="cursor-pointer flex items-center justify-center gap-2 text-red-500/40 hover:text-red-500 transition-all text-[10px] sm:text-[11px] font-black uppercase tracking-[0.3em] mt-3"><LogOut size={14} /> Disconnect Wallet</button>
                                         </div>

@@ -64,8 +64,7 @@ const mobileMenuContainer = {
     transition: {
       duration: 0.3,
       ease: [0.16, 1, 0.3, 1] as const,
-      staggerChildren: 0.05,
-      delayChildren: 0.1,
+      delayChildren: 0,
     },
   },
   exit: {

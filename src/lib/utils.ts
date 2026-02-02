@@ -13,7 +13,7 @@ const IPFS_CIDS = {
   // CID 1-го уровня (из твоей базы)
   LEVEL1: 'bafybeid3wb62bra43ncydhyzfp6jcrlbdoybp6rqdreuvqnugodncpw5ga',
   // CID 2-го уровня (Standard)
-  LEVEL2: 'bafybeicp25ylfrxcvnzve2rnvuxmggajorbvvu47ws27tiybhui5dgtip4',
+  LEVEL2: 'bafybeid4d4yfoljgoqkbwzv7lk6trdsivanfeuziq7w5m2ogsgmlra7aiy',
   // CID 2-го уровня (Super)
   SUPER: 'bafybeicsk4upnt4jvmx3w37vcurti4pszgeqpr3s77gc74q5wdyqw6ay6m',
   // Battery CIDs
@@ -27,6 +27,20 @@ export const resolveImageUrl = (url: string | undefined | null): string => {
   // === 1. ГИБРИДНАЯ ПОДМЕНА (IPFS -> SUPABASE) ===
 
   // Если это LEVEL 1 -> папка level1
+  // === BATTERIES (Fix for Dashboard) ===
+  // Move BEFORE Level checks because Battery New CID overlaps with Level 2 CID
+  const isBattery = url.includes(IPFS_CIDS.BATTERY_OLD) || url.includes(IPFS_CIDS.BATTERY_NEW);
+  if (isBattery) {
+    if (url.includes('standart_battery') || url.includes('standard_battery')) {
+      return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/batteries/standart_battery.webp`;
+    }
+    if (url.includes('super_battery')) {
+      return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/batteries/super_battery.webp`;
+    }
+  }
+
+  // === 1. ГИБРИДНАЯ ПОДМЕНА (IPFS -> SUPABASE) ===
+
   // Если это LEVEL 1 -> папка level1
   if (url.includes(IPFS_CIDS.LEVEL1)) {
     let filename = url.split('/').pop() || '';
@@ -49,16 +63,7 @@ export const resolveImageUrl = (url: string | undefined | null): string => {
     return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/super/${filename}`;
   }
 
-  // === BATTERIES (Fix for Dashboard) ===
-  const isBattery = url.includes(IPFS_CIDS.BATTERY_OLD) || url.includes(IPFS_CIDS.BATTERY_NEW);
-  if (isBattery) {
-    if (url.includes('standart_battery') || url.includes('standard_battery')) {
-      return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/batteries/standart_battery.webp`;
-    }
-    if (url.includes('super_battery')) {
-      return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/batteries/super_battery.webp`;
-    }
-  }
+
 
   // === 2. ФОЛБЕКИ ===
   if (url.startsWith('http')) return url;

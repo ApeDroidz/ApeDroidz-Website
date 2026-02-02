@@ -53,9 +53,10 @@ export async function GET(
 
       // Base metadata object
       const metadata: Record<string, any> = {
-        name: `ApeDroidz #${droid.token_id}`,
+        name: `ApeDroid #${droid.token_id}`,
         description: droid.description || "3333 glitch-born Droidz on ApeChain.",
         image: droid.image_url,
+        mml: droid.mml_url, // Added MML parameter from DB
         external_url: "https://apedroidz.com/dashboard",
         attributes: [
           ...cleanAttributes,
