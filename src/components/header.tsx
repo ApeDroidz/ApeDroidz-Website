@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePathname } from "next/navigation";
 import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Trophy, Menu, X, LayoutDashboard, Home } from "lucide-react";
+import { Trophy, Menu, X, LayoutDashboard, Home, Battery } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -52,6 +53,7 @@ interface HeaderProps {
 
 export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }: HeaderProps) {
   const account = useActiveAccount();
+  const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const closeMenu = () => setIsMenuOpen(false);
@@ -230,6 +232,18 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                       }}
                     />
                   </div>
+                )}
+
+                {/* Mint Batteries CTA (Mobile) */}
+                {pathname !== '/batteries_mint' && (
+                  <Link
+                    href="/batteries_mint"
+                    onClick={closeMenu}
+                    className="flex items-center justify-center gap-2 w-full h-[52px] bg-white text-black font-bold text-base rounded-xl hover:bg-gray-200 transition-colors shadow-lg mt-2"
+                  >
+                    <Battery size={20} className="rotate-90 stroke-[3px]" />
+                    <span>MINT BATTERIES</span>
+                  </Link>
                 )}
 
                 {/* Dashboard / Back */}

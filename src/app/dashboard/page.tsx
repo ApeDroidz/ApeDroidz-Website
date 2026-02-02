@@ -429,7 +429,7 @@ export default function DashboardPage() {
                 onSelect={setSelectedBattery}
                 onDetailClick={(item) => { setDetailModalItem(item); setIsDetailModalOpen(true); }}
                 type="battery"
-                singleRow={true}
+                singleRow={false}
                 isLoading={isInventoryLoading}
                 onRefresh={fetchMyNFTs}
               />

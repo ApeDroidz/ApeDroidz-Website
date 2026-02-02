@@ -88,9 +88,9 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
           />
 
           <motion.div
-            initial={isMobile ? { opacity: 0, y: "100%" } : { opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
-            animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
-            exit={isMobile ? { opacity: 0, y: "100%" } : { opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+            initial={isMobile ? { opacity: 0, y: "100%", x: 0 } : { opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+            animate={isMobile ? { opacity: 1, y: 0, x: 0 } : { opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+            exit={isMobile ? { opacity: 0, y: "100%", x: 0 } : { opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className={`fixed z-[101] bg-[#0a0a0a] flex flex-col lg:flex-row shadow-2xl shadow-black overflow-hidden
               ${isMobile
