@@ -39,7 +39,7 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="relative h-screen w-full bg-black overflow-hidden font-sans">
+    <main className="relative h-[100dvh] w-full bg-black overflow-hidden font-sans">
 
       {/* СЛОЙ 5 (ВЕРХНИЙ): HEADER */}
       <div className="absolute top-0 left-0 right-0 z-50">

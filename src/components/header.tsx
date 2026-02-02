@@ -7,7 +7,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Trophy, Menu, X, LayoutDashboard } from "lucide-react";
+import { Trophy, Menu, X, LayoutDashboard, Home } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -248,8 +248,9 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   <Link
                     href="/"
                     onClick={closeMenu}
-                    className="flex items-center justify-center w-full h-[52px] bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 transition-colors"
+                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
                   >
+                    <Home size={18} className="text-white/70" />
                     Back to Menu
                   </Link>
                 )}

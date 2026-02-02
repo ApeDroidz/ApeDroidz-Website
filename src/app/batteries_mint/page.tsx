@@ -307,9 +307,9 @@ export default function MintPage() {
                     }
                 }
 
-                // Process events into recent mints (last 5)
-                const last5Events = events.slice(-5).reverse()
-                const mints = await Promise.all(last5Events.map(async (event: any) => {
+                // Process events into recent mints (last 3)
+                const last3Events = events.slice(-3).reverse()
+                const mints = await Promise.all(last3Events.map(async (event: any) => {
                     const claimer = event.args?.claimer || event.args?.[0] || ""
                     const qty = Number(event.args?.quantityClaimed || event.args?.[2] || 1)
                     const blockNum = event.blockNumber || BigInt(0)

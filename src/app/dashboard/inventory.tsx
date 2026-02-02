@@ -182,8 +182,8 @@ const MintPromoCard = () => {
           </h3>
 
           {/* Button - MINT NOW → */}
-          <div className="h-7 sm:h-6 px-5 flex items-center justify-center gap-1 bg-white text-black rounded-md font-black uppercase tracking-wide text-[9px] sm:text-[10px] transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white shadow-lg">
-            Mint <span>→</span>
+          <div className="h-6 px-3 sm:px-5 flex items-center justify-center gap-1 bg-white text-black rounded-md font-black uppercase tracking-wide text-[9px] sm:text-[10px] transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white shadow-lg">
+            Mint <span className="hidden sm:inline">→</span>
           </div>
 
         </div>
@@ -283,7 +283,12 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
   // Promo card is aspect-[2.1/1], essentially 1 row height.
   // So Promo + 2 items = 2 rows.
   // Droids: 3 rows. GetMoreCard is 1 item. So GetMore + 5 items = 6 items = 3 rows (2 cols).
-  const initialDisplayCount = type === 'battery' ? 2 : 5; // + Promo (2 slots) for battery, + GetMore (1 slot) for droid
+  // Batteries: Promo takes 1 row. We want 2 rows of batteries = 4 items?
+  // User said "show 2 lines of batteries". Promo (Line 1) + Batt (Line 2) + Batt (Line 3).
+  // Let's set to 4 items + Promo = 3 visual rows total. 
+  // If they meant Promo + 1 row (2 items), it was 2.
+  // I will set to 4 to be safe (2 rows of actual batteries).
+  const initialDisplayCount = type === 'battery' ? 4 : 5; // + Promo (2 slots) for battery, + GetMore (1 slot) for droid
 
   const displayedItems = useMemo(() => {
     if (showAll || singleRow) return filteredItems;

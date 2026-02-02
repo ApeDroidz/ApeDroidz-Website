@@ -14,8 +14,13 @@ interface SceneProps {
 
 export function Scene({ activeEmotion, onEmotionEnd }: SceneProps) {
   const [isMounted, setIsMounted] = useState(false)
+  const [cameraZ, setCameraZ] = useState(8)
 
   useEffect(() => {
+    // Mobile optimization: Move camera back to reduce Droid size
+    if (window.innerWidth < 768) {
+      setCameraZ(11)
+    }
     setIsMounted(true)
   }, [])
 
@@ -26,7 +31,7 @@ export function Scene({ activeEmotion, onEmotionEnd }: SceneProps) {
   return (
     <div className="absolute inset-0 w-full h-full">
       <Canvas
-        camera={{ position: [0, 0, 8], fov: 35 }}
+        camera={{ position: [0, 0, cameraZ], fov: 35 }}
         gl={{ antialias: true, alpha: true }}
         dpr={[1, 2]}
       >

@@ -149,12 +149,22 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
         setMousePos({ x: e.clientX, y: e.clientY })
     }
 
+    // Scroll Lock
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden'
+        } else {
+            document.body.style.overflow = 'auto'
+        }
+        return () => { document.body.style.overflow = 'auto' }
+    }, [isOpen])
+
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:px-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:px-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={onClose} className="absolute inset-0 bg-black/95 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, y: 100, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="relative w-full sm:max-w-[720px] bg-[#0a0a0a] border-t sm:border border-white/10 rounded-t-[32px] sm:rounded-[40px] overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[90vh] shadow-2xl">
+            <motion.div initial={{ opacity: 0, y: 0, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} onClick={(e) => e.stopPropagation()} className="relative w-full h-full sm:h-auto sm:w-full sm:max-w-[720px] bg-[#0a0a0a] border-0 sm:border border-white/10 rounded-none sm:rounded-[40px] overflow-hidden flex flex-col sm:max-h-[90vh] shadow-2xl">
 
                 {/* HEADER TABS - blue-600 */}
                 <div className="p-4 sm:p-6 border-b border-white/5 flex items-center justify-between shrink-0 no-capture">
@@ -192,94 +202,134 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                     </div>
                                 ) : (
                                     <>
-                                        <div ref={profileRef} className="flex flex-col gap-4 bg-[#0a0a0a] p-2">
-                                            {/* PFP + Name Row - horizontal on all screens */}
-                                            <div className="flex flex-row items-start gap-4 w-full">
-                                                {/* PFP - left aligned */}
-                                                <div className="relative shrink-0 w-[100px] sm:w-[140px] aspect-square rounded-[20px] sm:rounded-[24px] border border-white/10 bg-white/5 overflow-hidden group">
-                                                    {isAvatarLoading && <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10"><Loader2 className="w-6 h-6 text-[#3b82f6] animate-spin" /></div>}
-                                                    {userPfpUrl ? (
-                                                        <img
-                                                            src={userPfpUrl}
-                                                            className="w-full h-full object-cover"
-                                                            onLoad={() => setIsAvatarLoading(false)}
-                                                            onError={() => setIsAvatarLoading(false)}
-                                                        />
-                                                    ) : <User size={40} className="m-auto text-white/10 h-full w-full p-8" />}
-                                                    <button onClick={() => { setIsSelectingPfp(true); fetchDroidsForPfp() }} className="cursor-pointer absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all no-capture z-20"><Pencil size={20} className="text-white" /></button>
+                                        <>
+                                            <div ref={profileRef} className="flex flex-col gap-4 bg-[#0a0a0a] p-2">
+
+                                                {/* --- MOBILE LAYOUT (Flex) --- */}
+                                                <div className="flex flex-col gap-4 sm:hidden">
+                                                    {/* PFP Row */}
+                                                    <div className="flex flex-row items-center gap-4 w-full">
+                                                        {/* PFP */}
+                                                        <div className="relative shrink-0 w-[100px] aspect-square rounded-[20px] border border-white/10 bg-white/5 overflow-hidden group">
+                                                            {isAvatarLoading && <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10"><Loader2 className="w-6 h-6 text-[#3b82f6] animate-spin" /></div>}
+                                                            {userPfpUrl ? (
+                                                                <img src={userPfpUrl} className="w-full h-full object-cover" onLoad={() => setIsAvatarLoading(false)} onError={() => setIsAvatarLoading(false)} />
+                                                            ) : <User size={40} className="m-auto text-white/10 h-full w-full p-8" />}
+                                                            <button onClick={() => { setIsSelectingPfp(true); fetchDroidsForPfp() }} className="cursor-pointer absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all no-capture z-20"><Pencil size={20} className="text-white" /></button>
+                                                        </div>
+
+                                                        {/* Name Input/Display */}
+                                                        <div className="flex-1 min-w-0">
+                                                            {isEditingName ? (
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-black text-lg uppercase tracking-tighter w-full focus:outline-none focus:border-[#3b82f6]" placeholder="ENTER NAME" onKeyDown={(e) => { if (e.key === 'Enter') saveUsername(); if (e.key === 'Escape') setIsEditingName(false) }} />
+                                                                    <div className="flex gap-1">
+                                                                        <button onClick={saveUsername} className="p-1.5 rounded bg-[#3b82f6] text-white hover:bg-blue-500 transition-colors"><Check size={14} /></button>
+                                                                        <button onClick={() => setIsEditingName(false)} className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors"><X size={14} /></button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex flex-col">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <h2 className="text-xl font-black text-white uppercase tracking-tighter leading-none truncate">{currentUsername || shortAddress}</h2>
+                                                                        <button onClick={() => { setNewName(currentUsername || ""); setIsEditingName(true) }} className="no-capture cursor-pointer p-1 hover:bg-white/5 rounded-full transition-colors shrink-0"><Pencil size={12} className="text-white/20 hover:text-[#3b82f6]" /></button>
+                                                                    </div>
+                                                                    <p className="text-[9px] font-mono text-white/20 mt-1 uppercase tracking-[0.2em] leading-none truncate">{shortAddress}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Progress Mobile */}
+                                                    <div className="w-full bg-white/5 rounded-[20px] p-4 border border-white/5 relative cursor-help" onMouseEnter={() => setShowExpGuide(true)} onMouseLeave={() => setShowExpGuide(false)} onMouseMove={handleMouseMove}>
+                                                        <div className="flex justify-between items-end mb-2">
+                                                            <span className="text-sm font-black text-white uppercase tracking-tight leading-none">{rank}</span>
+                                                            <span className="text-lg font-black text-[#3b82f6]">{new Intl.NumberFormat().format(xp)} XP</span>
+                                                        </div>
+                                                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-2">
+                                                            <div className="h-full bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.4)]" style={{ width: `${progress}%` }} />
+                                                        </div>
+                                                        <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
+                                                            <span className="text-[#3b82f6] font-bold">LVL {level}</span>
+                                                            <span className="text-white/20">LVL {level + 1}</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
-                                                {/* Name & Wallet - right of PFP */}
-                                                <div className="flex-1 flex flex-col justify-center py-1 min-w-0">
-                                                    {isEditingName ? (
-                                                        <div className="flex items-center gap-2 flex-wrap">
-                                                            <input
-                                                                type="text"
-                                                                value={newName}
-                                                                onChange={(e) => setNewName(e.target.value)}
-                                                                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-black text-lg uppercase tracking-tighter w-full sm:w-48 focus:outline-none focus:border-[#3b82f6]"
-                                                                placeholder="ENTER NAME"
-                                                                autoFocus
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') saveUsername()
-                                                                    if (e.key === 'Escape') setIsEditingName(false)
-                                                                }}
-                                                            />
-                                                            <div className="flex gap-1">
-                                                                <button onClick={saveUsername} className="p-1.5 rounded bg-[#3b82f6] text-white hover:bg-blue-500 transition-colors"><Check size={14} /></button>
-                                                                <button onClick={() => setIsEditingName(false)} className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors"><X size={14} /></button>
+                                                {/* --- DESKTOP LAYOUT (Grid) --- */}
+                                                <div className="hidden sm:grid grid-cols-3 gap-8 w-full">
+                                                    {/* Row 1: PFP (Col 1) + Name/Progress (Col 2-3) */}
+
+                                                    {/* PFP */}
+                                                    <div className="col-span-1">
+                                                        <div className="relative w-full aspect-square rounded-[32px] border border-white/10 bg-white/5 overflow-hidden group">
+                                                            {isAvatarLoading && <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10"><Loader2 className="w-6 h-6 text-[#3b82f6] animate-spin" /></div>}
+                                                            {userPfpUrl ? (
+                                                                <img src={userPfpUrl} className="w-full h-full object-cover" onLoad={() => setIsAvatarLoading(false)} onError={() => setIsAvatarLoading(false)} />
+                                                            ) : <User size={40} className="m-auto text-white/10 h-full w-full p-8" />}
+                                                            <button onClick={() => { setIsSelectingPfp(true); fetchDroidsForPfp() }} className="cursor-pointer absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all no-capture z-20"><Pencil size={20} className="text-white" /></button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Info Column (Name + Progress) */}
+                                                    <div className="col-span-2 flex flex-col justify-between h-full py-1">
+                                                        {/* Name/Address */}
+                                                        <div className="flex flex-col gap-1">
+                                                            {isEditingName ? (
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-black text-2xl uppercase tracking-tighter w-full max-w-[300px] focus:outline-none focus:border-[#3b82f6]" placeholder="ENTER NAME" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') saveUsername(); if (e.key === 'Escape') setIsEditingName(false) }} />
+                                                                    <div className="flex gap-1">
+                                                                        <button onClick={saveUsername} className="p-1.5 rounded bg-[#3b82f6] text-white hover:bg-blue-500 transition-colors"><Check size={14} /></button>
+                                                                        <button onClick={() => setIsEditingName(false)} className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors"><X size={14} /></button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="flex items-center gap-3">
+                                                                        <h2 className="text-3xl lg:text-4xl font-black text-white uppercase tracking-tighter leading-none truncate">{currentUsername || shortAddress}</h2>
+                                                                        <button onClick={() => { setNewName(currentUsername || ""); setIsEditingName(true) }} className="no-capture cursor-pointer p-1.5 hover:bg-white/5 rounded-full transition-colors shrink-0"><Pencil size={14} className="text-white/20 hover:text-[#3b82f6]" /></button>
+                                                                    </div>
+                                                                    <p className="text-[11px] font-mono text-white/20 uppercase tracking-[0.3em] leading-none truncate pl-1">{shortAddress}</p>
+                                                                </>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Desktop Progress */}
+                                                        <div className="w-full bg-white/5 rounded-[24px] p-6 border border-white/5 relative cursor-help" onMouseEnter={() => setShowExpGuide(true)} onMouseLeave={() => setShowExpGuide(false)} onMouseMove={handleMouseMove}>
+                                                            <div className="flex justify-between items-end mb-2">
+                                                                <span className="text-lg font-black text-white uppercase tracking-tight leading-none">{rank}</span>
+                                                                <span className="text-xl font-black text-[#3b82f6]">{new Intl.NumberFormat().format(xp)} XP</span>
+                                                            </div>
+                                                            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-2">
+                                                                <div className="h-full bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.4)]" style={{ width: `${progress}%` }} />
+                                                            </div>
+                                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                                                <span className="text-[#3b82f6] font-bold">LVL {level}</span>
+                                                                <span className="text-white/20">LVL {level + 1}</span>
                                                             </div>
                                                         </div>
-                                                    ) : (
-                                                        <>
-                                                            <div className="flex items-center gap-2">
-                                                                <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tighter leading-none truncate">{currentUsername || shortAddress}</h2>
-                                                                <button onClick={() => { setNewName(currentUsername || ""); setIsEditingName(true) }} className="no-capture cursor-pointer p-1 hover:bg-white/5 rounded-full transition-colors shrink-0"><Pencil size={12} className="text-white/20 hover:text-[#3b82f6]" /></button>
-                                                            </div>
-                                                            <p className="text-[9px] sm:text-[10px] font-mono text-white/20 mt-2 uppercase tracking-[0.2em] leading-none truncate">{shortAddress}</p>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* PROGRESS BOX - Full Width */}
-                                            <div
-                                                onMouseEnter={() => setShowExpGuide(true)}
-                                                onMouseLeave={() => setShowExpGuide(false)}
-                                                onMouseMove={handleMouseMove}
-                                                className="w-full bg-white/5 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 border border-white/5 relative cursor-help"
-                                            >
-                                                <div className="flex justify-between items-end mb-2">
-                                                    <span className="text-sm sm:text-base font-black text-white uppercase tracking-tight leading-none">{rank}</span>
-                                                    <span className="text-lg sm:text-xl font-black text-[#3b82f6]">{new Intl.NumberFormat().format(xp)} XP</span>
-                                                </div>
-                                                <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-2">
-                                                    <div className="h-full bg-[#3b82f6] shadow-[0_0_15px_rgba(59,130,246,0.4)]" style={{ width: `${progress}%` }} />
-                                                </div>
-                                                <div className="flex justify-between text-[9px] sm:text-[10px] font-black uppercase tracking-widest">
-                                                    <span className="text-[#3b82f6] font-bold">LVL {level}</span>
-                                                    <span className="text-white/20">LVL {level + 1}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Stats Grid - centered text */}
-                                            <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full">
-                                                {[{ l: 'Droids', v: stats.droids }, { l: 'Batteries', v: stats.batteries }, { l: 'Global Rank', v: myRank > 0 ? `#${myRank}` : '--' }].map((s, i) => (
-                                                    <div key={i} className="bg-white/5 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 border border-white/5 flex flex-col items-center justify-center text-center">
-                                                        <span className="text-xl sm:text-2xl font-black text-white mb-1 leading-none">{s.v}</span>
-                                                        <span className="text-[8px] sm:text-[9px] uppercase text-white/30 font-black tracking-widest">{s.l}</span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                                                </div>
 
-                                        <div className="w-full flex flex-col gap-3 mt-2 no-capture">
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <button onClick={handleCopyImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-4 bg-white text-black font-black uppercase tracking-[0.15em] rounded-xl hover:bg-[#3b82f6] hover:text-white transition-all text-[10px] sm:text-xs shadow-xl"><Copy size={14} /> Copy IMG</button>
-                                                <button onClick={handleDownloadImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-4 bg-white/5 text-white/50 border border-white/10 font-black uppercase tracking-[0.15em] rounded-xl hover:bg-white/10 hover:text-white transition-all text-[10px] sm:text-xs"><Download size={14} /> Download</button>
+                                                {/* Shared Stats Grid (Row 2 on Desktop, Row 3 on Mobile effectively) */}
+                                                <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full">
+                                                    {[{ l: 'Droids', v: stats.droids }, { l: 'Batteries', v: stats.batteries }, { l: 'Global Rank', v: myRank > 0 ? `#${myRank}` : '--' }].map((s, i) => (
+                                                        <div key={i} className="bg-white/5 rounded-[20px] sm:rounded-[32px] p-4 sm:p-6 border border-white/5 flex flex-col items-center justify-center text-center">
+                                                            <span className="text-xl sm:text-3xl font-black text-white mb-1 leading-none">{s.v}</span>
+                                                            <span className="text-[8px] sm:text-[10px] uppercase text-white/30 font-black tracking-widest">{s.l}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                            <button onClick={handleDisconnect} className="cursor-pointer flex items-center justify-center gap-2 text-red-500/40 hover:text-red-500 transition-all text-[10px] sm:text-[11px] font-black uppercase tracking-[0.3em] mt-3"><LogOut size={14} /> Disconnect Wallet</button>
-                                        </div>
+
+                                            <div className="w-full flex flex-col gap-3 mt-2 no-capture">
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <button onClick={handleCopyImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-5 bg-white text-black font-black uppercase tracking-[0.15em] rounded-[24px] hover:bg-[#3b82f6] hover:text-white transition-all text-[10px] sm:text-xs shadow-xl"><Copy size={16} /> Copy IMG</button>
+                                                    <button onClick={handleDownloadImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-5 bg-white/5 text-white/50 border border-white/10 font-black uppercase tracking-[0.15em] rounded-[24px] hover:bg-white/10 hover:text-white transition-all text-[10px] sm:text-xs"><Download size={16} /> Download</button>
+                                                </div>
+                                                <button onClick={handleDisconnect} className="cursor-pointer flex items-center justify-center gap-2 text-red-500/40 hover:text-red-500 transition-all text-[10px] sm:text-[11px] font-black uppercase tracking-[0.3em] mt-3"><LogOut size={14} /> Disconnect Wallet</button>
+                                            </div>
+                                        </>
                                     </>
                                 )}
                             </motion.div>

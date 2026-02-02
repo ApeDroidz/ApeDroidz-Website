@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { NFTItem } from "@/app/dashboard/page"
 import { X, Lock, Zap, Check } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -65,6 +66,15 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
     )
   }
 
+  // Detect mobile for fullscreen modal
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -78,14 +88,16 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
           />
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
-            animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
-            exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
-            className="fixed z-[101] left-1/2 top-1/2 w-[95vw] lg:w-auto h-auto 
-                       max-h-[95vh] lg:h-[70vh] lg:max-h-[650px] max-w-6xl
-                       bg-[#0a0a0a] border border-white/20 rounded-2xl 
-                       overflow-y-auto lg:overflow-hidden
-                       flex flex-col lg:flex-row shadow-2xl shadow-black"
+            initial={isMobile ? { opacity: 0, y: "100%" } : { opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+            animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+            exit={isMobile ? { opacity: 0, y: "100%" } : { opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className={`fixed z-[101] bg-[#0a0a0a] flex flex-col lg:flex-row shadow-2xl shadow-black overflow-hidden
+              ${isMobile
+                ? 'inset-0 w-full h-full rounded-none border-0'
+                : 'left-1/2 top-1/2 w-auto h-auto max-h-[95vh] lg:h-[70vh] lg:max-h-[650px] max-w-6xl border border-white/20 rounded-2xl'
+              }
+            `}
           >
             <button
               onClick={onClose}
@@ -104,7 +116,7 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
             </div>
 
             {/* ПРАВАЯ ЧАСТЬ */}
-            <div className="flex-1 min-w-[320px] lg:min-w-[450px] flex flex-col p-6 lg:p-10 lg:overflow-y-auto custom-scrollbar bg-black">
+            <div className="flex-1 min-w-0 lg:min-w-[450px] flex flex-col p-6 lg:p-10 overflow-y-auto custom-scrollbar bg-black">
 
               <div className="relative mb-6 lg:mb-8">
                 <h2 className="text-3xl lg:text-4xl font-black uppercase tracking-tighter text-white leading-tight break-words mb-6">

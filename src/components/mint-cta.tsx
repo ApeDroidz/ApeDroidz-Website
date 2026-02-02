@@ -46,16 +46,16 @@ function MintCTAComponent() {
                             </div>
 
                             {/* TEXT & ACTION */}
-                            <div className="flex flex-col gap-3 p-4 pt-3">
+                            <div className="flex flex-col gap-2 p-2 sm:gap-3 sm:p-4 sm:pt-3">
                                 <div className="flex flex-col gap-0.5">
-                                    <h3 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-black text-white leading-[0.9] tracking-tight uppercase drop-shadow-lg">
-                                        Mint Your <br />
+                                    <h3 className="text-sm sm:text-2xl md:text-3xl lg:text-4xl font-black text-white leading-[0.9] tracking-tight uppercase drop-shadow-lg">
+                                        <span className="whitespace-nowrap">Mint Your</span> <br />
                                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white animate-pulse">Energy</span> <br />
                                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white animate-pulse">Battery</span>
                                     </h3>
                                 </div>
 
-                                <div className="group/btn relative w-full h-10 flex items-center justify-center gap-2 bg-white hover:bg-blue-600 text-black hover:text-white rounded-lg font-black uppercase tracking-wider text-xs transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)]">
+                                <div className="group/btn relative w-full h-8 sm:h-10 flex items-center justify-center gap-2 bg-white hover:bg-blue-600 text-black hover:text-white rounded-lg font-black uppercase tracking-wider text-[10px] sm:text-xs transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)]">
                                     Mint Now
                                     <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform hidden md:block" />
                                 </div>
