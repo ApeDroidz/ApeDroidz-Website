@@ -151,20 +151,19 @@ const InventoryCard = ({
 }
 
 // === 3. MINT PROMO CARD (BATTERIES) ===
-// === 3. MINT PROMO CARD (BATTERIES) ===
 const MintPromoCard = () => {
   return (
     <a
       href="/batteries_mint"
-      className="group relative col-span-2 aspect-[2.1/1] rounded-2xl overflow-hidden cursor-pointer border border-white/10 bg-[#0d0d0d] hover:border-white/20 transition-all duration-300"
+      className="group relative col-span-2 aspect-[2/1] rounded-xl overflow-hidden cursor-pointer border border-white/10 bg-[#0d0d0d] hover:border-white/20 transition-all duration-300"
     >
       {/* Subtle blue glow */}
       <div className="absolute top-[-30%] right-[-30%] w-[60%] h-[60%] bg-blue-600/5 blur-[40px] pointer-events-none group-hover:bg-blue-600/10 transition-all duration-500" />
 
-      <div className="absolute inset-0 flex items-center p-0 gap-2">
+      <div className="absolute inset-0 flex items-center p-1.5 gap-2">
 
         {/* Left: GIF Image */}
-        <div className="relative h-[85%] aspect-square flex-shrink-0 rounded-xl overflow-hidden border border-white/10 bg-black shadow-lg ml-2">
+        <div className="relative h-full aspect-square flex-shrink-0 rounded-lg overflow-hidden border border-white/10 bg-black shadow-lg">
           <img
             src="/DRD-UPD.gif"
             alt="Upgrade"
@@ -173,17 +172,17 @@ const MintPromoCard = () => {
         </div>
 
         {/* Right: Content Stack */}
-        <div className="flex-1 flex flex-col justify-center items-start gap-2 min-w-0 pr-3 pl-1">
+        <div className="flex-1 flex flex-col justify-center items-start gap-1.5 min-w-0 pr-2">
 
-          {/* Text Title - Clean Inter Black */}
-          <h3 className="text-xs sm:text-sm md:text-base font-black text-white leading-[1.1] uppercase tracking-tight">
+          {/* Text Title */}
+          <h3 className="text-[10px] md:text-sm font-black text-white leading-[1.1] uppercase tracking-tight">
             <span className="text-white">Mint</span><br />
             <span className="text-white/80">Batteries</span>
           </h3>
 
-          {/* Button - MINT NOW → */}
-          <div className="h-6 px-3 sm:px-5 flex items-center justify-center gap-1 bg-white text-black rounded-md font-black uppercase tracking-wide text-[9px] sm:text-[10px] transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white shadow-lg">
-            Mint <span className="hidden sm:inline">→</span>
+          {/* Button */}
+          <div className="h-5 md:h-7 px-2.5 md:px-4 flex items-center justify-center gap-1 bg-white text-black rounded-md font-black uppercase tracking-wide text-[8px] md:text-[10px] transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white shadow-lg">
+            Mint →
           </div>
 
         </div>
@@ -288,7 +287,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
   // Let's set to 4 items + Promo = 3 visual rows total. 
   // If they meant Promo + 1 row (2 items), it was 2.
   // I will set to 4 to be safe (2 rows of actual batteries).
-  const initialDisplayCount = type === 'battery' ? 2 : 5; // + Promo (2 slots) for battery, + GetMore (1 slot) for droid
+  const initialDisplayCount = type === 'battery' ? 4 : 5; // Batteries: MintPromo(2 cells) + 4 = 6 cells = 2 rows on mobile (3 cols), Droids: + GetMore (1 slot)
 
   const displayedItems = useMemo(() => {
     if (showAll || singleRow) return filteredItems;
@@ -349,7 +348,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
       </div>
 
       <div className={`flex-1 overflow-y-auto custom-scrollbar pr-1 ${singleRow ? 'min-h-0' : ''}`}>
-        <div className={`grid gap-3 pb-2 ${singleRow ? 'grid-cols-4 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-4'}`}>
+        <div className={`grid gap-3 pb-2 ${singleRow ? 'grid-cols-4 md:grid-cols-6' : type === 'battery' ? 'grid-cols-3 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-4'}`}>
 
           {/* SPECIAL CARDS AT START */}
           {type === 'battery' ? (
@@ -357,7 +356,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
               <MintPromoCard />
               {/* Hint text when 0 batteries and not loading */}
               {!isLoading && filteredItems.length === 0 && (
-                <div className="col-span-2 md:col-span-4 flex items-center justify-start">
+                <div className="col-span-3 md:col-span-6 flex items-center justify-start">
                   <p className="text-[10px] text-white/30 leading-relaxed max-w-[280px]">
                     If you just minted batteries but they don&apos;t appear — wait 1-2 minutes and reload. Data is being indexed.
                   </p>

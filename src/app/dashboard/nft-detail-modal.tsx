@@ -92,10 +92,10 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
             animate={isMobile ? { opacity: 1, y: 0, x: 0 } : { opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
             exit={isMobile ? { opacity: 0, y: "100%", x: 0 } : { opacity: 0, scale: 0.95, x: "-50%", y: "-45%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={`fixed z-[101] bg-[#0a0a0a] flex flex-col lg:flex-row shadow-2xl shadow-black overflow-hidden
+            className={`fixed z-[101] bg-[#0a0a0a] shadow-2xl shadow-black
               ${isMobile
-                ? 'inset-0 w-full h-full rounded-none border-0'
-                : 'left-1/2 top-1/2 w-auto h-auto max-h-[95vh] lg:h-[70vh] lg:max-h-[650px] max-w-6xl border border-white/20 rounded-2xl'
+                ? 'inset-0 w-full h-full rounded-none border-0 overflow-y-auto'
+                : 'left-1/2 top-1/2 w-auto h-auto max-h-[95vh] lg:h-[70vh] lg:max-h-[650px] max-w-6xl border border-white/20 rounded-2xl overflow-hidden flex flex-col lg:flex-row'
               }
             `}
           >
@@ -106,13 +106,15 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
               <X size={20} className="text-white" />
             </button>
 
-            {/* ЛЕВАЯ ЧАСТЬ */}
-            <div className="relative w-full aspect-square lg:h-full lg:w-auto lg:aspect-square bg-[#050505] border-b lg:border-b-0 lg:border-r border-white/10 overflow-hidden flex-shrink-0">
-              <NFTImageSkeleton
-                src={finalImage}
-                alt={item.name}
-                className="w-full h-full object-cover"
-              />
+            {/* ЛЕВАЯ ЧАСТЬ - на мобилке не фиксируется, скроллится вместе с контентом */}
+            <div className={`relative w-full bg-[#050505] border-b lg:border-b-0 lg:border-r border-white/10 ${isMobile ? '' : 'aspect-square lg:h-full lg:w-auto flex-shrink-0'}`}>
+              <div className={`${isMobile ? 'w-full aspect-square' : 'w-full h-full'}`}>
+                <NFTImageSkeleton
+                  src={finalImage}
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
             </div>
 
             {/* ПРАВАЯ ЧАСТЬ */}

@@ -239,10 +239,10 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   <Link
                     href="/batteries_mint"
                     onClick={closeMenu}
-                    className="flex items-center justify-center gap-2 w-full h-[52px] bg-white text-black font-bold text-base rounded-xl hover:bg-gray-200 transition-colors shadow-lg mt-2"
+                    className="flex items-center justify-start gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
                   >
-                    <Battery size={20} className="rotate-90 stroke-[3px]" />
-                    <span>MINT BATTERIES</span>
+                    <Battery size={18} className="-rotate-90 text-white/70" />
+                    Mint Batteries
                   </Link>
                 )}
 
