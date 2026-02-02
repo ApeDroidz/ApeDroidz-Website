@@ -857,25 +857,20 @@ export default function MintPage() {
                                                 {recentMints.map((mint, index) => (
                                                     <div
                                                         key={index}
-                                                        className="text-xs font-mono flex flex-col md:block items-end gap-0.5 text-right"
+                                                        className="text-[10px] md:text-xs font-mono block text-right overflow-hidden text-ellipsis whitespace-nowrap"
                                                         style={{ opacity: 1 - (index * 0.3) }}
                                                     >
-                                                        <div className="md:inline">
-                                                            <span className="text-white/40">{mint.time} — </span>
-                                                            <a
-                                                                href={getOpenSeaLink(mint.address)}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-white/40 hover:text-white hover:underline transition-colors"
-                                                            >
-                                                                {shortenAddress(mint.address)}
-                                                            </a>
-                                                        </div>
-                                                        <div className="md:inline">
-                                                            <span className="text-white/40 hidden md:inline"> — minted </span>
-                                                            <span className="text-white">{mint.amount} Batteries</span>
-                                                            <span className="text-white/40 md:hidden"> minted</span>
-                                                        </div>
+                                                        <span className="text-white/40">{mint.time} — </span>
+                                                        <a
+                                                            href={getOpenSeaLink(mint.address)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-white/40 hover:text-white hover:underline transition-colors"
+                                                        >
+                                                            {shortenAddress(mint.address)}
+                                                        </a>
+                                                        <span className="text-white/40"> — minted </span>
+                                                        <span className="text-white">{mint.amount} Batteries</span>
                                                     </div>
                                                 ))}
                                             </div>

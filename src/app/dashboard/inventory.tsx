@@ -288,7 +288,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
   // Let's set to 4 items + Promo = 3 visual rows total. 
   // If they meant Promo + 1 row (2 items), it was 2.
   // I will set to 4 to be safe (2 rows of actual batteries).
-  const initialDisplayCount = type === 'battery' ? 4 : 5; // + Promo (2 slots) for battery, + GetMore (1 slot) for droid
+  const initialDisplayCount = type === 'battery' ? 2 : 5; // + Promo (2 slots) for battery, + GetMore (1 slot) for droid
 
   const displayedItems = useMemo(() => {
     if (showAll || singleRow) return filteredItems;

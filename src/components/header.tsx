@@ -209,7 +209,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
 
                 {/* Connect Wallet */}
                 {!account && (
-                  <div onClick={closeMenu} className="w-full">
+                  <div className="w-full">
                     <ConnectButton
                       client={client}
                       chain={apeChain}
