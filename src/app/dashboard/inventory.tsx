@@ -130,17 +130,17 @@ const InventoryCard = ({
         {displayId}
       </div>
 
-      {/* КНОПКА ДЕТАЛЕЙ - HIDDEN ON MOBILE, VISIBLE ON DESKTOP HOVER */}
+      {/* КНОПКА ДЕТАЛЕЙ - VISIBLE ON SELECTION OR HOVER */}
       <button
         onClick={(e) => {
           e.stopPropagation()
           if (onDetailClick) onDetailClick(item)
         }}
         className={`absolute bottom-3 ${detailsBtnStyle}
-                   hidden lg:block
                    bg-white/10 backdrop-blur-md border border-white/20 rounded-lg
                    text-[9px] font-black uppercase tracking-wider text-white
-                   opacity-0 group-hover:opacity-100 transition-all duration-300
+                   ${isSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 lg:group-hover:opacity-100 pointer-events-none lg:pointer-events-auto'}
+                   transition-all duration-300
                    hover:bg-white hover:text-black hover:border-white z-30
                    cursor-pointer`}
       >

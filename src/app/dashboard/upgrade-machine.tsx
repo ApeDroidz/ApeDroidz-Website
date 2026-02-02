@@ -229,7 +229,7 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
       <div className="relative w-full max-w-[1100px] flex flex-col items-center">
         <AnimatePresence mode="wait">
           {!showSuccessScreen ? (
-            <motion.div key="upgrade-machine" initial={{ opacity: 0, y: 0 }} animate={{ opacity: 1, y: [-10, 10, -10], rotate: [-1, 1, -1] }} transition={{ y: { duration: 6, repeat: Infinity, ease: "easeInOut" }, rotate: { duration: 6, repeat: Infinity, ease: "easeInOut" } }} className="relative w-[130%] sm:w-[85%] aspect-video flex items-center justify-center z-10" >
+            <motion.div key="upgrade-machine" initial={{ opacity: 0, y: 0 }} animate={{ opacity: 1, y: [-10, 10, -10], rotate: [-1, 1, -1] }} transition={{ y: { duration: 6, repeat: Infinity, ease: "easeInOut" }, rotate: { duration: 6, repeat: Infinity, ease: "easeInOut" } }} className="relative w-[115%] sm:w-[85%] aspect-video flex items-center justify-center z-10" >
               <GlitchContainer intensity={glitchIntensity}>
                 <div className="relative w-full h-full flex items-center justify-center">
                   <img src="/Upgrader.jpg" alt="Upgrade Device" className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(0,0,0,0.8)] rounded-xl relative z-10" style={{ pointerEvents: 'none' }} />
