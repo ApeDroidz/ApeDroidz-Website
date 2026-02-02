@@ -18,7 +18,7 @@ function MintCTAComponent() {
                     animate={{ opacity: 1, x: 0, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 1 }}
-                    className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 flex flex-col w-[130px] sm:w-[180px] md:w-[280px]"
+                    className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 flex flex-col w-[145px] sm:w-[180px] md:w-[280px]"
                     style={{
                         isolation: 'isolate',
                         willChange: 'transform',
@@ -30,7 +30,7 @@ function MintCTAComponent() {
                     <Link href="/batteries_mint" className="block relative overflow-hidden rounded-2xl border border-white/10 bg-black/80 backdrop-blur-xl shadow-[0_0_40px_rgba(0,0,0,0.5)] group hover:border-white/20 transition-colors duration-300">
 
                         {/* Content Container */}
-                        <div className="flex flex-col p-1">
+                        <div className="flex flex-col p-1.5 sm:p-1">
                             {/* IMAGE/GIF */}
                             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-white/5">
                                 <img
@@ -48,17 +48,17 @@ function MintCTAComponent() {
                             {/* TEXT & ACTION */}
                             <div className="flex flex-col gap-1.5 p-2 sm:gap-2 sm:p-3">
                                 <div className="flex flex-col gap-0">
-                                    {/* LIMITED OFFER label */}
-                                    <span className="text-[8px] sm:text-[10px] md:text-xs font-mono text-blue-400 uppercase tracking-[0.2em] mb-0.5">
+                                    {/* LIMITED OFFER label - hidden on mobile */}
+                                    <span className="hidden sm:block text-[10px] md:text-xs font-mono text-blue-400 uppercase tracking-[0.2em] mb-0.5">
                                         Limited Offer
                                     </span>
-                                    <h3 className="text-[10px] sm:text-lg md:text-xl lg:text-2xl font-black text-white leading-[0.95] tracking-tight uppercase drop-shadow-lg">
+                                    <h3 className="text-sm sm:text-lg md:text-xl lg:text-2xl font-black text-white leading-[0.95] tracking-tight uppercase drop-shadow-lg">
                                         <span className="whitespace-nowrap">Mint Your</span><br />
                                         <span className="whitespace-nowrap text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white">Energy Battery</span>
                                     </h3>
                                 </div>
 
-                                <div className="group/btn relative w-full h-7 sm:h-9 flex items-center justify-center gap-2 bg-white hover:bg-blue-600 text-black hover:text-white rounded-lg font-black uppercase tracking-wider text-[9px] sm:text-[11px] transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)]">
+                                <div className="group/btn relative w-full h-8 sm:h-9 flex items-center justify-center gap-2 bg-white hover:bg-blue-600 text-black hover:text-white rounded-lg font-black uppercase tracking-wider text-[10px] sm:text-[11px] transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)]">
                                     Mint Now
                                     <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform hidden sm:block" />
                                 </div>

@@ -235,7 +235,7 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
                   <img src="/Upgrader.jpg" alt="Upgrade Device" className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(0,0,0,0.8)] rounded-xl relative z-10" style={{ pointerEvents: 'none' }} />
                   {/* Battery Screen - mobile: adjusted, desktop: original */}
                   <div className="absolute z-20 flex items-center justify-center 
-                    top-[28%] left-[20%] w-[18%] h-[24%]
+                    top-[28%] left-[22%] w-[16%] h-[22%]
                     sm:top-[28%] sm:left-[17.3%] sm:w-[20.5%] sm:h-[26%]"
                     style={{ mixBlendMode: 'screen', backgroundColor: 'black', transform: 'perspective(1500px) rotateY(30deg) rotateX(15deg) rotateZ(-5.7deg) skewX(1deg)', clipPath: 'inset(0 round 10px)', borderRadius: '10px', overflow: 'hidden' }}>
                     {selectedBattery ? <ScreenContent item={selectedBattery} rounded={true} /> : <span className="text-white/30 font-mono text-[8px] sm:text-[10px] md:text-sm animate-pulse tracking-widest">BATTERY</span>}
