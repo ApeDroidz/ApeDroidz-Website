@@ -53,14 +53,18 @@ export const resolveImageUrl = (url: string | undefined | null): string => {
 
   // Если это Standard Upgrade (Level 2) -> папка level2
   if (url.includes(IPFS_CIDS.LEVEL2)) {
-    const filename = url.split('/').pop();
-    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/level2/${filename}`;
+    const filename = url.split('/').pop() || '';
+    // Force .webp extension for Level 2 (always webp in DB)
+    const baseName = filename.includes('.') ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/level2/${baseName}.webp`;
   }
 
   // Если это Super Upgrade -> папка super
   if (url.includes(IPFS_CIDS.SUPER)) {
-    const filename = url.split('/').pop();
-    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/super/${filename}`;
+    const filename = url.split('/').pop() || '';
+    // Force .webp extension for Super (always webp in DB)
+    const baseName = filename.includes('.') ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/super/${baseName}.webp`;
   }
 
 

@@ -308,13 +308,13 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
 
   return (
     <div className="flex flex-col h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-4 relative">
-      {/* MOBILE FILTER: Absolute Top Left (Above Header) */}
-      <div className="lg:hidden absolute -top-10 left-0 z-40">
-        {type === 'droid' ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />) : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />)}
-
-      </div>
-
       <div className="flex flex-col gap-2 mb-4 flex-shrink-0 relative z-30 lg:flex-row lg:justify-between lg:items-center">
+
+        {/* MOBILE FILTER (Above Title) */}
+        <div className="lg:hidden self-start mb-1">
+          {type === 'droid' ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />) : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />)}
+        </div>
+
         <div className="flex items-center gap-2">
           <h3 className="text-base font-bold tracking-wider text-white/90 uppercase">{title}</h3>
 

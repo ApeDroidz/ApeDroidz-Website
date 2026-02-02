@@ -146,7 +146,7 @@ export function AlertModal({
                         h-12 px-6 rounded-xl font-bold uppercase tracking-wider text-sm transition-all
                         ${btn.variant === 'secondary'
                           ? 'border border-white/20 hover:bg-white/10 text-white'
-                          : 'bg-white text-black hover:bg-gray-200'}
+                          : 'bg-white text-black hover:bg-blue-600 hover:text-white'}
                       `}
                     >
                       {btn.label}

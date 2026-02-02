@@ -89,7 +89,7 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
           >
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 z-[110] w-10 h-10 flex items-center justify-center rounded-lg bg-black/60 hover:bg-white hover:text-black border border-white/20 transition-all cursor-pointer backdrop-blur-md"
+              className="absolute top-4 right-4 z-[110] w-10 h-10 flex items-center justify-center rounded-lg bg-black/60 hover:bg-white/20 hover:text-white border border-white/20 transition-all cursor-pointer backdrop-blur-md"
             >
               <X size={20} className="text-white" />
             </button>

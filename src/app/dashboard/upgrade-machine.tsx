@@ -316,10 +316,13 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
   )
 }
 
+import { resolveImageUrl } from "@/lib/utils"
+
 function ScreenContent({ item, showName = false, isAnimated = false, opacity = 0.9, rounded = false }: { item: NFTItem, showName?: boolean, isAnimated?: boolean, opacity?: number, rounded?: boolean }) {
+  const imageUrl = resolveImageUrl(item.image)
   return (
     <div className="w-full h-full relative flex items-center justify-center">
-      <img src={item.image} alt={item.name} className={`absolute inset-0 w-full h-full object-contain z-10 ${isAnimated ? 'animate-bounce-slow' : ''} ${rounded ? 'rounded-[12%]' : ''}`} style={{ imageRendering: 'pixelated', opacity: opacity }} />
+      <img src={imageUrl} alt={item.name} className={`absolute inset-0 w-full h-full object-contain z-10 ${isAnimated ? 'animate-bounce-slow' : ''} ${rounded ? 'rounded-[12%]' : ''}`} style={{ imageRendering: 'pixelated', opacity: opacity }} />
       {showName && <div className="absolute bottom-[5%] left-0 right-0 flex justify-center z-20 px-1"><span className="font-mono text-white/90 bg-black/50 border border-white/20 tracking-wider backdrop-blur-sm rounded px-[6%] py-[1%] text-[0.8vw] md:text-[10px] whitespace-nowrap overflow-hidden text-ellipsis max-w-[95%]">{item.name}</span></div>}
     </div>
   )

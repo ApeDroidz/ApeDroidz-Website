@@ -18,7 +18,7 @@ function MintCTAComponent() {
                     animate={{ opacity: 1, x: 0, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 1 }}
-                    className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 flex flex-col w-[160px] sm:w-[220px] md:w-[280px]"
+                    className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 flex flex-col w-[130px] sm:w-[180px] md:w-[280px]"
                     style={{
                         isolation: 'isolate',
                         willChange: 'transform',
@@ -48,7 +48,7 @@ function MintCTAComponent() {
                             {/* TEXT & ACTION */}
                             <div className="flex flex-col gap-3 p-4 pt-3">
                                 <div className="flex flex-col gap-0.5">
-                                    <h3 className="text-2xl md:text-3xl lg:text-4xl font-black text-white leading-[0.9] tracking-tight uppercase drop-shadow-lg">
+                                    <h3 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-black text-white leading-[0.9] tracking-tight uppercase drop-shadow-lg">
                                         Mint Your <br />
                                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white animate-pulse">Energy</span> <br />
                                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white animate-pulse">Battery</span>
