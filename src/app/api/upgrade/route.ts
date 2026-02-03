@@ -9,7 +9,7 @@ const supabase = createClient(
 // === КОНФИГУРАЦИЯ ===
 const UPGRADE_CONFIG = {
   standard: {
-    ipfsBaseUrl: "ipfs://bafybeid4d4yfoljgoqkbwzv7lk6trdsivanfeuziq7w5m2ogsgmlra7aiy",
+    ipfsBaseUrl: "ipfs://bafybeicp25ylfrxcvnzve2rnvuxmggajorbvvu47ws27tiybhui5dgtip4",
     // Оставляем пустым или ставим заглушку, так как мы все равно перезапишем трейты
     levelTrait: "",
     backgroundTrait: "apechain_blue"
