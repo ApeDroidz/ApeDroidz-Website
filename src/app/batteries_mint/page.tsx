@@ -318,7 +318,7 @@ export default function MintPage() {
                     try {
                         if (blockNum > 0) {
                             // Direct RPC call to get block time (getBlock not exported)
-                            const res = await fetch("https://curtis.rpc.caldera.xyz/http", {
+                            const res = await fetch("https://rpc.apechain.com", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
