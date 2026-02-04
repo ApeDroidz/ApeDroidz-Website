@@ -73,22 +73,6 @@ const InventoryCard = ({
   // State для загрузки изображения (вместо Skeleton компонента)
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Long press handler
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleTouchStart = () => {
-    timerRef.current = setTimeout(() => {
-      if (onDetailClick) onDetailClick(item);
-    }, 500); // 500ms long press
-  };
-
-  const handleTouchEnd = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
   // Рамка - всегда белая для выбранных элементов
   let borderColor = "border-white/20 hover:border-white/50";
   if (isSelected) {
@@ -104,11 +88,6 @@ const InventoryCard = ({
     <div
       onClick={() => onSelect(isSelected ? null : item)}
       onDoubleClick={() => { if (onDetailClick) onDetailClick(item); }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onMouseDown={handleTouchStart}
-      onMouseUp={handleTouchEnd}
-      onMouseLeave={handleTouchEnd}
       className={`group relative aspect-square rounded-xl overflow-hidden cursor-pointer transition-all duration-300 border-2 ${borderColor} ${!isSelected && 'hover:bg-white/5'} bg-black`}
     >
       {/* 1. СКЕЛЕТ (Показывается пока грузится) */}
