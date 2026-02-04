@@ -20,6 +20,32 @@ interface Trait {
   value: string
 }
 
+interface ProgressSegmentProps {
+  isActive: boolean
+  isNext: boolean
+  isLocked?: boolean
+  label: string
+  icon?: React.ReactNode
+  themeColors: { bg: string, border: string, text: string, shadow: string }
+}
+
+const ProgressSegment = ({ isActive, isNext, isLocked, label, icon, themeColors }: ProgressSegmentProps) => {
+  const inactiveStyle = "bg-white/5 border-white/10 text-white/30"
+  const nextStepStyle = "bg-white/10 border-white/20 text-white/50 animate-pulse"
+
+  let currentStyle = inactiveStyle
+  if (isActive) currentStyle = `${themeColors.bg} ${themeColors.border} ${themeColors.text} ${themeColors.shadow}`
+  else if (isNext) currentStyle = nextStepStyle
+
+  return (
+    <div className={`flex-1 h-12 rounded-lg flex items-center justify-center border-2 transition-all duration-300 relative overflow-hidden ${currentStyle}`}>
+      <span className="relative z-10 text-[10px] lg:text-xs font-black uppercase tracking-widest flex items-center gap-2">
+        {label} {icon}
+      </span>
+    </div>
+  )
+}
+
 export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDetailModalProps) {
   if (!item) return null
 
@@ -38,9 +64,6 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
     ? { bg: "bg-orange-600", border: "border-orange-400", text: "text-white", shadow: "shadow-[0_0_15px_rgba(234,88,12,0.4)]" }
     : { bg: "bg-blue-600", border: "border-blue-400", text: "text-white", shadow: "shadow-[0_0_15px_rgba(37,99,235,0.4)]" };
 
-  const inactiveStyle = "bg-white/5 border-white/10 text-white/30";
-  const nextStepStyle = "bg-white/10 border-white/20 text-white/50 animate-pulse";
-
   const getTraits = (): Trait[] => {
     if (item.metadata?.attributes && Array.isArray(item.metadata.attributes)) {
       return item.metadata.attributes.map((attr: any) => ({
@@ -52,22 +75,17 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
   }
   const traits = getTraits()
 
-  const ProgressSegment = ({ isActive, isNext, isLocked, label, icon }: { isActive: boolean, isNext: boolean, isLocked?: boolean, label: string, icon?: React.ReactNode }) => {
-    let currentStyle = inactiveStyle;
-    if (isActive) currentStyle = `${themeColors.bg} ${themeColors.border} ${themeColors.text} ${themeColors.shadow}`;
-    else if (isNext) currentStyle = nextStepStyle;
-
-    return (
-      <div className={`flex-1 h-12 rounded-lg flex items-center justify-center border-2 transition-all duration-300 relative overflow-hidden ${currentStyle}`}>
-        <span className="relative z-10 text-[10px] lg:text-xs font-black uppercase tracking-widest flex items-center gap-2">
-          {label} {icon}
-        </span>
-      </div>
-    )
-  }
-
   // Detect mobile for fullscreen modal
   const [isMobile, setIsMobile] = useState(false)
+
+  // Tooltip State
+  const [showLevelGuide, setShowLevelGuide] = useState(false)
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    setMousePos({ x: e.clientX, y: e.clientY })
+  }
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024)
     checkMobile()
@@ -127,18 +145,25 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
 
                 {/* EVOLUTION PROGRESS BAR */}
                 {type === 'droid' && (
-                  <div className="w-full flex items-center gap-2 mb-6">
+                  <div
+                    className="w-full flex items-center gap-2 mb-6 cursor-help"
+                    onPointerEnter={() => setShowLevelGuide(true)}
+                    onPointerLeave={() => setShowLevelGuide(false)}
+                    onMouseMove={handleMouseMove}
+                  >
                     <ProgressSegment
                       isActive={level >= 1}
                       isNext={false}
                       label="LVL 1"
                       icon={level >= 1 ? <Check size={14} strokeWidth={4} /> : null}
+                      themeColors={themeColors}
                     />
                     <ProgressSegment
                       isActive={level >= 2}
                       isNext={level === 1}
                       label={isSuper ? "2 SUPER" : "LVL 2"}
                       icon={level >= 2 ? <Zap size={14} fill="currentColor" /> : null}
+                      themeColors={themeColors}
                     />
                     <ProgressSegment
                       isActive={level >= 3}
@@ -146,6 +171,7 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
                       isLocked={true}
                       label="LVL 3"
                       icon={<Lock size={14} className="opacity-60" />}
+                      themeColors={themeColors}
                     />
                   </div>
                 )}
@@ -259,6 +285,40 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
               )}
             </div>
           </motion.div>
+
+          {/* LEVEL GUIDE TOOLTIP */}
+          <AnimatePresence>
+            {showLevelGuide && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                style={{ position: 'fixed', left: mousePos.x + 15, top: mousePos.y + 15, pointerEvents: 'none', zIndex: 300 }}
+                className="w-64 bg-black/95 backdrop-blur-xl border border-white/20 p-4 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)]"
+              >
+                <div className="flex items-center gap-2 mb-3 border-b border-white/10 pb-2">
+                  <span className="text-[10px] font-black uppercase text-white tracking-widest">Level Guide</span>
+                </div>
+                <div className="space-y-3 font-mono">
+                  <div className="flex flex-col gap-1 text-[10px]">
+                    <span className="text-[#3b82f6] font-bold uppercase">LVL 1</span>
+                    <span className="text-white/60">Standart static ApeDroid</span>
+                  </div>
+                  <div className="flex flex-col gap-1 text-[10px]">
+                    <span className="text-[#3b82f6] font-bold uppercase">LVL 2</span>
+                    <span className="text-white/60">Animated ApeDroid</span>
+                  </div>
+                  <div className="flex flex-col gap-1 text-[10px] pt-1 border-t border-white/5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#3b82f6] font-bold uppercase">LVL 3</span>
+                      <Lock size={10} className="text-white/40" />
+                    </div>
+                    <span className="text-white/60">Fully 3D ApeDroid<br />(Ready to Otherside)</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
     </AnimatePresence>
