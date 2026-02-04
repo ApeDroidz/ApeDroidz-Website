@@ -1,6 +1,6 @@
 import { createThirdwebClient, defineChain } from "thirdweb";
 
-// ✅ ПРАВИЛЬНО: Достаем значение из .env
+// ✅ Достаем Client ID
 const clientId = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
 
 if (!clientId) {
@@ -11,15 +11,6 @@ export const client = createThirdwebClient({
   clientId: clientId,
 });
 
-// === ТЕСТОВАЯ СЕТЬ (CURTIS) ===
-export const apeChain = defineChain({
-  id: 33111,
-  name: "ApeChain Curtis",
-  rpc: "https://curtis.rpc.caldera.xyz/http",
-  testnet: true,
-  nativeCurrency: {
-    name: "ApeCoin",
-    symbol: "APE",
-    decimals: 18,
-  },
-});
+// === MAINNET (APECHAIN) ===
+// В v5 достаточно просто указать ID сети, всё остальное подтянется само
+export const apeChain = defineChain(33139);
