@@ -108,7 +108,7 @@ export function AlertModal({
                 {onShare && (
                   <button
                     onClick={onShare}
-                    className="w-full h-14 flex items-center justify-center gap-3 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                    className="w-full h-14 flex items-center justify-center gap-3 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-[#0069FF] hover:text-white hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]"
                   >
                     <Share size={18} strokeWidth={2.5} />
                     Share & Flex

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { NFTItem } from "@/app/dashboard/page"
-import { X, Lock, Zap, Check } from "lucide-react"
+import { X, Lock, Zap, Check, Download } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { NFTImageSkeleton } from "@/components/nft-image-skeleton"
 import { resolveImageUrl } from "@/lib/utils"
@@ -153,7 +153,7 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
 
               {/* ACTION BUTTONS */}
               <div className="mb-8">
-                {/* КНОПКА ДЛЯ ДРОИДОВ */}
+                {/* BUTTON FOR LEVEL 1 DROID */}
                 {type === 'droid' && level === 1 && (
                   <button
                     onClick={() => { if (onUpgrade) onUpgrade(); onClose(); }}
@@ -161,6 +161,62 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
                   >
                     <Zap size={16} /> Initiate Fusion
                   </button>
+                )}
+
+                {/* DOWNLOAD BUTTONS FOR LEVEL 2+ DROIDS */}
+                {type === 'droid' && level >= 2 && item && (
+                  <div className="flex gap-4 w-full">
+                    {(() => {
+                      const tokenId = item.tokenId || item.id || "1";
+                      const baseUrl = "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets";
+
+                      const pngUrl = isSuper
+                        ? `${baseUrl}/level2-super/${tokenId}.png`
+                        : `${baseUrl}/level1/${tokenId}.png`;
+
+                      const gifUrl = isSuper
+                        ? `${baseUrl}/super-gif/${tokenId}.gif`
+                        : `${baseUrl}/level2-gif/${tokenId}.gif`;
+
+                      const handleDownload = async (url: string, filename: string) => {
+                        try {
+                          const response = await fetch(url);
+                          const blob = await response.blob();
+                          const blobUrl = window.URL.createObjectURL(blob);
+
+                          const link = document.createElement('a');
+                          link.href = blobUrl;
+                          link.download = filename;
+                          document.body.appendChild(link);
+                          link.click();
+
+                          document.body.removeChild(link);
+                          window.URL.revokeObjectURL(blobUrl);
+                        } catch (error) {
+                          console.error("Download failed:", error);
+                          // Fallback to opening in new tab if fetch fails (e.g. CORS)
+                          window.open(url, '_blank');
+                        }
+                      };
+
+                      return (
+                        <>
+                          <button
+                            onClick={() => handleDownload(pngUrl, `ApeDroid_${tokenId}.png`)}
+                            className="flex-1 py-4 bg-white text-black font-black uppercase tracking-[0.2em] rounded-xl hover:bg-blue-600 hover:text-white transition-all duration-300 shadow-lg text-xs flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Download size={16} /> PNG
+                          </button>
+                          <button
+                            onClick={() => handleDownload(gifUrl, `ApeDroid_${tokenId}.gif`)}
+                            className="flex-1 py-4 bg-white text-black font-black uppercase tracking-[0.2em] rounded-xl hover:bg-blue-600 hover:text-white transition-all duration-300 shadow-lg text-xs flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Download size={16} /> GIF
+                          </button>
+                        </>
+                      );
+                    })()}
+                  </div>
                 )}
 
                 {/* КНОПКА ДЛЯ БАТАРЕЕК */}
