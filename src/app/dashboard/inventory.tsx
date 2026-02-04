@@ -356,7 +356,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
               <MintPromoCard />
               {/* Hint text when 0 batteries and not loading */}
               {!isLoading && filteredItems.length === 0 && (
-                <div className="col-span-3 md:col-span-6 flex items-center justify-start">
+                <div className="col-span-3 md:col-span-4 flex items-center justify-start">
                   <p className="text-[10px] text-white/30 leading-relaxed max-w-[280px]">
                     If you just minted batteries but they don&apos;t appear — wait 1-2 minutes and reload. Data is being indexed.
                   </p>

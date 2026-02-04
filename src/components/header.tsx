@@ -75,6 +75,23 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               className="h-[32px] lg:h-[40px] w-auto transition-transform duration-300 ease-out hover:scale-105"
             />
           </Link>
+
+          {/* ZeroBrand Logo (Desktop) */}
+          <div className="hidden lg:flex items-center gap-6 h-full ml-6">
+            <div className="w-[1px] h-[38px] bg-white/20" />
+            <Link
+              href="https://zerobrand.xyz/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center h-full cursor-pointer hover:opacity-80 transition-opacity duration-300"
+            >
+              <img
+                src="/ZeroBrand_logo.svg"
+                alt="ZeroBrand"
+                className="h-[38px] w-auto"
+              />
+            </Link>
+          </div>
         </motion.div>
 
         {/* DESKTOP Navigation - hidden on mobile */}
@@ -286,6 +303,22 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                       {social.icon}
                     </Link>
                   ))}
+                </div>
+
+                {/* ZeroBrand Logo (Mobile) */}
+                <div className="mt-auto px-4 pt-4 flex justify-center w-full">
+                  <Link
+                    href="https://zerobrand.xyz/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:opacity-80 transition-opacity duration-300 block"
+                  >
+                    <img
+                      src="/ZeroBrand_logo_mob.svg"
+                      alt="ZeroBrand"
+                      className="w-auto h-[24px]"
+                    />
+                  </Link>
                 </div>
               </div>
             </motion.div>
