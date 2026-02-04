@@ -68,7 +68,7 @@ export function ShareModal({ item, isOpen, onClose, onShowToast }: ShareModalPro
   const tweetText = encodeURIComponent(
     `Evolution Complete ⚡️
 
-🤖 My Droid #${item.tokenId} just hit Level ${item.level}${isSuper ? " SUPER" : ""} via the Upgrade Machine.
+🤖 My Droid #${item.tokenId} just hit Level ${item.level}${isSuper ? " SUPER" : ""} via the Upgrade Machine by @ApeDroidz.
 
 🔋 Secure your Battery for fusion: ApeDroidz.com`
   )
