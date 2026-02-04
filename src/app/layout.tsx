@@ -26,8 +26,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ApeDroidz | Web3 NFT Collection",
-  description: "Enter the world of ApeDroidz - Interactive 3D NFT experience on Base",
+  title: "ApeDroidz | NFT COllection on ApeChain",
+  description: "Animated Pixel Collection on ApeChain & Otherside 3D Avatars",
 };
 
 export default function RootLayout({
