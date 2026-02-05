@@ -7,7 +7,7 @@ import { Header } from "@/components/header"
 import { client, apeChain } from "@/lib/thirdweb"
 import { formatDistanceToNow } from "date-fns"
 import { getContract, readContract, getContractEvents } from "thirdweb"
-import { claimTo, getActiveClaimCondition, getClaimConditions, getOwnedNFTs, tokensClaimedEvent, totalSupply as getTotalSupply, canClaim } from "thirdweb/extensions/erc721"
+import { claimTo, getActiveClaimCondition, getClaimConditions, getOwnedNFTs, tokensClaimedEvent, nextTokenIdToMint, canClaim } from "thirdweb/extensions/erc721"
 import { getClaimParams } from "thirdweb/utils"
 import { Minus, Plus, Lock, ChevronDown, ChevronUp, CheckCircle, Loader2 } from "lucide-react"
 import { ProfileModal } from "@/components/profile-modal"
@@ -214,13 +214,29 @@ export default function MintPage() {
         try {
             if (showLoading) setIsLoading(true)
 
-            // Get total minted (using totalSupply which returns actual minted count)
+            // Get total minted (using readContract for totalMinted to handle Burns correctly)
             let totalMintedCount = 0
             try {
-                const supply = await getTotalSupply({ contract: contract! })
-                totalMintedCount = Number(supply)
+                // 1. Пробуем прочитать totalMinted() - стандарт для Drop контрактов
+                // Это число показывает сколько РЕАЛЬНО забрали люди
+                const result = await readContract({
+                    contract: contract!,
+                    method: "function totalMinted() view returns (uint256)",
+                    params: []
+                })
+                totalMintedCount = Number(result)
             } catch (e) {
-                console.log("Could not fetch totalSupply:", e)
+                console.log("totalMinted() failed, trying fallback:", e)
+
+                // 2. Если вдруг функция не найдена, пробуем supplyClaimed из активной фазы
+                try {
+                    const activeCondition = await getActiveClaimCondition({ contract: contract! })
+                    if (activeCondition) {
+                        totalMintedCount = Number(activeCondition.supplyClaimed)
+                    }
+                } catch (e2) {
+                    console.log("All counts failed")
+                }
             }
             setTotalMinted(totalMintedCount)
 
