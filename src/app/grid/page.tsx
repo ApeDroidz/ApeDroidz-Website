@@ -181,8 +181,8 @@ export default function GridPage() {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.5 }}
                 >
-                    {/* Left Panel: Visual Grid - takes 7 columns on desktop */}
-                    <div className="lg:col-span-7 flex flex-col gap-3 min-h-0 order-1 lg:order-none">
+                    {/* Left Panel: Visual Grid - takes 7 columns on desktop, more height on mobile */}
+                    <div className="lg:col-span-7 flex flex-col gap-3 min-h-0 order-1 lg:order-none h-[55vh] lg:h-auto">
                         <div className="flex-1 min-h-0 relative overflow-hidden flex items-center justify-center">
                             <VisualGrid
                                 droids={selectedDroids}
@@ -199,8 +199,8 @@ export default function GridPage() {
                         />
                     </div>
 
-                    {/* Right Panel: Droid Selector - takes 5 columns on desktop */}
-                    <div className="lg:col-span-5 min-h-0 order-2 lg:order-none overflow-hidden">
+                    {/* Right Panel: Droid Selector - takes 5 columns on desktop, less height on mobile */}
+                    <div className="lg:col-span-5 min-h-0 order-2 lg:order-none overflow-hidden h-[35vh] lg:h-auto">
                         <div className="h-full">
                             <GridDroidSelector
                                 droids={droids}

@@ -238,9 +238,8 @@ export function VisualGrid({ droids, gridOrder, onReorder, gridRef }: VisualGrid
         const maxCellByHeight = availableHeight / (rows + 0.7)
         const maxCellByWidth = availableWidth / cols
 
-        let cellSize = Math.min(maxCellByHeight, maxCellByWidth)
-        const maxReasonableCell = Math.min(availableWidth / 2, availableHeight / 2.5, 200)
-        cellSize = Math.min(cellSize, maxReasonableCell)
+        // Use the smaller to ensure it fits - no max cap on mobile, use full space
+        const cellSize = Math.min(maxCellByHeight, maxCellByWidth)
 
         const gridWidth = cellSize * cols
         const gridHeight = cellSize * rows
