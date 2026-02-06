@@ -163,12 +163,12 @@ export default function GridPage() {
     }, [])
 
     return (
-        <main className="relative min-h-screen w-full bg-black font-sans text-white selection:bg-white/20 overflow-hidden">
+        <main className="relative min-h-screen w-full bg-black font-sans text-white selection:bg-white/20 overflow-x-hidden">
             <div className="fixed inset-0 z-0 opacity-40 pointer-events-none mix-blend-lighten">
                 <DigitalBackground />
             </div>
 
-            <div className="relative z-10 h-screen flex flex-col overflow-hidden">
+            <div className="relative z-10 min-h-screen lg:h-screen flex flex-col lg:overflow-hidden">
                 <Header
                     isDashboard={true}
                     onOpenProfile={() => { setProfileInitialTab('profile'); setIsProfileOpen(true) }}
@@ -176,14 +176,14 @@ export default function GridPage() {
                 />
 
                 <motion.div
-                    className="flex-1 pt-20 pb-4 px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 overflow-hidden"
+                    className="flex-1 pt-20 pb-4 px-4 sm:px-6 flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 lg:overflow-hidden"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.5 }}
                 >
-                    {/* Left Panel: Visual Grid - takes 7 columns on desktop, more height on mobile */}
-                    <div className="lg:col-span-7 flex flex-col gap-3 min-h-0 order-1 lg:order-none h-[55vh] lg:h-auto">
-                        <div className="flex-1 min-h-0 relative overflow-hidden flex items-center justify-center">
+                    {/* Left Panel: Visual Grid - takes 7 columns on desktop */}
+                    <div className="lg:col-span-7 flex flex-col gap-3 min-h-0 order-1 lg:order-none">
+                        <div className="min-h-[300px] h-[50vh] lg:flex-1 lg:h-auto relative overflow-hidden flex items-center justify-center">
                             <VisualGrid
                                 droids={selectedDroids}
                                 gridOrder={gridOrder}
@@ -199,8 +199,8 @@ export default function GridPage() {
                         />
                     </div>
 
-                    {/* Right Panel: Droid Selector - takes 5 columns on desktop, less height on mobile */}
-                    <div className="lg:col-span-5 min-h-0 order-2 lg:order-none overflow-hidden h-[35vh] lg:h-auto">
+                    {/* Right Panel: Droid Selector - scrollable on mobile */}
+                    <div className="lg:col-span-5 min-h-0 order-2 lg:order-none overflow-hidden min-h-[400px] lg:min-h-0">
                         <div className="h-full">
                             <GridDroidSelector
                                 droids={droids}

@@ -8,7 +8,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Trophy, Menu, X, LayoutDashboard, Home, Battery, Grid2X2 } from "lucide-react";
+import { Trophy, Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -217,7 +217,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
 
               {/* Menu Content */}
               <div className="flex-1 flex flex-col gap-3 px-4 pb-4">
-                {/* XP Badge */}
+                {/* 1. Connect Wallet / Wallet Info */}
                 {account && onOpenProfile && (
                   <button
                     onClick={() => { onOpenProfile(); closeMenu(); }}
@@ -226,31 +226,9 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     <UserLevelBadge onClick={() => { }} className="!w-full !h-[52px] !bg-white/5 hover:!bg-white/10 !border-white/10" />
                   </button>
                 )}
-
-                {/* Leaderboard */}
-                {onOpenLeaderboard && (
-                  <button
-                    onClick={() => { onOpenLeaderboard(); closeMenu(); }}
-                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
-                  >
-                    <Trophy size={18} className="text-white/70" />
-                    <span className="text-white font-medium text-sm">Leaderboard</span>
-                  </button>
-                )}
-
-                {/* Grid */}
-                <Link
-                  href="/grid"
-                  onClick={closeMenu}
-                  className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
-                >
-                  <Grid2X2 size={18} className="text-white/70" />
-                  <span className="text-white font-medium text-sm">Grid Maker</span>
-                </Link>
-
-                {/* Connect Wallet */}
                 {!account && (
-                  <div className="w-full">
+                  <div className="relative w-full">
+                    <Wallet size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 z-10 pointer-events-none" />
                     <ConnectButton
                       client={client}
                       chain={apeChain}
@@ -259,9 +237,9 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                       connectButton={{
                         label: "Connect Wallet",
                         className: `
-                          !w-full !bg-white !text-black !font-bold !rounded-xl  
-                          !h-[52px] !text-base
-                          !border !border-transparent
+                          !w-full !bg-white/5 !text-white !font-medium !rounded-xl  
+                          !h-[52px] !text-sm !justify-start !pl-11 !pr-4
+                          !border !border-white/10 hover:!bg-white/10
                         `,
                       }}
                       connectModal={{
@@ -273,7 +251,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   </div>
                 )}
 
-                {/* Mint Batteries CTA (Mobile) */}
+                {/* 2. Mint Batteries */}
                 {pathname !== '/batteries_mint' && (
                   <Link
                     href="/batteries_mint"
@@ -285,7 +263,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   </Link>
                 )}
 
-                {/* Dashboard / Back */}
+                {/* 3. Dashboard / Back */}
                 {account && !isDashboard && (
                   <Link
                     href="/dashboard"
@@ -296,7 +274,6 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     Go to Dashboard
                   </Link>
                 )}
-
                 {isDashboard && (
                   <Link
                     href="/"
@@ -306,6 +283,27 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     <Home size={18} className="text-white/70" />
                     Back to Menu
                   </Link>
+                )}
+
+                {/* 4. Grid Maker */}
+                <Link
+                  href="/grid"
+                  onClick={closeMenu}
+                  className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                >
+                  <Grid2X2 size={18} className="text-white/70" />
+                  <span className="text-white font-medium text-sm">Grid Maker</span>
+                </Link>
+
+                {/* 5. Leaderboard */}
+                {onOpenLeaderboard && (
+                  <button
+                    onClick={() => { onOpenLeaderboard(); closeMenu(); }}
+                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <Trophy size={18} className="text-white/70" />
+                    <span className="text-white font-medium text-sm">Leaderboard</span>
+                  </button>
                 )}
 
                 {/* Divider */}
