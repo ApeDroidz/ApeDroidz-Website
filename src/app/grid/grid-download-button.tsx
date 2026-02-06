@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from "react"
 import { NFTItem } from "@/app/dashboard/page"
 import { resolveImageUrl } from "@/lib/utils"
-import { Loader2, Download } from "lucide-react"
+import { Loader2, Download, Share2 } from "lucide-react"
 // @ts-ignore
 import GIF from 'gif.js'
 // @ts-ignore
@@ -95,6 +95,21 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
     }, [droids])
 
     const bgColor = isSuperMajority ? ORANGE_BG : BLUE_BG
+
+    // Check if there are any animated (level 2+) droids
+    const hasAnimatedDroids = useMemo(() => {
+        return droids.some(d => getAnimatedUrl(d) !== null)
+    }, [droids])
+
+    // Open Twitter with pre-filled post
+    const openTwitterShare = (isAnimated: boolean) => {
+        const text = isAnimated
+            ? `Check out my Animated @ApeDroidz Grid 🤖\n\n⚡️ Create yours with the Grid Tool at ApeDroidz.com/grid\n\nOnly for holders.`
+            : `Check out my @ApeDroidz Grid 🤖\n\n⚡️ Create yours with the Grid Tool at ApeDroidz.com/grid\n\nOnly for holders.`
+
+        const twitterUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`
+        window.open(twitterUrl, '_blank', 'noopener,noreferrer')
+    }
 
     const generateGrid = useCallback(async () => {
         if (droids.length < 2) return
@@ -296,6 +311,9 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
                 a.download = `ApeDroidz_Grid_${cols}x${rows}.gif`
                 a.click()
                 URL.revokeObjectURL(blobUrl)
+
+                // Open Twitter share after download
+                setTimeout(() => openTwitterShare(true), 500)
             } else {
                 setStatusText("Rendering...")
                 setProgress(80)
@@ -307,6 +325,9 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
                 a.href = dataUrl
                 a.download = `ApeDroidz_Grid_${cols}x${rows}.png`
                 a.click()
+
+                // Open Twitter share after download
+                setTimeout(() => openTwitterShare(false), 500)
             }
 
             setProgress(100)
@@ -346,7 +367,8 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
             ) : (
                 <>
                     <Download size={16} />
-                    Download Grid
+                    <span className="hidden sm:inline">Download & Flex Your Grid</span>
+                    <span className="sm:hidden">Flex Your Grid</span>
                 </>
             )}
         </button>
