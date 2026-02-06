@@ -8,7 +8,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Trophy, Menu, X, LayoutDashboard, Home, Battery } from "lucide-react";
+import { Trophy, Menu, X, LayoutDashboard, Home, Battery, Grid2X2 } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -116,6 +116,18 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               <Trophy size={20} className="text-white/70 group-hover:text-white transition-colors" />
             </motion.button>
           )}
+
+          {/* Grid */}
+          <Link href="/grid">
+            <motion.div
+              className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
+              title="Grid Maker"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Grid2X2 size={20} className="text-white/70 group-hover:text-white transition-colors" />
+            </motion.div>
+          </Link>
 
           {!account && (
             <ConnectButton
@@ -225,6 +237,16 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     <span className="text-white font-medium text-sm">Leaderboard</span>
                   </button>
                 )}
+
+                {/* Grid */}
+                <Link
+                  href="/grid"
+                  onClick={closeMenu}
+                  className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                >
+                  <Grid2X2 size={18} className="text-white/70" />
+                  <span className="text-white font-medium text-sm">Grid Maker</span>
+                </Link>
 
                 {/* Connect Wallet */}
                 {!account && (
