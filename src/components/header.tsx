@@ -8,7 +8,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Trophy, Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet } from "lucide-react";
+import { Trophy, Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -55,6 +55,11 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
   const account = useActiveAccount();
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Determine if we're on grid or merge page
+  const isGridPage = pathname === '/grid';
+  const isMergePage = pathname === '/merge_mechanism';
+  const showDashboardNav = isGridPage || isMergePage;
 
   const closeMenu = () => setIsMenuOpen(false);
 
@@ -129,6 +134,18 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             </motion.div>
           </Link>
 
+          {/* Merge */}
+          <Link href="/merge_mechanism">
+            <motion.div
+              className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
+              title="Merge Mechanism"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Zap size={20} className="text-white/70 group-hover:text-white transition-colors" />
+            </motion.div>
+          </Link>
+
           {!account && (
             <ConnectButton
               client={client}
@@ -152,7 +169,17 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             />
           )}
 
-          {account && !isDashboard && (
+          {account && !isDashboard && !showDashboardNav && (
+            <Link
+              href="/dashboard"
+              className="flex items-center justify-center h-[48px] px-6 bg-transparent border border-white/15 text-white text-sm font-bold rounded-xl hover:bg-white/10 hover:border-white/50 transition-all duration-300"
+            >
+              Go to Dashboard
+            </Link>
+          )}
+
+          {/* Grid/Merge pages - always show Go to Dashboard */}
+          {showDashboardNav && (
             <Link
               href="/dashboard"
               className="flex items-center justify-center h-[48px] px-6 bg-transparent border border-white/15 text-white text-sm font-bold rounded-xl hover:bg-white/10 hover:border-white/50 transition-all duration-300"
@@ -264,7 +291,18 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                 )}
 
                 {/* 3. Dashboard / Back */}
-                {account && !isDashboard && (
+                {account && !isDashboard && !showDashboardNav && (
+                  <Link
+                    href="/dashboard"
+                    onClick={closeMenu}
+                    className="flex items-center justify-start gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <LayoutDashboard size={18} className="text-white/70" />
+                    Go to Dashboard
+                  </Link>
+                )}
+                {/* Grid/Merge pages - show Go to Dashboard */}
+                {showDashboardNav && (
                   <Link
                     href="/dashboard"
                     onClick={closeMenu}
@@ -295,7 +333,17 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   <span className="text-white font-medium text-sm">Grid Maker</span>
                 </Link>
 
-                {/* 5. Leaderboard */}
+                {/* 5. Merge Mechanism */}
+                <Link
+                  href="/merge_mechanism"
+                  onClick={closeMenu}
+                  className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                >
+                  <Zap size={18} className="text-white/70" />
+                  <span className="text-white font-medium text-sm">Merge Mechanism</span>
+                </Link>
+
+                {/* 6. Leaderboard */}
                 {onOpenLeaderboard && (
                   <button
                     onClick={() => { onOpenLeaderboard(); closeMenu(); }}

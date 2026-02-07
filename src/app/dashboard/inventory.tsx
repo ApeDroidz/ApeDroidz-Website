@@ -210,14 +210,13 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAll, setShowAll] = useState(false); // State for expanding list
 
-  // Force showAll on desktop
+  // Force showAll on desktop only (don't reset on mobile - causes scroll collapse bug)
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
         setShowAll(true);
-      } else {
-        setShowAll(false);
       }
+      // Don't set showAll to false on mobile - let user control it
     };
 
     // Initial check

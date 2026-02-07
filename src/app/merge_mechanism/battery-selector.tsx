@@ -85,14 +85,13 @@ export function BatterySelector({
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [showAll, setShowAll] = useState(false)
 
-    // Force showAll on desktop
+    // Force showAll on desktop only (don't reset on mobile - causes scroll collapse bug)
     useEffect(() => {
         const handleResize = () => {
             if (window.innerWidth >= 1024) {
                 setShowAll(true)
-            } else {
-                setShowAll(false)
             }
+            // Don't set showAll to false on mobile - let user control it
         }
         handleResize()
         window.addEventListener('resize', handleResize)
@@ -123,28 +122,29 @@ export function BatterySelector({
         <div className="flex flex-col h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-4 relative">
             {/* Header */}
             <div className="flex flex-col gap-2 mb-4 flex-shrink-0 relative z-30 lg:flex-row lg:justify-between lg:items-center">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold tracking-wider text-white/90 uppercase">Standard Batteries</h3>
-                    <span className="text-xs text-white/40 font-mono">({batteries.length})</span>
+                <div className="flex items-center justify-between w-full lg:w-auto">
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold tracking-wider text-white/90 uppercase">Standard Batteries</h3>
+                        <span className="text-xs text-white/40 font-mono">({batteries.length})</span>
+                    </div>
 
-                    <button
-                        onClick={handleRefresh}
-                        disabled={isRefreshing || isLoading || disabled}
-                        className="cursor-pointer ml-1 p-1 rounded-full hover:bg-white/10 transition-colors group"
-                        title="Refresh"
-                    >
-                        <RefreshCcw
-                            size={14}
-                            className={`text-white/40 group-hover:text-white transition-all ${(isRefreshing || isLoading) ? 'animate-spin opacity-50' : ''}`}
-                        />
-                    </button>
-                </div>
-
-                {/* Selection counter */}
-                <div className="flex items-center gap-2">
-                    <span className={`text-sm font-mono font-bold ${selectedBatteries.length === 20 ? 'text-[#FF7700]' : 'text-white/60'}`}>
-                        {selectedBatteries.length}/20
-                    </span>
+                    {/* Refresh + Counter - grouped together on right */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleRefresh}
+                            disabled={isRefreshing || isLoading || disabled}
+                            className="cursor-pointer p-1 rounded-full hover:bg-white/10 transition-colors group"
+                            title="Refresh"
+                        >
+                            <RefreshCcw
+                                size={14}
+                                className={`text-white/40 group-hover:text-white transition-all ${(isRefreshing || isLoading) ? 'animate-spin opacity-50' : ''}`}
+                            />
+                        </button>
+                        <span className={`text-sm font-mono font-bold ${selectedBatteries.length === 20 ? 'text-[#FF7700]' : 'text-white/60'}`}>
+                            {selectedBatteries.length}/20
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -188,7 +188,7 @@ export function BatterySelector({
             </div>
 
             {/* Action buttons */}
-            <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
+            <div className="flex gap-2 mt-4 pt-4">
                 {allSelected ? (
                     <button
                         onClick={onDeselectAll}

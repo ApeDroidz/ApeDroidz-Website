@@ -170,7 +170,7 @@ export default function GridPage() {
 
             <div className="relative z-10 min-h-screen lg:h-screen flex flex-col lg:overflow-hidden">
                 <Header
-                    isDashboard={true}
+                    isDashboard={false}
                     onOpenProfile={() => { setProfileInitialTab('profile'); setIsProfileOpen(true) }}
                     onOpenLeaderboard={() => { setProfileInitialTab('leaderboard'); setIsProfileOpen(true) }}
                 />

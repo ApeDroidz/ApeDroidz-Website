@@ -184,7 +184,7 @@ export function MergeMachine({
     }
 
     // Button state
-    let buttonText = "SELECT 20 BATTERIES"
+    let buttonText = "0/20 SELECTED"
     if (mergeSuccess) buttonText = "MERGE COMPLETE"
     else if (isMerging) buttonText = "MERGING..."
     else if (isReady) buttonText = "START MERGE"
@@ -193,11 +193,11 @@ export function MergeMachine({
     const isButtonActive = isReady && !isMerging && !mergeSuccess
 
     return (
-        <div className="w-full h-full flex flex-col items-center justify-between p-4 relative overflow-hidden">
+        <div className="w-full h-full flex flex-col items-center justify-between p-4 sm:p-6 relative overflow-hidden">
             <style>{MERGE_GLITCH_STYLES}</style>
 
             {/* Header - compact */}
-            <div className="w-full max-w-[1200px] px-4 z-20 text-center flex-shrink-0">
+            <div className="w-full max-w-[1200px] px-4 z-20 text-center flex-shrink-0 mb-4 sm:mb-0">
                 <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black uppercase tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] mb-1 sm:mb-2">
                     {mergeSuccess ? "Merge Complete" : "Merge Mechanism"}
                 </h1>
