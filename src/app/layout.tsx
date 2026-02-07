@@ -26,8 +26,51 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ApeDroidz | NFT COllection on ApeChain",
-  description: "Animated Pixel Collection on ApeChain & Otherside 3D Avatars",
+  title: "ApeDroidz | Animated NFT Collection on ApeChain",
+  description: "Fully animated NFT collection on ApeChain. Otherside 3D models & Pixel survival game.",
+  keywords: ["ApeDroidz", "NFT", "ApeChain", "Animated NFT", "3D Avatars", "Otherside", "Pixel Game", "Web3"],
+  authors: [{ name: "ApeDroidz" }],
+  creator: "ApeDroidz",
+  metadataBase: new URL("https://www.apedroidz.com"),
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://www.apedroidz.com",
+    siteName: "ApeDroidz",
+    title: "ApeDroidz | Animated NFT Collection on ApeChain",
+    description: "Fully animated NFT collection on ApeChain. Otherside 3D models & Pixel survival game.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "ApeDroidz - Animated NFT Collection on ApeChain",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ApeDroidz | Animated NFT Collection on ApeChain",
+    description: "Fully animated NFT collection on ApeChain. Otherside 3D models & Pixel survival game.",
+    images: ["/og-image.png"],
+    creator: "@ApeDroidz",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({
