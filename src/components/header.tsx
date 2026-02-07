@@ -113,28 +113,32 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
 
 
           {/* Grid */}
-          <Link href="/grid">
-            <motion.div
-              className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
-              title="Grid Maker"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Grid2X2 size={20} className="text-white/70 group-hover:text-white transition-colors" />
-            </motion.div>
-          </Link>
+          {account && (
+            <Link href="/grid">
+              <motion.div
+                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
+                title="Grid Maker"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Grid2X2 size={20} className="text-white/70 group-hover:text-white transition-colors" />
+              </motion.div>
+            </Link>
+          )}
 
           {/* Merge */}
-          <Link href="/merge_mechanism">
-            <motion.div
-              className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
-              title="Merge Mechanism"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Zap size={20} className="text-white/70 group-hover:text-white transition-colors" />
-            </motion.div>
-          </Link>
+          {account && (
+            <Link href="/merge_mechanism">
+              <motion.div
+                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
+                title="Merge Mechanism"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Zap size={20} className="text-white/70 group-hover:text-white transition-colors" />
+              </motion.div>
+            </Link>
+          )}
 
           {!account && (
             <ConnectButton
@@ -314,24 +318,28 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                 )}
 
                 {/* 4. Grid Maker */}
-                <Link
-                  href="/grid"
-                  onClick={closeMenu}
-                  className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
-                >
-                  <Grid2X2 size={18} className="text-white/70" />
-                  <span className="text-white font-medium text-sm">Grid Maker</span>
-                </Link>
+                {account && (
+                  <Link
+                    href="/grid"
+                    onClick={closeMenu}
+                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <Grid2X2 size={18} className="text-white/70" />
+                    <span className="text-white font-medium text-sm">Grid Maker</span>
+                  </Link>
+                )}
 
                 {/* 5. Merge Mechanism */}
-                <Link
-                  href="/merge_mechanism"
-                  onClick={closeMenu}
-                  className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
-                >
-                  <Zap size={18} className="text-white/70" />
-                  <span className="text-white font-medium text-sm">Merge Mechanism</span>
-                </Link>
+                {account && (
+                  <Link
+                    href="/merge_mechanism"
+                    onClick={closeMenu}
+                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <Zap size={18} className="text-white/70" />
+                    <span className="text-white font-medium text-sm">Merge Mechanism</span>
+                  </Link>
+                )}
 
 
 
