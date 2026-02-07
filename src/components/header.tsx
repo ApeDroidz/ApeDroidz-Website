@@ -8,7 +8,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Trophy, Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap } from "lucide-react";
+import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -110,17 +110,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             <UserLevelBadge onClick={onOpenProfile} />
           )}
 
-          {onOpenLeaderboard && (
-            <motion.button
-              onClick={onOpenLeaderboard}
-              className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
-              title="Leaderboard"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Trophy size={20} className="text-white/70 group-hover:text-white transition-colors" />
-            </motion.button>
-          )}
+
 
           {/* Grid */}
           <Link href="/grid">
@@ -343,16 +333,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   <span className="text-white font-medium text-sm">Merge Mechanism</span>
                 </Link>
 
-                {/* 6. Leaderboard */}
-                {onOpenLeaderboard && (
-                  <button
-                    onClick={() => { onOpenLeaderboard(); closeMenu(); }}
-                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
-                  >
-                    <Trophy size={18} className="text-white/70" />
-                    <span className="text-white font-medium text-sm">Leaderboard</span>
-                  </button>
-                )}
+
 
                 {/* Divider */}
                 <div className="h-px bg-white/10 mt-4 mb-2" />
