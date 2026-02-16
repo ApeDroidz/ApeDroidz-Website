@@ -3,7 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST(req: Request) {
     try {
-        const { wallet, xHandle } = await req.json()
+        const body = await req.json()
+        const wallet = body.wallet?.toLowerCase()
+        const { xHandle } = body
 
         if (!wallet || !xHandle) {
             return NextResponse.json({ error: "Missing wallet or handle" }, { status: 400 })

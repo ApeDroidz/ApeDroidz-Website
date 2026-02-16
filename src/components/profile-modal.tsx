@@ -21,6 +21,9 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const { disconnect } = useDisconnect()
     const { level, xp, rank, progress, stats, username: currentUsername, refetch } = useUserProgress()
 
+    // Normalize wallet address
+    const normalizedAddress = account?.address?.toLowerCase()
+
     const [activeTab, setActiveTab] = useState<'profile' | 'leaderboard'>('profile')
     const [leaderboard, setLeaderboard] = useState<any[]>([])
     const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
@@ -42,17 +45,17 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
 
     const profileRef = useRef<HTMLDivElement>(null)
     const wasOpenRef = useRef(false)
-    const shortAddress = account?.address ? `${account.address.slice(0, 6)}...${account.address.slice(-4)}` : ""
+    const shortAddress = normalizedAddress ? `${normalizedAddress.slice(0, 6)}...${normalizedAddress.slice(-4)}` : ""
 
     const handleDisconnect = () => { if (wallet) { disconnect(wallet); onClose(); } }
-    const myRank = useMemo(() => leaderboard.findIndex(u => u.wallet_address === account?.address) + 1, [leaderboard, account?.address])
+    const myRank = useMemo(() => leaderboard.findIndex(u => u.wallet_address === normalizedAddress) + 1, [leaderboard, normalizedAddress])
 
     // Set active tab when modal opens (not on every render)
     useEffect(() => {
         if (isOpen && !wasOpenRef.current) {
             // Modal just opened - set initial tab and fetch data
             setActiveTab(initialTab)
-            if (account?.address) {
+            if (normalizedAddress) {
                 fetchUserProfile()
                 refetch()
             }
@@ -71,7 +74,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const fetchUserProfile = async () => {
         setIsAvatarLoading(true)
         // Fetch standard profile
-        const { data } = await supabase.from('users').select('username, PFP').eq('wallet_address', account?.address).single()
+        const { data } = await supabase.from('users').select('username, PFP').eq('wallet_address', normalizedAddress).single()
         if (data) {
             setNewName(data.username || "")
             if (data.PFP) {
@@ -87,7 +90,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
         } else { setIsAvatarLoading(false) }
 
         // Fetch Glitch Profile (X Handle)
-        const { data: glitchData } = await supabase.from('glitch_users').select('x_handle').eq('wallet_address', account?.address).maybeSingle()
+        const { data: glitchData } = await supabase.from('glitch_users').select('x_handle').eq('wallet_address', normalizedAddress).maybeSingle()
         if (glitchData?.x_handle) {
             setXHandle(glitchData.x_handle)
         }
@@ -119,7 +122,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const selectPfp = async (tokenId: string, url: string) => {
         setIsAvatarLoading(true)
         const idInt = parseInt(tokenId)
-        await supabase.from('users').update({ PFP: idInt }).eq('wallet_address', account?.address)
+        await supabase.from('users').update({ PFP: idInt }).eq('wallet_address', normalizedAddress)
         setUserPfpUrl(url)
         setIsSelectingPfp(false)
     }
@@ -150,7 +153,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     }
 
     const saveUsername = async () => {
-        await supabase.from('users').update({ username: newName }).eq('wallet_address', account?.address)
+        await supabase.from('users').update({ username: newName }).eq('wallet_address', normalizedAddress)
         setIsEditingName(false); refetch();
     }
 
@@ -164,7 +167,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
             const res = await fetch('/api/user/update-x', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wallet: account?.address, xHandle: clean })
+                body: JSON.stringify({ wallet: normalizedAddress, xHandle: clean })
             })
             const data = await res.json()
 
@@ -417,7 +420,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                             <motion.div key="leaderboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
                                 {loadingLeaderboard ? <Loader2 className="animate-spin text-[#3b82f6] mx-auto py-20" /> : (
                                     leaderboard.map((user, idx) => (
-                                        <div key={user.wallet_address} className={`flex items-center p-5 rounded-[24px] border transition-all ${user.wallet_address === account?.address ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40' : 'bg-white/5 border-transparent'}`}>
+                                        <div key={user.wallet_address} className={`flex items-center p-5 rounded-[24px] border transition-all ${user.wallet_address === normalizedAddress ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40' : 'bg-white/5 border-transparent'}`}>
                                             <div className="w-12 font-black text-[#3b82f6] text-xl">#{idx + 1}</div>
                                             <div className="flex-1">
                                                 <div className="text-base font-black text-white uppercase tracking-tight">{user.username || `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`}</div>

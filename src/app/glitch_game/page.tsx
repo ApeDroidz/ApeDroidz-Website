@@ -33,16 +33,20 @@ export default function GamesPage() {
     const [xHandle, setXHandle] = useState<string | null>(null)
 
     // Fetch user state
+    // Fetch user state
     const fetchState = useCallback(async () => {
         if (!account?.address) {
             setIsLoading(false)
             return
         }
 
+        const wallet = account.address.toLowerCase()
+
         try {
             // On-chain holder check
             try {
                 const droidContract = getContract({ client, chain: apeChain, address: DROID_CONTRACT_ADDRESS })
+                // for balanceOf we can use original address or lowercase, likely fine. but consistency is good.
                 const bal = await balanceOf({ contract: droidContract, owner: account.address })
                 setIsHolder(bal > BigInt(0))
             } catch {
@@ -50,7 +54,7 @@ export default function GamesPage() {
                 const { data } = await supabase
                     .from("users")
                     .select("droids_count")
-                    .eq("wallet_address", account.address)
+                    .eq("wallet_address", wallet)
                     .maybeSingle()
                 setIsHolder((data?.droids_count ?? 0) > 0)
             }
@@ -59,7 +63,7 @@ export default function GamesPage() {
             const { data: gUser } = await supabase
                 .from("glitch_users")
                 .select("games_balance, x_handle")
-                .eq("wallet_address", account.address)
+                .eq("wallet_address", wallet)
                 .maybeSingle()
 
             setBalance(gUser?.games_balance ?? 0)
@@ -107,14 +111,14 @@ export default function GamesPage() {
                         {/* Left: Game Board (70%) */}
                         <GameBoard
                             balance={balance}
-                            wallet={account?.address}
+                            wallet={account?.address?.toLowerCase()}
                             onPlayComplete={handleBalanceUpdate}
                             onRefetch={fetchState}
                         />
 
                         {/* Right: Control Panel (30%) */}
                         <ControlPanel
-                            wallet={account?.address}
+                            wallet={account?.address?.toLowerCase()}
                             balance={balance}
                             isHolder={isHolder}
                             xHandle={xHandle}

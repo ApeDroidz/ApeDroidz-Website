@@ -29,7 +29,8 @@ const SHARD_AMOUNTS: Record<string, number> = {
  */
 export async function POST(req: Request) {
     try {
-        const { wallet } = await req.json();
+        const body = await req.json();
+        const wallet = body.wallet?.toLowerCase();
         if (!wallet) return NextResponse.json({ error: 'Wallet required' }, { status: 400 });
 
         // ── 1. CHECK & DEDUCT BALANCE ──

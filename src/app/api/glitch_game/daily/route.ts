@@ -16,7 +16,10 @@ const TWEET_URL_REGEX = /^https?:\/\/(x\.com|twitter\.com)\/\w+\/status\/\d+/i;
  */
 export async function POST(req: Request) {
     try {
-        const { wallet, xHandle, proofLink } = await req.json();
+        const body = await req.json();
+        const wallet = body.wallet?.toLowerCase();
+        const { xHandle, proofLink } = body;
+
         if (!wallet) return NextResponse.json({ error: 'Wallet required' }, { status: 400 });
 
         // 1. Holder gate — on-chain balance check

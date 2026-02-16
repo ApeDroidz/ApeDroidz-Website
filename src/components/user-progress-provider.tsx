@@ -30,7 +30,7 @@ const UserProgressContext = createContext<UserProgressContextType | undefined>(u
 
 export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
     const account = useActiveAccount()
-    const address = account?.address
+    const address = account?.address?.toLowerCase() || undefined
     const isFetching = useRef(false)
 
     const [state, setState] = useState<UserProgressState>({

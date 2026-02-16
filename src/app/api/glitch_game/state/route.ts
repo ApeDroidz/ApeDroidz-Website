@@ -10,7 +10,8 @@ import { supabaseAdmin } from "@/lib/supabase"
  *  - claimedAt: ISO timestamp of the claim (if any)
  */
 export async function GET(req: NextRequest) {
-    const wallet = req.nextUrl.searchParams.get("wallet")
+    const queryWallet = req.nextUrl.searchParams.get("wallet")
+    const wallet = queryWallet?.toLowerCase()
 
     if (!wallet) {
         return NextResponse.json({ activeTask: null, claimed: false, claimedAt: null })
