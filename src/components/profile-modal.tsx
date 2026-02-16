@@ -26,6 +26,8 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
     const [isEditingName, setIsEditingName] = useState(false)
     const [newName, setNewName] = useState("")
+    const [xHandle, setXHandle] = useState("")
+    const [isEditingX, setIsEditingX] = useState(false)
 
     const [userPfpUrl, setUserPfpUrl] = useState<string | null>(null)
     const [isAvatarLoading, setIsAvatarLoading] = useState(false)
@@ -68,6 +70,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
 
     const fetchUserProfile = async () => {
         setIsAvatarLoading(true)
+        // Fetch standard profile
         const { data } = await supabase.from('users').select('username, PFP').eq('wallet_address', account?.address).single()
         if (data) {
             setNewName(data.username || "")
@@ -82,6 +85,12 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                 }
             } else { setIsAvatarLoading(false) }
         } else { setIsAvatarLoading(false) }
+
+        // Fetch Glitch Profile (X Handle)
+        const { data: glitchData } = await supabase.from('glitch_users').select('x_handle').eq('wallet_address', account?.address).maybeSingle()
+        if (glitchData?.x_handle) {
+            setXHandle(glitchData.x_handle)
+        }
     }
 
     const fetchLeaderboard = async () => {
@@ -143,6 +152,37 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const saveUsername = async () => {
         await supabase.from('users').update({ username: newName }).eq('wallet_address', account?.address)
         setIsEditingName(false); refetch();
+    }
+
+    const saveXHandle = async () => {
+        let clean = xHandle.trim()
+        if (!clean) return setIsEditingX(false)
+        if (!clean.startsWith('@')) clean = '@' + clean
+
+        // Use API to bypass RLS
+        try {
+            const res = await fetch('/api/user/update-x', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ wallet: account?.address, xHandle: clean })
+            })
+            const data = await res.json()
+
+            if (res.ok) {
+                setXHandle(clean)
+                setIsEditingX(false)
+                setToast({ isOpen: true, title: "Saved", message: "X Handle updated!", type: "success" })
+                // Trigger refetch of parent data if needed? ProfileModal usually fetches its own data or relies on props. 
+                // It seems ProfileModal uses `account` prop and minimal local state? 
+                // But we should probably invalidate queries if we used React Query. 
+                // Here we just update local state `setXHandle`.
+            } else {
+                throw new Error(data.error || "Failed to save")
+            }
+        } catch (e: any) {
+            console.error(e)
+            setToast({ isOpen: true, title: "Error", message: e.message || "Failed to save X Handle.", type: "error" })
+        }
     }
 
     const handleMouseMove = (e: React.MouseEvent) => {
@@ -230,6 +270,21 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                                 </div>
                                                             ) : (
                                                                 <div className="flex flex-col">
+                                                                    {/* X Handle (Mobile) - MOVED UP */}
+                                                                    <div className="mb-1 flex items-center gap-2">
+                                                                        {isEditingX ? (
+                                                                            <div className="flex items-center gap-1 w-full">
+                                                                                <input type="text" value={xHandle} onChange={(e) => setXHandle(e.target.value)} className="bg-white/10 border border-white/20 rounded px-2 py-0.5 text-[10px] text-white font-bold w-full focus:outline-none focus:border-[#3b82f6]" placeholder="@username" onKeyDown={(e) => { if (e.key === 'Enter') saveXHandle(); }} />
+                                                                                <button onClick={saveXHandle} className="p-1 rounded bg-[#3b82f6] text-white"><Check size={10} /></button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button onClick={() => setIsEditingX(true)} className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white transition-colors cursor-pointer">
+                                                                                <span className={xHandle ? "text-[#1DA1F2]" : ""}>{xHandle || "Link X Account"}</span>
+                                                                                <Pencil size={10} className="opacity-50" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+
                                                                     <div className="flex items-center gap-2">
                                                                         <h2 className="text-xl font-black text-white uppercase tracking-tighter leading-none truncate">{currentUsername || shortAddress}</h2>
                                                                         <button onClick={() => { setNewName(currentUsername || ""); setIsEditingName(true) }} className="no-capture cursor-pointer p-1 hover:bg-white/5 rounded-full transition-colors shrink-0"><Pencil size={12} className="text-white/20 hover:text-[#3b82f6]" /></button>
@@ -257,11 +312,11 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                 </div>
 
                                                 {/* --- DESKTOP LAYOUT (Grid) --- */}
-                                                <div className="hidden sm:grid grid-cols-3 gap-8 w-full">
+                                                <div className="hidden sm:grid grid-cols-3 gap-5 w-full">
                                                     {/* Row 1: PFP (Col 1) + Name/Progress (Col 2-3) */}
 
                                                     {/* PFP */}
-                                                    <div className="col-span-1">
+                                                    <div className="col-span-1 flex flex-col justify-end">
                                                         <div className="relative w-full aspect-square rounded-[32px] border border-white/10 bg-white/5 overflow-hidden group">
                                                             {isAvatarLoading && <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10"><Loader2 className="w-6 h-6 text-[#3b82f6] animate-spin" /></div>}
                                                             {userPfpUrl ? (
@@ -275,6 +330,30 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                     <div className="col-span-2 flex flex-col justify-between h-full py-1">
                                                         {/* Name/Address */}
                                                         <div className="flex flex-col gap-1">
+                                                            {/* X Handle (Desktop) - MOVED TO TOP */}
+                                                            <div className="mb-0.5 pl-1">
+                                                                {!xHandle && <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-1">Linked X Account</p>}
+                                                                {isEditingX ? (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <input type="text" value={xHandle} onChange={(e) => setXHandle(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-bold text-sm w-[200px] focus:outline-none focus:border-[#3b82f6]" placeholder="@username" onKeyDown={(e) => { if (e.key === 'Enter') saveXHandle(); }} />
+                                                                        <button onClick={saveXHandle} className="p-1.5 rounded bg-[#3b82f6] text-white hover:bg-blue-500 transition-colors"><Check size={14} /></button>
+                                                                        <button onClick={() => setIsEditingX(false)} className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors"><X size={14} /></button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-2">
+                                                                        {/* X Icon */}
+                                                                        <svg viewBox="0 0 24 24" className="w-3 h-3 text-white/40 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+
+                                                                        <button onClick={() => setIsEditingX(true)} className="flex items-center gap-2 group/x cursor-pointer transition-all">
+                                                                            <span className={`text-sm font-bold ${xHandle ? "text-white/40 group-hover/x:text-white" : "text-white/30 group-hover/x:text-white"}`}>
+                                                                                {xHandle || "Link Account"}
+                                                                            </span>
+                                                                            <Pencil size={12} className="text-white/10 group-hover/x:text-white transition-colors" />
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
                                                             {isEditingName ? (
                                                                 <div className="flex items-center gap-2 flex-wrap">
                                                                     <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-black text-2xl uppercase tracking-tighter w-full max-w-[300px] focus:outline-none focus:border-[#3b82f6]" placeholder="ENTER NAME" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') saveUsername(); if (e.key === 'Escape') setIsEditingName(false) }} />
@@ -285,11 +364,11 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                                 </div>
                                                             ) : (
                                                                 <>
-                                                                    <div className="flex items-center gap-3">
-                                                                        <h2 className="text-3xl lg:text-4xl font-black text-white uppercase tracking-tighter leading-none truncate">{currentUsername || shortAddress}</h2>
+                                                                    <div className="flex items-center flex-wrap gap-2 lg:gap-3">
+                                                                        <h2 className="text-2xl lg:text-3xl font-black text-white uppercase tracking-tighter leading-none truncate">{currentUsername || shortAddress}</h2>
                                                                         <button onClick={() => { setNewName(currentUsername || ""); setIsEditingName(true) }} className="no-capture cursor-pointer p-1.5 hover:bg-white/5 rounded-full transition-colors shrink-0"><Pencil size={14} className="text-white/20 hover:text-[#3b82f6]" /></button>
+                                                                        <span className="text-[11px] font-mono text-white/30 uppercase tracking-[0.2em] leading-none truncate ml-2">{shortAddress}</span>
                                                                     </div>
-                                                                    <p className="text-[11px] font-mono text-white/20 uppercase tracking-[0.3em] leading-none truncate pl-1">{shortAddress}</p>
                                                                 </>
                                                             )}
                                                         </div>
@@ -386,7 +465,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                 <span className="font-black text-[#3b82f6]">+250</span>
                             </div>
                             <div className="flex justify-between items-center text-[10px]">
-                                <span className="text-white/40 uppercase">Std Battery</span>
+                                <span className="text-white/40 uppercase">Standard Battery</span>
                                 <span className="font-black text-[#3b82f6]">+100</span>
                             </div>
                         </div>
