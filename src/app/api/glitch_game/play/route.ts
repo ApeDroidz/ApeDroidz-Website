@@ -81,7 +81,7 @@ export async function POST(req: Request) {
             }
         }
 
-        console.log(`🎮 [Play] ${wallet.slice(0, 8)}... rolled → ${selectedPrize.slug} (${selectedPrize.label})`);
+        console.log(`🎮 [Play] ${wallet.slice(0, 8)}... rolled → ${selectedPrize.slug} (${selectedPrize.name})`);
 
         // ── 3. INVENTORY / STOCKOUT CHECK (NFT/Token) ──
         let finalPrize = selectedPrize;
@@ -188,7 +188,7 @@ export async function POST(req: Request) {
         await supabaseAdmin.from('game_logs').insert({
             wallet_address: wallet,
             prize_type_id: finalPrize.id,
-            prize_label: finalPrize.label,
+            prize_label: finalPrize.name || finalPrize.label || 'Unknown',
             nft_token_id: nftTokenId,
             xp_awarded: xpGained,
         });
@@ -199,7 +199,7 @@ export async function POST(req: Request) {
             prize: {
                 typeSlug: finalPrize.slug,
                 category: finalPrize.category,
-                label: finalPrize.label,
+                label: finalPrize.name || finalPrize.label || 'Unknown Prize',
                 imageUrl: finalPrize.image_url || '',
                 nftTokenId,
             },
