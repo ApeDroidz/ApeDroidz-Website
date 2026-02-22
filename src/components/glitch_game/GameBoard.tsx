@@ -1,8 +1,9 @@
+
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, X, Gem, Zap, Gamepad2 } from "lucide-react"
+import { Loader2, X, Gem, Zap, Gamepad2, Share2, Repeat } from "lucide-react"
 import { useUserProgress } from "@/hooks/useUserProgress"
 
 /* ─── Supabase storage base for card images ─── */
@@ -11,7 +12,7 @@ const STORAGE_BASE = "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object
 function cardImageUrl(raw: string | null | undefined): string {
     if (!raw) return ""
     if (raw.startsWith("http")) return raw
-    return `${STORAGE_BASE}${raw}`
+    return `${STORAGE_BASE}${raw} `
 }
 
 const CARD_COVER = "/glitch_card_cover.png"
@@ -50,10 +51,11 @@ interface DeckCard extends PrizeType {
 }
 
 interface PrizeResult {
-    typeSlug: string
-    category: string
-    label: string
+    id: string
+    type: string
+    name: string
     imageUrl: string
+    amount: number
     nftTokenId: string | null
 }
 
@@ -82,17 +84,59 @@ function randomGlitchDelay() {
 
 /* ─── Glitch CSS (from upgrade machine — clip-path based) ─── */
 const GLITCH_STYLES = `
-  @keyframes glitch-anim-1 { 0% { clip-path: inset(50% 0 30% 0); transform: translate(-5px, 0); } 5% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } 10% { clip-path: inset(80% 0 5% 0); transform: translate(-5px, 0); } 15% { clip-path: inset(30% 0 60% 0); transform: translate(5px, 0); } 20% { clip-path: inset(60% 0 20% 0); transform: translate(-5px, 0); } 25% { clip-path: inset(10% 0 85% 0); transform: translate(5px, 0); } 30% { clip-path: inset(40% 0 40% 0); transform: translate(-5px, 0); } 35% { clip-path: inset(80% 0 10% 0); transform: translate(5px, 0); } 40% { clip-path: inset(20% 0 50% 0); transform: translate(-5px, 0); } 45% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 50% { clip-path: inset(10% 0 80% 0); transform: translate(-5px, 0); } 55% { clip-path: inset(70% 0 20% 0); transform: translate(5px, 0); } 60% { clip-path: inset(30% 0 60% 0); transform: translate(-5px, 0); } 65% { clip-path: inset(90% 0 5% 0); transform: translate(5px, 0); } 70% { clip-path: inset(15% 0 80% 0); transform: translate(-5px, 0); } 75% { clip-path: inset(55% 0 10% 0); transform: translate(5px, 0); } 80% { clip-path: inset(25% 0 50% 0); transform: translate(-5px, 0); } 85% { clip-path: inset(75% 0 15% 0); transform: translate(5px, 0); } 90% { clip-path: inset(10% 0 85% 0); transform: translate(-5px, 0); } 95% { clip-path: inset(45% 0 45% 0); transform: translate(5px, 0); } 100% { clip-path: inset(50% 0 30% 0); transform: translate(-5px, 0); } }
-  @keyframes glitch-anim-2 { 0% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } 5% { clip-path: inset(80% 0 10% 0); transform: translate(-5px, 0); } 10% { clip-path: inset(30% 0 60% 0); transform: translate(5px, 0); } 15% { clip-path: inset(70% 0 20% 0); transform: translate(-5px, 0); } 20% { clip-path: inset(10% 0 40% 0); transform: translate(5px, 0); } 25% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 30% { clip-path: inset(20% 0 70% 0); transform: translate(5px, 0); } 35% { clip-path: inset(90% 0 5% 0); transform: translate(-5px, 0); } 40% { clip-path: inset(30% 0 50% 0); transform: translate(5px, 0); } 45% { clip-path: inset(60% 0 20% 0); transform: translate(-5px, 0); } 50% { clip-path: inset(10% 0 85% 0); transform: translate(5px, 0); } 55% { clip-path: inset(80% 0 10% 0); transform: translate(-5px, 0); } 60% { clip-path: inset(40% 0 40% 0); transform: translate(5px, 0); } 65% { clip-path: inset(20% 0 70% 0); transform: translate(-5px, 0); } 70% { clip-path: inset(70% 0 15% 0); transform: translate(5px, 0); } 75% { clip-path: inset(10% 0 80% 0); transform: translate(-5px, 0); } 80% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 85% { clip-path: inset(25% 0 60% 0); transform: translate(-5px, 0); } 90% { clip-path: inset(85% 0 5% 0); transform: translate(5px, 0); } 95% { clip-path: inset(35% 0 50% 0); transform: translate(-5px, 0); } 100% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } }
-
+  @keyframes glitch-anim-1 {
+    0% { clip-path: inset(50% 0 30% 0); -webkit-clip-path: inset(50% 0 30% 0); transform: translate(-5px, 0); }
+    5% { clip-path: inset(10% 0 80% 0); -webkit-clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); }
+    10% { clip-path: inset(80% 0 5% 0); -webkit-clip-path: inset(80% 0 5% 0); transform: translate(-5px, 0); }
+    15% { clip-path: inset(30% 0 60% 0); -webkit-clip-path: inset(30% 0 60% 0); transform: translate(5px, 0); }
+    20% { clip-path: inset(60% 0 20% 0); -webkit-clip-path: inset(60% 0 20% 0); transform: translate(-5px, 0); }
+    25% { clip-path: inset(10% 0 85% 0); -webkit-clip-path: inset(10% 0 85% 0); transform: translate(5px, 0); }
+    30% { clip-path: inset(40% 0 40% 0); -webkit-clip-path: inset(40% 0 40% 0); transform: translate(-5px, 0); }
+    35% { clip-path: inset(80% 0 10% 0); -webkit-clip-path: inset(80% 0 10% 0); transform: translate(5px, 0); }
+    40% { clip-path: inset(20% 0 50% 0); -webkit-clip-path: inset(20% 0 50% 0); transform: translate(-5px, 0); }
+    45% { clip-path: inset(50% 0 30% 0); -webkit-clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); }
+    50% { clip-path: inset(10% 0 80% 0); -webkit-clip-path: inset(10% 0 80% 0); transform: translate(-5px, 0); }
+    55% { clip-path: inset(70% 0 20% 0); -webkit-clip-path: inset(70% 0 20% 0); transform: translate(5px, 0); }
+    60% { clip-path: inset(30% 0 60% 0); -webkit-clip-path: inset(30% 0 60% 0); transform: translate(-5px, 0); }
+    65% { clip-path: inset(90% 0 5% 0); -webkit-clip-path: inset(90% 0 5% 0); transform: translate(5px, 0); }
+    70% { clip-path: inset(15% 0 80% 0); -webkit-clip-path: inset(15% 0 80% 0); transform: translate(-5px, 0); }
+    75% { clip-path: inset(55% 0 10% 0); -webkit-clip-path: inset(55% 0 10% 0); transform: translate(5px, 0); }
+    80% { clip-path: inset(25% 0 50% 0); -webkit-clip-path: inset(25% 0 50% 0); transform: translate(-5px, 0); }
+    85% { clip-path: inset(75% 0 15% 0); -webkit-clip-path: inset(75% 0 15% 0); transform: translate(5px, 0); }
+    90% { clip-path: inset(10% 0 85% 0); -webkit-clip-path: inset(10% 0 85% 0); transform: translate(-5px, 0); }
+    95% { clip-path: inset(45% 0 45% 0); -webkit-clip-path: inset(45% 0 45% 0); transform: translate(5px, 0); }
+    100% { clip-path: inset(50% 0 30% 0); -webkit-clip-path: inset(50% 0 30% 0); transform: translate(-5px, 0); }
+  }
+  @keyframes glitch-anim-2 {
+    0% { clip-path: inset(10% 0 80% 0); -webkit-clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); }
+    5% { clip-path: inset(80% 0 10% 0); -webkit-clip-path: inset(80% 0 10% 0); transform: translate(-5px, 0); }
+    10% { clip-path: inset(30% 0 60% 0); -webkit-clip-path: inset(30% 0 60% 0); transform: translate(5px, 0); }
+    15% { clip-path: inset(70% 0 20% 0); -webkit-clip-path: inset(70% 0 20% 0); transform: translate(-5px, 0); }
+    20% { clip-path: inset(10% 0 40% 0); -webkit-clip-path: inset(10% 0 40% 0); transform: translate(5px, 0); }
+    25% { clip-path: inset(50% 0 30% 0); -webkit-clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); }
+    30% { clip-path: inset(20% 0 70% 0); -webkit-clip-path: inset(20% 0 70% 0); transform: translate(5px, 0); }
+    35% { clip-path: inset(90% 0 5% 0); -webkit-clip-path: inset(90% 0 5% 0); transform: translate(-5px, 0); }
+    40% { clip-path: inset(30% 0 50% 0); -webkit-clip-path: inset(30% 0 50% 0); transform: translate(5px, 0); }
+    45% { clip-path: inset(60% 0 20% 0); -webkit-clip-path: inset(60% 0 20% 0); transform: translate(-5px, 0); }
+    50% { clip-path: inset(10% 0 85% 0); -webkit-clip-path: inset(10% 0 85% 0); transform: translate(5px, 0); }
+    55% { clip-path: inset(80% 0 10% 0); -webkit-clip-path: inset(80% 0 10% 0); transform: translate(-5px, 0); }
+    60% { clip-path: inset(40% 0 40% 0); -webkit-clip-path: inset(40% 0 40% 0); transform: translate(5px, 0); }
+    65% { clip-path: inset(20% 0 70% 0); -webkit-clip-path: inset(20% 0 70% 0); transform: translate(-5px, 0); }
+    70% { clip-path: inset(70% 0 15% 0); -webkit-clip-path: inset(70% 0 15% 0); transform: translate(5px, 0); }
+    75% { clip-path: inset(10% 0 80% 0); -webkit-clip-path: inset(10% 0 80% 0); transform: translate(-5px, 0); }
+    80% { clip-path: inset(50% 0 30% 0); -webkit-clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); }
+    85% { clip-path: inset(25% 0 60% 0); -webkit-clip-path: inset(25% 0 60% 0); transform: translate(-5px, 0); }
+    90% { clip-path: inset(85% 0 5% 0); -webkit-clip-path: inset(85% 0 5% 0); transform: translate(5px, 0); }
+    95% { clip-path: inset(35% 0 50% 0); -webkit-clip-path: inset(35% 0 50% 0); transform: translate(-5px, 0); }
+    100% { clip-path: inset(10% 0 80% 0); -webkit-clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); }
+  }
+  
   .glitch-wrapper { position: relative; width: 100%; height: 100%; }
   .glitch-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: transparent; }
-
-  /* Soft glitch for picking phase */
+  
   .glitch-soft .glitch-layer.layer-1 { animation: glitch-anim-1 3s infinite step-end alternate-reverse; opacity: 0.25; }
   .glitch-soft .glitch-layer.layer-2 { animation: glitch-anim-2 3s infinite step-end alternate-reverse; opacity: 0.25; }
-
-  /* Hard glitch for revealing phase */
+  
   .glitch-hard .glitch-layer.layer-1 { animation: glitch-anim-1 0.15s infinite step-end alternate-reverse; opacity: 0.8; }
   .glitch-hard .glitch-layer.layer-2 { animation: glitch-anim-2 0.15s infinite step-end alternate-reverse; opacity: 0.8; }
 `
@@ -101,15 +145,15 @@ const GLITCH_STYLES = `
 const CARD_FLIP_STYLES = `
   .card-scene { perspective: 1000px; }
   .card-inner {
-      position: relative; width: 100%; height: 100%;
-      transform-style: preserve-3d;
-      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative; width: 100%; height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .card-inner.flipped { transform: rotateY(180deg); }
   .card-face {
-      position: absolute; inset: 0;
-      backface-visibility: hidden; -webkit-backface-visibility: hidden;
-      border-radius: 0.75rem; overflow: hidden;
+    position: absolute; inset: 0;
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    border-radius: 0.75rem; overflow: hidden;
   }
   .card-back { transform: rotateY(180deg); }
 `
@@ -141,6 +185,10 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
     // XP animation state
     const { xp: currentXp, level: currentLevel, progress: currentProgress, refetch: refetchProgress } = useUserProgress()
     const [animatedXpProgress, setAnimatedXpProgress] = useState<number | null>(null)
+    // "Play Again" button trigger (one-off)
+    const [isPlayAgainTrigger, setIsPlayAgainTrigger] = useState(false)
+    // Full Auto-Play Mode (toggle)
+    const [isAutoMode, setIsAutoMode] = useState(false)
 
     /* ── 1. Fetch prizes on mount ── */
     useEffect(() => {
@@ -221,13 +269,18 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
         // 1. GATHER
         // All cards fly to center stack (Face UP if persistent reveal is active)
         setPhase("gathering")
+        // Sound for "folding into 1"
+        const gatherSfx = new Audio("/sounds/fx/whoosh2.MP3")
+        gatherSfx.volume = 0.3
+        gatherSfx.play().catch(() => { })
+
         await delay(600) // Travel time
 
         // 2. FLIP
         // While gathered in center, flip the whole stack
         setFlippedToBack(true)
         const sfx = new Audio("/sounds/fx/whoosh.MP3")
-        sfx.volume = 0.3
+        sfx.volume = 0.45
         sfx.play().catch(() => { })
         setRevealedSet(new Set())
         setWinnerIdx(null)
@@ -260,7 +313,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
         // 4. DEAL
         // Cards fly out to new positions (Face Down)
         const audio = new Audio("/sounds/fx/playing-cards-shuffle.mp3")
-        audio.volume = 0.4
+        audio.volume = 0.6
         audio.play().catch(() => { })
         setTimeout(() => audio.pause(), 800) // Cut sound short (user request)
         setPhase("picking")
@@ -276,7 +329,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
         setPhase("revealing")
 
         // 1. Start audio loop for glitch effect
-        const startVolume = 0.12
+        const startVolume = 0.18
         const glitchAudio = new Audio("/sounds/fx/glitch_fx.mp3")
         glitchAudio.volume = startVolume
         glitchAudio.loop = true
@@ -303,7 +356,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
             if (!res.ok || data.error) throw new Error(data.error || "Play failed")
 
             // SWAP LOGIC: Ensure no duplicates by swapping winner with picked card
-            const wonPrizeName = data.prize.label
+            const wonPrizeName = data.prize.name
 
             // Find if this prize already exists somewhere ELSE on the board
             const existingIdx = displayCards.findIndex((c, i) => c.name === wonPrizeName && i !== idx)
@@ -323,16 +376,16 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                 // Just update the picked card with the winning data
                 newCards[idx] = {
                     ...newCards[idx],
-                    name: data.prize.label,
+                    name: data.prize.name,
                     image_url: data.prize.imageUrl,
-                    type: data.prize.category,
-                    id: data.prize.typeSlug // Best guess ID for fallback
+                    type: data.prize.type,
+                    id: data.prize.id
                 }
             }
 
             setDisplayCards(newCards)
 
-            const xpWon = data.xp_earned || 0
+            const xpWon = data.xp_gained || 0
             setWonPrize(data.prize)
         } catch (err: any) {
             console.error(err)
@@ -374,12 +427,12 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
             if (cardIdx !== idx) {
                 // Losing card flip
                 const sfx = new Audio("/sounds/fx/whoosh.MP3")
-                sfx.volume = 0.2
+                sfx.volume = 0.3
                 sfx.play().catch(() => { })
             } else {
                 // Winner reveal
                 const sfx = new Audio("/sounds/fx/win(1).MP3")
-                sfx.volume = 0.25
+                sfx.volume = 0.375
                 sfx.play().catch(() => { })
             }
         }
@@ -388,7 +441,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
         glitchAudio.pause()
 
         // Finalize Result
-        const xpWon = data.xp_earned || 0
+        const xpWon = data.xp_gained || 0
         setXpGained(xpWon)
         setShardsGained(data.shards_gained || 0)
         setTxHash(data.tx_hash || null)
@@ -397,6 +450,14 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
         setPhase("result")
         setTimeout(() => {
             setShowModal(true)
+            // Sound for prize card animation
+            // Delayed slightly to match visual animation (delay: 0.22s)
+            setTimeout(() => {
+                const winSfx = new Audio("/sounds/fx/whoosh.MP3")
+                winSfx.volume = 0.6
+                winSfx.play().catch(() => { })
+            }, 200)
+
             if (xpWon > 0) {
                 const before = getLevelProgress(currentXp)
                 const after = getLevelProgress(currentXp + xpWon)
@@ -406,25 +467,73 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
         }, 350)
     }, [phase, wallet, displayCards, onPlayComplete, currentXp])
 
-    const resetGame = () => {
+    const resetGame = (triggerPlayAgain = false) => {
         setPhase("idle")
         setWonPrize(null)
         setXpGained(0)
         setShardsGained(0)
         setTxHash(null)
-        // setWinnerIdx(null) // Keep winner highlighted? User said "remains in their places". Highlight is part of reveal state.
-        // setPickedIdx(null)
-        // setHoveredIdx(null)
         setShowModal(false)
         setError(null)
-        // setFlippedToBack(false) // If we set this to false, they flip face up? Yes. If they are already revealed, this matches.
-        // setRevealedSet(new Set()) // KEEP REVEALED
         setAnimatedXpProgress(null)
         onRefetch()
         refetchProgress()
 
         // DO NOT REBUILD DECK - keep current state until user clicks Play
+
+        if (triggerPlayAgain) {
+            setIsPlayAgainTrigger(true)
+        }
     }
+
+    // Effect 1: Handle "Play Again" button click (One-off)
+    useEffect(() => {
+        if (isPlayAgainTrigger && phase === "idle" && balance > 0) {
+            setIsPlayAgainTrigger(false)
+            handlePlay()
+        } else if (isPlayAgainTrigger && phase === "idle" && balance < 1) {
+            setIsPlayAgainTrigger(false) // Cancel if no balance
+        }
+    }, [phase, isPlayAgainTrigger, balance])
+
+    // Effect 2: FULL AUTO MODE LOOP
+    useEffect(() => {
+        if (!isAutoMode) return
+
+        let timeout: NodeJS.Timeout
+
+        // A) START GAME (Idle)
+        if (phase === "idle") {
+            if (balance > 0) {
+                // Short delay before starting next game
+                timeout = setTimeout(() => {
+                    handlePlay()
+                }, 1000)
+            } else {
+                // Auto-stop if out of games
+                setIsAutoMode(false)
+            }
+        }
+        // B) AUTO-PICK (Picking Phase)
+        else if (phase === "picking") {
+            // Wait for shuffle animation to settle + human-like delay
+            timeout = setTimeout(() => {
+                // Pick random index
+                const randomIdx = Math.floor(Math.random() * displayCards.length)
+                handlePick(randomIdx)
+            }, 1500)
+        }
+        // C) AUTO-RESET (Result / Win Modal)
+        else if (phase === "result") {
+            // Wait for win animation/sound then reset force-start next game
+            timeout = setTimeout(() => {
+                resetGame(true) // Pass true to trigger immediate "Play Again"
+            }, 1500)
+        }
+
+        return () => clearTimeout(timeout)
+    }, [isAutoMode, phase, balance, displayCards.length])
+
 
     /* ── XP bar helpers ── */
     const xpBefore = getLevelProgress(currentXp)
@@ -433,14 +542,14 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
     // Sound helper
     const playSound = (type: "hover" | "btn_hover" | "pick") => {
         let file = "/sounds/fx/crd_pick_sound.mp3"
-        let vol = 0.7
+        let vol = 1.0
 
         if (type === "hover") {
             file = "/sounds/fx/crd_hover_sound.mp3"
-            vol = 0.4
+            vol = 0.6
         } else if (type === "btn_hover") {
             file = "/sounds/fx/ui_hover_buttons.mp3"
-            vol = 0.2
+            vol = 0.3
         }
 
         const audio = new Audio(file)
@@ -452,10 +561,11 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
     return (
         <div className="flex-1 flex flex-col items-center w-full relative px-4 sm:px-6 pt-2">
             <style jsx global>{`${GLITCH_STYLES}
+            ${CARD_FLIP_STYLES}
             .transform-style-3d { transform-style: preserve-3d; }
             .backface-hidden { backface-visibility: hidden; }
             .rotate-y-180 { transform: rotateY(180deg); }
-            `}</style>
+`}</style>
 
             {/* ── HEADER ── */}
             <div className="w-full flex flex-col items-center mb-8 sm:mb-10">
@@ -490,10 +600,15 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                 )}
             </AnimatePresence>
 
-            {/* ── Loading ── */}
+            {/* ── Loading Skeleton ── */}
             {phase === "loading" && (
-                <div className="flex-1 flex items-center justify-center py-20">
-                    <Loader2 className="w-8 h-8 text-[#0069FF] animate-spin" />
+                <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-6 animate-pulse">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 w-full">
+                        {Array.from({ length: 15 }).map((_, i) => (
+                            <div key={i} className="aspect-[3/4] w-full rounded-xl bg-white/5 border border-white/5" />
+                        ))}
+                    </div>
+                    <div className="w-full max-w-md h-14 rounded-2xl bg-white/5 border border-white/5" />
                 </div>
             )}
 
@@ -648,15 +763,39 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                         })}
                     </div>
 
-                    {/* ── ACTION BUTTON ── */}
-                    <div className="mt-8 sm:mt-10 flex justify-center pb-6">
+                    {/* ── ACTION BUTTONS CONTAINER ── */}
+                    <div className="mt-8 sm:mt-10 flex items-center justify-center gap-4 pb-6 px-4">
+
+                        {/* AUTO PLAY TOGGLE */}
+                        {balance > 0 && wallet && (
+                            <motion.button
+                                onClick={() => {
+                                    playSound("pick")
+                                    setIsAutoMode(!isAutoMode)
+                                }}
+                                onMouseEnter={() => playSound("btn_hover")}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className={`
+                                    h-[56px] sm:h-[64px] px-6 rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300 border
+                                    ${isAutoMode
+                                        ? "bg-[#00FF94]/10 border-[#00FF94] text-[#00FF94] shadow-[0_0_20px_rgba(0,255,148,0.2)]"
+                                        : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
+                                    }
+                                `}
+                            >
+                                <Repeat className={`w-5 h-5 ${isAutoMode ? "animate-spin-slow" : ""}`} />
+                                <span className="hidden sm:inline">{isAutoMode ? "AUTOPLAY: ON" : "AUTOPLAY"}</span>
+                            </motion.button>
+                        )}
+
                         {balance > 0 && wallet ? (
                             <motion.button
                                 onClick={phase === "idle" ? () => { playSound("pick"); handlePlay() } : undefined}
                                 onMouseEnter={() => phase === "idle" && playSound("btn_hover")}
                                 disabled={phase !== "idle" && phase !== "picking"}
                                 className={`
-                                    w-full max-w-md py-4 sm:py-5 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase flex items-center justify-center
+                                    flex-1 max-w-sm py-4 sm:py-5 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase flex items-center justify-center
                                     transition-all duration-300
                                     ${phase === "idle"
                                         ? "bg-white text-black hover:bg-[#0069FF] hover:text-white shadow-lg shadow-white/10 hover:shadow-blue-600/50 hover:scale-[1.02] cursor-pointer"
@@ -749,8 +888,16 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                     </h2>
                                     <p className="text-3xl sm:text-4xl md:text-5xl font-black italic text-white uppercase tracking-tight leading-none text-center drop-shadow-[0_0_10px_rgba(0,105,255,0.25)] flex flex-wrap justify-center gap-x-3">
                                         <span>YOU WON</span>
-                                        <span className="text-[#0069FF]">{wonPrize.label}</span>
+                                        <span className="text-[#0069FF]">{wonPrize.name}</span>
                                     </p>
+                                    {wonPrize.type === 'shard' && (
+                                        <a
+                                            href="/merge_mechanism?tab=shards"
+                                            className="mt-2 text-[10px] text-white/30 hover:text-white/70 transition-colors uppercase tracking-widest underline underline-offset-2 pointer-events-auto"
+                                        >
+                                            merge 30 shards → get 1 standard battery
+                                        </a>
+                                    )}
                                 </motion.div>
 
                                 {/* Prize image */}
@@ -773,7 +920,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                 </motion.div>
 
                                 {/* Token ID */}
-                                {wonPrize.category === "nft" && wonPrize.nftTokenId && (
+                                {wonPrize.type === "nft" && wonPrize.nftTokenId && (
                                     <motion.p
                                         className="font-mono text-xs text-white/30 uppercase tracking-widest mb-4"
                                         initial={{ opacity: 0 }}
@@ -798,7 +945,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                                 <span className="text-sm font-black text-white uppercase tracking-wider">+{xpGained} XP</span>
                                             </div>
                                             <span className="text-xs font-bold text-white/30 tracking-wider">
-                                                Lv.{xpBefore.level} → {xpAfter.level > xpBefore.level ? `Lv.${xpAfter.level}` : ""}
+                                                Lv.{xpBefore.level} → {xpAfter.level > xpBefore.level ? `Lv.${xpAfter.level} ` : ""}
                                             </span>
                                         </div>
 
@@ -806,8 +953,8 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                         <div className="w-full h-3 rounded-full bg-white/5 border border-white/10 overflow-hidden relative">
                                             <motion.div
                                                 className="h-full rounded-full bg-gradient-to-r from-[#0069FF] to-[#00C2FF] relative"
-                                                initial={{ width: `${xpBefore.progress}%` }}
-                                                animate={{ width: `${animatedXpProgress ?? xpBefore.progress}%` }}
+                                                initial={{ width: `${xpBefore.progress}% ` }}
+                                                animate={{ width: `${animatedXpProgress ?? xpBefore.progress}% ` }}
                                                 transition={{ duration: 1.2, ease: "easeOut" }}
                                             >
                                                 <div className="absolute inset-0 bg-white/20 rounded-full animate-pulse" />
@@ -821,19 +968,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                     </motion.div>
                                 )}
 
-                                {/* Shards */}
-                                {shardsGained > 0 && (
-                                    <motion.div
-                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 mb-6"
-                                        initial={{ y: 10, opacity: 0 }}
-                                        animate={{ y: 0, opacity: 1 }}
-                                        transition={{ delay: 0.4 }}
-                                    >
-                                        <Gem size={16} className="text-purple-400" fill="currentColor" />
-                                        <span className="font-black text-purple-400 text-lg">+{shardsGained}</span>
-                                        <span className="text-xs font-bold text-purple-400/60 uppercase tracking-wider">Shards</span>
-                                    </motion.div>
-                                )}
+
 
                                 {/* Buttons */}
                                 <motion.div
@@ -845,38 +980,46 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                     <button
                                         onClick={() => {
                                             playSound("pick")
-                                            const parts = [`Just won ${wonPrize.label}`]
-                                            if (xpGained > 0) parts.push(`+${xpGained} XP`)
-                                            if (shardsGained > 0) parts.push(`+${shardsGained} Shards`)
+                                            const parts = [`Just won ${wonPrize.name} `]
+                                            if (xpGained > 0) parts.push(`+ ${xpGained} XP`)
+                                            if (shardsGained > 0) parts.push(`+ ${shardsGained} Shards`)
                                             parts.push("in @ApeDroidz Glitch Game! 🎮⚡")
                                             const text = encodeURIComponent(parts.join(" "))
                                             window.open(`https://x.com/intent/tweet?text=${text}`, "_blank")
                                         }}
                                         onMouseEnter={() => playSound("btn_hover")}
-                                        className="flex-1 py-4 bg-[#0069FF] hover:bg-[#0055CC] text-white font-black text-sm uppercase tracking-[0.2em] rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-blue-600/20 cursor-pointer"
+                                        className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all border border-white/5 cursor-pointer flex items-center justify-center gap-2"
                                     >
                                         <span className="pointer-events-none">Share</span>
-                                    </button>
+                                        <Share2 className="w-3 h-3" />
+                                    </button >
                                     <button
-                                        onClick={() => { playSound("pick"); resetGame() }}
+                                        onClick={() => { playSound("pick"); resetGame(true) }}
                                         onMouseEnter={() => playSound("btn_hover")}
-                                        className="flex-1 py-4 bg-white/10 hover:bg-white/20 text-white font-black text-sm uppercase tracking-[0.2em] rounded-xl transition-all border border-white/5 cursor-pointer"
+                                        className="flex-[2] py-4 bg-white text-black hover:bg-[#0069FF] hover:text-white font-black text-sm uppercase tracking-[0.2em] rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-white/10 hover:shadow-blue-600/50 cursor-pointer flex items-center justify-center gap-2"
                                     >
-                                        <span className="pointer-events-none">Play Again</span>
+                                        <span className="pointer-events-none">PLAY AGAIN FOR 1</span>
+                                        <Gamepad2 className="w-4 h-4" />
                                     </button>
-                                </motion.div>
+                                </motion.div >
 
                                 {txHash && (
-                                    <p className="mt-4 font-mono text-[8px] text-white/15 break-all text-center">
-                                        TX: {txHash.slice(0, 12)}…{txHash.slice(-8)}
-                                    </p>
+                                    <a
+                                        href={`https://apescan.io/tx/${txHash}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => playSound("btn_hover")}
+                                        className="mt-4 font-mono text-[8px] text-white/20 hover:text-[#0069FF] break-all text-center transition-colors cursor-pointer underline underline-offset-2 decoration-white/10 hover:decoration-[#0069FF]/40"
+                                    >
+                                        TX: {txHash.slice(0, 12)}…{txHash.slice(-8)} ↗
+                                    </a>
                                 )}
-                            </div>
-                        </motion.div>
-                    </motion.div>
+                            </div >
+                        </motion.div >
+                    </motion.div >
                 )}
-            </AnimatePresence>
-        </div>
+            </AnimatePresence >
+        </div >
     )
 }
 

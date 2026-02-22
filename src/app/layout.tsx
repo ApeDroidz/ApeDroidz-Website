@@ -12,6 +12,7 @@ import {
 import { ReactQueryProvider } from "./react-query-provider";
 import { ThirdwebAppProvider } from "./thirdweb-provider";
 import { UserProgressProvider } from "@/components/user-progress-provider";
+import { WalletSafeErrorBoundary } from "@/components/WalletSafeErrorBoundary";
 
 // Initialize fonts
 const inter = Inter({
@@ -84,13 +85,37 @@ export default function RootLayout({
         {/* Preload критических ресурсов для ускорения загрузки */}
         <link rel="preconnect" href="https://rpc.apechain.com" />
         <link rel="dns-prefetch" href="https://rpc.apechain.com" />
+        {/* Suppress wallet extension errors (MetaMask/Phantom/Rabby fighting over window.ethereum) */}
+        <script dangerouslySetInnerHTML={{
+          __html: `
+          window.addEventListener('error', function(e) {
+            var m = e.message || '';
+            if (m.indexOf('Cannot redefine property') !== -1 ||
+                m.indexOf('ethereum') !== -1 ||
+                (m.indexOf('JSON-RPC') !== -1 && m.indexOf('timeout') !== -1)) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              return true;
+            }
+          }, true);
+          window.addEventListener('unhandledrejection', function(e) {
+            var m = (e.reason && e.reason.message) || String(e.reason) || '';
+            if (m.indexOf('Cannot redefine property') !== -1 ||
+                m.indexOf('ethereum') !== -1 ||
+                (m.indexOf('JSON-RPC') !== -1 && m.indexOf('timeout') !== -1)) {
+              e.preventDefault();
+            }
+          });
+        `}} />
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-black text-white`}>
         <ReactQueryProvider>
           <ThirdwebAppProvider>
-            <UserProgressProvider>
-              {children}
-            </UserProgressProvider>
+            <WalletSafeErrorBoundary>
+              <UserProgressProvider>
+                {children}
+              </UserProgressProvider>
+            </WalletSafeErrorBoundary>
 
             {/* Vercel Analytics */}
             <Analytics />

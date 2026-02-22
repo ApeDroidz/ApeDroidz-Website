@@ -11,7 +11,7 @@ import { supabaseAdmin } from "@/lib/supabase"
  */
 export async function GET(req: NextRequest) {
     const queryWallet = req.nextUrl.searchParams.get("wallet")
-    const wallet = queryWallet?.toLowerCase()
+    const wallet = queryWallet
 
     if (!wallet) {
         return NextResponse.json({ activeTask: null, claimed: false, claimedAt: null })

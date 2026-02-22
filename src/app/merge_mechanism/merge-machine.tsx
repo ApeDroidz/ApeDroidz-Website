@@ -117,7 +117,7 @@ const GlitchContainer = ({ children, intensity }: { children: React.ReactNode, i
     )
 }
 
-// Progress bar with 20 cells - HORIZONTAL with vertical stripes, orange color
+// Progress bar for batteries — 20 cells, orange
 const ProgressBar = ({ filledCount }: { filledCount: number }) => {
     return (
         <div className="flex flex-row gap-[3px] w-full max-w-[320px] sm:max-w-[360px] md:max-w-[400px] lg:max-w-[440px] h-8 sm:h-10 bg-white/5 rounded-lg border border-white/10 p-1">
@@ -140,22 +140,49 @@ const ProgressBar = ({ filledCount }: { filledCount: number }) => {
     )
 }
 
+// Progress bar for shards — 30 cells, blue
+const ShardProgressBar = ({ filledCount }: { filledCount: number }) => {
+    return (
+        <div className="flex flex-row gap-[2px] w-full max-w-[320px] sm:max-w-[360px] md:max-w-[400px] lg:max-w-[440px] h-7 sm:h-9 bg-white/5 rounded-lg border border-white/10 p-1">
+            {Array.from({ length: 30 }).map((_, i) => {
+                const isFilled = i < filledCount
+                return (
+                    <motion.div
+                        key={i}
+                        initial={false}
+                        animate={{
+                            backgroundColor: isFilled ? '#0069FF' : 'rgba(255,255,255,0.1)',
+                            boxShadow: isFilled ? '0 0 6px #0069FF' : 'none'
+                        }}
+                        transition={{ duration: 0.1 }}
+                        className={`flex-1 h-full rounded-sm border ${isFilled ? 'border-blue-400' : 'border-white/10'}`}
+                    />
+                )
+            })}
+        </div>
+    )
+}
+
 interface MergeMachineProps {
+    mode: 'batteries' | 'shards'
     selectedCount: number
     isReady: boolean
     isMerging: boolean
     mergeSuccess: boolean
     onStartMerge: () => void
     onReset: () => void
+    targetImageUrl?: string | null
 }
 
 export function MergeMachine({
+    mode,
     selectedCount,
     isReady,
     isMerging,
     mergeSuccess,
     onStartMerge,
-    onReset
+    onReset,
+    targetImageUrl,
 }: MergeMachineProps) {
     const [isMobile, setIsMobile] = useState(false)
 
@@ -166,29 +193,35 @@ export function MergeMachine({
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
 
-    // Calculate glitch intensity based on selection (0-20 -> 0-5)
+    const isShards = mode === 'shards'
+    const requiredCount = isShards ? 30 : 20
+    const accentColor = isShards ? '#a855f7' : '#FF7700'
+
+    // Calculate glitch intensity
     const getGlitchIntensity = (): 0 | 1 | 2 | 3 | 4 | 5 => {
         if (isMerging) return 5
         if (selectedCount === 0) return 0
-        if (selectedCount <= 5) return 1
-        if (selectedCount <= 10) return 2
-        if (selectedCount <= 15) return 3
-        if (selectedCount <= 19) return 4
+        const pct = selectedCount / requiredCount
+        if (pct <= 0.25) return 1
+        if (pct <= 0.5) return 2
+        if (pct <= 0.75) return 3
+        if (pct < 1) return 4
         return 5
     }
 
-    // Calculate brightness for super battery (0.2 to 1.0)
+    // Calculate brightness (0.2 → 1.0)
     const getBrightness = () => {
         if (mergeSuccess) return 1
-        return 0.2 + (selectedCount / 20) * 0.8
+        return 0.2 + (selectedCount / requiredCount) * 0.8
     }
 
-    // Button state
-    let buttonText = "0/20 SELECTED"
+    // Button label
+    const required = isShards ? 30 : 20
+    let buttonText = `0/${required} SELECTED`
     if (mergeSuccess) buttonText = "MERGE COMPLETE"
     else if (isMerging) buttonText = "MERGING..."
-    else if (isReady) buttonText = "START MERGE"
-    else if (selectedCount > 0) buttonText = `${selectedCount}/20 SELECTED`
+    else if (isReady) buttonText = isShards ? "START SHARD MERGE" : "START MERGE"
+    else if (selectedCount > 0) buttonText = `${selectedCount}/${required} SELECTED`
 
     const isButtonActive = isReady && !isMerging && !mergeSuccess
 
@@ -196,15 +229,15 @@ export function MergeMachine({
         <div className="w-full h-full flex flex-col items-center justify-between p-4 sm:p-6 relative overflow-hidden">
             <style>{MERGE_GLITCH_STYLES}</style>
 
-            {/* Header - compact */}
+            {/* Header */}
             <div className="w-full max-w-[1200px] px-4 z-20 text-center flex-shrink-0 mb-4 sm:mb-0">
                 <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black uppercase tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] mb-1 sm:mb-2">
-                    {mergeSuccess ? "Merge Complete" : "Merge Mechanism"}
+                    {mergeSuccess ? (isShards ? 'Battery Acquired!' : 'Merge Complete') : 'Merge Mechanism'}
                 </h1>
                 <p className="text-gray-400 text-xs sm:text-sm font-mono leading-relaxed max-w-2xl mx-auto">
                     {mergeSuccess
-                        ? "Congratulations! You have received a SUPER BATTERY."
-                        : "Select 20 Standard Batteries to merge into 1 Super Battery."}
+                        ? (isShards ? 'You received a Standard Battery in exchange for 30 Energy Shards.' : 'Congratulations! You have received a SUPER BATTERY.')
+                        : (isShards ? 'Select 30 Energy Shards to merge into 1 Standard Battery.' : 'Select 20 Standard Batteries to merge into 1 Super Battery.')}
                 </p>
             </div>
 
@@ -227,37 +260,42 @@ export function MergeMachine({
                         >
                             <GlitchContainer intensity={getGlitchIntensity()}>
                                 <div className="flex flex-col items-center justify-center gap-4 sm:gap-5 md:gap-6">
-                                    {/* Super Battery Image - 30% larger */}
+                                    {/* Target image */}
                                     <div className="relative">
                                         <div
                                             className="w-56 h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 rounded-2xl overflow-hidden border-2 border-white/20 bg-black/50 backdrop-blur-md transition-all duration-300"
                                             style={{
                                                 filter: `brightness(${getBrightness()})`,
-                                                boxShadow: selectedCount > 0 ? `0 0 ${selectedCount * 2}px rgba(255,119,0,${selectedCount / 40})` : 'none'
+                                                boxShadow: selectedCount > 0 ? `0 0 ${selectedCount * 2}px ${accentColor}${Math.round((selectedCount / requiredCount) * 66).toString(16).padStart(2, '0')}` : 'none'
                                             }}
                                         >
                                             <img
-                                                src="https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp"
-                                                alt="Super Battery"
+                                                src={isShards
+                                                    ? (targetImageUrl || 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp')
+                                                    : 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp'
+                                                }
+                                                alt={isShards ? 'Standard Battery' : 'Super Battery'}
                                                 className="w-full h-full object-contain"
                                                 style={{ imageRendering: 'pixelated' }}
                                             />
                                         </div>
 
-                                        {/* Glow overlay based on progress - orange */}
                                         {selectedCount > 0 && (
                                             <div
                                                 className="absolute inset-0 pointer-events-none rounded-2xl"
                                                 style={{
-                                                    background: `linear-gradient(to right, rgba(255,119,0,${selectedCount / 30}) ${(selectedCount / 20) * 100}%, transparent ${(selectedCount / 20) * 100}%)`,
+                                                    background: `linear-gradient(to right, ${accentColor}${Math.round((selectedCount / requiredCount) * 0.4 * 255).toString(16).padStart(2, '0')} ${(selectedCount / requiredCount) * 100}%, transparent ${(selectedCount / requiredCount) * 100}%)`,
                                                     mixBlendMode: 'overlay'
                                                 }}
                                             />
                                         )}
                                     </div>
 
-                                    {/* Progress Bar - Horizontal below battery */}
-                                    <ProgressBar filledCount={selectedCount} />
+                                    {/* Progress Bar */}
+                                    {isShards
+                                        ? <ShardProgressBar filledCount={selectedCount} />
+                                        : <ProgressBar filledCount={selectedCount} />
+                                    }
                                 </div>
                             </GlitchContainer>
                         </motion.div>
@@ -270,29 +308,39 @@ export function MergeMachine({
                         >
                             <PixelConfetti />
 
-                            {/* Success Battery Image - orange themed, 30% larger */}
+                            {/* Success */}
                             <div className="relative animate-float-gentle">
-                                <div className="w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-96 lg:h-96 rounded-2xl overflow-hidden border-2 border-[#FF7700]/50 bg-black/50 backdrop-blur-md shadow-[0_0_40px_rgba(255,119,0,0.4)]">
+                                <div className={`w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-96 lg:h-96 rounded-2xl overflow-hidden border-2 bg-black/50 backdrop-blur-md ${isShards
+                                    ? 'border-purple-500/50 shadow-[0_0_40px_rgba(168,85,247,0.4)]'
+                                    : 'border-[#FF7700]/50 shadow-[0_0_40px_rgba(255,119,0,0.4)]'
+                                    }`}>
                                     <img
-                                        src="https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp"
-                                        alt="Super Battery"
+                                        src={isShards
+                                            ? (targetImageUrl || 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp')
+                                            : 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp'
+                                        }
+                                        alt={isShards ? 'Standard Battery' : 'Super Battery'}
                                         className="w-full h-full object-contain"
                                         style={{ imageRendering: 'pixelated' }}
                                     />
                                 </div>
-
-                                {/* Success icon - orange */}
-                                <div className="absolute -top-4 -right-4 w-12 h-12 bg-[#FF7700] rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(255,119,0,0.6)]">
+                                <div className={`absolute -top-4 -right-4 w-12 h-12 rounded-full flex items-center justify-center ${isShards
+                                    ? 'bg-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.6)]'
+                                    : 'bg-[#FF7700] shadow-[0_0_20px_rgba(255,119,0,0.6)]'
+                                    }`}>
                                     <Zap size={24} className="text-white" fill="white" />
                                 </div>
                             </div>
 
                             <div className="text-center">
-                                <h2 className="text-2xl md:text-3xl font-black text-[#FF7700] uppercase tracking-wider mb-2">
-                                    Super Battery Acquired!
+                                <h2 className={`text-2xl md:text-3xl font-black uppercase tracking-wider mb-2 ${isShards ? 'text-purple-400' : 'text-[#FF7700]'
+                                    }`}>
+                                    {isShards ? 'Standard Battery Acquired!' : 'Super Battery Acquired!'}
                                 </h2>
                                 <p className="text-white/60 text-sm font-mono">
-                                    Your battery has been upgraded successfully.
+                                    {isShards
+                                        ? 'Your 30 shards have been merged into a Standard Battery.'
+                                        : 'Your battery has been upgraded successfully.'}
                                 </p>
                             </div>
                         </motion.div>

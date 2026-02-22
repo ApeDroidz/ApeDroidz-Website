@@ -40,7 +40,7 @@ export default function GamesPage() {
             return
         }
 
-        const wallet = account.address.toLowerCase()
+        const wallet = account.address
 
         try {
             // On-chain holder check
@@ -59,15 +59,13 @@ export default function GamesPage() {
                 setIsHolder((data?.droids_count ?? 0) > 0)
             }
 
-            // Fetch glitch_users
-            const { data: gUser } = await supabase
-                .from("glitch_users")
-                .select("games_balance, x_handle")
-                .eq("wallet_address", wallet)
-                .maybeSingle()
-
-            setBalance(gUser?.games_balance ?? 0)
-            setXHandle(gUser?.x_handle ?? null)
+            // Fetch games balance via server route (uses supabaseAdmin, bypasses RLS)
+            const balRes = await fetch(`/api/glitch_game/balance?wallet=${encodeURIComponent(wallet)}`)
+            if (balRes.ok) {
+                const balData = await balRes.json()
+                setBalance(balData.games_balance ?? 0)
+                setXHandle(balData.x_handle ?? null)
+            }
         } catch (err) {
             console.error("Games state error:", err)
         } finally {
@@ -111,14 +109,14 @@ export default function GamesPage() {
                         {/* Left: Game Board (70%) */}
                         <GameBoard
                             balance={balance}
-                            wallet={account?.address?.toLowerCase()}
+                            wallet={account?.address}
                             onPlayComplete={handleBalanceUpdate}
                             onRefetch={fetchState}
                         />
 
                         {/* Right: Control Panel (30%) */}
                         <ControlPanel
-                            wallet={account?.address?.toLowerCase()}
+                            wallet={account?.address}
                             balance={balance}
                             isHolder={isHolder}
                             xHandle={xHandle}

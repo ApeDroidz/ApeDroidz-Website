@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         }
 
         const expectedApe = BigInt(packSize) * BigInt(TICKET_PRICE_APE) * BigInt(10) ** BigInt(18); // wei
-        const userWallet = wallet.toLowerCase();
+        const userWallet = wallet;
 
         console.log(`🎫 [Buy] Verifying: ${userWallet.slice(0, 8)}... | Pack: ${packSize} | TX: ${txHash}`);
 
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         }
 
         // 2. Verify sender
-        if (tx.from.toLowerCase() !== userWallet) {
+        if (tx.from.toLowerCase() !== userWallet.toLowerCase()) {
             console.error(`❌ [Buy] Sender mismatch: expected ${userWallet}, got ${tx.from}`);
             return NextResponse.json({ error: 'Transaction sender does not match wallet' }, { status: 403 });
         }
