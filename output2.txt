@@ -1,0 +1,29 @@
+[dotenv@17.2.3] injecting env (10) from .env.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+Failed to update: error: Tenant or user not found
+    at parseErrorMessage (/Users/splitform/apedroidz/node_modules/pg-protocol/dist/parser.js:305:11)
+    at Parser.handlePacket (/Users/splitform/apedroidz/node_modules/pg-protocol/dist/parser.js:143:27)
+    at Parser.parse (/Users/splitform/apedroidz/node_modules/pg-protocol/dist/parser.js:37:38)
+    at Socket.<anonymous> (/Users/splitform/apedroidz/node_modules/pg-protocol/dist/index.js:11:42)
+    at Socket.emit (node:events:519:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+  length: 52,
+  severity: 'FATAL',
+  code: 'XX000',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: undefined,
+  line: undefined,
+  routine: undefined
+}

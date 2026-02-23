@@ -312,17 +312,9 @@ export async function POST(req: Request) {
                 logStatus = 'transfer_failed';
                 logNote = transferErr.message;
 
-                // Mark nft_inventory as failed if applicable (for manual retry via logs)
-                if (inventoryItem) {
-                    await supabaseAdmin
-                        .from('nft_inventory')
-                        .update({
-                            status: 'transfer_failed',
-                            winner_wallet: wallet,
-                            won_at: new Date().toISOString(),
-                        })
-                        .eq('id', inventoryItem.id);
-                }
+                // We no longer mark the item as transfer_failed or roll it back.
+                // It remains 'reserved' for the winner. An admin can retry or a cron can sweep pending transfers.
+                // The root cause of most failures is concurrent identical reservations which the new DB view prevents.
             }
         }
 
@@ -362,7 +354,7 @@ export async function POST(req: Request) {
             xp_gained: xpGained,
             shards_gained: shardsGained,
             tx_hash: txHash,
-            newBalance: user.games_balance - 1,
+            newBalance: user.games_balance,
         });
 
     } catch (err: any) {

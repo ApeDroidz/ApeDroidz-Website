@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, X, Gem, Zap, Gamepad2, Share2, Repeat, Ticket } from "lucide-react"
 import { useUserProgress } from "@/hooks/useUserProgress"
@@ -196,8 +196,6 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
     // XP animation state
     const { xp: currentXp, level: currentLevel, progress: currentProgress, refetch: refetchProgress } = useUserProgress()
     const [animatedXpProgress, setAnimatedXpProgress] = useState<number | null>(null)
-    // "Play Again" button trigger (one-off)
-    const [isPlayAgainTrigger, setIsPlayAgainTrigger] = useState(false)
     // Full Auto-Play Mode (toggle)
     const [isAutoMode, setIsAutoMode] = useState(false)
 
@@ -278,16 +276,41 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
         setTimeout(() => setDealt(true), 15 * 100 + 500)
     }
 
+    // Reference to hold the pre-rolled result promise
+    const preRollPromiseRef = useRef<Promise<any> | null>(null);
+
     /* ═══════════════════════════════════════
        PLAY → GATHER → FLIP → DEAL
        ═══════════════════════════════════════ */
     const handlePlay = async () => {
+        // Strict guard: don't allow double-taps or overlapping auto-starts
         if (phase !== "idle" || balance < 1 || !wallet) return
+
+        // Immediately switch phase so subsequent synchronous checks fail
+        setPhase("gathering")
         setError(null)
+
+        // Optimistically update balance
+        onPlayComplete(balance - 1)
+
+        // Start API call in background
+        preRollPromiseRef.current = fetch("/api/glitch_game/play", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ wallet }),
+        }).then(async res => {
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || "Play failed")
+            if (data.newBalance !== undefined) {
+                // Apply the verified backend balance exactly as the DB states
+                onPlayComplete(data.newBalance)
+            }
+            return data
+        }).catch(err => ({ error: err.message || "Play failed" }))
 
         // 1. GATHER
         // All cards fly to center stack (Face UP if persistent reveal is active)
-        setPhase("gathering")
+        // Note: setPhase("gathering") is now called at the top to prevent double execution.
         // Sound for "folding into 1"
         const gatherSfx = new Audio("/sounds/fx/whoosh2.MP3")
         gatherSfx.volume = 0.3
@@ -366,13 +389,12 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
 
         let data: any
         try {
-            const res = await fetch("/api/glitch_game/play", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ wallet }),
-            })
-            data = await res.json()
-            if (!res.ok || data.error) throw new Error(data.error || "Play failed")
+            if (!preRollPromiseRef.current) {
+                throw new Error("Game session invalid. Please refresh.")
+            }
+            data = await preRollPromiseRef.current
+
+            if (data.error) throw new Error(data.error)
 
             // SWAP LOGIC: Ensure no duplicates by swapping winner with picked card
             const wonPrizeName = data.prize.name
@@ -415,7 +437,6 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
             setPhase("idle")
             glitchAudio.pause()
             setIsAutoMode(false) // CRITICAL: Stop auto-play on any error (like insufficient balance)
-            setIsPlayAgainTrigger(false)
             return
         }
 
@@ -514,20 +535,12 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
         // DO NOT REBUILD DECK - keep current state until user clicks Play
 
         if (triggerPlayAgain) {
-            setIsPlayAgainTrigger(true)
+            // Direct call instead of relying on a state variable to trigger an effect
+            setTimeout(() => {
+                handlePlay()
+            }, 50)
         }
     }
-
-    // Effect 1: Handle "Play Again" button click (One-off)
-    useEffect(() => {
-        if (isPlayAgainTrigger && phase === "idle" && balance > 0 && !error) {
-            setIsPlayAgainTrigger(false)
-            handlePlay()
-        } else if (isPlayAgainTrigger && phase === "idle" && (balance < 1 || error)) {
-            setIsPlayAgainTrigger(false) // Cancel if no balance or if an error is present
-            setIsAutoMode(false)
-        }
-    }, [phase, isPlayAgainTrigger, balance, error])
 
     // Effect 2: FULL AUTO MODE LOOP
     useEffect(() => {
@@ -546,7 +559,10 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
             if (balance > 0) {
                 // Short delay before starting next game
                 timeout = setTimeout(() => {
-                    handlePlay()
+                    // Double check phase hasn't changed before executing
+                    if (phase === "idle") {
+                        handlePlay()
+                    }
                 }, 1000)
             } else {
                 // Auto-stop if out of games

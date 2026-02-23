@@ -70,7 +70,7 @@ export default function GamesPage() {
             })()
 
             const balancePromise = (async () => {
-                const balRes = await fetch(`/api/glitch_game/balance?wallet=${encodeURIComponent(wallet)}`)
+                const balRes = await fetch(`/api/glitch_game/balance?wallet=${encodeURIComponent(wallet)}`, { cache: 'no-store' })
                 if (balRes.ok) {
                     return await balRes.json()
                 }
