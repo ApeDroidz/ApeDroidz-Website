@@ -12,6 +12,7 @@ const SHARD_CONTRACT_ADDRESS = process.env.SHARD_CONTRACT_ADDRESS!;
 const STANDARD_BATTERY_PRIZE_TYPE_ID = 'std_battery';
 
 export const dynamic = "force-dynamic";
+export const fetchCache = 'force-no-store';
 
 export async function GET(req: NextRequest) {
     try {
@@ -29,18 +30,18 @@ export async function GET(req: NextRequest) {
             tokenId: BigInt(0),
         });
 
-        // Fetch a preview image from the next available standard battery
-        let previewImageUrl: string | null = null;
-        const { data: previewItem } = await supabaseAdmin
-            .from("nft_inventory")
+        // Fetch a preview image for shards from prize_types
+        let shardImageUrl: string | null = null;
+        const { data: shardPrize } = await supabaseAdmin
+            .from("prize_types")
             .select("image_url")
-            .eq("status", "available")
-            .eq("prize_type_id", STANDARD_BATTERY_PRIZE_TYPE_ID)
+            .eq("type", "shard")
             .limit(1)
             .maybeSingle();
-        previewImageUrl = previewItem?.image_url || null;
+        shardImageUrl = shardPrize?.image_url || null;
 
-        return NextResponse.json({ balance: Number(balance), previewImageUrl });
+        console.log(`[API] Returning shard balance for ${wallet}: ${balance} from contract: ${SHARD_CONTRACT_ADDRESS}`);
+        return NextResponse.json({ balance: Number(balance), imageUrl: shardImageUrl });
     } catch (err: any) {
         console.error("[shards-balance]", err.message);
         return NextResponse.json({ error: err.message }, { status: 500 });

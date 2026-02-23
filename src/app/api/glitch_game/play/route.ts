@@ -286,7 +286,7 @@ export async function POST(req: Request) {
                     if (wonErr) console.error('❌ [Play] Mark won error:', wonErr.message);
                 }
 
-                // Also update shard balance in DB for UI cache (secondary to on-chain)
+                // Also update shard balance in DB for internal ledger
                 if (finalPrize.type === 'shard' && shardsGained > 0) {
                     await supabaseAdmin
                         .from('glitch_users')

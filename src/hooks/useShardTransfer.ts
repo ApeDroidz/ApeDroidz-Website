@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useSendTransaction, useActiveAccount } from "thirdweb/react";
-import { getContract } from "thirdweb";
+import { getContract, prepareContractCall, encode } from "thirdweb";
 import { safeTransferFrom } from "thirdweb/extensions/erc1155";
 import { apeChain, client } from "@/lib/thirdweb";
 
@@ -28,13 +28,23 @@ export function useShardTransfer() {
                 address: SHARD_CONTRACT_ADDRESS,
             });
 
-            const tx = safeTransferFrom({
+            const transferTx = safeTransferFrom({
                 contract,
                 from: account.address,
                 to: ADMIN_WALLET,
                 tokenId: BigInt(0),
                 value: BigInt(SHARDS_PER_MERGE),
                 data: "0x",
+            });
+
+            // We encode the transaction and wrap it in a multicall to bypass an exact MetaMask UI parsing bug
+            // ("e.startsWith is not a function") that triggers when parsing ERC1155 safeTransferFrom data
+            const encodedTx = await encode(transferTx);
+
+            const tx = prepareContractCall({
+                contract,
+                method: "function multicall(bytes[] data) returns (bytes[] results)",
+                params: [[encodedTx]],
             });
 
             const result = await sendTx(tx);

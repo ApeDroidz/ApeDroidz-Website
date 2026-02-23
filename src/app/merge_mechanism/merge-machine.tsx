@@ -64,26 +64,39 @@ const MERGE_GLITCH_STYLES = `
   .animate-float-gentle { animation: float-gentle 3s ease-in-out infinite; }
 `
 
-// Confetti effect component - orange themed
-const PixelConfetti = () => {
+// Confetti effect component - orange themed or blue themed
+const PixelConfetti = ({ isShards = false }: { isShards?: boolean }) => {
     const particles = Array.from({ length: 80 }).map((_, i) => {
-        const angle = Math.random() * Math.PI * 2
-        const velocity = 20 + Math.random() * 40
+        const MathRandom = Math.random
+        const angle = MathRandom() * Math.PI * 2
+        const velocity = 20 + MathRandom() * 40
         const tx = Math.cos(angle) * velocity
         const ty = Math.sin(angle) * velocity
-        const size = Math.random() * 8 + 4
-        const colors = ['#FF7700', '#FF9933', '#FFBB66', '#FFFFFF', '#FF5500']
-        const color = colors[Math.floor(Math.random() * colors.length)]
-        const duration = 0.8 + Math.random() * 1.2
-        const delay = Math.random() * 0.2
-        return { id: i, size, tx, ty, duration, delay, color, rotation: Math.random() * 720 }
+        const size = MathRandom() * 8 + 4
+
+        const colors = isShards
+            ? ['#0069FF', '#3385FF', '#66A3FF', '#FFFFFF', '#004C99']
+            : ['#FF7700', '#FF9933', '#FFBB66', '#FFFFFF', '#FF5500']
+
+        const color = colors[Math.floor(MathRandom() * colors.length)]
+        const duration = 0.8 + MathRandom() * 1.2
+        const delay = MathRandom() * 0.2
+        return { id: i, size, tx, ty, duration, delay, color, rotation: MathRandom() * 720 }
     })
+
+    const flashGradient = isShards
+        ? 'radial-gradient(circle at center, rgba(0,105,255,0.8) 0%, rgba(0,105,255,0) 60%)'
+        : 'radial-gradient(circle at center, rgba(255,119,0,0.8) 0%, rgba(255,119,0,0) 60%)'
+
+    const shockwaveClass = isShards
+        ? 'border-[#0069FF] shadow-[0_0_100px_#0069FF]'
+        : 'border-[#FF7700] shadow-[0_0_100px_#FF7700]'
 
     return (
         <div className="absolute inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-visible">
             <div className="fixed inset-0 animate-flash-bang pointer-events-none mix-blend-overlay z-[110]"
-                style={{ background: 'radial-gradient(circle at center, rgba(255,119,0,0.8) 0%, rgba(255,119,0,0) 60%)' }} />
-            <div className="absolute w-0 h-0 rounded-full border-[10px] animate-shockwave opacity-0 border-[#FF7700] shadow-[0_0_100px_#FF7700]" />
+                style={{ background: flashGradient }} />
+            <div className={`absolute w-0 h-0 rounded-full border-[10px] animate-shockwave opacity-0 ${shockwaveClass}`} />
             {particles.map((p) => (
                 <div key={p.id} className="absolute animate-pixel-explode"
                     style={{
@@ -195,7 +208,7 @@ export function MergeMachine({
 
     const isShards = mode === 'shards'
     const requiredCount = isShards ? 30 : 20
-    const accentColor = isShards ? '#a855f7' : '#FF7700'
+    const accentColor = isShards ? '#0069FF' : '#FF7700'
 
     // Calculate glitch intensity
     const getGlitchIntensity = (): 0 | 1 | 2 | 3 | 4 | 5 => {
@@ -306,17 +319,17 @@ export function MergeMachine({
                             animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
                             className="relative flex flex-col items-center justify-center gap-6 w-full px-4"
                         >
-                            <PixelConfetti />
+                            <PixelConfetti isShards={isShards} />
 
                             {/* Success */}
                             <div className="relative animate-float-gentle">
                                 <div className={`w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-96 lg:h-96 rounded-2xl overflow-hidden border-2 bg-black/50 backdrop-blur-md ${isShards
-                                    ? 'border-purple-500/50 shadow-[0_0_40px_rgba(168,85,247,0.4)]'
+                                    ? 'border-[#0069FF]/50 shadow-[0_0_40px_rgba(0,105,255,0.4)]'
                                     : 'border-[#FF7700]/50 shadow-[0_0_40px_rgba(255,119,0,0.4)]'
                                     }`}>
                                     <img
                                         src={isShards
-                                            ? (targetImageUrl || 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp')
+                                            ? (targetImageUrl || 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp')
                                             : 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp'
                                         }
                                         alt={isShards ? 'Standard Battery' : 'Super Battery'}
@@ -325,7 +338,7 @@ export function MergeMachine({
                                     />
                                 </div>
                                 <div className={`absolute -top-4 -right-4 w-12 h-12 rounded-full flex items-center justify-center ${isShards
-                                    ? 'bg-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.6)]'
+                                    ? 'bg-[#0069FF] shadow-[0_0_20px_rgba(0,105,255,0.6)]'
                                     : 'bg-[#FF7700] shadow-[0_0_20px_rgba(255,119,0,0.6)]'
                                     }`}>
                                     <Zap size={24} className="text-white" fill="white" />
@@ -333,7 +346,7 @@ export function MergeMachine({
                             </div>
 
                             <div className="text-center">
-                                <h2 className={`text-2xl md:text-3xl font-black uppercase tracking-wider mb-2 ${isShards ? 'text-purple-400' : 'text-[#FF7700]'
+                                <h2 className={`text-2xl md:text-3xl font-black uppercase tracking-wider mb-2 ${isShards ? 'text-[#0069FF]' : 'text-[#FF7700]'
                                     }`}>
                                     {isShards ? 'Standard Battery Acquired!' : 'Super Battery Acquired!'}
                                 </h2>

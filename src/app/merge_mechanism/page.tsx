@@ -113,7 +113,7 @@ function MergeMechanismContent() {
         if (!account?.address) return
         setIsLoadingShards(true)
         try {
-            const res = await fetch(`/api/merge/shards-balance?wallet=${account.address}`)
+            const res = await fetch(`/api/merge/shards-balance?wallet=${account.address}`, { cache: 'no-store' })
             if (res.ok) {
                 const data = await res.json()
                 setShardBalance(data.balance || 0)
@@ -246,13 +246,16 @@ function MergeMechanismContent() {
         setMergeError(null)
 
         try {
-            const transferSuccess = await transferShards()
-            if (!transferSuccess) throw new Error("Transaction failed or was rejected")
+            const transferResult = await transferShards()
+            if (!transferResult || !transferResult.transactionHash) throw new Error("Transaction failed or was rejected")
 
             const response = await fetch("/api/merge/shards", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ walletAddress: account.address, amount: 30 })
+                body: JSON.stringify({
+                    userWallet: account.address,
+                    txHash: transferResult.transactionHash
+                })
             })
 
             const data = await response.json()

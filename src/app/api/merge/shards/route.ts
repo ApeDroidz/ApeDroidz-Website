@@ -96,6 +96,20 @@ export async function POST(req: NextRequest) {
             .update({ status: "claimed", winner_wallet: userWallet })
             .eq("id", batteryItem.id);
 
+        // 4.5 Deduct 30 shards from internal DB ledger (secondary to on-chain burn)
+        const { data: userRow } = await supabaseAdmin
+            .from("glitch_users")
+            .select("shards_balance")
+            .ilike("wallet_address", userWallet)
+            .single();
+
+        if (userRow) {
+            await supabaseAdmin
+                .from("glitch_users")
+                .update({ shards_balance: Math.max(0, (userRow.shards_balance || 0) - 30) })
+                .ilike("wallet_address", userWallet);
+        }
+
         // 5. Log success
         await logShardMerge(userWallet, txHash, batteryItem.token_id, "success", null);
 
