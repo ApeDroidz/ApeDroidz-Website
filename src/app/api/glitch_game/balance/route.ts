@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabaseAdmin
         .from('glitch_users')
         .select('games_balance, x_handle')
-        .eq('wallet_address', wallet)
+        .ilike('wallet_address', wallet)
         .maybeSingle();
 
     if (error) {

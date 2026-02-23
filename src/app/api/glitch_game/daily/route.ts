@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         const { data: existingClaim } = await supabaseAdmin
             .from('daily_claims_log')
             .select('id')
-            .eq('wallet_address', wallet)
+            .ilike('wallet_address', wallet)
             .eq('task_config_id', taskConfig.id)
             .maybeSingle();
 
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
         const { data: existingUser } = await supabaseAdmin
             .from('glitch_users')
             .select('*')
-            .eq('wallet_address', wallet)
+            .ilike('wallet_address', wallet)
             .maybeSingle();
 
         if (!existingUser) {
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
             const { error: updateErr } = await supabaseAdmin
                 .from('glitch_users')
                 .update(updates)
-                .eq('wallet_address', wallet);
+                .ilike('wallet_address', wallet);
             if (updateErr) {
                 console.error('❌ [Daily] User update:', updateErr.message);
                 return NextResponse.json({ error: 'Failed to update balance' }, { status: 500 });

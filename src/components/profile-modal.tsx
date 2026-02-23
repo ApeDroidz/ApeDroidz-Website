@@ -22,7 +22,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const { level, xp, rank, progress, stats, username: currentUsername, refetch } = useUserProgress()
 
     // Normalize wallet address
-    const normalizedAddress = account?.address?.toLowerCase()
+    const normalizedAddress = account?.address
 
     const [activeTab, setActiveTab] = useState<'profile' | 'leaderboard'>('profile')
     const [leaderboard, setLeaderboard] = useState<any[]>([])
@@ -48,7 +48,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const shortAddress = normalizedAddress ? `${normalizedAddress.slice(0, 6)}...${normalizedAddress.slice(-4)}` : ""
 
     const handleDisconnect = () => { if (wallet) { disconnect(wallet); onClose(); } }
-    const myRank = useMemo(() => leaderboard.findIndex(u => u.wallet_address === normalizedAddress) + 1, [leaderboard, normalizedAddress])
+    const myRank = useMemo(() => leaderboard.findIndex(u => u.wallet_address.toLowerCase() === normalizedAddress?.toLowerCase()) + 1, [leaderboard, normalizedAddress])
 
     // Set active tab when modal opens (not on every render)
     useEffect(() => {
@@ -74,7 +74,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const fetchUserProfile = async () => {
         setIsAvatarLoading(true)
         // Fetch standard profile
-        const { data } = await supabase.from('users').select('username, PFP').eq('wallet_address', normalizedAddress).single()
+        const { data } = await supabase.from('users').select('username, PFP').ilike('wallet_address', normalizedAddress || "").maybeSingle()
         if (data) {
             setNewName(data.username || "")
             if (data.PFP) {
@@ -90,7 +90,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
         } else { setIsAvatarLoading(false) }
 
         // Fetch Glitch Profile (X Handle)
-        const { data: glitchData } = await supabase.from('glitch_users').select('x_handle').eq('wallet_address', normalizedAddress).maybeSingle()
+        const { data: glitchData } = await supabase.from('glitch_users').select('x_handle').ilike('wallet_address', normalizedAddress || "").maybeSingle()
         if (glitchData?.x_handle) {
             setXHandle(glitchData.x_handle)
         }
@@ -122,7 +122,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const selectPfp = async (tokenId: string, url: string) => {
         setIsAvatarLoading(true)
         const idInt = parseInt(tokenId)
-        await supabase.from('users').update({ PFP: idInt }).eq('wallet_address', normalizedAddress)
+        await supabase.from('users').update({ PFP: idInt }).ilike('wallet_address', normalizedAddress || "")
         setUserPfpUrl(url)
         setIsSelectingPfp(false)
     }
@@ -153,7 +153,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     }
 
     const saveUsername = async () => {
-        await supabase.from('users').update({ username: newName }).eq('wallet_address', normalizedAddress)
+        await supabase.from('users').update({ username: newName }).ilike('wallet_address', normalizedAddress || "")
         setIsEditingName(false); refetch();
     }
 
@@ -335,7 +335,6 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                         <div className="flex flex-col gap-1">
                                                             {/* X Handle (Desktop) - MOVED TO TOP */}
                                                             <div className="mb-0.5 pl-1">
-                                                                {!xHandle && <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-1">Linked X Account</p>}
                                                                 {isEditingX ? (
                                                                     <div className="flex items-center gap-2">
                                                                         <input type="text" value={xHandle} onChange={(e) => setXHandle(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-bold text-sm w-[200px] focus:outline-none focus:border-[#3b82f6]" placeholder="@username" onKeyDown={(e) => { if (e.key === 'Enter') saveXHandle(); }} />

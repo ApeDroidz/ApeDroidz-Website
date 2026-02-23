@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 export async function POST(req: Request) {
     try {
         const body = await req.json()
-        const wallet = body.wallet?.toLowerCase()
+        const wallet = body.wallet
         const { xHandle } = body
 
         if (!wallet || !xHandle) {

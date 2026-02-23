@@ -30,7 +30,7 @@ const UserProgressContext = createContext<UserProgressContextType | undefined>(u
 
 export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
     const account = useActiveAccount()
-    const address = account?.address?.toLowerCase() || undefined
+    const address = account?.address || undefined
     const isFetching = useRef(false)
 
     const [state, setState] = useState<UserProgressState>({
@@ -77,7 +77,7 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
             console.log(`📊 FetchProgress started for ${address.slice(0, 8)}... forceSync=${forceSync}`)
 
             // 1. Читаем БД (Истина для скорости)
-            const { data: dbUser, error: dbError } = await supabase.from('users').select('*').eq('wallet_address', address).single()
+            const { data: dbUser, error: dbError } = await supabase.from('users').select('*').ilike('wallet_address', address).maybeSingle()
 
             if (dbError && dbError.code !== 'PGRST116') { // PGRST116 = not found, which is OK
                 console.error("❌ DB user fetch error:", dbError)

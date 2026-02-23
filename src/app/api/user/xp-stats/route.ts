@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
         const { data, error } = await supabaseAdmin
             .from('game_logs')
             .select('xp_awarded')
-            .eq('wallet_address', wallet)
+            .ilike('wallet_address', wallet)
 
         if (error) {
             console.error("XP Stats Error:", error)

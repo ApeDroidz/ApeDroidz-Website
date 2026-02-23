@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         const { data: existingUser } = await supabaseAdmin
             .from('glitch_users')
             .select('games_balance')
-            .eq('wallet_address', userWallet)
+            .ilike('wallet_address', userWallet)
             .maybeSingle();
 
         if (!existingUser) {
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
             await supabaseAdmin
                 .from('glitch_users')
                 .update({ games_balance: existingUser.games_balance + packSize })
-                .eq('wallet_address', userWallet);
+                .ilike('wallet_address', userWallet);
         }
 
         const newBalance = existingUser ? existingUser.games_balance + packSize : packSize;
