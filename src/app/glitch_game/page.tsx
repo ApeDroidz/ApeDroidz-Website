@@ -33,13 +33,16 @@ export default function GamesPage() {
     const [xHandle, setXHandle] = useState<string | null>(null)
 
     // Fetch user state
-    // Fetch user state
     const fetchState = useCallback(async () => {
         if (!account?.address) {
+            setBalance(0)
+            setIsHolder(false)
+            setXHandle(null)
             setIsLoading(false)
             return
         }
 
+        setIsLoading(true)
         const wallet = account.address
 
         try {

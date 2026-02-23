@@ -8,7 +8,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap } from "lucide-react";
+import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap, Gamepad2 } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -56,10 +56,11 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Determine if we're on grid or merge page
+  // Determine if we're on game, grid, or merge page
+  const isGamePage = pathname === '/glitch_game';
   const isGridPage = pathname === '/grid';
   const isMergePage = pathname === '/merge_mechanism';
-  const showDashboardNav = isGridPage || isMergePage;
+  const showDashboardNav = isGamePage || isGridPage || isMergePage;
 
   const closeMenu = () => setIsMenuOpen(false);
 
@@ -112,58 +113,57 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
 
 
 
-          {/* Grid */}
-          {account && (
-            <Link href="/grid">
+          {/* Game */}
+          {!isGamePage && (
+            <Link href="/glitch_game">
               <motion.div
-                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
-                title="Grid Maker"
+                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Grid2X2 size={20} className="text-white/70 group-hover:text-white transition-colors" />
+                <Gamepad2 size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
+                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
+                  Glitch Game
+                </div>
               </motion.div>
             </Link>
           )}
 
           {/* Merge */}
-          {account && (
+          {!isMergePage && (
             <Link href="/merge_mechanism">
               <motion.div
-                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
-                title="Merge Mechanism"
+                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Zap size={20} className="text-white/70 group-hover:text-white transition-colors" />
+                <Zap size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
+                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
+                  Merge Mechanism
+                </div>
               </motion.div>
             </Link>
           )}
 
-          {!account && (
-            <ConnectButton
-              client={client}
-              chain={apeChain}
-              wallets={wallets}
-              theme="dark"
-              connectButton={{
-                label: "Connect Wallet",
-                className: `
-                  !bg-white !text-black !font-bold !rounded-xl  
-                  !h-[48px] !px-8 !text-base
-                  !border !border-transparent !transition-all !duration-300
-                  hover:!bg-[#0069FF] hover:!text-white hover:!border-transparent
-                `,
-              }}
-              connectModal={{
-                size: "compact",
-                title: "ApeDroidz Access",
-                showThirdwebBranding: false,
-              }}
-            />
+          {/* Grid */}
+          {!isGridPage && (
+            <Link href="/grid">
+              <motion.div
+                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Grid2X2 size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
+                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
+                  Grid Maker
+                </div>
+              </motion.div>
+            </Link>
           )}
 
-          {account && !isDashboard && !showDashboardNav && (
+
+
+          {!isDashboard && !showDashboardNav && (
             <Link
               href="/dashboard"
               className="flex items-center justify-center h-[48px] px-6 bg-transparent border border-white/15 text-white text-sm font-bold rounded-xl hover:bg-white/10 hover:border-white/50 transition-all duration-300"
@@ -189,6 +189,29 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             >
               Back to Menu
             </Link>
+          )}
+
+          {!account && (
+            <ConnectButton
+              client={client}
+              chain={apeChain}
+              wallets={wallets}
+              theme="dark"
+              connectButton={{
+                label: "Connect Wallet",
+                className: `
+                  !bg-white !text-black !font-bold !rounded-xl  
+                  !h-[48px] !px-8 !text-base
+                  !border !border-transparent !transition-all !duration-300
+                  hover:!bg-[#0069FF] hover:!text-white hover:!border-transparent
+                `,
+              }}
+              connectModal={{
+                size: "compact",
+                title: "ApeDroidz Access",
+                showThirdwebBranding: false,
+              }}
+            />
           )}
         </motion.div>
 
@@ -249,7 +272,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                 )}
                 {!account && (
                   <div className="relative w-full">
-                    <Wallet size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 z-10 pointer-events-none" />
+                    <Wallet size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A1A1AA] z-10 pointer-events-none" />
                     <ConnectButton
                       client={client}
                       chain={apeChain}
@@ -279,19 +302,19 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     onClick={closeMenu}
                     className="flex items-center justify-start gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
                   >
-                    <Battery size={18} className="-rotate-90 text-white/70" />
+                    <Battery size={18} className="-rotate-90 text-[#A1A1AA]" />
                     Mint Batteries
                   </Link>
                 )}
 
                 {/* 3. Dashboard / Back */}
-                {account && !isDashboard && !showDashboardNav && (
+                {!isDashboard && !showDashboardNav && (
                   <Link
                     href="/dashboard"
                     onClick={closeMenu}
                     className="flex items-center justify-start gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
                   >
-                    <LayoutDashboard size={18} className="text-white/70" />
+                    <LayoutDashboard size={18} className="text-[#A1A1AA]" />
                     Go to Dashboard
                   </Link>
                 )}
@@ -302,7 +325,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     onClick={closeMenu}
                     className="flex items-center justify-start gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
                   >
-                    <LayoutDashboard size={18} className="text-white/70" />
+                    <LayoutDashboard size={18} className="text-[#A1A1AA]" />
                     Go to Dashboard
                   </Link>
                 )}
@@ -312,36 +335,49 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     onClick={closeMenu}
                     className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
                   >
-                    <Home size={18} className="text-white/70" />
+                    <Home size={18} className="text-[#A1A1AA]" />
                     Back to Menu
                   </Link>
                 )}
 
-                {/* 4. Grid Maker */}
-                {account && (
+                {/* Divider */}
+                <div className="h-px bg-white/10 mt-4 mb-2" />
+
+                {/* 4. Glitch Game */}
+                {!isGamePage && (
                   <Link
-                    href="/grid"
+                    href="/glitch_game"
                     onClick={closeMenu}
                     className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
                   >
-                    <Grid2X2 size={18} className="text-white/70" />
-                    <span className="text-white font-medium text-sm">Grid Maker</span>
+                    <Gamepad2 size={18} className="text-[#A1A1AA]" />
+                    <span className="text-white font-medium text-sm">Glitch Game</span>
                   </Link>
                 )}
 
                 {/* 5. Merge Mechanism */}
-                {account && (
+                {!isMergePage && (
                   <Link
                     href="/merge_mechanism"
                     onClick={closeMenu}
                     className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
                   >
-                    <Zap size={18} className="text-white/70" />
+                    <Zap size={18} className="text-[#A1A1AA]" />
                     <span className="text-white font-medium text-sm">Merge Mechanism</span>
                   </Link>
                 )}
 
-
+                {/* 6. Grid Maker */}
+                {!isGridPage && (
+                  <Link
+                    href="/grid"
+                    onClick={closeMenu}
+                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <Grid2X2 size={18} className="text-[#A1A1AA]" />
+                    <span className="text-white font-medium text-sm">Grid Maker</span>
+                  </Link>
+                )}
 
                 {/* Divider */}
                 <div className="h-px bg-white/10 mt-4 mb-2" />
@@ -354,7 +390,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                       href={social.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center w-[44px] h-[44px] bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors text-white/40 hover:text-white"
+                      className="flex items-center justify-center w-[44px] h-[44px] bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors text-[#71717A] hover:text-white"
                       title={social.name}
                     >
                       {social.icon}

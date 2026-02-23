@@ -119,12 +119,7 @@ export default function GridPage() {
         fetchMyDroids()
     }, [fetchMyDroids])
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (!account?.address) router.push('/')
-        }, 2000)
-        return () => clearTimeout(timer)
-    }, [account?.address, router])
+
 
     const handleToggleSelect = useCallback((droid: NFTItem) => {
         setSelectedDroids(prev => {
@@ -176,7 +171,7 @@ export default function GridPage() {
                 />
 
                 <motion.div
-                    className="flex-1 pt-20 pb-4 px-4 sm:px-6 flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 lg:overflow-hidden"
+                    className="flex-1 pt-24 pb-4 px-4 sm:px-6 flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 lg:overflow-hidden"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.5 }}

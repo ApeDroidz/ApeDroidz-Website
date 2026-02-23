@@ -69,6 +69,8 @@ function MergeMechanismContent() {
     const fetchBatteries = useCallback(async () => {
         setIsLoading(true)
         if (!account?.address) {
+            setBatteries([])
+            setSelectedBatteries([])
             setIsLoading(false)
             return
         }
@@ -110,8 +112,13 @@ function MergeMechanismContent() {
     }, [account?.address])
 
     const fetchShards = useCallback(async () => {
-        if (!account?.address) return
         setIsLoadingShards(true)
+        if (!account?.address) {
+            setShardBalance(0)
+            setSelectedShardIndices(new Set())
+            setIsLoadingShards(false)
+            return
+        }
         try {
             const res = await fetch(`/api/merge/shards-balance?wallet=${account.address}`, { cache: 'no-store' })
             if (res.ok) {
@@ -127,18 +134,11 @@ function MergeMechanismContent() {
     }, [account?.address])
 
     useEffect(() => {
-        if (account?.address) {
-            fetchBatteries()
-            fetchShards()
-        }
+        fetchBatteries()
+        fetchShards()
     }, [account?.address, fetchBatteries, fetchShards])
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (!account?.address) router.push('/')
-        }, 2000)
-        return () => clearTimeout(timer)
-    }, [account?.address, router])
+
 
     // Update URL when mode changes
     useEffect(() => {

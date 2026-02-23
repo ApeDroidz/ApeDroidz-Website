@@ -5,6 +5,9 @@ import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, X, Gem, Zap, Gamepad2, Share2, Repeat } from "lucide-react"
 import { useUserProgress } from "@/hooks/useUserProgress"
+import { ConnectButton } from "thirdweb/react"
+import { client, apeChain } from "@/lib/thirdweb"
+import { createWallet } from "thirdweb/wallets"
 
 /* ─── Supabase storage base for card images ─── */
 const STORAGE_BASE = "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public"
@@ -17,6 +20,12 @@ function cardImageUrl(raw: string | null | undefined): string {
 
 const CARD_COVER = "/glitch_card_cover.png"
 const CARD_COVER_2 = "/glitch_card_cover_2.png"
+
+const wallets = [
+    createWallet("io.metamask"),
+    createWallet("com.coinbase.wallet"),
+    createWallet("me.rainbow"),
+]
 
 /* ─── XP Level milestones (must match user-progress-provider) ─── */
 const LEVEL_MILESTONES = [0, 1000, 3000, 5000, 10000, 30000, 50000, 100000, 200000, 300000]
@@ -834,9 +843,28 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                 )}
                             </motion.button>
                         ) : !wallet ? (
-                            <p className="text-xs font-bold text-white/30 tracking-wider uppercase py-4">
-                                Connect Wallet to Play
-                            </p>
+                            <div className="flex-1 max-w-sm">
+                                <ConnectButton
+                                    client={client}
+                                    chain={apeChain}
+                                    wallets={wallets}
+                                    theme="dark"
+                                    connectButton={{
+                                        label: "Connect Wallet",
+                                        className: `
+                                            !bg-white !text-black !font-black !rounded-2xl  
+                                            !w-full !h-[56px] sm:!h-[64px] !text-sm sm:!text-base !tracking-widest !uppercase
+                                            !transition-all !duration-300 !shadow-lg !shadow-white/10
+                                            hover:!bg-[#0069FF] hover:!text-white hover:!shadow-blue-600/50 hover:!scale-[1.02] cursor-pointer
+                                        `,
+                                    }}
+                                    connectModal={{
+                                        size: "compact",
+                                        title: "ApeDroidz Access",
+                                        showThirdwebBranding: false,
+                                    }}
+                                />
+                            </div>
                         ) : (
                             <p className="text-xs font-bold text-white/30 tracking-wider uppercase py-4">
                                 No Games — Earn or Buy More Games

@@ -242,14 +242,7 @@ export default function DashboardPage() {
     return () => clearTimeout(timer)
   }, [fetchMyNFTs])
 
-  // Redirect to home if not connected - with delay to allow wallet reconnection on refresh
-  useEffect(() => {
-    // Give thirdweb time to reconnect wallet on page refresh (2 seconds)
-    const timer = setTimeout(() => {
-      if (!account?.address) router.push('/')
-    }, 2000)
-    return () => clearTimeout(timer)
-  }, [account?.address, router])
+
 
   // === АПГРЕЙД ===
   const handleUpgrade = async () => {
