@@ -414,6 +414,8 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
             setPickedIdx(null)
             setPhase("idle")
             glitchAudio.pause()
+            setIsAutoMode(false) // CRITICAL: Stop auto-play on any error (like insufficient balance)
+            setIsPlayAgainTrigger(false)
             return
         }
 
@@ -518,19 +520,26 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
 
     // Effect 1: Handle "Play Again" button click (One-off)
     useEffect(() => {
-        if (isPlayAgainTrigger && phase === "idle" && balance > 0) {
+        if (isPlayAgainTrigger && phase === "idle" && balance > 0 && !error) {
             setIsPlayAgainTrigger(false)
             handlePlay()
-        } else if (isPlayAgainTrigger && phase === "idle" && balance < 1) {
-            setIsPlayAgainTrigger(false) // Cancel if no balance
+        } else if (isPlayAgainTrigger && phase === "idle" && (balance < 1 || error)) {
+            setIsPlayAgainTrigger(false) // Cancel if no balance or if an error is present
+            setIsAutoMode(false)
         }
-    }, [phase, isPlayAgainTrigger, balance])
+    }, [phase, isPlayAgainTrigger, balance, error])
 
     // Effect 2: FULL AUTO MODE LOOP
     useEffect(() => {
         if (!isAutoMode) return
 
         let timeout: NodeJS.Timeout
+
+        // Safety Stop on Errors
+        if (error) {
+            setIsAutoMode(false)
+            return
+        }
 
         // A) START GAME (Idle)
         if (phase === "idle") {
@@ -562,7 +571,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
         }
 
         return () => clearTimeout(timeout)
-    }, [isAutoMode, phase, balance, displayCards.length])
+    }, [isAutoMode, phase, balance, error, displayCards.length])
 
 
     /* ── XP bar helpers ── */
