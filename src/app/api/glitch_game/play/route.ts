@@ -113,7 +113,7 @@ export async function POST(req: Request) {
         }
 
         finalPrize = selectedPrize;
-        console.log(`🎮 [Play] ${wallet.slice(0, 8)}... rolled → ${finalPrize.slug} (${finalPrize.name ?? finalPrize.label})`);
+        console.log(`🎮 [Play] ${wallet.slice(0, 8)}... rolled → ${finalPrize.id} (${finalPrize.name ?? finalPrize.label})`);
 
         // ── 4. INVENTORY CHECK (NFT/Token) ──
         let inventoryItem: any = null;
@@ -122,14 +122,14 @@ export async function POST(req: Request) {
             // ── ATOMIC INVENTORY RESERVATION (RPC) ──
             const { data: reserveRes, error: reserveErr } = await supabaseAdmin
                 .rpc('reserve_inventory_item', {
-                    p_prize_slug: finalPrize.slug,
+                    p_prize_slug: finalPrize.id,
                     p_wallet_address: wallet
                 });
 
             if (reserveErr) {
                 console.error('❌ [Play] Reserve RPC error:', reserveErr.message);
             } else if (reserveRes?.success) {
-                console.log(`🎯 [Play] Successfully reserved inventory item #${reserveRes.data.token_id} (${reserveRes.data.name}) for ${finalPrize.slug}`);
+                console.log(`🎯 [Play] Successfully reserved inventory item #${reserveRes.data.token_id} (${reserveRes.data.name}) for ${finalPrize.id}`);
                 inventoryItem = reserveRes.data;
             } else {
                 console.warn(`⚠️ [Play] Reserve RPC failed (Stockout): ${reserveRes?.error}`);
@@ -139,9 +139,9 @@ export async function POST(req: Request) {
                 // Reservation was successful and item is ready for transfer
             } else {
                 // Stockout fallback → shard_x5
-                console.warn(`⚠️ [Play] Stockout: ${finalPrize.slug} → fallback to shard_x5`);
-                logNote = `stockout:${finalPrize.slug}→shard_x5`;
-                const fallback = prizeTypes.find((p: any) => p.slug === 'shard_x5')
+                console.warn(`⚠️ [Play] Stockout: ${finalPrize.id} → fallback to shard_x5`);
+                logNote = `stockout:${finalPrize.id}→shard_x5`;
+                const fallback = prizeTypes.find((p: any) => p.id === 'shard_x5')
                     ?? prizeTypes.find((p: any) => p.category === 'shard');
                 if (fallback) finalPrize = fallback;
             }
@@ -187,7 +187,7 @@ export async function POST(req: Request) {
         }
 
         // ── 6. GRANT PRIZE — ALL prizes are on-chain transfers ──
-        console.log(`🏆 [Play] Prize selected: slug=${finalPrize.slug}, type=${finalPrize.type}, amount=${finalPrize.amount ?? 'N/A'}, has_inventory=${!!inventoryItem}`);
+        console.log(`🏆 [Play] Prize selected: slug=${finalPrize.id}, type=${finalPrize.type}, amount=${finalPrize.amount ?? 'N/A'}, has_inventory=${!!inventoryItem}`);
 
         if (!PRIZE_VAULT_PRIVATE_KEY) {
             logNote = 'PRIZE_VAULT_PRIVATE_KEY env var missing';
@@ -203,7 +203,7 @@ export async function POST(req: Request) {
 
                 if (finalPrize.type === 'shard') {
                     // ── SHARDS: ERC1155, tokenId=0, value=amount from prize_types ──
-                    shardsGained = finalPrize.amount ?? SHARD_AMOUNTS[finalPrize.slug] ?? parseShardsFromSlug(finalPrize.slug);
+                    shardsGained = finalPrize.amount ?? SHARD_AMOUNTS[finalPrize.id] ?? parseShardsFromSlug(finalPrize.id);
                     if (!SHARD_CONTRACT_ADDRESS) throw new Error('SHARD_CONTRACT_ADDRESS env not set');
 
                     const shardContract = getContract({
@@ -276,7 +276,7 @@ export async function POST(req: Request) {
                     console.log(`🚀 [Play] ${finalPrize.type} #${nftTokenId} transfer → ${wallet.slice(0, 8)}...`);
 
                 } else {
-                    throw new Error(`No inventory item for NFT prize: ${finalPrize.slug}`);
+                    throw new Error(`No inventory item for NFT prize: ${finalPrize.id}`);
                 }
 
                 // ── SEND TRANSACTION ──
