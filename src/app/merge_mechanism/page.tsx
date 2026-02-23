@@ -262,6 +262,8 @@ function MergeMechanismContent() {
             if (!response.ok) throw new Error(data.error || "Server error processing shard merge")
 
             setMergeSuccess(true)
+            fetchShards()
+            window.dispatchEvent(new Event("user_shards_updated"))
         } catch (error: any) {
             console.error("Shard merge error:", error)
             setMergeError(error.message || "Failed to process shard merge")

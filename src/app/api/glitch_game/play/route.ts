@@ -68,40 +68,28 @@ export async function POST(req: Request) {
     let prizeAmountOrId: string | null = null;
 
     try {
-        // ── 1. FETCH USER (case-insensitive lookup to handle historical lowercase entries) ──
-        // NOTE: ilike does case-insensitive matching BUT we never store wallet as lowercase.
-        // New entries are always written with original casing.
-        const { data: user, error: userErr } = await supabaseAdmin
-            .from('glitch_users')
-            .select('games_balance, shards_balance')
-            .ilike('wallet_address', wallet)
-            .maybeSingle();
-
-        if (userErr) {
-            console.error('❌ [Play] User fetch error:', userErr.message);
-            await writeErrorLog(`User fetch: ${userErr.message}`);
-            return NextResponse.json({ error: 'DB error fetching user' }, { status: 500 });
-        }
-        if (!user) {
-            console.error(`❌ [Play] No glitch_users row for wallet ${wallet}`);
-            await writeErrorLog('User not found in glitch_users');
-            return NextResponse.json({ error: 'User not found — please purchase games first' }, { status: 403 });
-        }
-        if (user.games_balance < 1) {
-            return NextResponse.json({ error: 'Insufficient balance' }, { status: 403 });
-        }
-
-        // ── 2. DEDUCT BALANCE ──
-        const { error: deductErr } = await supabaseAdmin
-            .from('glitch_users')
-            .update({ games_balance: user.games_balance - 1 })
-            .ilike('wallet_address', wallet);
+        // ── 1 & 2. ATOMIC FETCH AND DEDUCT BALANCE (RPC) ──
+        const { data: deductRes, error: deductErr } = await supabaseAdmin
+            .rpc('deduct_glitch_game_balance', { p_wallet_address: wallet });
 
         if (deductErr) {
-            console.error('❌ [Play] Deduct error:', deductErr.message);
-            await writeErrorLog(`Balance deduct: ${deductErr.message}`);
-            return NextResponse.json({ error: 'Failed to deduct balance' }, { status: 500 });
+            console.error('❌ [Play] Deduct RPC error:', deductErr.message);
+            await writeErrorLog(`Balance deduct RPC: ${deductErr.message}`);
+            return NextResponse.json({ error: 'Database error deducting balance' }, { status: 500 });
         }
+
+        if (!deductRes.success) {
+            console.error(`❌ [Play] Deduct failed for wallet ${wallet}:`, deductRes.error);
+            await writeErrorLog(`Deduct failed: ${deductRes.error}`);
+            if (deductRes.error === 'user_not_found') {
+                return NextResponse.json({ error: 'User not found — please purchase games first' }, { status: 403 });
+            } else if (deductRes.error === 'insufficient_balance') {
+                return NextResponse.json({ error: 'Insufficient balance' }, { status: 403 });
+            }
+            return NextResponse.json({ error: deductRes.error }, { status: 400 });
+        }
+
+        const user = deductRes.data;
 
         // ── 3. WEIGHTED RNG ──
         const { data: prizeTypes, error: ptErr } = await supabaseAdmin
@@ -131,29 +119,24 @@ export async function POST(req: Request) {
         let inventoryItem: any = null;
 
         if (finalPrize.has_inventory === true) {
-            // prize_type_id in nft_inventory stores the slug (e.g. 'ape_droid', 'kubz')
-            // Status can be 'available' or 'active' — search both
-            const { data: item, error: invErr } = await supabaseAdmin
-                .from('nft_inventory')
-                .select('*')
-                .eq('prize_type_id', finalPrize.slug)
-                .in('status', ['available', 'active'])
-                .limit(1)
-                .maybeSingle();
+            // ── ATOMIC INVENTORY RESERVATION (RPC) ──
+            const { data: reserveRes, error: reserveErr } = await supabaseAdmin
+                .rpc('reserve_inventory_item', {
+                    p_prize_slug: finalPrize.slug,
+                    p_wallet_address: wallet
+                });
 
-            if (invErr) console.error('❌ [Play] Inventory fetch error:', invErr.message);
+            if (reserveErr) {
+                console.error('❌ [Play] Reserve RPC error:', reserveErr.message);
+            } else if (reserveRes?.success) {
+                console.log(`🎯 [Play] Successfully reserved inventory item #${reserveRes.data.token_id} (${reserveRes.data.name}) for ${finalPrize.slug}`);
+                inventoryItem = reserveRes.data;
+            } else {
+                console.warn(`⚠️ [Play] Reserve RPC failed (Stockout): ${reserveRes?.error}`);
+            }
 
-            if (item) {
-                console.log(`🎯 [Play] Found inventory item #${item.token_id} (${item.name}) for ${finalPrize.slug}`);
-                // Mark reserved immediately — prevents double-award if we crash mid-transfer
-                const { error: reserveErr } = await supabaseAdmin
-                    .from('nft_inventory')
-                    .update({ status: 'reserved', winner_wallet: wallet, won_at: new Date().toISOString() })
-                    .eq('id', item.id);
-                if (reserveErr) {
-                    console.error('❌ [Play] Reserve error:', reserveErr.message);
-                }
-                inventoryItem = item;
+            if (inventoryItem) {
+                // Reservation was successful and item is ready for transfer
             } else {
                 // Stockout fallback → shard_x5
                 console.warn(`⚠️ [Play] Stockout: ${finalPrize.slug} → fallback to shard_x5`);
