@@ -199,10 +199,18 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
     // Full Auto-Play Mode (toggle)
     const [isAutoMode, setIsAutoMode] = useState(false)
 
-    /* ── 1. Fetch prizes on mount ── */
     useEffect(() => {
         ; (async () => {
             try {
+                // Background warmup to prevent cold-start delays for first game
+                if (wallet) {
+                    fetch("/api/glitch_game/play", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ wallet, action: "warmup" }),
+                    }).catch(() => { })
+                }
+
                 const res = await fetch("/api/glitch_game/prizes")
                 const { prizes: p } = await res.json()
                 if (p?.length) {
@@ -211,7 +219,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                 }
             } catch (e) { console.error("Prize fetch failed", e) }
         })()
-    }, [])
+    }, [wallet])
 
     // Helper to generate fresh prize pool (15 items)
     const getFreshPrizes = (src: PrizeType[]): PrizeType[] => {
@@ -454,7 +462,10 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
         setXpGained(xpWon)
         setShardsGained(data.shards_gained || 0)
         setTxHash(data.tx_hash || null)
-        onPlayComplete(data.newBalance)
+        // Trigger shard update quietly
+        if (data.shards_gained > 0) {
+            window.dispatchEvent(new Event("user_shards_updated"))
+        }
 
         setPhase("result")
         setTimeout(() => {
@@ -485,7 +496,12 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
         setShowModal(false)
         setError(null)
         setAnimatedXpProgress(null)
-        onRefetch()
+
+        // ONLY refetch full state if NOT playing again immediately. 
+        // This avoids component unmount/loader flashes.
+        if (!triggerPlayAgain) {
+            onRefetch()
+        }
         refetchProgress()
 
         // DO NOT REBUILD DECK - keep current state until user clicks Play

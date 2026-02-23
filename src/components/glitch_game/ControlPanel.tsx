@@ -210,7 +210,12 @@ export function ControlPanel({
         }
     }, [wallet])
 
-    useEffect(() => { fetchTopStats() }, [fetchTopStats])
+    useEffect(() => {
+        fetchTopStats()
+        const handleShardsUpdate = () => fetchTopStats()
+        window.addEventListener("user_shards_updated", handleShardsUpdate)
+        return () => window.removeEventListener("user_shards_updated", handleShardsUpdate)
+    }, [fetchTopStats])
 
     // --- TIMER LOGIC (counts down to active_to) ---
     useEffect(() => {

@@ -28,7 +28,13 @@ const SHARD_AMOUNTS: Record<string, number> = {
  * 5. Stockout NFT is immediately reserved before transfer attempt to prevent double-award
  */
 export async function POST(req: Request) {
-    const wallet: string = (await req.json()).wallet;
+    const body = await req.json();
+    const wallet: string = body.wallet;
+
+    // API Fast-boot / Warmup route
+    if (body.action === 'warmup') {
+        return NextResponse.json({ status: 'warmed_up' });
+    }
 
     if (!wallet) {
         return NextResponse.json({ error: 'Wallet required' }, { status: 400 });
