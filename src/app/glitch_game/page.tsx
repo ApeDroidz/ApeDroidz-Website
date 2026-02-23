@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
-import { useActiveAccount } from "thirdweb/react"
+import { useActiveAccount, useIsAutoConnecting } from "thirdweb/react"
 import { getContract } from "thirdweb/contract"
 import { balanceOf } from "thirdweb/extensions/erc721"
 import { client, apeChain } from "@/lib/thirdweb"
@@ -21,6 +21,7 @@ const DROID_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS ||
 
 export default function GamesPage() {
     const account = useActiveAccount()
+    const isAutoConnecting = useIsAutoConnecting()
     const { refetch: refetchProgress } = useUserProgress()
 
     const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -34,6 +35,9 @@ export default function GamesPage() {
 
     // Fetch user state
     const fetchState = useCallback(async () => {
+        // Wait until wallet finishes checking cache
+        if (isAutoConnecting) return;
+
         if (!account?.address) {
             setBalance(0)
             setIsHolder(false)
@@ -45,35 +49,46 @@ export default function GamesPage() {
         const wallet = account.address
 
         try {
-            // On-chain holder check
-            try {
-                const droidContract = getContract({ client, chain: apeChain, address: DROID_CONTRACT_ADDRESS })
-                // for balanceOf we can use original address or lowercase, likely fine. but consistency is good.
-                const bal = await balanceOf({ contract: droidContract, owner: account.address })
-                setIsHolder(bal > BigInt(0))
-            } catch {
-                // Fallback to DB
-                const { data } = await supabase
-                    .from("users")
-                    .select("droids_count")
-                    .eq("wallet_address", wallet)
-                    .maybeSingle()
-                setIsHolder((data?.droids_count ?? 0) > 0)
+            // Run Holder Check and Balance Check concurrently
+            const holderPromise = (async () => {
+                try {
+                    const droidContract = getContract({ client, chain: apeChain, address: DROID_CONTRACT_ADDRESS })
+                    const bal = await balanceOf({ contract: droidContract, owner: wallet })
+                    return bal > BigInt(0)
+                } catch {
+                    const { data } = await supabase
+                        .from("users")
+                        .select("droids_count")
+                        .eq("wallet_address", wallet)
+                        .maybeSingle()
+                    return (data?.droids_count ?? 0) > 0
+                }
+            })()
+
+            const balancePromise = (async () => {
+                const balRes = await fetch(`/api/glitch_game/balance?wallet=${encodeURIComponent(wallet)}`)
+                if (balRes.ok) {
+                    return await balRes.json()
+                }
+                return { games_balance: 0, x_handle: null }
+            })()
+
+            const [holderResult, balanceResult] = await Promise.allSettled([holderPromise, balancePromise])
+
+            if (holderResult.status === 'fulfilled') {
+                setIsHolder(holderResult.value)
+            }
+            if (balanceResult.status === 'fulfilled') {
+                setBalance(balanceResult.value.games_balance ?? 0)
+                setXHandle(balanceResult.value.x_handle ?? null)
             }
 
-            // Fetch games balance via server route (uses supabaseAdmin, bypasses RLS)
-            const balRes = await fetch(`/api/glitch_game/balance?wallet=${encodeURIComponent(wallet)}`)
-            if (balRes.ok) {
-                const balData = await balRes.json()
-                setBalance(balData.games_balance ?? 0)
-                setXHandle(balData.x_handle ?? null)
-            }
         } catch (err) {
             console.error("Games state error:", err)
         } finally {
             setIsLoading(false)
         }
-    }, [account?.address])
+    }, [account?.address, isAutoConnecting])
 
     useEffect(() => { fetchState() }, [fetchState])
 
