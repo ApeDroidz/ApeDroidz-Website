@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, X, Gem, Zap, Gamepad2, Share2, Repeat } from "lucide-react"
+import { Loader2, X, Gem, Zap, Gamepad2, Share2, Repeat, Ticket } from "lucide-react"
 import { useUserProgress } from "@/hooks/useUserProgress"
 import { ConnectButton } from "thirdweb/react"
 import { client, apeChain } from "@/lib/thirdweb"
@@ -579,11 +579,11 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
             {/* ── HEADER ── */}
             <div className="w-full flex flex-col items-center mb-8 sm:mb-10">
                 <motion.h1
-                    className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white text-center uppercase italic drop-shadow-[0_0_12px_rgba(255,255,255,0.35)] leading-none"
+                    className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white text-center uppercase italic leading-none"
                     initial={{ opacity: 0, y: -15 }}
                     animate={{ opacity: 1, y: 0 }}
                 >
-                    Glitch Game
+                    <span className="drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">Glitch Game</span> <span className="text-[#3b82f6]">SEASON 1</span>
                 </motion.h1>
                 <motion.p
                     className="font-bold text-[8px] sm:text-[10px] text-white/40 tracking-[0.3em] sm:tracking-[0.5em] text-center uppercase mt-1.5"
@@ -821,7 +821,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                 {phase === "idle" ? (
                                     <div className="flex items-center gap-3 pointer-events-none">
                                         <span>PLAY FOR 1</span>
-                                        <Gamepad2 className="w-5 h-5 stroke-[2.5]" />
+                                        <Ticket className="w-5 h-5 stroke-[2.5]" />
                                     </div>
                                 ) : phase === "flipping" || phase === "shuffling" ? (
                                     <span className="flex items-center justify-center gap-2 pointer-events-none">
@@ -1027,7 +1027,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                         className="flex-[2] py-4 bg-white text-black hover:bg-[#0069FF] hover:text-white font-black text-sm uppercase tracking-[0.2em] rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-white/10 hover:shadow-blue-600/50 cursor-pointer flex items-center justify-center gap-2"
                                     >
                                         <span className="pointer-events-none">PLAY AGAIN FOR 1</span>
-                                        <Gamepad2 className="w-4 h-4" />
+                                        <Ticket className="w-4 h-4" />
                                     </button>
                                 </motion.div >
 

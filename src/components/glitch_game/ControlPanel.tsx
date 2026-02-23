@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, CheckCircle, AlertCircle, Clock, Shield, ShoppingCart, Zap, Square, CheckSquare, ExternalLink, Timer, Ticket, CalendarCheck, CreditCard, Gamepad2 } from "lucide-react"
+import { ChevronRight, CheckCircle, AlertCircle, Loader2, Gamepad2, Ticket, Shield, ExternalLink, Timer, CheckSquare, Square } from "lucide-react"
+import { useUserProgress } from "@/hooks/useUserProgress"
+import { timeAgo } from "@/lib/utils"
 import { fadeUp } from "@/lib/animations"
 import { supabase } from "@/lib/supabase"
 import { useSendTransaction } from "thirdweb/react"
@@ -10,7 +12,7 @@ import { prepareTransaction, toWei } from "thirdweb"
 import { client, apeChain } from "@/lib/thirdweb"
 
 // --- TYPES ---
-interface ControlPanelProps {
+export interface ControlPanelProps {
     wallet: string | undefined
     balance: number
     isHolder: boolean
@@ -20,11 +22,19 @@ interface ControlPanelProps {
     onOpenLeaderboard?: () => void
 }
 
-interface ActiveTask {
+export interface ActiveTask {
     id: number
     tweet_url: string
     title?: string
     active_to: string
+}
+
+export interface HistoryLog {
+    id: number
+    wallet: string
+    prizeName: string
+    txHash: string
+    createdAt: string
 }
 
 // --- PACK OPTIONS ---
@@ -73,6 +83,13 @@ export function ControlPanel({
     // --- DAILY STATE ---
     const [activeTask, setActiveTask] = useState<ActiveTask | null>(null)
     const [alreadyClaimed, setAlreadyClaimed] = useState(false)
+    // --- HISTORY STATE ---
+    type HistoryTab = "global" | "personal"
+    const [historyTab, setHistoryTab] = useState<HistoryTab>("global")
+    const [historyData, setHistoryData] = useState<HistoryLog[]>([])
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
+    // --- DAILY STATE ---
     const [isLoading, setIsLoading] = useState(true)
     const [taskCountdown, setTaskCountdown] = useState("")
 
@@ -94,6 +111,29 @@ export function ControlPanel({
     const [isLinkingX, setIsLinkingX] = useState(false)
     const [tempXHandle, setTempXHandle] = useState("")
     const [isSavingX, setIsSavingX] = useState(false)
+
+    // --- FETCH HISTORY ---
+    const fetchHistory = useCallback(async () => {
+        setIsLoadingHistory(true)
+        try {
+            const url = historyTab === "personal" && wallet
+                ? `/api/glitch_game/history?scope=personal&wallet=${wallet}`
+                : `/api/glitch_game/history?scope=global`
+            const res = await fetch(url)
+            if (res.ok) {
+                const data = await res.json()
+                setHistoryData(data.history || [])
+            }
+        } catch (error) {
+            console.error("Failed to fetch history:", error)
+        } finally {
+            setIsLoadingHistory(false)
+        }
+    }, [historyTab, wallet])
+
+    useEffect(() => {
+        fetchHistory()
+    }, [fetchHistory])
 
     // --- FETCH DAILY STATE (via server API to bypass RLS) ---
     const fetchDailyState = useCallback(async () => {
@@ -363,7 +403,7 @@ export function ControlPanel({
                     )}
                     <div className="flex items-center gap-2 leading-none">
                         <span className="text-[10px] font-bold tracking-widest text-white/50 uppercase">Shards</span>
-                        <a href="/merge_mechanism?tab=shards" className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Merge</a>
+                        <a href="/merge_mechanism?tab=shards" onMouseEnter={() => playSound("hover")} className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Merge</a>
                     </div>
                 </div>
 
@@ -378,7 +418,7 @@ export function ControlPanel({
                     )}
                     <div className="flex items-center gap-2 leading-none">
                         <span className="text-[10px] font-bold tracking-widest text-white/50 uppercase">Rank</span>
-                        <button onClick={() => onOpenLeaderboard && onOpenLeaderboard()} className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors cursor-pointer text-left mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Leaderboard</button>
+                        <button onClick={() => { playSound("pick"); onOpenLeaderboard && onOpenLeaderboard() }} onMouseEnter={() => playSound("hover")} className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors cursor-pointer text-left mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Leaderboard</button>
                     </div>
                 </div>
             </motion.div>
@@ -515,8 +555,8 @@ export function ControlPanel({
                                                     onMouseEnter={() => playSound("hover")}
                                                     className="flex items-center gap-2 px-3 h-10 rounded-xl bg-black/20 hover:bg-black/40 border border-white/10 transition-all cursor-pointer group/btn"
                                                 >
-                                                    {hasLiked ? <CheckSquare className="w-4 h-4 text-green-400 pointer-events-none" /> : <Square className="w-4 h-4 text-white/30 group-hover/btn:text-white/60 pointer-events-none" />}
-                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${hasLiked ? "text-green-400" : "text-white/50"} pointer-events-none`}>Like</span>
+                                                    {hasLiked ? <CheckSquare className="w-4 h-4 text-white/90 pointer-events-none" /> : <Square className="w-4 h-4 text-white/30 group-hover/btn:text-white/60 pointer-events-none" />}
+                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${hasLiked ? "text-white/90" : "text-white/50"} pointer-events-none`}>Like</span>
                                                 </button>
 
                                                 {/* RT */}
@@ -525,8 +565,8 @@ export function ControlPanel({
                                                     onMouseEnter={() => playSound("hover")}
                                                     className="flex items-center gap-2 px-3 h-10 rounded-xl bg-black/20 hover:bg-black/40 border border-white/10 transition-all cursor-pointer group/btn"
                                                 >
-                                                    {hasRetweeted ? <CheckSquare className="w-4 h-4 text-green-400 pointer-events-none" /> : <Square className="w-4 h-4 text-white/30 group-hover/btn:text-white/60 pointer-events-none" />}
-                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${hasRetweeted ? "text-green-400" : "text-white/50"} pointer-events-none`}>RT</span>
+                                                    {hasRetweeted ? <CheckSquare className="w-4 h-4 text-white/90 pointer-events-none" /> : <Square className="w-4 h-4 text-white/30 group-hover/btn:text-white/60 pointer-events-none" />}
+                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${hasRetweeted ? "text-white/90" : "text-white/50"} pointer-events-none`}>RT</span>
                                                 </button>
 
                                                 {/* Link Input */}
@@ -703,6 +743,81 @@ export function ControlPanel({
                     </AnimatePresence>
                 </div>
             </div>
+
+            {/* === HISTORY SECTION === */}
+            <div className="flex flex-col gap-3 mt-2">
+                <div className="flex items-center gap-4 px-2">
+                    <button
+                        onClick={() => { playSound("pick"); setHistoryTab("global") }}
+                        onMouseEnter={() => playSound("hover")}
+                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${historyTab === "global" ? "text-white" : "text-white/30 hover:text-white/60"}`}
+                    >
+                        Recent Games
+                    </button>
+                    <button
+                        onClick={() => { playSound("pick"); setHistoryTab("personal") }}
+                        onMouseEnter={() => playSound("hover")}
+                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${historyTab === "personal" ? "text-white" : "text-white/30 hover:text-white/60"}`}
+                    >
+                        Your History
+                    </button>
+                </div>
+
+                <div className="flex flex-col gap-2 relative min-h-[150px]">
+                    {isLoadingHistory ? (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+                        </div>
+                    ) : historyData.length === 0 ? (
+                        <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">
+                            No history found
+                        </div>
+                    ) : (
+                        <div className="max-h-[200px] overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-1.5">
+                            <AnimatePresence>
+                                {historyData.map((log) => (
+                                    <motion.div
+                                        key={log.id}
+                                        initial={{ opacity: 0, y: 5 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="grid grid-cols-3 items-center text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2.5 gap-2"
+                                    >
+                                        <span className="font-bold text-white/70 truncate pr-2 text-left">{log.prizeName}</span>
+                                        <div className="flex justify-center">
+                                            <a
+                                                href={`https://opensea.io/${log.wallet}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-white/50 hover:text-white transition-colors flex items-center gap-1 font-mono tracking-tight group"
+                                            >
+                                                {log.wallet.slice(0, 6)}...{log.wallet.slice(-4)}
+                                                <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </a>
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <a
+                                                href={`https://apechain.calderaexplorer.xyz/tx/${log.txHash}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-white/40 hover:text-orange-400 font-bold transition-colors whitespace-nowrap tracking-wider flex items-center gap-1 group"
+                                            >
+                                                {timeAgo(log.createdAt)}
+                                                <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </a>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
+                        </div>
+                    )}
+                </div>
+            </div>
+            <style jsx global>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+            `}</style>
         </div>
     )
 }
