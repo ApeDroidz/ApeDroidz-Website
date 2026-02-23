@@ -125,6 +125,7 @@ export default function GamesPage() {
                             xHandle={xHandle}
                             onBalanceUpdate={handleBalanceUpdate}
                             onRefetch={fetchState}
+                            onOpenLeaderboard={() => { setProfileInitialTab("leaderboard"); setIsProfileOpen(true) }}
                         />
                     </motion.div>
                 )}

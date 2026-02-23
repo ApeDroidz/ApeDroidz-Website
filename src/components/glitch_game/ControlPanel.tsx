@@ -17,6 +17,7 @@ interface ControlPanelProps {
     xHandle: string | null
     onBalanceUpdate: (newBalance: number) => void
     onRefetch: () => void
+    onOpenLeaderboard?: () => void
 }
 
 interface ActiveTask {
@@ -58,6 +59,7 @@ export function ControlPanel({
     xHandle,
     onBalanceUpdate,
     onRefetch,
+    onOpenLeaderboard,
 }: ControlPanelProps) {
     // Sound helper
     const playSound = (type: "hover" | "pick") => {
@@ -112,6 +114,40 @@ export function ControlPanel({
     }, [wallet])
 
     useEffect(() => { fetchDailyState() }, [fetchDailyState])
+
+    // --- TOP STATS (Shards & Rank) ---
+    const [shards, setShards] = useState<number | null>(null)
+    const [myRank, setMyRank] = useState<number>(0)
+    const [isLoadingStats, setIsLoadingStats] = useState(false)
+
+    const fetchTopStats = useCallback(async () => {
+        if (!wallet) {
+            setShards(null)
+            setMyRank(0)
+            return
+        }
+        setIsLoadingStats(true)
+        try {
+            // 1. Shards
+            const res = await fetch(`/api/merge/shards-balance?wallet=${wallet}`, { cache: 'no-store' })
+            if (res.ok) {
+                const data = await res.json()
+                setShards(data.balance || 0)
+            }
+            // 2. Rank
+            const { data } = await supabase.from('users').select('wallet_address').order('xp', { ascending: false }).limit(200)
+            if (data) {
+                const rankIdx = data.findIndex(u => u.wallet_address.toLowerCase() === wallet.toLowerCase())
+                setMyRank(rankIdx >= 0 ? rankIdx + 1 : 0)
+            }
+        } catch (e) {
+            console.error("Failed to fetch top stats", e)
+        } finally {
+            setIsLoadingStats(false)
+        }
+    }, [wallet])
+
+    useEffect(() => { fetchTopStats() }, [fetchTopStats])
 
     // --- TIMER LOGIC (counts down to active_to) ---
     useEffect(() => {
@@ -301,33 +337,54 @@ export function ControlPanel({
     const [activeTab, setActiveTab] = useState<ControlPanelTab>("buy");
 
     return (
-        <div className="w-full lg:w-[30%] flex flex-col gap-6 p-4 sm:p-6 pt-20"> {/* Removed border-l, added pt-20 */}
+        <div className="w-full lg:w-[30%] flex flex-col gap-6 p-4 sm:p-6 pt-16 lg:pt-[50px]"> {/* Lowered container */}
 
-            {/* === BALANCE === */}
+            {/* === TOP STATS === */}
             <motion.div
-                className="flex items-center gap-4 px-2"
+                className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center"
                 variants={fadeUp}
                 initial="hidden"
                 animate="show"
             >
-                <Gamepad2 className="w-9 h-9 text-white/90" />
-                <div className="flex items-center gap-3 pt-1">
-                    <span className="font-mono text-4xl font-black text-white leading-none tracking-tight">{balance}</span>
-                    <span className="text-sm font-bold tracking-widest text-white/40 uppercase mt-1">Games Available</span>
+                {/* TICKETS */}
+                <div className="flex flex-col pr-2">
+                    <span className="font-mono text-[22px] font-extrabold text-white leading-none tracking-tight mb-2">{balance}</span>
+                    <span className="text-[10px] font-bold tracking-widest text-white/50 uppercase leading-none">Tickets</span>
+                </div>
+
+                <div className="w-[1px] h-10 bg-white/10" />
+
+                {/* SHARDS */}
+                <div className="flex flex-col px-4">
+                    {isLoadingStats ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-white/30 mb-2" />
+                    ) : (
+                        <span className="font-mono text-[22px] font-extrabold text-white leading-none tracking-tight mb-2">{shards !== null ? shards : 0}</span>
+                    )}
+                    <div className="flex items-center gap-2 leading-none">
+                        <span className="text-[10px] font-bold tracking-widest text-white/50 uppercase">Shards</span>
+                        <a href="/merge_mechanism?tab=shards" className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Merge</a>
+                    </div>
+                </div>
+
+                <div className="w-[1px] h-10 bg-white/10" />
+
+                {/* RANK */}
+                <div className="flex flex-col pl-4 text-left">
+                    {isLoadingStats ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-white/30 mb-2" />
+                    ) : (
+                        <span className="font-mono text-[22px] font-extrabold text-white leading-none tracking-tight mb-2">{myRank > 0 ? `#${myRank}` : '--'}</span>
+                    )}
+                    <div className="flex items-center gap-2 leading-none">
+                        <span className="text-[10px] font-bold tracking-widest text-white/50 uppercase">Rank</span>
+                        <button onClick={() => onOpenLeaderboard && onOpenLeaderboard()} className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors cursor-pointer text-left mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Leaderboard</button>
+                    </div>
                 </div>
             </motion.div>
 
             {/* === MAIN CONTENT CARD (Tabs + Content) === */}
             <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md overflow-hidden flex flex-col relative group">
-
-                {/* Tooltip for Non-Holders (Only on Daily tab) */}
-                {activeTab === "daily" && !isHolder && wallet && (
-                    <div className="absolute inset-x-0 -top-10 hidden group-hover:flex justify-center z-50 pointer-events-none">
-                        <div className="bg-black/90 backdrop-blur-md text-white/90 text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg border border-white/20 shadow-xl">
-                            Exclusive to ApeDroidz Holders
-                        </div>
-                    </div>
-                )}
 
                 {/* --- TAB HEADER --- */}
                 <div className="flex border-b border-white/10">
@@ -339,10 +396,8 @@ export function ControlPanel({
                                 ? "bg-white/5 text-white shadow-[inset_0_-1px_0_0_#fff]"
                                 : "text-white/40 hover:text-white/60 hover:bg-white/[0.02]"}`}
                     >
-                        <ShoppingCart className={`w-3.5 h-3.5 ${activeTab === "buy" ? "text-orange-400" : "opacity-50"} pointer-events-none`} />
-                        <span className="pointer-events-none">Buy Games</span>
+                        <span className="pointer-events-none">Tickets</span>
                     </button>
-                    <div className="w-px bg-white/10" />
                     <button
                         onClick={() => { playSound("pick"); setActiveTab("daily") }}
                         onMouseEnter={() => playSound("hover")}
@@ -351,8 +406,7 @@ export function ControlPanel({
                                 ? "bg-white/5 text-white shadow-[inset_0_-1px_0_0_#fff]"
                                 : "text-white/40 hover:text-white/60 hover:bg-white/[0.02]"}`}
                     >
-                        <CalendarCheck className={`w-3.5 h-3.5 ${activeTab === "daily" ? (isHolder ? "text-[#0069FF]" : "text-white/40") : "opacity-50"} pointer-events-none`} />
-                        <span className="pointer-events-none">Free Daily Game</span>
+                        <span className="pointer-events-none">Free Daily</span>
                     </button>
                 </div>
 
@@ -367,12 +421,34 @@ export function ControlPanel({
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                                 transition={{ duration: 0.2 }}
-                                className={`p-5 space-y-4 transition-all duration-300 ${!isHolder && wallet ? "opacity-30 grayscale pointer-events-none select-none" : ""}`}
+                                className="p-5 flex flex-col gap-4 transition-all duration-300"
                             >
-                                <h3 className="text-lg font-black text-white/90 uppercase tracking-[0.15em] text-left pl-1">Only For Holders</h3>
+                                <h3 className="text-3xl font-black text-white uppercase tracking-tight text-left mt-2 mb-2">Only For Holders</h3>
 
                                 {!wallet ? (
                                     <p className="text-xs font-medium text-white/40 text-center py-2">Connect wallet to access daily rewards.</p>
+
+                                ) : !isHolder ? (
+                                    /* ── NON-HOLDER STATE ── */
+                                    <div className="flex flex-col items-center justify-center gap-4 py-8 bg-white/[0.02] rounded-xl border border-white/5 text-center px-4 mt-2">
+                                        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                                            <Shield className="w-6 h-6 text-white/30" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-1">Get Your Droid</h4>
+                                            <p className="text-xs text-white/40 px-4">You need at least 1 ApeDroid to access daily free games.</p>
+                                        </div>
+                                        <div className="flex items-stretch gap-3 w-full max-w-[280px] mt-2">
+                                            <a href="https://magiceden.io/collections/apechain/0x4e0edc9be4d47d414daf8ed9a6471f41e99577f3" target="_blank" rel="noopener noreferrer" className="flex-1 flex justify-center items-center gap-2 h-[42px] rounded-xl bg-[#111] hover:bg-[#222] border border-white/10 transition-colors">
+                                                <img src="/MagicEden.svg" alt="Magic Eden" className="w-[18px] h-[18px] opacity-70" />
+                                                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Buy on ME</span>
+                                            </a>
+                                            <a href="https://opensea.io/collection/apedroidz" target="_blank" rel="noopener noreferrer" className="flex-1 flex justify-center items-center gap-2 h-[42px] rounded-xl bg-[#111] hover:bg-[#222] border border-white/10 transition-colors">
+                                                <img src="/Opensea.svg" alt="OpenSea" className="w-[18px] h-[18px] opacity-70" />
+                                                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Buy on OS</span>
+                                            </a>
+                                        </div>
+                                    </div>
 
                                 ) : isLoading ? (
                                     /* ── SKELETON LOADING ── */
@@ -547,31 +623,29 @@ export function ControlPanel({
                                 transition={{ duration: 0.2 }}
                                 className="p-5 flex flex-col gap-4"
                             >
-                                <h3 className="text-lg font-black text-white/90 uppercase tracking-[0.15em] text-left pl-1 mt-2 mb-2">Grab More Games</h3>
-                                <div className="grid grid-cols-3 gap-3">
+                                <h3 className="text-3xl font-black text-white uppercase tracking-tight text-left mt-2 mb-2">Buy Tickets</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                     {PACKS.map(pack => (
                                         <button
                                             key={pack.size}
                                             onClick={() => { playSound("pick"); setSelectedPack(selectedPack === pack.size ? null : pack.size) }}
                                             onMouseEnter={() => playSound("hover")}
                                             disabled={!wallet || buyingPack !== null}
-                                            className={`aspect-square rounded-xl border flex flex-col items-center justify-center gap-1 transition-all duration-200
-                              ${selectedPack === pack.size
-                                                    ? "bg-white/15 border-white/40 text-white scale-[1.02] shadow-lg shadow-white/5"
+                                            className={`h-[72px] rounded-xl border flex items-center justify-center gap-2 transition-all duration-200
+                                                ${selectedPack === pack.size
+                                                    ? "bg-white/15 border-white/40 text-white shadow-lg shadow-white/5"
                                                     : wallet && buyingPack === null
-                                                        ? "bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/10 hover:border-white/30 hover:text-white cursor-pointer hover:scale-[1.02]"
-                                                        : "bg-white/[0.01] border-white/5 text-white/10 cursor-not-allowed"
+                                                        ? "bg-[#111] border-white/10 text-white/80 hover:bg-[#222] hover:border-white/30 hover:text-white cursor-pointer"
+                                                        : "bg-black/20 border-white/5 text-white/20 cursor-not-allowed"
                                                 }`}
                                         >
                                             {buyingPack === pack.size ? (
-                                                <Loader2 className="w-5 h-5 animate-spin text-white" />
+                                                <Loader2 className="w-6 h-6 animate-spin text-white" />
                                             ) : (
-                                                <>
-                                                    <Gamepad2 className={`w-6 h-6 mb-1 ${selectedPack === pack.size ? "text-orange-400" : wallet ? "text-orange-400/80" : "opacity-20"} pointer-events-none`} />
-                                                    <span className="text-xs tracking-wide uppercase leading-none pointer-events-none">
-                                                        <span className="font-black text-sm pointer-events-none">{pack.size}</span> <span className="font-medium text-white/60 pointer-events-none">GAMES</span>
-                                                    </span>
-                                                </>
+                                                <div className="flex items-center gap-2 pointer-events-none">
+                                                    <span className="font-bold text-3xl leading-none pointer-events-none">{pack.size}</span>
+                                                    <Ticket className={`w-7 h-7 ${selectedPack === pack.size ? "text-orange-400" : wallet ? "text-orange-400" : "opacity-30"} pointer-events-none stroke-[2.5]`} />
+                                                </div>
                                             )}
                                         </button>
                                     ))}
@@ -601,7 +675,7 @@ export function ControlPanel({
                                                 <Loader2 className="w-3.5 h-3.5 animate-spin pointer-events-none" />
                                                 <span className="pointer-events-none">{buyMsg?.text === "Verifying transaction..." ? "VERIFYING..." : "SENDING..."}</span>
                                             </>
-                                        ) : <span className="pointer-events-none">BUY GAMES</span>}
+                                        ) : <span className="pointer-events-none">BUY TICKETS</span>}
                                     </button>
                                 </div>
 
