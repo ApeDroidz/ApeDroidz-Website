@@ -316,6 +316,7 @@ export function ControlPanel({
             setHasRetweeted(false)
             setAlreadyClaimed(true)
             onBalanceUpdate(data.newBalance)
+            fetchTopStats()
         } catch (err: any) {
             setDailyMsg({ type: "error", text: err.message })
         } finally {
@@ -545,9 +546,12 @@ export function ControlPanel({
                                 ) : alreadyClaimed && activeTask ? (
                                     /* ── CLAIMED STATE ── */
                                     <div className="flex flex-col items-center justify-center gap-2 py-6 bg-white/[0.03] rounded-xl border border-white/5 relative overflow-hidden">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <CheckCircle className="w-5 h-5 text-white/40" />
-                                            <span className="text-sm font-black text-white/40 uppercase tracking-widest">Mission Completed</span>
+                                        <div className="flex flex-col items-center gap-1 mb-4 text-center">
+                                            <div className="flex items-center gap-2">
+                                                <CheckCircle className="w-5 h-5 text-white/40" />
+                                                <span className="text-sm font-black text-white/40 uppercase tracking-widest">DAILY TICKET CLAIMED</span>
+                                            </div>
+                                            <span className="text-xs font-black text-[#0069FF] uppercase tracking-widest">+ 100 XP</span>
                                         </div>
                                         <div className="flex flex-col items-center gap-1">
                                             <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Next Mission In</span>
@@ -924,6 +928,8 @@ export function ControlPanel({
                                                         <span className="truncate">{u.rank_title || "Baby Droid"} (LVL {u.level || 1})</span>
                                                         <div className="w-1 h-1 rounded-full bg-white/20 flex-shrink-0" />
                                                         <span className="text-white/50 flex-shrink-0">{u.games_played || 0} GAMES</span>
+                                                        <div className="w-1 h-1 rounded-full bg-white/20 flex-shrink-0" />
+                                                        <span className="text-white/50 flex-shrink-0">{u.quests_finished || 0} QUESTS</span>
                                                     </div>
                                                 </div>
                                                 <div className="text-right flex flex-col items-end">

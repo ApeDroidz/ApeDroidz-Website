@@ -1029,20 +1029,41 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                                     transition={{ delay: 0.5 }}
                                 >
                                     <button
-                                        onClick={() => {
+                                        onClick={async () => {
                                             playSound("pick")
-                                            const parts = [`Just won ${wonPrize.name} `]
+
+                                            // 1. Tweet Text
+                                            const parts = [`Just won ${wonPrize.name}`]
                                             if (xpGained > 0) parts.push(`+ ${xpGained} XP`)
                                             if (shardsGained > 0) parts.push(`+ ${shardsGained} Shards`)
-                                            parts.push("in @ApeDroidz Glitch Game! 🎮⚡")
-                                            const text = encodeURIComponent(parts.join(" "))
+                                            const text = encodeURIComponent(parts.join(" ") + " in @ApeDroidz Glitch Game! 🎮⚡\n\nLet's Play on ApeDroidz.com")
                                             window.open(`https://x.com/intent/tweet?text=${text}`, "_blank")
+
+                                            // 2. Download Image
+                                            if (wonPrize.imageUrl) {
+                                                try {
+                                                    const res = await fetch(wonPrize.imageUrl)
+                                                    const blob = await res.blob()
+                                                    const url = window.URL.createObjectURL(blob)
+                                                    const link = document.createElement("a")
+                                                    link.href = url
+                                                    link.download = `ApeDroidz_Win_${wonPrize.name.replace(/\s+/g, '_')}.png`
+                                                    document.body.appendChild(link)
+                                                    link.click()
+                                                    document.body.removeChild(link)
+                                                    window.URL.revokeObjectURL(url)
+                                                } catch (e) {
+                                                    console.error("Failed to download prize image", e)
+                                                }
+                                            }
                                         }}
                                         onMouseEnter={() => playSound("btn_hover")}
-                                        className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all border border-white/5 cursor-pointer flex items-center justify-center gap-2"
+                                        className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all border border-white/5 cursor-pointer flex items-center justify-center gap-2 group/share"
                                     >
                                         <span className="pointer-events-none">Share</span>
-                                        <Share2 className="w-3 h-3" />
+                                        <svg viewBox="0 0 24 24" aria-hidden="true" className="w-3.5 h-3.5 fill-white/40 group-hover/share:fill-white transition-colors pointer-events-none">
+                                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 24.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                                        </svg>
                                     </button >
                                     <button
                                         onClick={() => { playSound("pick"); resetGame(true) }}

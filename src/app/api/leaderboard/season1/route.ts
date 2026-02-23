@@ -53,6 +53,7 @@ export async function GET() {
                 wallet_address: player.wallet_address,
                 season_xp: player.season_xp || 0,
                 games_played: player.games_played || 0,
+                quests_finished: player.quests_finished || 0,
                 username: userMatch?.username || null,
                 PFP: userMatch?.PFP || null,
                 level: userMatch?.level || 1,

@@ -124,6 +124,45 @@ export async function POST(req: Request) {
             }
         }
 
+        // 7. Grant 100 XP and Increment Season 1 Quests
+        const xpGained = 100;
+        try {
+            // Update global users XP
+            const { data: u } = await supabaseAdmin
+                .from('users')
+                .select('xp')
+                .ilike('wallet_address', wallet)
+                .maybeSingle();
+            if (u) {
+                await supabaseAdmin
+                    .from('users')
+                    .update({ xp: (u.xp || 0) + xpGained })
+                    .ilike('wallet_address', wallet);
+            }
+
+            // Upsert Season 1 Leaderboard stats
+            const { data: s1User } = await supabaseAdmin
+                .from('glitch_season_1')
+                .select('season_xp, quests_finished')
+                .eq('wallet_address', wallet)
+                .maybeSingle();
+
+            const newSeasonXp = (s1User?.season_xp || 0) + xpGained;
+            const newQuestsFinished = (s1User?.quests_finished || 0) + 1;
+
+            const { error: s1Err } = await supabaseAdmin
+                .from('glitch_season_1')
+                .upsert({
+                    wallet_address: wallet,
+                    season_xp: newSeasonXp,
+                    quests_finished: newQuestsFinished
+                }, { onConflict: 'wallet_address' });
+
+            if (s1Err) console.error('❌ [Daily] Season 1 Log error:', s1Err.message);
+        } catch (e: any) {
+            console.error('❌ [Daily] XP/Season 1 Catch Error:', e.message);
+        }
+
 
 
         const newBalance = existingUser ? existingUser.games_balance + 1 : 1;
