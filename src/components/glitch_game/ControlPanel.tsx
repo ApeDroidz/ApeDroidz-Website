@@ -773,14 +773,14 @@ export function ControlPanel({
                     <button
                         onClick={() => { playSound("pick"); setHistoryTab("global") }}
                         onMouseEnter={() => playSound("hover")}
-                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${historyTab === "global" ? "text-white" : "text-white/30 hover:text-white/60"}`}
+                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${historyTab === "global" ? "text-white/50" : "text-white/30 hover:text-white/50"}`}
                     >
                         Recent Games
                     </button>
                     <button
                         onClick={() => { playSound("pick"); setHistoryTab("personal") }}
                         onMouseEnter={() => playSound("hover")}
-                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${historyTab === "personal" ? "text-white" : "text-white/30 hover:text-white/60"}`}
+                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${historyTab === "personal" ? "text-white/50" : "text-white/30 hover:text-white/50"}`}
                     >
                         Your History
                     </button>
@@ -796,7 +796,10 @@ export function ControlPanel({
                             No history found
                         </div>
                     ) : (
-                        <div className="max-h-[200px] overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-1.5">
+                        <div
+                            className="max-h-[200px] overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-1.5 pb-4"
+                            style={{ maskImage: "linear-gradient(to bottom, black 80%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 80%, transparent 100%)" }}
+                        >
                             <AnimatePresence>
                                 {historyData.map((log) => (
                                     <motion.div
@@ -805,13 +808,13 @@ export function ControlPanel({
                                         animate={{ opacity: 1, y: 0 }}
                                         className="grid grid-cols-3 items-center text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2.5 gap-2"
                                     >
-                                        <span className="font-bold text-white/70 truncate pr-2 text-left">{log.prizeName}</span>
+                                        <span className="font-bold text-white/50 truncate pr-2 text-left">{log.prizeName}</span>
                                         <div className="flex justify-center">
                                             <a
                                                 href={`https://opensea.io/${log.wallet}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="text-white/50 hover:text-white transition-colors flex items-center gap-1 font-mono tracking-tight group"
+                                                className="text-white/70 hover:text-white transition-colors flex items-center gap-1 font-mono tracking-tight group"
                                             >
                                                 {log.wallet.slice(0, 6)}...{log.wallet.slice(-4)}
                                                 <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
