@@ -29,6 +29,7 @@ export default function GamesPage() {
 
     // User state
     const [isLoading, setIsLoading] = useState(true)
+    const [isFetchingState, setIsFetchingState] = useState(true)
     const [isHolder, setIsHolder] = useState(false)
     const [balance, setBalance] = useState(0)
     const [xHandle, setXHandle] = useState<string | null>(null)
@@ -38,11 +39,14 @@ export default function GamesPage() {
         // Wait until wallet finishes checking cache
         if (isAutoConnecting) return;
 
+        setIsFetchingState(true)
+
         if (!account?.address) {
             setBalance(0)
             setIsHolder(false)
             setXHandle(null)
             setIsLoading(false)
+            setIsFetchingState(false)
             return
         }
 
@@ -87,6 +91,7 @@ export default function GamesPage() {
             console.error("Games state error:", err)
         } finally {
             setIsLoading(false)
+            setIsFetchingState(false)
         }
     }, [account?.address, isAutoConnecting])
 
@@ -129,6 +134,7 @@ export default function GamesPage() {
                             wallet={account?.address}
                             onPlayComplete={handleBalanceUpdate}
                             onRefetch={fetchState}
+                            isFetchingState={isFetchingState}
                         />
 
                         {/* Right: Control Panel (30%) */}
@@ -138,6 +144,7 @@ export default function GamesPage() {
                             isHolder={isHolder}
                             xHandle={xHandle}
                             onBalanceUpdate={handleBalanceUpdate}
+                            isFetchingState={isFetchingState}
                             onRefetch={fetchState}
                         />
                     </motion.div>

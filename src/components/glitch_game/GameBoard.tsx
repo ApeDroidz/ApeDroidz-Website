@@ -73,6 +73,7 @@ interface GameBoardProps {
     wallet: string | undefined
     onPlayComplete: (newBalance: number) => void
     onRefetch: () => void
+    isFetchingState?: boolean
 }
 
 type Phase = "loading" | "idle" | "flipping" | "gathering" | "shuffling" | "picking" | "revealing" | "result"
@@ -170,7 +171,7 @@ const CARD_FLIP_STYLES = `
 /* ════════════════════════════════════════════
    GAME BOARD
    ════════════════════════════════════════════ */
-export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBoardProps) {
+export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchingState }: GameBoardProps) {
     const [phase, setPhase] = useState<Phase>("loading")
     const [prizes, setPrizes] = useState<PrizeType[]>([])
     const [displayCards, setDisplayCards] = useState<DeckCard[]>([])
@@ -190,6 +191,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
     const [winnerIdx, setWinnerIdx] = useState<number | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [showModal, setShowModal] = useState(false)
+    const [mobileTooltipIdx, setMobileTooltipIdx] = useState<number | null>(null)
 
     // XP animation state
     const { xp: currentXp, level: currentLevel, progress: currentProgress, refetch: refetchProgress } = useUserProgress()
@@ -467,6 +469,9 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
             window.dispatchEvent(new Event("user_shards_updated"))
         }
 
+        // Trigger history update quietly
+        window.dispatchEvent(new Event("game_history_updated"))
+
         setPhase("result")
         setTimeout(() => {
             setShowModal(true)
@@ -626,7 +631,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
             </AnimatePresence>
 
             {/* ── Loading Skeleton ── */}
-            {phase === "loading" && (
+            {(phase === "loading" || isFetchingState) && (
                 <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-6 animate-pulse">
                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 w-full">
                         {Array.from({ length: 15 }).map((_, i) => (
@@ -638,7 +643,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
             )}
 
             {/* ── CARD GRID ── */}
-            {phase !== "loading" && (
+            {(!isFetchingState && phase !== "loading") && (
                 <div className="w-full max-w-4xl mx-auto">
                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
                         {displayCards.map((card, i) => {
@@ -723,6 +728,8 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                             audio.volume = 0.6
                                             audio.play().catch(() => { })
                                             handlePick(i)
+                                        } else if (phase === "idle") {
+                                            setMobileTooltipIdx(prev => prev === i ? null : i)
                                         }
                                     }}
                                     className={`
@@ -730,7 +737,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
                                         transition-shadow duration-300
                                         ${isWinner ? "border-[#0069FF] shadow-[0_0_28px_rgba(0,105,255,0.5)] z-10" : "border-white/10"}
                                         ${dimmed ? "grayscale" : ""}
-                                        ${isPickingPhase ? "cursor-pointer" : ""}
+                                        ${(isPickingPhase || phase === "idle") ? "cursor-pointer" : ""}
                                         ${isPickingPhase && isHovered ? "border-white/40 shadow-[0_8px_25px_rgba(0,105,255,0.25)] z-10" : ""}
                                         ${gatherClass}
                                     `}
@@ -768,16 +775,16 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch }: GameBo
 
                                     {/* Use 'i' for hover tooltip (idle phase) logic works because cards don't move during idle */}
                                     {phase === "idle" && (
-                                        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm opacity-0 hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center p-4 text-center z-20 rounded-xl">
-                                            <span className="inline-block px-3 py-1 rounded-full bg-white/10 border border-white/10 text-[10px] sm:text-xs font-bold text-white/50 uppercase tracking-widest mb-2">
+                                        <div className={`absolute inset-0 bg-black/85 backdrop-blur-sm opacity-0 xl:hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center p-2 sm:p-4 text-center z-20 rounded-xl ${mobileTooltipIdx === i ? "!opacity-100" : ""}`}>
+                                            <span className="inline-block px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-white/10 border border-white/10 text-[8px] sm:text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1 sm:mb-2">
                                                 {card.type}
                                             </span>
-                                            <p className="font-black text-white text-sm sm:text-base uppercase italic tracking-wider mb-2 leading-tight line-clamp-2 drop-shadow-md">
+                                            <p className="font-black text-white text-[10px] sm:text-sm uppercase italic tracking-wider mb-1 sm:mb-2 leading-[1.1] sm:leading-tight line-clamp-3 sm:line-clamp-2 drop-shadow-md">
                                                 {card.name}
                                             </p>
                                             {card.xp_reward > 0 && (
-                                                <div className="flex items-center gap-1.5 text-xs sm:text-sm font-black text-[#0069FF]">
-                                                    <Zap size={14} fill="currentColor" />
+                                                <div className="flex items-center gap-1 text-[10px] sm:text-xs font-black text-[#0069FF]">
+                                                    <Zap size={12} className="sm:w-3.5 sm:h-3.5" fill="currentColor" />
                                                     <span>+{card.xp_reward} XP</span>
                                                 </div>
                                             )}

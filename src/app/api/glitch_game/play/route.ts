@@ -130,7 +130,7 @@ export async function POST(req: Request) {
         // ── 4. INVENTORY CHECK (NFT/Token) ──
         let inventoryItem: any = null;
 
-        if (finalPrize.type === 'nft' || finalPrize.type === 'token') {
+        if (finalPrize.has_inventory === true) {
             // prize_type_id in nft_inventory stores the slug (e.g. 'ape_droid', 'kubz')
             // Status can be 'available' or 'active' — search both
             const { data: item, error: invErr } = await supabaseAdmin

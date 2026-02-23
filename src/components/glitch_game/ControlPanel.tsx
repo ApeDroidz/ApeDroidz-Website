@@ -19,6 +19,7 @@ export interface ControlPanelProps {
     xHandle: string | null
     onBalanceUpdate: (newBalance: number) => void
     onRefetch: () => void
+    isFetchingState?: boolean
 }
 
 export interface ActiveTask {
@@ -67,7 +68,8 @@ export function ControlPanel({
     isHolder,
     xHandle,
     onBalanceUpdate,
-    onRefetch
+    onRefetch,
+    isFetchingState
 }: ControlPanelProps) {
     // Sound helper
     const playSound = (type: "hover" | "pick") => {
@@ -133,8 +135,8 @@ export function ControlPanel({
     const [isSavingX, setIsSavingX] = useState(false)
 
     // --- FETCH HISTORY ---
-    const fetchHistory = useCallback(async () => {
-        setIsLoadingHistory(true)
+    const fetchHistory = useCallback(async (silent = false) => {
+        if (!silent) setIsLoadingHistory(true)
         try {
             const url = historyTab === "personal" && wallet
                 ? `/api/glitch_game/history?scope=personal&wallet=${wallet}`
@@ -147,12 +149,17 @@ export function ControlPanel({
         } catch (error) {
             console.error("Failed to fetch history:", error)
         } finally {
-            setIsLoadingHistory(false)
+            if (!silent) setIsLoadingHistory(false)
         }
     }, [historyTab, wallet])
 
     useEffect(() => {
         fetchHistory()
+
+        const handleHistoryUpdate = () => fetchHistory(true)
+        window.addEventListener("game_history_updated", handleHistoryUpdate)
+
+        return () => window.removeEventListener("game_history_updated", handleHistoryUpdate)
     }, [fetchHistory])
 
     // --- FETCH DAILY STATE (via server API to bypass RLS) ---
@@ -416,7 +423,11 @@ export function ControlPanel({
             >
                 {/* TICKETS */}
                 <div className="flex flex-col pr-2">
-                    <span className="font-mono text-[22px] font-extrabold text-white leading-none tracking-tight mb-2">{balance}</span>
+                    {isFetchingState ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-white/30 mb-2" />
+                    ) : (
+                        <span className="font-mono text-[22px] font-extrabold text-white leading-none tracking-tight mb-2">{balance}</span>
+                    )}
                     <span className="text-[10px] font-bold tracking-widest text-white/50 uppercase leading-none">Tickets</span>
                 </div>
 

@@ -31,6 +31,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const [newName, setNewName] = useState("")
     const [xHandle, setXHandle] = useState("")
     const [isEditingX, setIsEditingX] = useState(false)
+    const [isLoadingX, setIsLoadingX] = useState(true)
 
     const [userPfpUrl, setUserPfpUrl] = useState<string | null>(null)
     const [isAvatarLoading, setIsAvatarLoading] = useState(false)
@@ -90,16 +91,36 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
         } else { setIsAvatarLoading(false) }
 
         // Fetch Glitch Profile (X Handle)
+        setIsLoadingX(true)
         const { data: glitchData } = await supabase.from('glitch_users').select('x_handle').ilike('wallet_address', normalizedAddress || "").maybeSingle()
         if (glitchData?.x_handle) {
             setXHandle(glitchData.x_handle)
         }
+        setIsLoadingX(false)
     }
 
     const fetchLeaderboard = async () => {
         setLoadingLeaderboard(true)
         const { data } = await supabase.from('users').select('*').order('xp', { ascending: false }).limit(50)
-        if (data) setLeaderboard(data)
+
+        if (data && data.length > 0) {
+            const wallets = data.map(u => u.wallet_address)
+            const orFilter = wallets.map(w => `wallet_address.ilike.${w}`).join(',')
+
+            // Fetch X Handles for top 50
+            const { data: glitchData } = await supabase.from('glitch_users').select('wallet_address, x_handle').or(orFilter)
+
+            if (glitchData) {
+                // case-insensitive merge
+                data.forEach(u => {
+                    const match = glitchData.find(g => g.wallet_address.toLowerCase() === u.wallet_address.toLowerCase())
+                    if (match?.x_handle) u.x_handle = match.x_handle
+                })
+            }
+            setLeaderboard(data)
+        } else {
+            setLeaderboard([])
+        }
         setLoadingLeaderboard(false)
     }
 
@@ -273,9 +294,10 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                                 </div>
                                                             ) : (
                                                                 <div className="flex flex-col">
-                                                                    {/* X Handle (Mobile) - MOVED UP */}
-                                                                    <div className="mb-1 flex items-center gap-2">
-                                                                        {isEditingX ? (
+                                                                    <div className="mb-1 flex items-center gap-2 min-h-[16px]">
+                                                                        {isLoadingX ? (
+                                                                            <div className="h-3 w-24 bg-white/10 animate-pulse rounded"></div>
+                                                                        ) : isEditingX ? (
                                                                             <div className="flex items-center gap-1 w-full">
                                                                                 <input type="text" value={xHandle} onChange={(e) => setXHandle(e.target.value)} className="bg-white/10 border border-white/20 rounded px-2 py-0.5 text-[10px] text-white font-bold w-full focus:outline-none focus:border-[#3b82f6]" placeholder="@username" onKeyDown={(e) => { if (e.key === 'Enter') saveXHandle(); }} />
                                                                                 <button onClick={saveXHandle} className="p-1 rounded bg-[#3b82f6] text-white"><Check size={10} /></button>
@@ -334,8 +356,10 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                         {/* Name/Address */}
                                                         <div className="flex flex-col gap-1">
                                                             {/* X Handle (Desktop) - MOVED TO TOP */}
-                                                            <div className="mb-0.5 pl-1">
-                                                                {isEditingX ? (
+                                                            <div className="mb-0.5 pl-1 min-h-[24px] flex items-center">
+                                                                {isLoadingX ? (
+                                                                    <div className="h-4 w-28 bg-white/10 animate-pulse rounded ml-1"></div>
+                                                                ) : isEditingX ? (
                                                                     <div className="flex items-center gap-2">
                                                                         <input type="text" value={xHandle} onChange={(e) => setXHandle(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-bold text-sm w-[200px] focus:outline-none focus:border-[#3b82f6]" placeholder="@username" onKeyDown={(e) => { if (e.key === 'Enter') saveXHandle(); }} />
                                                                         <button onClick={saveXHandle} className="p-1.5 rounded bg-[#3b82f6] text-white hover:bg-blue-500 transition-colors"><Check size={14} /></button>
@@ -422,7 +446,14 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                         <div key={user.wallet_address} className={`flex items-center p-5 rounded-[24px] border transition-all ${user.wallet_address === normalizedAddress ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40' : 'bg-white/5 border-transparent'}`}>
                                             <div className="w-12 font-black text-[#3b82f6] text-xl">#{idx + 1}</div>
                                             <div className="flex-1">
-                                                <div className="text-base font-black text-white uppercase tracking-tight">{user.username || `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-base font-black text-white uppercase tracking-tight">{user.username || `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`}</div>
+                                                    {user.x_handle && (
+                                                        <a href={`https://x.com/${user.x_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-white transition-colors" title={user.x_handle}>
+                                                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                                                        </a>
+                                                    )}
+                                                </div>
                                                 <div className="text-[10px] text-white/30 uppercase font-black tracking-widest">{user.rank_title || "Baby Droid"} (LVL {user.level || 1})</div>
                                             </div>
                                             <div className="text-right text-xl font-black text-[#3b82f6]">{new Intl.NumberFormat('en-US').format(user.xp)}</div>
