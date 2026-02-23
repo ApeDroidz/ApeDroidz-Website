@@ -173,6 +173,30 @@ export async function POST(req: Request) {
             if (xpErr) console.error('❌ [Play] XP update error:', xpErr.message);
         }
 
+        // ── 5.5 UPDATE SEASON 1 LEADERBOARD ──
+        try {
+            const { data: s1User } = await supabaseAdmin
+                .from('glitch_season_1')
+                .select('season_xp, games_played')
+                .eq('wallet_address', wallet) // Exact casing used as requested
+                .maybeSingle();
+
+            const newSeasonXp = (s1User?.season_xp || 0) + (xpGained || 0);
+            const newGamesPlayed = (s1User?.games_played || 0) + 1;
+
+            const { error: s1Err } = await supabaseAdmin
+                .from('glitch_season_1')
+                .upsert({
+                    wallet_address: wallet,
+                    season_xp: newSeasonXp,
+                    games_played: newGamesPlayed
+                }, { onConflict: 'wallet_address' });
+
+            if (s1Err) console.error('❌ [Play] Season 1 Log error:', s1Err.message);
+        } catch (e: any) {
+            console.error('❌ [Play] Season 1 Catch Error:', e.message);
+        }
+
         // ── 6. GRANT PRIZE — ALL prizes are on-chain transfers ──
         console.log(`🏆 [Play] Prize selected: slug=${finalPrize.slug}, type=${finalPrize.type}, amount=${finalPrize.amount ?? 'N/A'}, has_inventory=${!!inventoryItem}`);
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronRight, CheckCircle, AlertCircle, Loader2, Gamepad2, Ticket, Shield, ExternalLink, Timer, CheckSquare, Square } from "lucide-react"
+import { ChevronRight, CheckCircle, AlertCircle, Loader2, Gamepad2, Ticket, Shield, ExternalLink, Timer, CheckSquare, Square, X } from "lucide-react"
 import { useUserProgress } from "@/hooks/useUserProgress"
 import { timeAgo } from "@/lib/utils"
 import { fadeUp } from "@/lib/animations"
@@ -19,7 +19,6 @@ export interface ControlPanelProps {
     xHandle: string | null
     onBalanceUpdate: (newBalance: number) => void
     onRefetch: () => void
-    onOpenLeaderboard?: () => void
 }
 
 export interface ActiveTask {
@@ -68,8 +67,7 @@ export function ControlPanel({
     isHolder,
     xHandle,
     onBalanceUpdate,
-    onRefetch,
-    onOpenLeaderboard,
+    onRefetch
 }: ControlPanelProps) {
     // Sound helper
     const playSound = (type: "hover" | "pick") => {
@@ -83,6 +81,28 @@ export function ControlPanel({
     // --- DAILY STATE ---
     const [activeTask, setActiveTask] = useState<ActiveTask | null>(null)
     const [alreadyClaimed, setAlreadyClaimed] = useState(false)
+
+    // --- S1 LEADERBOARD STATE ---
+    const [isS1LeaderboardOpen, setIsS1LeaderboardOpen] = useState(false)
+    const [s1Leaderboard, setS1Leaderboard] = useState<any[]>([])
+    const [isLoadingS1Leaderboard, setIsLoadingS1Leaderboard] = useState(false)
+
+    // Fetch Leaderboard for Modal
+    const fetchS1Leaderboard = useCallback(async () => {
+        setIsLoadingS1Leaderboard(true)
+        try {
+            const res = await fetch('/api/leaderboard/season1');
+            const data = await res.json();
+            if (data.leaderboard) setS1Leaderboard(data.leaderboard);
+        } catch (e) {
+            console.error("Error fetching S1 leaderboard", e)
+        }
+        setIsLoadingS1Leaderboard(false)
+    }, [])
+
+    useEffect(() => {
+        if (isS1LeaderboardOpen) fetchS1Leaderboard()
+    }, [isS1LeaderboardOpen, fetchS1Leaderboard])
     // --- HISTORY STATE ---
     type HistoryTab = "global" | "personal"
     const [historyTab, setHistoryTab] = useState<HistoryTab>("global")
@@ -174,11 +194,14 @@ export function ControlPanel({
                 const data = await res.json()
                 setShards(data.balance || 0)
             }
-            // 2. Rank
-            const { data } = await supabase.from('users').select('wallet_address').order('xp', { ascending: false }).limit(200)
-            if (data) {
-                const rankIdx = data.findIndex(u => u.wallet_address.toLowerCase() === wallet.toLowerCase())
-                setMyRank(rankIdx >= 0 ? rankIdx + 1 : 0)
+            // 2. Season 1 Rank
+            const s1Res = await fetch('/api/leaderboard/season1', { cache: 'no-store' })
+            if (s1Res.ok) {
+                const data = await s1Res.json()
+                if (data.leaderboard) {
+                    const rankIdx = data.leaderboard.findIndex((u: any) => u.wallet_address.toLowerCase() === wallet.toLowerCase())
+                    setMyRank(rankIdx >= 0 ? rankIdx + 1 : 0)
+                }
             }
         } catch (e) {
             console.error("Failed to fetch top stats", e)
@@ -418,7 +441,7 @@ export function ControlPanel({
                     )}
                     <div className="flex items-center gap-2 leading-none">
                         <span className="text-[10px] font-bold tracking-widest text-white/50 uppercase">Rank</span>
-                        <button onClick={() => { playSound("pick"); onOpenLeaderboard && onOpenLeaderboard() }} onMouseEnter={() => playSound("hover")} className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors cursor-pointer text-left mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Leaderboard</button>
+                        <button onClick={() => { playSound("pick"); setIsS1LeaderboardOpen(true); fetchTopStats(); }} onMouseEnter={() => playSound("hover")} className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors cursor-pointer text-left mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Leaderboard</button>
                     </div>
                 </div>
             </motion.div>
@@ -812,6 +835,92 @@ export function ControlPanel({
                     )}
                 </div>
             </div>
+
+            {/* === SEASON 1 LEADERBOARD MODAL === */}
+            <AnimatePresence>
+                {isS1LeaderboardOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                            onClick={() => setIsS1LeaderboardOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-2xl bg-black/80 backdrop-blur-3xl border border-white/10 rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[80vh] max-h-[800px]"
+                        >
+                            {/* Header */}
+                            <div className="flex items-center justify-between p-6 sm:p-8 border-b border-white/5 bg-white/[0.02]">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex flex-col">
+                                        <div className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-none flex items-center gap-2">
+                                            <span className="text-[#3b82f6]">SEASON 1</span> LEADERBOARD
+                                        </div>
+                                        <span className="text-[10px] sm:text-xs text-white/40 uppercase font-bold tracking-[0.2em] mt-1">Glitch Game Rankings</span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsS1LeaderboardOpen(false)}
+                                    className="p-3 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full transition-all"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar-wide">
+                                <div className="flex flex-col gap-3">
+                                    {isLoadingS1Leaderboard ? (
+                                        Array.from({ length: 5 }).map((_, i) => (
+                                            <div key={i} className="flex items-center p-4 sm:p-5 rounded-[24px] border border-white/5 bg-white/[0.02] animate-pulse">
+                                                <div className="w-10 sm:w-12 h-6 sm:h-7 bg-white/10 rounded-lg" />
+                                                <div className="flex-1 min-w-0 pr-4 flex flex-col gap-2">
+                                                    <div className="h-5 sm:h-6 w-32 sm:w-40 bg-white/10 rounded-md" />
+                                                    <div className="h-3 w-48 sm:w-56 bg-white/5 rounded-md" />
+                                                </div>
+                                                <div className="text-right flex flex-col items-end gap-1.5">
+                                                    <div className="h-6 sm:h-7 w-16 sm:w-20 bg-[#3b82f6]/20 rounded-md" />
+                                                    <div className="h-3 w-12 sm:w-14 bg-white/10 rounded-md" />
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        s1Leaderboard.map((u, idx) => (
+                                            <div key={u.wallet_address} className={`flex items-center p-4 sm:p-5 rounded-[24px] border transition-all ${u.wallet_address.toLowerCase() === wallet?.toLowerCase() ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 shadow-[0_0_20px_rgba(59,130,246,0.15)]' : 'bg-white/5 border-transparent hover:border-white/10 hover:bg-white/10'}`}>
+                                                <div className="w-10 sm:w-12 font-black text-[#3b82f6] text-lg sm:text-xl">#{idx + 1}</div>
+                                                <div className="flex-1 min-w-0 pr-4">
+                                                    <div className="text-sm sm:text-base font-black text-white uppercase tracking-tight flex items-center gap-2 truncate">
+                                                        <span className="truncate">{u.username || `${u.wallet_address.slice(0, 6)}...${u.wallet_address.slice(-4)}`}</span>
+                                                        {u.x_handle && (
+                                                            <a href={`https://x.com/${u.x_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:text-[#2563eb] transition-colors flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[9px] sm:text-[10px] text-white/30 uppercase font-black tracking-widest flex items-center gap-2 sm:gap-3 mt-1 truncate">
+                                                        <span className="truncate">{u.rank_title || "Baby Droid"} (LVL {u.level || 1})</span>
+                                                        <div className="w-1 h-1 rounded-full bg-white/20 flex-shrink-0" />
+                                                        <span className="text-white/50 flex-shrink-0">{u.games_played || 0} GAMES</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right flex flex-col items-end">
+                                                    <div className="text-lg sm:text-xl font-black text-[#3b82f6]">{new Intl.NumberFormat('en-US').format(u.season_xp)}</div>
+                                                    <div className="text-[8px] sm:text-[9px] font-black uppercase text-white/30 tracking-widest">Season XP</div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
             <style jsx global>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
