@@ -16,22 +16,10 @@ const SHARD_AMOUNTS: Record<string, number> = {
     shard_x1: 1, shard_x3: 3, shard_x5: 5, shard_x10: 10, shard_x25: 25,
 };
 
-/**
- * POST /api/glitch_game/play  — Fully Synchronous, Guaranteed-Log Version
- *
- * AUDIT FIXES:
- * 1. game_logs write is guaranteed via try/finally — it fires even if the NFT transfer crashes
- * 2. All DB errors are explicitly checked and logged — no silent failures
- * 3. Wallet matching uses ilike for case-insensitive lookup so old lowercase records still match
- *    (wallet is NEVER converted to lowercase — original casing is used for writes and on-chain calls)
- * 4. Handles ERC721, ERC1155, and ERC20 token transfers based on prize_types.token_type field
- * 5. Stockout NFT is immediately reserved before transfer attempt to prevent double-award
- */
 export async function POST(req: Request) {
     const body = await req.json();
     const wallet: string = body.wallet;
 
-    // API Fast-boot / Warmup route
     if (body.action === 'warmup') {
         return NextResponse.json({ status: 'warmed_up' });
     }
@@ -40,12 +28,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Wallet required' }, { status: 400 });
     }
 
-    // Helper: always log errors to game_logs so we can debug
     async function writeErrorLog(errMsg: string) {
         try {
             await supabaseAdmin.from('game_logs').insert({
                 wallet_address: wallet,
-                prize_type_id: finalPrize?.slug ?? finalPrize?.name ?? 'unknown',
+                prize_type_id: finalPrize?.id ?? 'unknown',
                 prize_amount_or_id: prizeAmountOrId,
                 tx_hash: txHash,
                 status: 'error',
@@ -57,7 +44,6 @@ export async function POST(req: Request) {
         }
     }
 
-    // State we accumulate throughout the flow — used for the guaranteed log in finally
     let finalPrize: any = null;
     let nftTokenId: string | null = null;
     let txHash: string | null = null;
@@ -66,42 +52,28 @@ export async function POST(req: Request) {
     let logStatus = 'error';
     let logNote = '';
     let prizeAmountOrId: string | null = null;
+    let inventoryItem: any = null;
 
     try {
-        // ── 1 & 2. ATOMIC FETCH AND DEDUCT BALANCE (RPC) ──
+        // ── 1. DEDUCT BALANCE ──
         const { data: deductRes, error: deductErr } = await supabaseAdmin
             .rpc('deduct_glitch_game_balance', { p_wallet_address: wallet });
 
-        if (deductErr) {
-            console.error('❌ [Play] Deduct RPC error:', deductErr.message);
-            await writeErrorLog(`Balance deduct RPC: ${deductErr.message}`);
-            return NextResponse.json({ error: 'Database error deducting balance' }, { status: 500 });
+        if (deductErr || !deductRes?.success) {
+            const errReason = deductErr?.message || deductRes?.error;
+            await writeErrorLog(`Deduct failed: ${errReason}`);
+            return NextResponse.json({ error: errReason }, { status: 400 });
         }
-
-        if (!deductRes.success) {
-            console.error(`❌ [Play] Deduct failed for wallet ${wallet}:`, deductRes.error);
-            await writeErrorLog(`Deduct failed: ${deductRes.error}`);
-            if (deductRes.error === 'user_not_found') {
-                return NextResponse.json({ error: 'User not found — please purchase games first' }, { status: 403 });
-            } else if (deductRes.error === 'insufficient_balance') {
-                return NextResponse.json({ error: 'Insufficient balance' }, { status: 403 });
-            }
-            return NextResponse.json({ error: deductRes.error }, { status: 400 });
-        }
-
         const user = deductRes.data;
 
-        // ── 3. WEIGHTED RNG ──
+        // ── 2. RNG ──
         const { data: prizeTypes, error: ptErr } = await supabaseAdmin
             .from('prize_types')
             .select('*')
+            .eq('is_active', true)
             .order('drop_chance', { ascending: false });
 
-        if (ptErr || !prizeTypes?.length) {
-            console.error('❌ [Play] Prize types fetch error:', ptErr?.message);
-            await writeErrorLog(`Prize types: ${ptErr?.message ?? 'no prizes configured'}`);
-            return NextResponse.json({ error: 'No prizes configured' }, { status: 500 });
-        }
+        if (ptErr || !prizeTypes?.length) throw new Error('No prizes configured');
 
         const totalWeight = prizeTypes.reduce((s: number, p: any) => s + Number(p.drop_chance), 0);
         const roll = Math.random() * totalWeight;
@@ -111,244 +83,108 @@ export async function POST(req: Request) {
             cumulative += Number(pt.drop_chance);
             if (roll < cumulative) { selectedPrize = pt; break; }
         }
-
         finalPrize = selectedPrize;
-        console.log(`🎮 [Play] ${wallet.slice(0, 8)}... rolled → ${finalPrize.id} (${finalPrize.name ?? finalPrize.label})`);
 
-        // ── 4. INVENTORY CHECK (NFT/Token) ──
-        let inventoryItem: any = null;
-
-        if (finalPrize.has_inventory === true) {
-            // ── ATOMIC INVENTORY RESERVATION (RPC) ──
+        // ── 3. INVENTORY CHECK (NFT ONLY) ──
+        if (finalPrize.type === 'nft') {
             const { data: reserveRes, error: reserveErr } = await supabaseAdmin
                 .rpc('reserve_inventory_item', {
-                    p_prize_slug: finalPrize.id,
+                    p_prize_type_id: finalPrize.id,
                     p_wallet_address: wallet
                 });
 
-            if (reserveErr) {
-                console.error('❌ [Play] Reserve RPC error:', reserveErr.message);
-            } else if (reserveRes?.success) {
-                console.log(`🎯 [Play] Successfully reserved inventory item #${reserveRes.data.token_id} (${reserveRes.data.name}) for ${finalPrize.id}`);
-                inventoryItem = reserveRes.data;
-            } else {
-                console.warn(`⚠️ [Play] Reserve RPC failed (Stockout): ${reserveRes?.error}`);
-            }
+            if (reserveErr || !reserveRes?.success) {
+                // Теперь мы четко увидим в консоли, если база упадет с SQL-ошибкой
+                console.warn(`⚠️ [Play] DB Error or Stockout for ${finalPrize.id}. Reason:`, reserveErr?.message || reserveRes?.error);
 
-            if (inventoryItem) {
-                // Reservation was successful and item is ready for transfer
-            } else {
-                // Stockout fallback → shard_x5
-                console.warn(`⚠️ [Play] Stockout: ${finalPrize.id} → fallback to shard_x5`);
-                logNote = `stockout:${finalPrize.id}→shard_x5`;
-                const fallback = prizeTypes.find((p: any) => p.id === 'shard_x5')
-                    ?? prizeTypes.find((p: any) => p.category === 'shard');
+                // Fallback logic
+                const fallback = prizeTypes.find((p: any) => p.id === 'shard_x5') || prizeTypes.find((p: any) => p.type === 'shard');
                 if (fallback) finalPrize = fallback;
+            } else {
+                inventoryItem = reserveRes.data;
             }
         }
 
-        // ── 5. GRANT XP ──
+        // ── 4. XP & LEADERBOARD ──
         xpGained = finalPrize.xp_reward || 0;
         if (xpGained > 0) {
-            const { data: u } = await supabaseAdmin
-                .from('users')
-                .select('xp')
-                .ilike('wallet_address', wallet)
-                .maybeSingle();
-            const { error: xpErr } = await supabaseAdmin
-                .from('users')
-                .update({ xp: (u?.xp || 0) + xpGained })
-                .ilike('wallet_address', wallet);
-            if (xpErr) console.error('❌ [Play] XP update error:', xpErr.message);
+            await supabaseAdmin.from('users').update({ xp: (user.xp || 0) + xpGained }).ilike('wallet_address', wallet);
+
+            const { data: s1User } = await supabaseAdmin.from('glitch_season_1').select('season_xp, games_played').eq('wallet_address', wallet).maybeSingle();
+            await supabaseAdmin.from('glitch_season_1').upsert({
+                wallet_address: wallet,
+                season_xp: (s1User?.season_xp || 0) + xpGained,
+                games_played: (s1User?.games_played || 0) + 1
+            }, { onConflict: 'wallet_address' });
         }
 
-        // ── 5.5 UPDATE SEASON 1 LEADERBOARD ──
+        // ── 5. THIRDWEB BLOCKCHAIN TRANSFER ──
+        if (!PRIZE_VAULT_PRIVATE_KEY) throw new Error('Vault PK missing');
+        const vaultAccount = privateKeyToAccount({ client: thirdwebClient, privateKey: PRIZE_VAULT_PRIVATE_KEY });
+        let tx;
+
         try {
-            const { data: s1User } = await supabaseAdmin
-                .from('glitch_season_1')
-                .select('season_xp, games_played')
-                .eq('wallet_address', wallet) // Exact casing used as requested
-                .maybeSingle();
-
-            const newSeasonXp = (s1User?.season_xp || 0) + (xpGained || 0);
-            const newGamesPlayed = (s1User?.games_played || 0) + 1;
-
-            const { error: s1Err } = await supabaseAdmin
-                .from('glitch_season_1')
-                .upsert({
-                    wallet_address: wallet,
-                    season_xp: newSeasonXp,
-                    games_played: newGamesPlayed
-                }, { onConflict: 'wallet_address' });
-
-            if (s1Err) console.error('❌ [Play] Season 1 Log error:', s1Err.message);
-        } catch (e: any) {
-            console.error('❌ [Play] Season 1 Catch Error:', e.message);
-        }
-
-        // ── 6. GRANT PRIZE — ALL prizes are on-chain transfers ──
-        console.log(`🏆 [Play] Prize selected: slug=${finalPrize.id}, type=${finalPrize.type}, amount=${finalPrize.amount ?? 'N/A'}, has_inventory=${!!inventoryItem}`);
-
-        if (!PRIZE_VAULT_PRIVATE_KEY) {
-            logNote = 'PRIZE_VAULT_PRIVATE_KEY env var missing';
-            console.error('❌ [Play]', logNote);
-        } else {
-            try {
-                const vaultAccount = privateKeyToAccount({
-                    client: thirdwebClient,
-                    privateKey: PRIZE_VAULT_PRIVATE_KEY,
-                });
-
-                let tx;
-
-                if (finalPrize.type === 'shard') {
-                    // ── SHARDS: ERC1155, tokenId=0, value=amount from prize_types ──
-                    shardsGained = finalPrize.amount ?? SHARD_AMOUNTS[finalPrize.id] ?? parseShardsFromSlug(finalPrize.id);
-                    if (!SHARD_CONTRACT_ADDRESS) throw new Error('SHARD_CONTRACT_ADDRESS env not set');
-
-                    const shardContract = getContract({
-                        client: thirdwebClient,
-                        chain: apeChain,
-                        address: SHARD_CONTRACT_ADDRESS,
-                    });
-
-                    tx = erc1155Transfer({
-                        contract: shardContract,
-                        from: vaultAccount.address,
-                        to: wallet,
-                        tokenId: BigInt(0),
-                        value: BigInt(shardsGained),
-                        data: '0x',
-                    });
-
-                    prizeAmountOrId = String(shardsGained);
-                    console.log(`💎 [Play] Shard ERC1155 transfer: ${shardsGained} shards → ${wallet.slice(0, 8)}...`);
-
-                } else if (finalPrize.type === 'token') {
-                    // ── NATIVE APE TOKEN: direct from vault balance, no inventory needed ──
-                    const apeAmount = finalPrize.amount || '1';
-                    tx = prepareTransaction({
-                        chain: apeChain,
-                        client: thirdwebClient,
-                        to: wallet,
-                        value: toWei(String(apeAmount)),
-                    });
-
-                    prizeAmountOrId = String(apeAmount);
-                    console.log(`💰 [Play] Native APE transfer: ${apeAmount} APE → ${wallet.slice(0, 8)}...`);
-
-                } else if (inventoryItem) {
-                    // ── NFT: use contract_address from inventory item ──
-                    const contractAddress = inventoryItem.contract_address || finalPrize.contract_address;
-
-                    if (!contractAddress) throw new Error('No contract_address on inventory item or prize_type');
-
-                    const contract = getContract({
-                        client: thirdwebClient,
-                        chain: apeChain,
-                        address: contractAddress,
-                    });
-
-                    // Determine token standard from nft_inventory data
-                    const isErc1155 = inventoryItem.amount && Number(inventoryItem.amount) > 0;
-
-                    if (isErc1155) {
-                        tx = erc1155Transfer({
-                            contract,
-                            from: vaultAccount.address,
-                            to: wallet,
-                            tokenId: BigInt(inventoryItem.token_id),
-                            value: BigInt(inventoryItem.amount ?? 1),
-                            data: '0x',
-                        });
-                    } else {
-                        // Default: ERC721
-                        tx = erc721Transfer({
-                            contract,
-                            from: vaultAccount.address,
-                            to: wallet,
-                            tokenId: BigInt(inventoryItem.token_id),
-                        });
-                    }
-
-                    nftTokenId = inventoryItem.token_id;
-                    prizeAmountOrId = nftTokenId;
-                    console.log(`🚀 [Play] ${finalPrize.type} #${nftTokenId} transfer → ${wallet.slice(0, 8)}...`);
-
-                } else {
-                    throw new Error(`No inventory item for NFT prize: ${finalPrize.id}`);
-                }
-
-                // ── SEND TRANSACTION ──
-                const receipt = await sendTransaction({ transaction: tx, account: vaultAccount });
-                txHash = receipt.transactionHash;
-                logStatus = 'success';
-                console.log(`✅ [Play] Transfer complete → tx: ${txHash}`);
-
-                // Update nft_inventory for NFT prizes (not needed for shards/tokens)
-                if (inventoryItem) {
-                    const { error: wonErr } = await supabaseAdmin
-                        .from('nft_inventory')
-                        .update({
-                            status: 'claimed',
-                            winner_wallet: wallet,
-                            won_at: new Date().toISOString(),
-                            tx_hash: txHash,
-                        })
-                        .eq('id', inventoryItem.id);
-                    if (wonErr) console.error('❌ [Play] Mark won error:', wonErr.message);
-                }
-
-                // Also update shard balance in DB for internal ledger
-                if (finalPrize.type === 'shard' && shardsGained > 0) {
-                    await supabaseAdmin
-                        .from('glitch_users')
-                        .update({ shards_balance: (user.shards_balance || 0) + shardsGained })
-                        .ilike('wallet_address', wallet);
-                }
-
-            } catch (transferErr: any) {
-                console.error(`❌ [Play] On-chain transfer failed: ${transferErr.message}`);
-                logStatus = 'transfer_failed';
-                logNote = transferErr.message;
-
-                // We no longer mark the item as transfer_failed or roll it back.
-                // It remains 'reserved' for the winner. An admin can retry or a cron can sweep pending transfers.
-                // The root cause of most failures is concurrent identical reservations which the new DB view prevents.
+            if (finalPrize.type === 'shard') {
+                shardsGained = finalPrize.amount ?? SHARD_AMOUNTS[finalPrize.id] ?? 1;
+                const shardContract = getContract({ client: thirdwebClient, chain: apeChain, address: SHARD_CONTRACT_ADDRESS });
+                tx = erc1155Transfer({ contract: shardContract, from: vaultAccount.address, to: wallet, tokenId: BigInt(0), value: BigInt(shardsGained), data: '0x' });
+                prizeAmountOrId = String(shardsGained);
             }
+            else if (finalPrize.type === 'token') {
+                const apeAmount = finalPrize.amount || '1';
+                tx = prepareTransaction({ chain: apeChain, client: thirdwebClient, to: wallet, value: toWei(String(apeAmount)) });
+                prizeAmountOrId = String(apeAmount);
+            }
+            else if (inventoryItem) {
+                const contract = getContract({ client: thirdwebClient, chain: apeChain, address: inventoryItem.contract_address });
+                tx = erc721Transfer({ contract, from: vaultAccount.address, to: wallet, tokenId: BigInt(inventoryItem.token_id) });
+                nftTokenId = inventoryItem.token_id;
+                prizeAmountOrId = nftTokenId;
+            }
+            else {
+                throw new Error('NFT Prize selected but no inventory item available.');
+            }
+
+            // Отправка транзакции
+            const receipt = await sendTransaction({ transaction: tx, account: vaultAccount });
+            txHash = receipt.transactionHash;
+            logStatus = 'success';
+
+            // Подтверждение в базе
+            if (inventoryItem) {
+                await supabaseAdmin.from('nft_inventory').update({ status: 'claimed', tx_hash: txHash, won_at: new Date().toISOString() }).eq('id', inventoryItem.id);
+            }
+            if (finalPrize.type === 'shard') {
+                await supabaseAdmin.from('users').update({ shards_balance: (user.shards_balance || 0) + shardsGained }).ilike('wallet_address', wallet);
+            }
+
+        } catch (transferErr: any) {
+            // Спасительный откат! Возвращаем предмет на склад, если блокчейн упал
+            if (inventoryItem) {
+                console.log(`⚠️ [Play] Transfer failed, rolling back NFT #${inventoryItem.token_id} to available`);
+                await supabaseAdmin.from('nft_inventory').update({ status: 'available', winner_wallet: null }).eq('id', inventoryItem.id);
+            }
+            throw new Error(`Blockchain Transfer Failed: ${transferErr.message}`);
         }
 
-        // ── 7. WRITE GAME LOG (always, even on partial failure) ──
-        const prizeSlug = finalPrize.slug ?? finalPrize.name ?? finalPrize.id ?? 'unknown';
-        const { error: logErr } = await supabaseAdmin.from('game_logs').insert({
+        // ── 6. GAME LOGS ──
+        await supabaseAdmin.from('game_logs').insert({
             wallet_address: wallet,
-            prize_type_id: prizeSlug,
+            prize_type_id: finalPrize.id,
             prize_amount_or_id: prizeAmountOrId,
             tx_hash: txHash,
             status: logStatus,
-            error_message: logNote || null,
             xp_awarded: xpGained ? String(xpGained) : null,
         });
-        if (logErr) {
-            console.error('❌ [Play] game_logs INSERT FAILED:', logErr.message, '| Row:', JSON.stringify({
-                wallet_address: wallet, prize_type_id: prizeSlug,
-                prize_amount_or_id: nftTokenId, tx_hash: txHash, status: logStatus,
-            }));
-        } else {
-            console.log(`📝 [Play] Log written — prize: ${prizeSlug}, status: ${logStatus}`);
-        }
 
-        // ── 8. RESPONSE ──
+        // ── 7. FRONTEND RESPONSE ──
         return NextResponse.json({
             success: true,
             prize: {
                 id: finalPrize.id,
-                name: finalPrize.name ?? finalPrize.label ?? 'Unknown Prize',
+                name: inventoryItem ? inventoryItem.name : (finalPrize.name ?? 'Unknown Prize'),
                 type: finalPrize.type,
-                typeSlug: finalPrize.slug,
-                category: finalPrize.type,
-                label: finalPrize.name ?? finalPrize.label ?? 'Unknown Prize',
-                imageUrl: finalPrize.image_url ?? '',
+                imageUrl: inventoryItem ? inventoryItem.image_url : (finalPrize.image_url ?? ''),
                 nftTokenId,
             },
             xp_gained: xpGained,
@@ -358,16 +194,8 @@ export async function POST(req: Request) {
         });
 
     } catch (err: any) {
-        console.error('🔥 [Play] Unhandled exception:', err.message);
-
-        // Attempt emergency log even on unhandled crash
-        await writeErrorLog(err.message ?? 'unhandled exception');
-
-        return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+        console.error('🔥 [Play] Crash:', err.message);
+        await writeErrorLog(err.message);
+        return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
     }
-}
-
-function parseShardsFromSlug(slug: string): number {
-    const match = slug.match(/shard_x(\d+)/);
-    return match ? parseInt(match[1], 10) : 1;
 }
