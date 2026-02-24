@@ -239,7 +239,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                     <button onClick={onClose} className="cursor-pointer w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all"><X size={22} /></button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 sm:p-10 scrollbar-hide">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scrollbar-hide">
                     <AnimatePresence mode="wait">
                         {isSelectingPfp ? (
                             <motion.div key="pfp" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-4 no-capture">
@@ -342,7 +342,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
 
                                                     {/* PFP */}
                                                     <div className="col-span-1 flex flex-col justify-end">
-                                                        <div className="relative w-full aspect-square rounded-[32px] border border-white/10 bg-white/5 overflow-hidden group">
+                                                        <div className="relative w-full aspect-square rounded-[24px] lg:rounded-[32px] border border-white/10 bg-white/5 overflow-hidden group">
                                                             {isAvatarLoading && <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10"><Loader2 className="w-6 h-6 text-[#3b82f6] animate-spin" /></div>}
                                                             {userPfpUrl ? (
                                                                 <img src={userPfpUrl} className="w-full h-full object-cover" onLoad={() => setIsAvatarLoading(false)} onError={() => setIsAvatarLoading(false)} />
@@ -400,7 +400,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                         </div>
 
                                                         {/* Desktop Progress */}
-                                                        <div className="w-full bg-white/5 rounded-[24px] p-6 border border-white/5 relative cursor-help" onMouseEnter={() => setShowExpGuide(true)} onMouseLeave={() => setShowExpGuide(false)} onMouseMove={handleMouseMove}>
+                                                        <div className="w-full bg-white/5 rounded-[20px] lg:rounded-[24px] p-4 lg:p-6 border border-white/5 relative cursor-help" onMouseEnter={() => setShowExpGuide(true)} onMouseLeave={() => setShowExpGuide(false)} onMouseMove={handleMouseMove}>
                                                             <div className="flex justify-between items-end mb-2">
                                                                 <span className="text-lg font-black text-white uppercase tracking-tight leading-none">{rank}</span>
                                                                 <span className="text-xl font-black text-[#3b82f6]">{new Intl.NumberFormat().format(xp)} XP</span>
@@ -427,12 +427,12 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                 </div>
                                             </div>
 
-                                            <div className="w-full flex flex-col gap-3 mt-2 no-capture">
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <button onClick={handleCopyImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-5 bg-white text-black font-black uppercase tracking-[0.15em] rounded-[24px] hover:bg-[#3b82f6] hover:text-white transition-all text-[10px] sm:text-xs shadow-xl"><Copy size={16} /> Copy IMG</button>
-                                                    <button onClick={handleDownloadImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 sm:py-5 bg-white/5 text-white/50 border border-white/10 font-black uppercase tracking-[0.15em] rounded-[24px] hover:bg-white/10 hover:text-white transition-all text-[10px] sm:text-xs"><Download size={16} /> Download</button>
+                                            <div className="w-full flex flex-col gap-2 lg:gap-3 mt-2 no-capture">
+                                                <div className="grid grid-cols-2 gap-2 lg:gap-3">
+                                                    <button onClick={handleCopyImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 lg:py-4 bg-white text-black font-black uppercase tracking-[0.15em] rounded-[20px] lg:rounded-[24px] hover:bg-[#3b82f6] hover:text-white transition-all text-[10px] sm:text-xs shadow-xl"><Copy size={16} /> Copy IMG</button>
+                                                    <button onClick={handleDownloadImg} className="cursor-pointer flex items-center justify-center gap-2 py-3 lg:py-4 bg-white/5 text-white/50 border border-white/10 font-black uppercase tracking-[0.15em] rounded-[20px] lg:rounded-[24px] hover:bg-white/10 hover:text-white transition-all text-[10px] sm:text-xs"><Download size={16} /> Download</button>
                                                 </div>
-                                                <button onClick={handleDisconnect} className="cursor-pointer flex items-center justify-center gap-2 text-red-500/40 hover:text-red-500 transition-all text-[10px] sm:text-[11px] font-black uppercase tracking-[0.3em] mt-3"><LogOut size={14} /> Disconnect Wallet</button>
+                                                <button onClick={handleDisconnect} className="cursor-pointer flex items-center justify-center gap-2 text-red-500/40 hover:text-red-500 transition-all text-[10px] sm:text-[11px] font-black uppercase tracking-[0.3em] mt-2 lg:mt-3"><LogOut size={14} /> Disconnect Wallet</button>
                                             </div>
                                         </>
                                     </>

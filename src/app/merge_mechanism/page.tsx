@@ -312,10 +312,10 @@ function MergeMechanismContent() {
                 />
 
                 <motion.div
-                    className="flex-1 pt-20 pb-4 px-4 sm:px-6 flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 lg:overflow-hidden"
+                    className="flex-1 pt-16 sm:pt-20 pb-2 sm:pb-4 px-4 sm:px-6 flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:gap-4 lg:overflow-hidden"
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
                 >
-                    <div className="lg:col-span-7 flex flex-col gap-3 min-h-0 order-1 lg:order-none">
+                    <div className="lg:col-span-7 flex flex-col min-h-0 order-1 lg:order-none">
                         <MergeMachine
                             mode={mode}
                             selectedCount={mode === 'batteries' ? selectedBatteries.length : selectedShardIndices.size}
@@ -328,28 +328,30 @@ function MergeMechanismContent() {
                         />
                     </div>
 
-                    <div className="lg:col-span-5 min-h-0 order-2 lg:order-none overflow-hidden min-h-[400px] lg:min-h-0 lg:pt-4">
-                        <div className="h-full">
-                            <BatterySelector
-                                batteries={batteries}
-                                selectedBatteries={selectedBatteries}
-                                onToggleSelect={handleToggleSelect}
-                                onSelect20={handleSelect20}
-                                onDeselectAll={handleDeselectAll}
-                                onRefresh={mode === 'batteries' ? fetchBatteries : fetchShards}
-                                isLoading={isLoading}
-                                disabled={isMerging || mergeSuccess}
-                                activeTab={mode}
-                                onTabChange={setMode}
-                                shardBalance={shardBalance}
-                                selectedShardIndices={selectedShardIndices}
-                                onShardToggle={handleShardToggle}
-                                onShardSelectMany={handleShardSelectMany}
-                                onShardDeselect={handleShardDeselectAll}
-                                isLoadingShards={isLoadingShards}
-                                isShardDisabled={isMerging || mergeSuccess}
-                                shardImageUrl={shardImageUrl}
-                            />
+                    <div className="lg:col-span-5 min-h-[400px] lg:min-h-0 order-2 lg:order-none flex flex-col overflow-hidden lg:pt-2">
+                        <div className="flex-1 h-full min-h-0 relative">
+                            <div className="absolute inset-0">
+                                <BatterySelector
+                                    batteries={batteries}
+                                    selectedBatteries={selectedBatteries}
+                                    onToggleSelect={handleToggleSelect}
+                                    onSelect20={handleSelect20}
+                                    onDeselectAll={handleDeselectAll}
+                                    onRefresh={mode === 'batteries' ? fetchBatteries : fetchShards}
+                                    isLoading={isLoading}
+                                    disabled={isMerging || mergeSuccess}
+                                    activeTab={mode}
+                                    onTabChange={setMode}
+                                    shardBalance={shardBalance}
+                                    selectedShardIndices={selectedShardIndices}
+                                    onShardToggle={handleShardToggle}
+                                    onShardSelectMany={handleShardSelectMany}
+                                    onShardDeselect={handleShardDeselectAll}
+                                    isLoadingShards={isLoadingShards}
+                                    isShardDisabled={isMerging || mergeSuccess}
+                                    shardImageUrl={shardImageUrl}
+                                />
+                            </div>
                         </div>
                     </div>
                 </motion.div>

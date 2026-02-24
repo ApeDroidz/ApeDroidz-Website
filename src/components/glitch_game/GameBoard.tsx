@@ -651,7 +651,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
 
             {/* ── Loading Skeleton ── */}
             {(phase === "loading" || isFetchingState) && (
-                <div className="w-full max-w-3xl xl:max-w-4xl mx-auto flex flex-col items-center gap-4 xl:gap-6 animate-pulse">
+                <div className="w-full max-w-3xl xl:max-w-4xl mx-auto flex flex-col items-center gap-4 animate-pulse">
                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 w-full">
                         {Array.from({ length: 15 }).map((_, i) => (
                             <div key={i} className="aspect-[3/4] w-full rounded-xl bg-white/5 border border-white/5" />
@@ -815,7 +815,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                     </div>
 
                     {/* ── ACTION BUTTONS CONTAINER ── */}
-                    <div className="mt-8 sm:mt-10 flex items-center justify-center gap-4 pb-6 px-4">
+                    <div className="mt-4 sm:mt-6 flex items-center justify-center gap-3 sm:gap-4 pb-4 px-4 w-full max-w-2xl mx-auto">
 
                         {/* AUTO PLAY TOGGLE */}
                         {balance > 0 && wallet && (
