@@ -226,16 +226,13 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
         if (!src || src.length === 0) return []
 
         // 1. If we have enough unique items in source to fill the board (>= 15),
-        // use them all (or random distinct 15) to avoid any duplicates.
+        // use them directly to avoid any duplicates. We don't shuffle here yet.
         if (src.length >= 15) {
-            return shuffle([...src]).slice(0, 15)
+            return [...src].slice(0, 15)
         }
 
         // 2. If < 15, we MUST duplicate something to fill the board to 15.
-        // Priority: All items at least once, then fill with replenishables.
-
         let deckPool = [...src] // Start with one of each available prize
-
         const replenishables = src.filter(p => p.type !== 'nft' && p.type !== 'token')
 
         // Fill remaining slots
@@ -250,28 +247,25 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                 deckPool.push(random)
             }
         }
-
         return deckPool.slice(0, 15)
     }
 
     const buildDeck = (src: PrizeType[]) => {
         if (src.length === 0) return
 
-        const freshPrizes = getFreshPrizes(src)
+        // Get exactly 15 items
+        const rawPool = getFreshPrizes(src)
 
-        // Shuffle pool first
-        let pool = shuffle([...freshPrizes])
-
-        // Take top 15 and assign unique IDs immediately so keys are stable across reorders
-        const deck: DeckCard[] = pool.map((p, i) => ({
+        // Assign stable unique IDs first
+        const deck: DeckCard[] = rawPool.map((p, i) => ({
             ...p,
             uniqueId: `${p.id}-${i}-${Math.random().toString(36).substr(2, 5)}`
         }))
 
-        // Final shuffle of the deck itself
-        const initialDeck = shuffle(deck)
+        // Do exactly ONE shuffle before setting state to prevent visual flickers
+        const finalDeck = shuffle(deck)
 
-        setDisplayCards(initialDeck)
+        setDisplayCards(finalDeck)
         setPhase("idle")
         setTimeout(() => setDealt(true), 15 * 100 + 500)
     }
@@ -623,7 +617,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
 `}</style>
 
             {/* ── HEADER ── */}
-            <div className="w-full flex flex-col items-center mb-8 sm:mb-10">
+            <div className="w-full flex flex-col items-center mb-4 sm:mb-6 lg:mb-8">
                 <motion.h1
                     className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white text-center uppercase italic leading-none"
                     initial={{ opacity: 0, y: -15 }}
@@ -657,8 +651,8 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
 
             {/* ── Loading Skeleton ── */}
             {(phase === "loading" || isFetchingState) && (
-                <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-6 animate-pulse">
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 w-full">
+                <div className="w-full max-w-3xl xl:max-w-4xl mx-auto flex flex-col items-center gap-4 xl:gap-6 animate-pulse">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 w-full">
                         {Array.from({ length: 15 }).map((_, i) => (
                             <div key={i} className="aspect-[3/4] w-full rounded-xl bg-white/5 border border-white/5" />
                         ))}
@@ -669,8 +663,8 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
 
             {/* ── CARD GRID ── */}
             {(!isFetchingState && phase !== "loading") && (
-                <div className="w-full max-w-4xl mx-auto">
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
+                <div className="w-full max-w-3xl xl:max-w-4xl mx-auto">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
                         {displayCards.map((card, i) => {
                             const isPickingPhase = phase === "picking"
                             const isRevealingPhase = phase === "revealing"
@@ -927,12 +921,14 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                 {showModal && wonPrize && (
                     <motion.div
                         className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
+                        onClick={() => { playSound("pick"); resetGame() }}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                     >
                         <motion.div
                             className="relative w-full max-w-2xl p-px rounded-[32px] bg-gradient-to-b from-[#0069FF]/30 to-transparent shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
                             initial={{ scale: 0.85, y: 40 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.85, opacity: 0 }}

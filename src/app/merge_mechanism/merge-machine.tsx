@@ -272,11 +272,11 @@ export function MergeMachine({
                             className="relative flex items-center justify-center gap-6 w-full px-4"
                         >
                             <GlitchContainer intensity={getGlitchIntensity()}>
-                                <div className="flex flex-col items-center justify-center gap-4 sm:gap-5 md:gap-6">
+                                <div className="flex flex-col items-center justify-center gap-3 sm:gap-4 lg:gap-5">
                                     {/* Target image */}
                                     <div className="relative">
                                         <div
-                                            className="w-56 h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 rounded-2xl overflow-hidden border-2 border-white/20 bg-black/50 backdrop-blur-md transition-all duration-300"
+                                            className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 lg:w-72 lg:h-72 xl:w-96 xl:h-96 rounded-2xl overflow-hidden border-2 border-white/20 bg-black/50 backdrop-blur-md transition-all duration-300"
                                             style={{
                                                 filter: `brightness(${getBrightness()})`,
                                                 boxShadow: selectedCount > 0 ? `0 0 ${selectedCount * 2}px ${accentColor}${Math.round((selectedCount / requiredCount) * 66).toString(16).padStart(2, '0')}` : 'none'
@@ -323,7 +323,7 @@ export function MergeMachine({
 
                             {/* Success */}
                             <div className="relative animate-float-gentle">
-                                <div className={`w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-96 lg:h-96 rounded-2xl overflow-hidden border-2 bg-black/50 backdrop-blur-md ${isShards
+                                <div className={`w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-2xl overflow-hidden border-2 bg-black/50 backdrop-blur-md ${isShards
                                     ? 'border-[#0069FF]/50 shadow-[0_0_40px_rgba(0,105,255,0.4)]'
                                     : 'border-[#FF7700]/50 shadow-[0_0_40px_rgba(255,119,0,0.4)]'
                                     }`}>
