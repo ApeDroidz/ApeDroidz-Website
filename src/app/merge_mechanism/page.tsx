@@ -214,25 +214,37 @@ function MergeMechanismContent() {
 
         try {
             const upgradeTokenId = selectedBatteries[0].tokenId
-            const burnTokenIds = selectedBatteries.slice(1).map(b => b.tokenId)
+            const tokensToSend = selectedBatteries.slice(1).map(b => b.tokenId)
 
-            const success = await transferBatch(burnTokenIds)
+            console.log("Merge: Keeping token", upgradeTokenId, "Sending tokens:", tokensToSend)
 
-            if (!success) throw new Error("Transaction failed or was rejected")
+            const txResult = await transferBatch(tokensToSend)
 
-            const res = await fetch("/api/merge/batteries", {
+            if (!txResult?.transactionHash) {
+                throw new Error("Transaction failed - no hash returned")
+            }
+
+            console.log("Transaction successful:", txResult.transactionHash)
+
+            const res = await fetch("/api/merge/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ walletAddress: account.address, targetTokenId: upgradeTokenId, burnedTokenIds: burnTokenIds })
+                body: JSON.stringify({
+                    txHash: txResult.transactionHash,
+                    sentTokenIds: tokensToSend,
+                    upgradeTokenId: upgradeTokenId,
+                    userWallet: account.address
+                })
             })
 
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || "Failed to upgrade battery on server")
+            if (!res.ok) throw new Error(data.error || "Verification failed")
 
+            console.log("Merge verified:", data)
             setMergeSuccess(true)
         } catch (error: any) {
-            console.error("Merge error:", error)
-            setMergeError(error.message || "An unexpected error occurred during merge")
+            console.error("Merge failed:", error)
+            setMergeError(error.message || "Merge failed")
         } finally {
             setIsMerging(false)
         }
