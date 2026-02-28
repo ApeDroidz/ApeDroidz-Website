@@ -60,6 +60,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
   const isGamePage = pathname === '/glitch_game';
   const isGridPage = pathname === '/grid';
   const isMergePage = pathname === '/merge_mechanism';
+  const isMintPage = pathname === '/batteries_mint';
   const showDashboardNav = isGamePage || isGridPage || isMergePage;
 
   const closeMenu = () => setIsMenuOpen(false);
@@ -124,6 +125,22 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                 <Gamepad2 size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
                 <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
                   Glitch Game
+                </div>
+              </motion.div>
+            </Link>
+          )}
+
+          {/* Mint Batteries */}
+          {!isMintPage && (
+            <Link href="/batteries_mint">
+              <motion.div
+                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Battery size={20} className="-rotate-90 text-[#A1A1AA] group-hover:text-white transition-colors" />
+                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
+                  Mint Batteries
                 </div>
               </motion.div>
             </Link>
@@ -352,6 +369,18 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   >
                     <Gamepad2 size={18} className="text-[#A1A1AA]" />
                     <span className="text-white font-medium text-sm">Glitch Game</span>
+                  </Link>
+                )}
+
+                {/* 4b. Mint Batteries */}
+                {!isMintPage && (
+                  <Link
+                    href="/batteries_mint"
+                    onClick={closeMenu}
+                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <Battery size={18} className="-rotate-90 text-[#A1A1AA]" />
+                    <span className="text-white font-medium text-sm">Mint Batteries</span>
                   </Link>
                 )}
 

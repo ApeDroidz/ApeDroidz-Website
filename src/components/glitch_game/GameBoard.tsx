@@ -273,6 +273,9 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
     // Reference to hold the pre-rolled result promise
     const preRollPromiseRef = useRef<Promise<any> | null>(null);
 
+    // Flag: when true, handlePlay fires automatically once phase reaches 'idle'
+    const pendingPlayRef = useRef(false);
+
     /* ═══════════════════════════════════════
        PLAY → GATHER → FLIP → DEAL
        ═══════════════════════════════════════ */
@@ -510,7 +513,6 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
     }, [phase, wallet, displayCards, onPlayComplete, currentXp])
 
     const resetGame = (triggerPlayAgain = false) => {
-        setPhase("idle")
         setWonPrize(null)
         setXpGained(0)
         setShardsGained(0)
@@ -519,22 +521,32 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
         setError(null)
         setAnimatedXpProgress(null)
 
-        // ONLY refetch full state if NOT playing again immediately. 
+        // ONLY refetch full state if NOT playing again immediately.
         // This avoids component unmount/loader flashes.
         if (!triggerPlayAgain) {
             onRefetch()
         }
         refetchProgress()
 
-        // DO NOT REBUILD DECK - keep current state until user clicks Play
-
         if (triggerPlayAgain) {
-            // Direct call instead of relying on a state variable to trigger an effect
-            setTimeout(() => {
-                handlePlay()
-            }, 50)
+            // Set the pending flag BEFORE setting phase to 'idle'.
+            // The useEffect below will pick this up once React re-renders with phase === 'idle'.
+            pendingPlayRef.current = true
         }
+
+        // Set phase last so the useEffect fires after flag is set
+        setPhase("idle")
     }
+
+    // Effect: When phase becomes 'idle' and a Play Again was pending, auto-start immediately
+    useEffect(() => {
+        if (phase === "idle" && pendingPlayRef.current) {
+            pendingPlayRef.current = false
+            // Small delay to let the modal exit animation begin
+            const t = setTimeout(() => handlePlay(), 80)
+            return () => clearTimeout(t)
+        }
+    }, [phase])
 
     // Effect 2: FULL AUTO MODE LOOP
     useEffect(() => {
