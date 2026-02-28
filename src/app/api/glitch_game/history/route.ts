@@ -40,19 +40,44 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Failed to fetch prize types' }, { status: 500 });
         }
 
-        // Create mapping by stringifying ID to match potential prize_type_id format, or by name.
         const prizeMap = new Map(prizeTypes?.map((pt: any) => [String(pt.id), pt]));
         const prizeNameMap = new Map(prizeTypes?.map((pt: any) => [pt.name, pt]));
+
+        // Collect NFT token IDs from logs to batch-fetch their names from nft_inventory
+        const nftTokenIds = logs
+            .filter((log: any) => {
+                const prizeInfo = prizeMap.get(log.prize_type_id) || prizeNameMap.get(log.prize_type_id);
+                return (prizeInfo as any)?.type === 'nft' && log.prize_amount_or_id;
+            })
+            .map((log: any) => log.prize_amount_or_id);
+
+        // Batch-fetch NFT names from nft_inventory (one query, not N)
+        const nftNameMap = new Map<string, string>();
+        if (nftTokenIds.length > 0) {
+            const { data: nftItems } = await supabaseAdmin
+                .from('nft_inventory')
+                .select('token_id, name')
+                .in('token_id', nftTokenIds);
+
+            nftItems?.forEach((item: any) => {
+                nftNameMap.set(String(item.token_id), item.name);
+            });
+        }
 
         // Format history
         const history = logs.map((log: any) => {
             const prizeTypeInfo = prizeMap.get(log.prize_type_id) || prizeNameMap.get(log.prize_type_id);
-            const prizeName = (prizeTypeInfo as any)?.name || log.prize_type_id;
+            const isNft = (prizeTypeInfo as any)?.type === 'nft';
+
+            // For NFTs: use real name from nft_inventory; fallback to prize_types name, then raw id
+            const prizeName = isNft && log.prize_amount_or_id
+                ? (nftNameMap.get(String(log.prize_amount_or_id)) || (prizeTypeInfo as any)?.name || log.prize_type_id)
+                : ((prizeTypeInfo as any)?.name || log.prize_type_id);
 
             return {
                 id: log.id,
                 wallet: log.wallet_address,
-                prizeName: prizeName,
+                prizeName,
                 txHash: log.tx_hash,
                 createdAt: log.created_at,
             };
