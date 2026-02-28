@@ -6,10 +6,6 @@ import { X, Loader2 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { resolveImageUrl } from "@/lib/utils"
 import { toPng } from 'html-to-image'
-// @ts-ignore
-import GIF from 'gif.js'
-// @ts-ignore
-import gifFrames from 'gif-frames'
 
 interface ShareModalProps {
   item: NFTItem | null
@@ -275,6 +271,11 @@ export function ShareModal({ item, isOpen, onClose, onShowToast }: ShareModalPro
   const generateGifCard = async () => {
     setIsGenerating(true); setProgress(0); setStatusText("Loading assets...");
     try {
+      // Dynamic imports — browser-only libs that break SSR
+      // @ts-ignore
+      const { default: GIF } = await import('gif.js');
+      // @ts-ignore
+      const { default: gifFrames } = await import('gif-frames');
       // 5.1. Загрузка статики
       const [backgroundImg, logo1Img, logo2Img] = await Promise.all([
         loadImage('/Upgrader_Finish.jpg'),

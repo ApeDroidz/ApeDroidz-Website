@@ -4,10 +4,6 @@ import { useState, useCallback, useMemo } from "react"
 import { NFTItem } from "@/app/dashboard/page"
 import { resolveImageUrl } from "@/lib/utils"
 import { Loader2, Download, Share2 } from "lucide-react"
-// @ts-ignore
-import GIF from 'gif.js'
-// @ts-ignore
-import gifFrames from 'gif-frames'
 
 interface GridDownloadButtonProps {
     droids: NFTItem[]
@@ -119,6 +115,11 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
         setStatusText("Preparing...")
 
         try {
+            // Dynamic imports — browser-only libs that break SSR
+            // @ts-ignore
+            const { default: GIF } = await import('gif.js');
+            // @ts-ignore
+            const { default: gifFrames } = await import('gif-frames');
             const animatedDroids = droids.filter(d => getAnimatedUrl(d) !== null)
             const hasAnimations = animatedDroids.length > 0
             const MAX_FRAMES = 4

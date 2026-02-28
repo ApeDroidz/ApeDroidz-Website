@@ -201,6 +201,21 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
     // Full Auto-Play Mode (toggle)
     const [isAutoMode, setIsAutoMode] = useState(false)
 
+    // Standalone prize refresh — can be called anytime without disrupting game
+    const refetchPrizes = useCallback(async () => {
+        try {
+            const res = await fetch("/api/glitch_game/prizes", { cache: "no-store" })
+            const { prizes: p } = await res.json()
+            if (p?.length) {
+                setPrizes(p)
+                return p
+            }
+        } catch (e) {
+            console.error("Prize refetch failed", e)
+        }
+        return null
+    }, [])
+
     useEffect(() => {
         ; (async () => {
             try {
@@ -489,6 +504,12 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
         // Trigger shard update quietly
         if (data.shards_gained > 0) {
             window.dispatchEvent(new Event("user_shards_updated"))
+        }
+
+        // If NFT was won — refresh prize list in background so the claimed card
+        // is removed from the next deal without requiring a page reload
+        if (data.prize?.type === "nft") {
+            refetchPrizes() // fire-and-forget — result will be picked up in resetGame
         }
 
         // Trigger history update quietly

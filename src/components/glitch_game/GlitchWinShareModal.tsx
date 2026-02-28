@@ -3,10 +3,6 @@
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Loader2, Zap } from "lucide-react"
 import { useState, useEffect } from "react"
-// @ts-ignore
-import GIF from 'gif.js'
-// @ts-ignore
-import gifFrames from 'gif-frames'
 
 /* ─── Supabase storage base ─── */
 const STORAGE_BASE = "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public"
@@ -38,7 +34,7 @@ interface GlitchWinShareModalProps {
 }
 
 const CANVAS_W = 1200
-const CANVAS_H = 1200 // Square card — compact, no wasted space
+const CANVAS_H = 1200
 
 export function GlitchWinShareModal({
     wonPrize,
@@ -51,13 +47,11 @@ export function GlitchWinShareModal({
     onClose,
 }: GlitchWinShareModalProps) {
     const [isGenerating, setIsGenerating] = useState(false)
-    const [progress, setProgress] = useState(0)
     const [statusText, setStatusText] = useState("")
 
     useEffect(() => {
         if (isOpen) {
             setIsGenerating(false)
-            setProgress(0)
             setStatusText("")
         }
     }, [isOpen])
@@ -70,7 +64,7 @@ export function GlitchWinShareModal({
     const buildTweetText = () => {
         const parts = [`Just won ${wonPrize.name}`]
         if (xpGained > 0) parts.push(`+ ${xpGained} XP`)
-        if (shardsGained > 0) parts.push(`+ ${shardsGained} Shards`)
+        if (shardsGained > 0 && wonPrize.type !== "shard") parts.push(`+ ${shardsGained} Shards`)
         return encodeURIComponent(
             parts.join(" ") + " in @ApeDroidz Glitch Game! 🎮⚡\n\nLet's Play on ApeDroidz.com"
         )
@@ -86,19 +80,6 @@ export function GlitchWinShareModal({
             img.src = src
         })
 
-    const fetchSafeBlobUrl = async (url: string): Promise<string> => {
-        try {
-            const response = await fetch(url, { cache: "no-cache" })
-            if (!response.ok) throw new Error(`HTTP ${response.status}`)
-            const blob = await response.blob()
-            return URL.createObjectURL(blob)
-        } catch {
-            const fbResponse = await fetch(prizeImageUrl)
-            const fbBlob = await fbResponse.blob()
-            return URL.createObjectURL(fbBlob)
-        }
-    }
-
     const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
         ctx.beginPath()
         ctx.moveTo(x + r, y)
@@ -113,332 +94,256 @@ export function GlitchWinShareModal({
         ctx.closePath()
     }
 
-    /* ─── Render one frame onto canvas ─── */
-    const renderFrameToCanvas = async (
-        prizeFrame: HTMLCanvasElement | HTMLImageElement,
-        logo1Img: HTMLImageElement,
-        logo2Img: HTMLImageElement
-    ): Promise<HTMLCanvasElement> => {
-        const canvas = document.createElement("canvas")
-        canvas.width = CANVAS_W
-        canvas.height = CANVAS_H
-        const ctx = canvas.getContext("2d")!
-
-        const ACCENT = "#0069FF"
-        const pad = 60
-
-        // 1. Background
-        ctx.fillStyle = "#090909"
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
-
-        // Top glow
-        const glow = ctx.createRadialGradient(CANVAS_W / 2, 0, 0, CANVAS_W / 2, 0, CANVAS_W * 0.7)
-        glow.addColorStop(0, "rgba(0,105,255,0.20)")
-        glow.addColorStop(1, "rgba(0,105,255,0)")
-        ctx.fillStyle = glow
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H * 0.45)
-
-        // 2. Outer border
-        ctx.save()
-        roundRect(ctx, 16, 16, CANVAS_W - 32, CANVAS_H - 32, 40)
-        ctx.strokeStyle = "rgba(255,255,255,0.10)"
-        ctx.lineWidth = 2
-        ctx.stroke()
-        ctx.restore()
-
-        // 3. Top accent line
-        const topGrad = ctx.createLinearGradient(0, 0, CANVAS_W, 0)
-        topGrad.addColorStop(0, "transparent")
-        topGrad.addColorStop(0.3, `${ACCENT}44`)
-        topGrad.addColorStop(0.7, `${ACCENT}44`)
-        topGrad.addColorStop(1, "transparent")
-        ctx.fillStyle = topGrad
-        ctx.fillRect(pad, 16, CANVAS_W - pad * 2, 3)
-
-        // === TEXT ===
-        ctx.textAlign = "center"
-        ctx.textBaseline = "top"
-
-        // "CONGRATS"
-        let yPos = 55
-        ctx.font = "700 42px Inter, Arial, sans-serif"
-        ctx.fillStyle = "rgba(255,255,255,0.35)"
-            ; (ctx as any).letterSpacing = "10px"
-        ctx.fillText("CONGRATS", CANVAS_W / 2, yPos)
-            ; (ctx as any).letterSpacing = "0px"
-
-        // "YOU WON"
-        yPos += 60
-        ctx.font = "italic 900 96px Inter, Arial, sans-serif"
-        ctx.fillStyle = "#ffffff"
-            ; (ctx as any).letterSpacing = "-3px"
-        ctx.fillText("YOU WON", CANVAS_W / 2, yPos)
-
-        // Prize name
-        yPos += 105
-        ctx.font = "italic 900 78px Inter, Arial, sans-serif"
-        ctx.fillStyle = ACCENT
-
-        let prizeName = wonPrize.name.toUpperCase()
-        const maxNameWidth = CANVAS_W - pad * 2
-        while (ctx.measureText(prizeName).width > maxNameWidth && prizeName.length > 10) {
-            prizeName = prizeName.slice(0, -4) + "..."
-        }
-        ctx.fillText(prizeName, CANVAS_W / 2, yPos)
-            ; (ctx as any).letterSpacing = "0px"
-
-        // === PRIZE IMAGE ===
-        const imgSize = 620
-        const imgX = (CANVAS_W - imgSize) / 2
-        const imgY = yPos + 100
-
-        // Glow behind image
-        ctx.save()
-        const imgGlow = ctx.createRadialGradient(
-            CANVAS_W / 2, imgY + imgSize / 2, imgSize * 0.15,
-            CANVAS_W / 2, imgY + imgSize / 2, imgSize * 0.6
-        )
-        imgGlow.addColorStop(0, "rgba(0,105,255,0.25)")
-        imgGlow.addColorStop(1, "rgba(0,105,255,0)")
-        ctx.fillStyle = imgGlow
-        ctx.fillRect(imgX - 80, imgY - 80, imgSize + 160, imgSize + 160)
-        ctx.restore()
-
-        // Image with rounded corners
-        ctx.save()
-        roundRect(ctx, imgX, imgY, imgSize, imgSize, 28)
-        ctx.clip()
-        ctx.fillStyle = "#111111"
-        ctx.fillRect(imgX, imgY, imgSize, imgSize)
-        ctx.imageSmoothingEnabled = false
-        ctx.drawImage(prizeFrame, imgX, imgY, imgSize, imgSize)
-        ctx.restore()
-
-        // Image border
-        ctx.save()
-        roundRect(ctx, imgX, imgY, imgSize, imgSize, 28)
-        ctx.strokeStyle = "rgba(255,255,255,0.08)"
-        ctx.lineWidth = 2
-        ctx.stroke()
-        ctx.restore()
-
-        // === TOKEN ID ===
-        let currentY = imgY + imgSize + 24
-        if (wonPrize.type === "nft" && wonPrize.nftTokenId) {
-            ctx.font = "600 22px 'Courier New', monospace"
-            ctx.fillStyle = "rgba(255,255,255,0.25)"
-            ctx.textAlign = "center"
-                ; (ctx as any).letterSpacing = "4px"
-            ctx.fillText(`TOKEN #${wonPrize.nftTokenId}`, CANVAS_W / 2, currentY)
-                ; (ctx as any).letterSpacing = "0px"
-            currentY += 36
-        }
-
-        // === XP PROGRESS BAR ===
-        if (xpGained > 0) {
-            currentY += 6
-            const barX = pad + 20
-            const barW = CANVAS_W - (pad + 20) * 2
-            const barH = 22
-
-            ctx.font = "900 24px Inter, Arial, sans-serif"
-            ctx.textAlign = "left"
-            ctx.fillStyle = ACCENT
-            ctx.fillText(`⚡ +${xpGained} XP`, barX, currentY)
-
-            ctx.font = "700 20px Inter, Arial, sans-serif"
-            ctx.textAlign = "right"
-            ctx.fillStyle = "rgba(255,255,255,0.25)"
-            let levelText = `Lv.${xpBefore.level}`
-            if (xpAfter.level > xpBefore.level) levelText += ` → Lv.${xpAfter.level}`
-            ctx.fillText(levelText, barX + barW, currentY + 2)
-
-            currentY += 34
-
-            // Track
-            ctx.save()
-            roundRect(ctx, barX, currentY, barW, barH, barH / 2)
-            ctx.fillStyle = "rgba(255,255,255,0.04)"
-            ctx.fill()
-            ctx.strokeStyle = "rgba(255,255,255,0.08)"
-            ctx.lineWidth = 1.5
-            ctx.stroke()
-            ctx.restore()
-
-            // Fill
-            const fillW = Math.max(barH, (xpAfter.progress / 100) * barW)
-            ctx.save()
-            roundRect(ctx, barX, currentY, fillW, barH, barH / 2)
-            ctx.clip()
-            const barGrad = ctx.createLinearGradient(barX, 0, barX + fillW, 0)
-            barGrad.addColorStop(0, "#0069FF")
-            barGrad.addColorStop(1, "#00C2FF")
-            ctx.fillStyle = barGrad
-            ctx.fillRect(barX, currentY, fillW, barH)
-            ctx.fillStyle = "rgba(255,255,255,0.15)"
-            ctx.fillRect(barX, currentY, fillW, barH / 2)
-            ctx.restore()
-
-            currentY += barH + 10
-            ctx.font = "700 18px Inter, Arial, sans-serif"
-            ctx.textAlign = "left"
-            ctx.fillStyle = "rgba(255,255,255,0.15)"
-            ctx.fillText(`${currentXp.toLocaleString()} XP`, barX, currentY)
-            ctx.textAlign = "right"
-            ctx.fillText(`${xpAfter.nextMilestone.toLocaleString()} XP`, barX + barW, currentY)
-
-            currentY += 30
-        } else {
-            currentY += 12
-        }
-
-        // === SHARDS ===
-        if (shardsGained > 0) {
-            ctx.font = "700 22px Inter, Arial, sans-serif"
-            ctx.textAlign = "center"
-            ctx.fillStyle = "rgba(255,255,255,0.3)"
-            ctx.fillText(`+${shardsGained} Shards`, CANVAS_W / 2, currentY)
-            currentY += 32
-        }
-
-        // === LOGOS — positioned relative to content, not absolute bottom ===
-        const logoY = currentY + 16
-        const logoHeight = 38
-        const logoGap = 32
-
-        const logo1Width = (logo1Img.width / logo1Img.height) * logoHeight
-        const logo2HeightAdj = logoHeight * 1.1
-        const logo2Width = (logo2Img.width / logo2Img.height) * logo2HeightAdj
-        const totalLogosWidth = logo1Width + logoGap + logo2Width
-        const logo1X = (CANVAS_W - totalLogosWidth) / 2
-
-        // Invert to white
-        const tempCanvas1 = document.createElement("canvas")
-        tempCanvas1.width = Math.ceil(logo1Width)
-        tempCanvas1.height = Math.ceil(logoHeight)
-        const tempCtx1 = tempCanvas1.getContext("2d")!
-        tempCtx1.drawImage(logo1Img, 0, 0, logo1Width, logoHeight)
-        tempCtx1.globalCompositeOperation = "source-in"
-        tempCtx1.fillStyle = "#ffffff"
-        tempCtx1.fillRect(0, 0, logo1Width, logoHeight)
-
-        ctx.globalAlpha = 0.5
-        ctx.drawImage(tempCanvas1, logo1X, logoY)
-
-        const logo2X = logo1X + logo1Width + logoGap
-        const tempCanvas2 = document.createElement("canvas")
-        tempCanvas2.width = Math.ceil(logo2Width)
-        tempCanvas2.height = Math.ceil(logo2HeightAdj)
-        const tempCtx2 = tempCanvas2.getContext("2d")!
-        tempCtx2.drawImage(logo2Img, 0, 0, logo2Width, logo2HeightAdj)
-        tempCtx2.globalCompositeOperation = "source-in"
-        tempCtx2.fillStyle = "#ffffff"
-        tempCtx2.fillRect(0, 0, logo2Width, logo2HeightAdj)
-
-        ctx.drawImage(tempCanvas2, logo2X, logoY - (logo2HeightAdj - logoHeight) / 2)
-        ctx.globalAlpha = 1.0
-
-        return canvas
-    }
-
-    /* ─── ALWAYS generate GIF (even for static images → single-frame GIF) ─── */
-    const generateGifCard = async (): Promise<string | null> => {
+    /* ─── Render card onto canvas → PNG ─── */
+    const generateCard = async (): Promise<string | null> => {
         setIsGenerating(true)
-        setProgress(0)
         setStatusText("Loading assets...")
 
         try {
-            const [logo1Img, logo2Img] = await Promise.all([
+            // Load all assets
+            const [logo1Img, logo2Img, prizeImg] = await Promise.all([
                 loadImage("/Apechain.svg"),
                 loadImage("/full-logo.svg"),
+                loadImage(prizeImageUrl),
             ])
 
-            const safeUrl = await fetchSafeBlobUrl(prizeImageUrl)
-            if (!safeUrl) throw new Error("Could not load prize image")
+            setStatusText("Rendering card...")
 
-            setStatusText("Extracting frames...")
+            const canvas = document.createElement("canvas")
+            canvas.width = CANVAS_W
+            canvas.height = CANVAS_H
+            const ctx = canvas.getContext("2d")!
 
-            let frameCanvases: (HTMLCanvasElement | HTMLImageElement)[] = []
-            let frameDelays: number[] = []
+            const ACCENT = "#0069FF"
+            const pad = 60
 
-            // Try to parse as GIF first
-            try {
-                const framesData = await gifFrames({
-                    url: safeUrl,
-                    frames: "all",
-                    outputType: "canvas",
-                    cumulative: true,
-                })
+            // 1. Background
+            ctx.fillStyle = "#090909"
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
-                if (framesData.length > 1) {
-                    // Animated GIF — use all frames
-                    for (let i = 0; i < framesData.length; i++) {
-                        frameCanvases.push(framesData[i].getImage() as HTMLCanvasElement)
-                        frameDelays.push(
-                            framesData[i].frameInfo?.delay ? framesData[i].frameInfo.delay * 10 : 100
-                        )
-                    }
-                } else {
-                    // Single-frame GIF or static → treat as static
-                    throw new Error("static")
-                }
-            } catch {
-                // Static image (PNG/JPG or single-frame GIF) → load as Image
-                const staticImg = await loadImage(safeUrl)
-                frameCanvases = [staticImg]
-                frameDelays = [200] // single frame, 200ms
+            // Top glow
+            const glow = ctx.createRadialGradient(CANVAS_W / 2, 0, 0, CANVAS_W / 2, 0, CANVAS_W * 0.7)
+            glow.addColorStop(0, "rgba(0,105,255,0.20)")
+            glow.addColorStop(1, "rgba(0,105,255,0)")
+            ctx.fillStyle = glow
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H * 0.45)
+
+            // 2. Outer border
+            ctx.save()
+            roundRect(ctx, 16, 16, CANVAS_W - 32, CANVAS_H - 32, 40)
+            ctx.strokeStyle = "rgba(255,255,255,0.10)"
+            ctx.lineWidth = 2
+            ctx.stroke()
+            ctx.restore()
+
+            // 3. Top accent line
+            const topGrad = ctx.createLinearGradient(0, 0, CANVAS_W, 0)
+            topGrad.addColorStop(0, "transparent")
+            topGrad.addColorStop(0.3, `${ACCENT}44`)
+            topGrad.addColorStop(0.7, `${ACCENT}44`)
+            topGrad.addColorStop(1, "transparent")
+            ctx.fillStyle = topGrad
+            ctx.fillRect(pad, 16, CANVAS_W - pad * 2, 3)
+
+            // === TEXT ===
+            ctx.textAlign = "center"
+            ctx.textBaseline = "top"
+
+            // "CONGRATS"
+            let yPos = 55
+            ctx.font = "700 42px Inter, Arial, sans-serif"
+            ctx.fillStyle = "rgba(255,255,255,0.35)"
+                ; (ctx as any).letterSpacing = "10px"
+            ctx.fillText("CONGRATS", CANVAS_W / 2, yPos)
+                ; (ctx as any).letterSpacing = "0px"
+
+            // "YOU WON"
+            yPos += 60
+            ctx.font = "italic 900 96px Inter, Arial, sans-serif"
+            ctx.fillStyle = "#ffffff"
+                ; (ctx as any).letterSpacing = "-3px"
+            ctx.fillText("YOU WON", CANVAS_W / 2, yPos)
+
+            // Prize name
+            yPos += 105
+            ctx.font = "italic 900 78px Inter, Arial, sans-serif"
+            ctx.fillStyle = ACCENT
+
+            let prizeName = wonPrize.name.toUpperCase()
+            const maxNameWidth = CANVAS_W - pad * 2
+            while (ctx.measureText(prizeName).width > maxNameWidth && prizeName.length > 10) {
+                prizeName = prizeName.slice(0, -4) + "..."
+            }
+            ctx.fillText(prizeName, CANVAS_W / 2, yPos)
+                ; (ctx as any).letterSpacing = "0px"
+
+            // === PRIZE IMAGE ===
+            const imgSize = 620
+            const imgX = (CANVAS_W - imgSize) / 2
+            const imgY = yPos + 100
+
+            // Glow behind image
+            ctx.save()
+            const imgGlow = ctx.createRadialGradient(
+                CANVAS_W / 2, imgY + imgSize / 2, imgSize * 0.15,
+                CANVAS_W / 2, imgY + imgSize / 2, imgSize * 0.6
+            )
+            imgGlow.addColorStop(0, "rgba(0,105,255,0.25)")
+            imgGlow.addColorStop(1, "rgba(0,105,255,0)")
+            ctx.fillStyle = imgGlow
+            ctx.fillRect(imgX - 80, imgY - 80, imgSize + 160, imgSize + 160)
+            ctx.restore()
+
+            // Image with rounded corners
+            ctx.save()
+            roundRect(ctx, imgX, imgY, imgSize, imgSize, 28)
+            ctx.clip()
+            ctx.fillStyle = "#111111"
+            ctx.fillRect(imgX, imgY, imgSize, imgSize)
+            ctx.drawImage(prizeImg, imgX, imgY, imgSize, imgSize)
+            ctx.restore()
+
+            // Image border
+            ctx.save()
+            roundRect(ctx, imgX, imgY, imgSize, imgSize, 28)
+            ctx.strokeStyle = "rgba(255,255,255,0.08)"
+            ctx.lineWidth = 2
+            ctx.stroke()
+            ctx.restore()
+
+            // === TOKEN ID ===
+            let currentY = imgY + imgSize + 24
+            if (wonPrize.type === "nft" && wonPrize.nftTokenId) {
+                ctx.font = "600 22px 'Courier New', monospace"
+                ctx.fillStyle = "rgba(255,255,255,0.25)"
+                ctx.textAlign = "center"
+                    ; (ctx as any).letterSpacing = "4px"
+                ctx.fillText(`TOKEN #${wonPrize.nftTokenId}`, CANVAS_W / 2, currentY)
+                    ; (ctx as any).letterSpacing = "0px"
+                currentY += 36
             }
 
-            // Setup GIF encoder
-            const gif = new GIF({
-                workers: 2,
-                quality: 10,
-                width: CANVAS_W,
-                height: CANVAS_H,
-                workerScript: "/gif.worker.js",
-                background: "#090909",
-            })
+            // === XP PROGRESS BAR ===
+            if (xpGained > 0) {
+                currentY += 6
+                const barX = pad + 20
+                const barW = CANVAS_W - (pad + 20) * 2
+                const barH = 22
 
-            // Build frames
-            for (let i = 0; i < frameCanvases.length; i++) {
-                setStatusText(
-                    frameCanvases.length > 1
-                        ? `Rendering frame ${i + 1}/${frameCanvases.length}`
-                        : "Rendering card..."
-                )
-                setProgress(Math.round(((i + 1) / frameCanvases.length) * 80))
+                ctx.font = "900 24px Inter, Arial, sans-serif"
+                ctx.textAlign = "left"
+                ctx.fillStyle = ACCENT
+                ctx.fillText(`⚡ +${xpGained} XP`, barX, currentY)
 
-                const fullFrameCanvas = await renderFrameToCanvas(frameCanvases[i], logo1Img, logo2Img)
-                gif.addFrame(fullFrameCanvas, { delay: Math.max(frameDelays[i], 80), copy: true })
+                ctx.font = "700 20px Inter, Arial, sans-serif"
+                ctx.textAlign = "right"
+                ctx.fillStyle = "rgba(255,255,255,0.25)"
+                let levelText = `Lv.${xpBefore.level}`
+                if (xpAfter.level > xpBefore.level) levelText += ` → Lv.${xpAfter.level}`
+                ctx.fillText(levelText, barX + barW, currentY + 2)
+
+                currentY += 34
+
+                // Track
+                ctx.save()
+                roundRect(ctx, barX, currentY, barW, barH, barH / 2)
+                ctx.fillStyle = "rgba(255,255,255,0.04)"
+                ctx.fill()
+                ctx.strokeStyle = "rgba(255,255,255,0.08)"
+                ctx.lineWidth = 1.5
+                ctx.stroke()
+                ctx.restore()
+
+                // Fill
+                const fillW = Math.max(barH, (xpAfter.progress / 100) * barW)
+                ctx.save()
+                roundRect(ctx, barX, currentY, fillW, barH, barH / 2)
+                ctx.clip()
+                const barGrad = ctx.createLinearGradient(barX, 0, barX + fillW, 0)
+                barGrad.addColorStop(0, "#0069FF")
+                barGrad.addColorStop(1, "#00C2FF")
+                ctx.fillStyle = barGrad
+                ctx.fillRect(barX, currentY, fillW, barH)
+                ctx.fillStyle = "rgba(255,255,255,0.15)"
+                ctx.fillRect(barX, currentY, fillW, barH / 2)
+                ctx.restore()
+
+                currentY += barH + 10
+                ctx.font = "700 18px Inter, Arial, sans-serif"
+                ctx.textAlign = "left"
+                ctx.fillStyle = "rgba(255,255,255,0.15)"
+                ctx.fillText(`${currentXp.toLocaleString()} XP`, barX, currentY)
+                ctx.textAlign = "right"
+                ctx.fillText(`${xpAfter.nextMilestone.toLocaleString()} XP`, barX + barW, currentY)
+
+                currentY += 30
+            } else {
+                currentY += 12
             }
 
-            URL.revokeObjectURL(safeUrl)
-            setStatusText("Encoding GIF...")
-            setProgress(90)
+            // === SHARDS ===
+            if (shardsGained > 0) {
+                ctx.font = "700 22px Inter, Arial, sans-serif"
+                ctx.textAlign = "center"
+                ctx.fillStyle = "rgba(255,255,255,0.3)"
+                ctx.fillText(`+${shardsGained} Shards`, CANVAS_W / 2, currentY)
+                currentY += 32
+            }
 
-            return new Promise<string>((resolve) => {
-                gif.on("finished", (blob: Blob) => {
-                    setIsGenerating(false)
-                    setProgress(100)
-                    resolve(URL.createObjectURL(blob))
-                })
-                gif.render()
-            })
+            // === LOGOS ===
+            const logoY = currentY + 16
+            const logoHeight = 38
+            const logoGap = 32
+
+            const logo1Width = (logo1Img.width / logo1Img.height) * logoHeight
+            const logo2HeightAdj = logoHeight * 1.1
+            const logo2Width = (logo2Img.width / logo2Img.height) * logo2HeightAdj
+            const totalLogosWidth = logo1Width + logoGap + logo2Width
+            const logo1X = (CANVAS_W - totalLogosWidth) / 2
+
+            // Invert to white
+            const tempCanvas1 = document.createElement("canvas")
+            tempCanvas1.width = Math.ceil(logo1Width)
+            tempCanvas1.height = Math.ceil(logoHeight)
+            const tempCtx1 = tempCanvas1.getContext("2d")!
+            tempCtx1.drawImage(logo1Img, 0, 0, logo1Width, logoHeight)
+            tempCtx1.globalCompositeOperation = "source-in"
+            tempCtx1.fillStyle = "#ffffff"
+            tempCtx1.fillRect(0, 0, logo1Width, logoHeight)
+
+            ctx.globalAlpha = 0.5
+            ctx.drawImage(tempCanvas1, logo1X, logoY)
+
+            const logo2X = logo1X + logo1Width + logoGap
+            const tempCanvas2 = document.createElement("canvas")
+            tempCanvas2.width = Math.ceil(logo2Width)
+            tempCanvas2.height = Math.ceil(logo2HeightAdj)
+            const tempCtx2 = tempCanvas2.getContext("2d")!
+            tempCtx2.drawImage(logo2Img, 0, 0, logo2Width, logo2HeightAdj)
+            tempCtx2.globalCompositeOperation = "source-in"
+            tempCtx2.fillStyle = "#ffffff"
+            tempCtx2.fillRect(0, 0, logo2Width, logo2HeightAdj)
+
+            ctx.drawImage(tempCanvas2, logo2X, logoY - (logo2HeightAdj - logoHeight) / 2)
+            ctx.globalAlpha = 1.0
+
+            setIsGenerating(false)
+            return canvas.toDataURL("image/png")
         } catch (err) {
-            console.error("GIF Gen Error:", err)
+            console.error("Card render error:", err)
             setIsGenerating(false)
             return null
         }
     }
 
-    /* ─── Main action — ALWAYS GIF ─── */
+    /* ─── Main action ─── */
     const handleDownloadAndShare = async () => {
-        const downloadUrl = await generateGifCard()
-        const filename = `ApeDroidz_Win_${wonPrize.name.replace(/\s+/g, "_")}.gif`
+        const dataUrl = await generateCard()
+        const filename = `ApeDroidz_Win_${wonPrize.name.replace(/\s+/g, "_")}.png`
 
-        if (downloadUrl) {
+        if (dataUrl) {
             const a = document.createElement("a")
-            a.href = downloadUrl
+            a.href = dataUrl
             a.download = filename
             a.click()
 
@@ -517,7 +422,7 @@ export function GlitchWinShareModal({
                 </p>
             )}
 
-            {/* Logos — close to content */}
+            {/* Logos */}
             <div className="relative z-10 mt-[2cqw] flex items-center gap-[3cqw] opacity-50">
                 <img src="/Apechain.svg" alt="" className="h-[3cqw]" style={{ filter: "grayscale(100%) brightness(1000%)" }} />
                 <img src="/full-logo.svg" alt="" className="h-[3.3cqw] brightness-0 invert" />
