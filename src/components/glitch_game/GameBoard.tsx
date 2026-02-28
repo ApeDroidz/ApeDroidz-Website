@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, X, Gem, Zap, Gamepad2, Share2, Repeat, Ticket } from "lucide-react"
+import { GlitchWinShareModal } from "./GlitchWinShareModal"
 import { useUserProgress } from "@/hooks/useUserProgress"
 import { ConnectButton } from "thirdweb/react"
 import { client, apeChain } from "@/lib/thirdweb"
@@ -191,6 +192,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
     const [winnerIdx, setWinnerIdx] = useState<number | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [showModal, setShowModal] = useState(false)
+    const [showShareModal, setShowShareModal] = useState(false)
     const [mobileTooltipIdx, setMobileTooltipIdx] = useState<number | null>(null)
 
     // XP animation state
@@ -1062,33 +1064,9 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                                     transition={{ delay: 0.5 }}
                                 >
                                     <button
-                                        onClick={async () => {
+                                        onClick={() => {
                                             playSound("pick")
-
-                                            // 1. Tweet Text
-                                            const parts = [`Just won ${wonPrize.name}`]
-                                            if (xpGained > 0) parts.push(`+ ${xpGained} XP`)
-                                            if (shardsGained > 0) parts.push(`+ ${shardsGained} Shards`)
-                                            const text = encodeURIComponent(parts.join(" ") + " in @ApeDroidz Glitch Game! 🎮⚡\n\nLet's Play on ApeDroidz.com")
-                                            window.open(`https://x.com/intent/tweet?text=${text}`, "_blank")
-
-                                            // 2. Download Image
-                                            if (wonPrize.imageUrl) {
-                                                try {
-                                                    const res = await fetch(wonPrize.imageUrl)
-                                                    const blob = await res.blob()
-                                                    const url = window.URL.createObjectURL(blob)
-                                                    const link = document.createElement("a")
-                                                    link.href = url
-                                                    link.download = `ApeDroidz_Win_${wonPrize.name.replace(/\s+/g, '_')}.png`
-                                                    document.body.appendChild(link)
-                                                    link.click()
-                                                    document.body.removeChild(link)
-                                                    window.URL.revokeObjectURL(url)
-                                                } catch (e) {
-                                                    console.error("Failed to download prize image", e)
-                                                }
-                                            }
+                                            setShowShareModal(true)
                                         }}
                                         onMouseEnter={() => playSound("btn_hover")}
                                         className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all border border-white/5 cursor-pointer flex items-center justify-center gap-2 group/share"
@@ -1124,6 +1102,18 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                     </motion.div >
                 )}
             </AnimatePresence >
+
+            {/* ━━━ SHARE MODAL (GIF Card Generator) ━━━ */}
+            <GlitchWinShareModal
+                wonPrize={wonPrize}
+                xpGained={xpGained}
+                shardsGained={shardsGained}
+                currentXp={currentXp}
+                xpBefore={xpBefore}
+                xpAfter={xpAfter}
+                isOpen={showShareModal}
+                onClose={() => setShowShareModal(false)}
+            />
         </div >
     )
 }
