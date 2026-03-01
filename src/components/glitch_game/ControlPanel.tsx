@@ -915,8 +915,8 @@ export function ControlPanel({
                         onClick={() => { playSound("pick"); setHistoryTab("winners") }}
                         onMouseEnter={() => playSound("hover")}
                         className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${historyTab === "winners"
-                            ? "text-white border-b-2 border-white"
-                            : "text-white/30 hover:text-white/50"
+                            ? "text-white/50 border-b-2 border-white/40"
+                            : "text-white/25 hover:text-white/45"
                             }`}
                     >
                         <Trophy className="w-3 h-3" />
@@ -926,8 +926,8 @@ export function ControlPanel({
                         onClick={() => { playSound("pick"); setHistoryTab("global") }}
                         onMouseEnter={() => playSound("hover")}
                         className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${historyTab === "global"
-                            ? "text-white border-b-2 border-white"
-                            : "text-white/30 hover:text-white/50"
+                            ? "text-white/50 border-b-2 border-white/40"
+                            : "text-white/25 hover:text-white/45"
                             }`}
                     >
                         Recent
@@ -936,8 +936,8 @@ export function ControlPanel({
                         onClick={() => { playSound("pick"); setHistoryTab("personal") }}
                         onMouseEnter={() => playSound("hover")}
                         className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${historyTab === "personal"
-                            ? "text-white border-b-2 border-white"
-                            : "text-white/30 hover:text-white/50"
+                            ? "text-white/50 border-b-2 border-white/40"
+                            : "text-white/25 hover:text-white/45"
                             }`}
                     >
                         Your History
@@ -986,9 +986,12 @@ export function ControlPanel({
                                         {/* Prizes list — $APE + NFTs sorted by rarity, NFT names are OpenSea links */}
                                         <div className="flex flex-wrap gap-x-2 gap-y-0.5 pl-7">
                                             {winner.total_ape > 0 && (
-                                                <span className="text-[10px] font-black text-white/50 leading-tight mr-1">
-                                                    {winner.total_ape} $APE
-                                                </span>
+                                                <>
+                                                    <span className="text-[10px] font-medium text-white/40 leading-tight">
+                                                        {winner.total_ape} $APE
+                                                    </span>
+                                                    <span className="text-[10px] text-white/20 leading-tight">·</span>
+                                                </>
                                             )}
                                             {winner.prizes.map((prize, pi) => {
                                                 const openseaUrl = prize.contract_address && prize.token_id
@@ -1052,13 +1055,25 @@ export function ControlPanel({
                                             {/* Prize name */}
                                             <span className="font-bold text-white/60 truncate flex-1 min-w-0">{log.prizeName}</span>
 
+                                            {/* Wallet (global only) */}
+                                            {historyTab === "global" && (
+                                                <a
+                                                    href={`https://opensea.io/${log.wallet}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="font-mono text-[10px] text-white/30 hover:text-white/60 transition-colors flex-shrink-0 flex items-center gap-0.5 group"
+                                                >
+                                                    {log.wallet.slice(0, 6)}...{log.wallet.slice(-4)}
+                                                </a>
+                                            )}
+
                                             {/* Time */}
                                             {historyTab === "global" ? (
                                                 <a
                                                     href={`https://apechain.calderaexplorer.xyz/tx/${log.txHash}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-white/30 hover:text-orange-400 font-bold transition-colors whitespace-nowrap flex items-center gap-1 group flex-shrink-0 text-[10px]"
+                                                    className="text-white/25 hover:text-orange-400 font-bold transition-colors whitespace-nowrap flex items-center gap-1 group flex-shrink-0 text-[10px]"
                                                 >
                                                     {timeAgo(log.createdAt)}
                                                     <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />

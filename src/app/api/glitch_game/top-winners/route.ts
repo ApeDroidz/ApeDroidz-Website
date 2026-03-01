@@ -28,11 +28,16 @@ export async function GET(req: Request) {
             allPrizeMap.set(pt.id, pt);
         }
 
-        // Eligible NFT prize types (exclude standard batteries)
+        // Filter out standard batteries — keep only super batteries and other NFTs
+        // Exclude anything with 'battery' in name that isn't also 'super'
         const eligibleNftTypes = (allPrizeTypes || []).filter((pt: any) => {
             if (pt.type !== 'nft') return false;
             const nameLower = (pt.name || '').toLowerCase();
-            return !nameLower.includes('standard');
+            const hasBattery = nameLower.includes('battery');
+            const isSuper = nameLower.includes('super');
+            // If it has 'battery' but not 'super' → standard/basic battery → exclude
+            if (hasBattery && !isSuper) return false;
+            return true;
         });
 
         // APE token prize types
