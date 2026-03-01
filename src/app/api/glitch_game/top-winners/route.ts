@@ -50,6 +50,7 @@ export async function GET(req: Request) {
         }
 
         const nftPrizeMap = new Map<string, any>();
+        // Also store contract_address per prize_type for precise nft_inventory lookup
         for (const pt of eligibleNftTypes) nftPrizeMap.set(pt.id, pt);
 
         const apePrizeIds = apeTypes.map((pt: any) => pt.id);
@@ -69,14 +70,24 @@ export async function GET(req: Request) {
         }
 
         // 3. Batch-fetch NFT details from nft_inventory
+        // Key by 'contract_address/token_id' to avoid collisions when two collections share the same token number
         const tokenIds = nftLogs.map((l: any) => l.prize_amount_or_id).filter(Boolean);
 
-        const nftDetailsMap = new Map<string, {
+        // Map: 'contract/token_id' -> details  (primary)
+        // Also keep a secondary map: 'token_id' -> details for fallback (when contract not yet known)
+        const nftDetailsByContractToken = new Map<string, {
             name: string;
             image_url: string;
             contract_address: string;
             token_id: string;
         }>();
+        // Secondary: for entries where we need to resolve by token only
+        const nftDetailsByToken = new Map<string, {
+            name: string;
+            image_url: string;
+            contract_address: string;
+            token_id: string;
+        }[]>(); // Multiple entries possible per token_id
 
         if (tokenIds.length > 0) {
             const { data: nftItems } = await supabaseAdmin
@@ -85,12 +96,19 @@ export async function GET(req: Request) {
                 .in('token_id', tokenIds);
 
             (nftItems || []).forEach((item: any) => {
-                nftDetailsMap.set(String(item.token_id), {
+                const tokenId = String(item.token_id);
+                const contract = (item.contract_address || '').toLowerCase();
+                const detail = {
                     name: item.name,
                     image_url: item.image_url,
                     contract_address: item.contract_address || '',
-                    token_id: String(item.token_id),
-                });
+                    token_id: tokenId,
+                };
+                // Primary key: contract/token
+                nftDetailsByContractToken.set(`${contract}/${tokenId}`, detail);
+                // Secondary key: token_id (may have multiple, keep as array)
+                if (!nftDetailsByToken.has(tokenId)) nftDetailsByToken.set(tokenId, []);
+                nftDetailsByToken.get(tokenId)!.push(detail);
             });
         }
 
@@ -114,16 +132,39 @@ export async function GET(req: Request) {
             if (!prizeInfo) continue;
 
             const tokenId = String(log.prize_amount_or_id || '');
-            const nftDetail = nftDetailsMap.get(tokenId);
             const dropChance = Number(prizeInfo.drop_chance) || 1;
+
+            // Lookup NFT detail: prefer contract-scoped key to avoid cross-collection token_id collisions
+            const prizeContract = (prizeInfo.contract_address || '').toLowerCase();
+            let nftDetail = prizeContract
+                ? nftDetailsByContractToken.get(`${prizeContract}/${tokenId}`)
+                : undefined;
+
+            // Fallback: if prize_type has no contract, pick the first match by token_id
+            // that doesn't look like a battery (prefer non-battery entries)
+            if (!nftDetail) {
+                const candidates = nftDetailsByToken.get(tokenId) || [];
+                // Prefer non-battery candidates
+                nftDetail = candidates.find(c => {
+                    const n = c.name.toLowerCase();
+                    return !(n.includes('battery') && !n.includes('super'));
+                }) ?? candidates[0];
+            }
 
             if (!walletMap.has(log.wallet_address)) {
                 walletMap.set(log.wallet_address, { wallet: log.wallet_address, prizes: [], score: 0, total_ape: 0 });
             }
 
+            // Resolve final name from the correctly contract-matched NFT detail
+            const finalName = nftDetail?.name || prizeInfo.name || '';
+            const finalNameLower = finalName.toLowerCase();
+
+            // Safety net: skip batteries even if they somehow passed the lookup
+            if (finalNameLower.includes('battery') && !finalNameLower.includes('super')) continue;
+
             const entry = walletMap.get(log.wallet_address)!;
             entry.prizes.push({
-                name: nftDetail?.name || prizeInfo.name,
+                name: finalName,
                 image_url: nftDetail?.image_url || prizeInfo.image_url || '',
                 drop_chance: dropChance,
                 won_at: log.created_at,
@@ -132,6 +173,12 @@ export async function GET(req: Request) {
             });
             entry.score += dropChance > 0 ? (1 / dropChance) * 1000 : 0;
         }
+
+        // Remove wallets whose only wins were batteries (0 qualifying prizes after filter)
+        for (const [wallet, entry] of walletMap.entries()) {
+            if (entry.prizes.length === 0) walletMap.delete(wallet);
+        }
+
 
         // 5. Fetch APE token wins for wallets that appear in the winner set
         if (apePrizeIds.length > 0 && walletMap.size > 0) {
