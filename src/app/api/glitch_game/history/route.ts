@@ -1,25 +1,29 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// GET /api/glitch_game/history
+const PAGE_SIZE = 20;
+
+// GET /api/glitch_game/history?scope=global|personal&wallet=0x...&page=1
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const scope = searchParams.get('scope') || 'global';
     const wallet = searchParams.get('wallet');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const offset = (page - 1) * PAGE_SIZE;
 
     try {
         let query = supabaseAdmin
             .from('game_logs')
-            .select('*')
+            .select('*', { count: 'exact' })
             .eq('status', 'success')
             .order('created_at', { ascending: false })
-            .limit(20);
+            .range(offset, offset + PAGE_SIZE - 1);
 
         if (scope === 'personal' && wallet) {
             query = query.ilike('wallet_address', wallet);
         }
 
-        const { data: logs, error: logsError } = await query;
+        const { data: logs, error: logsError, count } = await query;
 
         if (logsError) {
             console.error('❌ Error fetching game logs:', logsError.message);
@@ -27,7 +31,7 @@ export async function GET(req: Request) {
         }
 
         if (!logs || logs.length === 0) {
-            return NextResponse.json({ history: [] });
+            return NextResponse.json({ history: [], hasMore: false, total: count || 0 });
         }
 
         // Fetch prize_types to map IDs to Names
@@ -43,7 +47,7 @@ export async function GET(req: Request) {
         const prizeMap = new Map(prizeTypes?.map((pt: any) => [String(pt.id), pt]));
         const prizeNameMap = new Map(prizeTypes?.map((pt: any) => [pt.name, pt]));
 
-        // Collect NFT token IDs from logs to batch-fetch their names from nft_inventory
+        // Collect NFT token IDs from logs to batch-fetch their names/images from nft_inventory
         const nftTokenIds = logs
             .filter((log: any) => {
                 const prizeInfo = prizeMap.get(log.prize_type_id) || prizeNameMap.get(log.prize_type_id);
@@ -51,16 +55,19 @@ export async function GET(req: Request) {
             })
             .map((log: any) => log.prize_amount_or_id);
 
-        // Batch-fetch NFT names from nft_inventory (one query, not N)
-        const nftNameMap = new Map<string, string>();
+        // Batch-fetch NFT details from nft_inventory
+        const nftDetailMap = new Map<string, { name: string; image_url: string }>();
         if (nftTokenIds.length > 0) {
             const { data: nftItems } = await supabaseAdmin
                 .from('nft_inventory')
-                .select('token_id, name')
+                .select('token_id, name, image_url')
                 .in('token_id', nftTokenIds);
 
             nftItems?.forEach((item: any) => {
-                nftNameMap.set(String(item.token_id), item.name);
+                nftDetailMap.set(String(item.token_id), {
+                    name: item.name,
+                    image_url: item.image_url,
+                });
             });
         }
 
@@ -68,22 +75,34 @@ export async function GET(req: Request) {
         const history = logs.map((log: any) => {
             const prizeTypeInfo = prizeMap.get(log.prize_type_id) || prizeNameMap.get(log.prize_type_id);
             const isNft = (prizeTypeInfo as any)?.type === 'nft';
+            const tokenId = log.prize_amount_or_id ? String(log.prize_amount_or_id) : null;
+            const nftDetail = tokenId ? nftDetailMap.get(tokenId) : null;
 
-            // For NFTs: use real name from nft_inventory; fallback to prize_types name, then raw id
-            const prizeName = isNft && log.prize_amount_or_id
-                ? (nftNameMap.get(String(log.prize_amount_or_id)) || (prizeTypeInfo as any)?.name || log.prize_type_id)
+            const prizeName = isNft && tokenId
+                ? (nftDetail?.name || (prizeTypeInfo as any)?.name || log.prize_type_id)
                 : ((prizeTypeInfo as any)?.name || log.prize_type_id);
+
+            const imageUrl = isNft
+                ? (nftDetail?.image_url || (prizeTypeInfo as any)?.image_url || '')
+                : ((prizeTypeInfo as any)?.image_url || '');
 
             return {
                 id: log.id,
                 wallet: log.wallet_address,
                 prizeName,
+                prizeType: (prizeTypeInfo as any)?.type || 'unknown',
+                imageUrl,
+                nftTokenId: isNft ? tokenId : null,
                 txHash: log.tx_hash,
                 createdAt: log.created_at,
+                xpAwarded: log.xp_awarded ? Number(log.xp_awarded) : 0,
             };
         });
 
-        return NextResponse.json({ history });
+        const total = count || 0;
+        const hasMore = offset + PAGE_SIZE < total;
+
+        return NextResponse.json({ history, hasMore, total, page });
 
     } catch (error: any) {
         console.error('🔥 Unhandled history fetch error:', error.message);

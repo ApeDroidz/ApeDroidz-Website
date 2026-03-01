@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronRight, CheckCircle, AlertCircle, Loader2, Gamepad2, Ticket, Shield, ExternalLink, Timer, CheckSquare, Square, X } from "lucide-react"
+import { CheckCircle, AlertCircle, Loader2, Ticket, Shield, ExternalLink, Timer, CheckSquare, Square, X, Share2, Trophy } from "lucide-react"
 import { useUserProgress } from "@/hooks/useUserProgress"
 import { timeAgo } from "@/lib/utils"
 import { fadeUp } from "@/lib/animations"
@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase"
 import { useSendTransaction } from "thirdweb/react"
 import { prepareTransaction, toWei } from "thirdweb"
 import { client, apeChain } from "@/lib/thirdweb"
+import { GlitchWinShareModal } from "./GlitchWinShareModal"
 
 // --- TYPES ---
 export interface ControlPanelProps {
@@ -33,8 +34,30 @@ export interface HistoryLog {
     id: number
     wallet: string
     prizeName: string
+    prizeType: string
+    imageUrl: string
+    nftTokenId: string | null
     txHash: string
     createdAt: string
+    xpAwarded: number
+}
+
+export interface TopWinnerPrize {
+    name: string
+    image_url: string
+    drop_chance: number
+    won_at: string
+    contract_address: string
+    token_id: string
+}
+
+export interface TopWinner {
+    wallet: string
+    rank: number
+    score: number
+    total_ape: number
+    prizes: TopWinnerPrize[]
+    total_prizes: number
 }
 
 // --- PACK OPTIONS ---
@@ -106,10 +129,28 @@ export function ControlPanel({
         if (isS1LeaderboardOpen) fetchS1Leaderboard()
     }, [isS1LeaderboardOpen, fetchS1Leaderboard])
     // --- HISTORY STATE ---
-    type HistoryTab = "global" | "personal"
-    const [historyTab, setHistoryTab] = useState<HistoryTab>("global")
+    type HistoryTab = "winners" | "global" | "personal"
+    const [historyTab, setHistoryTab] = useState<HistoryTab>("winners")
     const [historyData, setHistoryData] = useState<HistoryLog[]>([])
     const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+    const [historyPage, setHistoryPage] = useState(1)
+    const [historyHasMore, setHistoryHasMore] = useState(false)
+    const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false)
+
+    // --- TOP WINNERS STATE ---
+    const [topWinners, setTopWinners] = useState<TopWinner[]>([])
+    const [isLoadingWinners, setIsLoadingWinners] = useState(false)
+    const [winnersPage, setWinnersPage] = useState(1)
+    const [winnersHasMore, setWinnersHasMore] = useState(false)
+    const [isLoadingMoreWinners, setIsLoadingMoreWinners] = useState(false)
+
+    // --- SHARE FROM HISTORY STATE ---
+    const [shareHistoryEntry, setShareHistoryEntry] = useState<HistoryLog | null>(null)
+    const [showHistoryShareModal, setShowHistoryShareModal] = useState(false)
+
+    // ---  INFINITE SCROLL SENTINEL REFS ---
+    const winnersSentinelRef = useRef<HTMLDivElement>(null)
+    const historySentinelRef = useRef<HTMLDivElement>(null)
 
     // --- DAILY STATE ---
     const [isLoading, setIsLoading] = useState(true)
@@ -134,33 +175,112 @@ export function ControlPanel({
     const [tempXHandle, setTempXHandle] = useState("")
     const [isSavingX, setIsSavingX] = useState(false)
 
+    // --- FETCH TOP WINNERS ---
+    const fetchTopWinners = useCallback(async (page = 1, append = false) => {
+        if (page === 1) setIsLoadingWinners(true)
+        else setIsLoadingMoreWinners(true)
+        try {
+            const res = await fetch(`/api/glitch_game/top-winners?page=${page}`, { cache: 'no-store' })
+            if (res.ok) {
+                const data = await res.json()
+                if (append) {
+                    setTopWinners(prev => [...prev, ...(data.winners || [])])
+                } else {
+                    setTopWinners(data.winners || [])
+                }
+                setWinnersHasMore(data.hasMore || false)
+                setWinnersPage(page)
+            }
+        } catch (err) {
+            console.error("Failed to fetch top winners:", err)
+        } finally {
+            setIsLoadingWinners(false)
+            setIsLoadingMoreWinners(false)
+        }
+    }, [])
+
     // --- FETCH HISTORY ---
-    const fetchHistory = useCallback(async (silent = false) => {
-        if (!silent) setIsLoadingHistory(true)
+    const fetchHistory = useCallback(async (page = 1, append = false, silent = false) => {
+        if (historyTab === 'winners') return
+        if (page === 1 && !silent) setIsLoadingHistory(true)
+        else if (page > 1) setIsLoadingMoreHistory(true)
         try {
             const url = historyTab === "personal" && wallet
-                ? `/api/glitch_game/history?scope=personal&wallet=${wallet}`
-                : `/api/glitch_game/history?scope=global`
+                ? `/api/glitch_game/history?scope=personal&wallet=${wallet}&page=${page}`
+                : `/api/glitch_game/history?scope=global&page=${page}`
             const res = await fetch(url)
             if (res.ok) {
                 const data = await res.json()
-                setHistoryData(data.history || [])
+                if (append) {
+                    setHistoryData(prev => [...prev, ...(data.history || [])])
+                } else {
+                    setHistoryData(data.history || [])
+                }
+                setHistoryHasMore(data.hasMore || false)
+                setHistoryPage(page)
             }
         } catch (error) {
             console.error("Failed to fetch history:", error)
         } finally {
-            if (!silent) setIsLoadingHistory(false)
+            setIsLoadingHistory(false)
+            setIsLoadingMoreHistory(false)
         }
     }, [historyTab, wallet])
 
+    // Load tab data: only fetch if not already loaded (cache per tab)
     useEffect(() => {
-        fetchHistory()
+        if (historyTab === 'winners' && topWinners.length === 0) {
+            fetchTopWinners(1)
+        } else if (historyTab !== 'winners' && historyData.length === 0) {
+            fetchHistory(1)
+        }
+    }, [historyTab])
 
-        const handleHistoryUpdate = () => fetchHistory(true)
+    // Force re-fetch current tab on new game result (e.g., after playing)
+    useEffect(() => {
+        const handleHistoryUpdate = () => {
+            // Reset and reload current tab
+            if (historyTab === 'winners') {
+                setTopWinners([])
+                setWinnersPage(1)
+                setWinnersHasMore(false)
+                fetchTopWinners(1)
+            } else {
+                setHistoryData([])
+                setHistoryPage(1)
+                setHistoryHasMore(false)
+                fetchHistory(1)
+            }
+        }
         window.addEventListener("game_history_updated", handleHistoryUpdate)
-
         return () => window.removeEventListener("game_history_updated", handleHistoryUpdate)
-    }, [fetchHistory])
+    }, [historyTab, fetchTopWinners, fetchHistory])
+
+    // IntersectionObserver for Winners
+    useEffect(() => {
+        const el = winnersSentinelRef.current
+        if (!el || !winnersHasMore || isLoadingMoreWinners) return
+        const obs = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                fetchTopWinners(winnersPage + 1, true)
+            }
+        }, { threshold: 0.1 })
+        obs.observe(el)
+        return () => obs.disconnect()
+    }, [winnersHasMore, isLoadingMoreWinners, winnersPage, fetchTopWinners])
+
+    // IntersectionObserver for History
+    useEffect(() => {
+        const el = historySentinelRef.current
+        if (!el || !historyHasMore || isLoadingMoreHistory) return
+        const obs = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                fetchHistory(historyPage + 1, true)
+            }
+        }, { threshold: 0.1 })
+        obs.observe(el)
+        return () => obs.disconnect()
+    }, [historyHasMore, isLoadingMoreHistory, historyPage, fetchHistory])
 
     // --- FETCH DAILY STATE (via server API to bypass RLS) ---
     const fetchDailyState = useCallback(async () => {
@@ -789,75 +909,217 @@ export function ControlPanel({
 
             {/* === HISTORY SECTION === */}
             <div className="flex flex-col gap-3 mt-2">
-                <div className="flex items-center gap-4 px-2">
+                {/* --- History Sub-Tabs --- */}
+                <div className="flex items-center gap-4 px-1 border-b border-white/5 pb-2">
+                    <button
+                        onClick={() => { playSound("pick"); setHistoryTab("winners") }}
+                        onMouseEnter={() => playSound("hover")}
+                        className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${historyTab === "winners"
+                            ? "text-white border-b-2 border-white"
+                            : "text-white/30 hover:text-white/50"
+                            }`}
+                    >
+                        <Trophy className="w-3 h-3" />
+                        Top Winners
+                    </button>
                     <button
                         onClick={() => { playSound("pick"); setHistoryTab("global") }}
                         onMouseEnter={() => playSound("hover")}
-                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${historyTab === "global" ? "text-white/50" : "text-white/30 hover:text-white/50"}`}
+                        className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${historyTab === "global"
+                            ? "text-white border-b-2 border-white"
+                            : "text-white/30 hover:text-white/50"
+                            }`}
                     >
-                        Recent Games
+                        Recent
                     </button>
                     <button
                         onClick={() => { playSound("pick"); setHistoryTab("personal") }}
                         onMouseEnter={() => playSound("hover")}
-                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${historyTab === "personal" ? "text-white/50" : "text-white/30 hover:text-white/50"}`}
+                        className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${historyTab === "personal"
+                            ? "text-white border-b-2 border-white"
+                            : "text-white/30 hover:text-white/50"
+                            }`}
                     >
                         Your History
                     </button>
                 </div>
 
-                <div className="flex flex-col gap-2 relative min-h-[150px]">
-                    {isLoadingHistory ? (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <Loader2 className="w-5 h-5 animate-spin text-white/30" />
-                        </div>
-                    ) : historyData.length === 0 ? (
-                        <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">
-                            No history found
-                        </div>
-                    ) : (
-                        <div
-                            className="max-h-[200px] overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-1.5 pb-4"
-                            style={{ maskImage: "linear-gradient(to bottom, black 80%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 80%, transparent 100%)" }}
-                        >
-                            <AnimatePresence>
-                                {historyData.map((log) => (
-                                    <motion.div
-                                        key={log.id}
-                                        initial={{ opacity: 0, y: 5 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="grid grid-cols-3 items-center text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2.5 gap-2"
+                {/* --- Top Winners Tab --- */}
+                {historyTab === "winners" && (
+                    <div className="flex flex-col gap-2 relative min-h-[150px]">
+                        {isLoadingWinners ? (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+                            </div>
+                        ) : topWinners.length === 0 ? (
+                            <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">
+                                No NFT winners yet
+                            </div>
+                        ) : (
+                            <div
+                                className="max-h-[280px] overflow-y-auto pr-1 custom-scrollbar flex flex-col gap-2 pb-4"
+                                style={{ maskImage: "linear-gradient(to bottom, black 80%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 80%, transparent 100%)" }}
+                            >
+                                {topWinners.map((winner) => (
+                                    <div
+                                        key={winner.wallet}
+                                        className="flex flex-col gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
                                     >
-                                        <span className="font-bold text-white/50 truncate pr-2 text-left">{log.prizeName}</span>
-                                        <div className="flex justify-center">
+                                        {/* Rank + Wallet row */}
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-black w-5 flex-shrink-0 text-white/40">
+                                                #{winner.rank}
+                                            </span>
                                             <a
-                                                href={`https://opensea.io/${log.wallet}`}
+                                                href={`https://opensea.io/${winner.wallet}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="text-white/70 hover:text-white transition-colors flex items-center gap-1 font-mono tracking-tight group"
+                                                className="font-mono text-[10px] text-white/50 hover:text-white transition-colors flex items-center gap-1 group"
                                             >
-                                                {log.wallet.slice(0, 6)}...{log.wallet.slice(-4)}
-                                                <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                {winner.wallet.slice(0, 6)}...{winner.wallet.slice(-4)}
+                                                <ExternalLink className="w-2 h-2 opacity-0 group-hover:opacity-100 transition-opacity" />
                                             </a>
+                                            <span className="ml-auto text-[9px] font-black text-white/25 uppercase tracking-wider">
+                                                {winner.total_prizes} NFT{winner.total_prizes !== 1 ? 's' : ''}
+                                            </span>
                                         </div>
-                                        <div className="flex justify-end">
-                                            <a
-                                                href={`https://apechain.calderaexplorer.xyz/tx/${log.txHash}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-white/40 hover:text-orange-400 font-bold transition-colors whitespace-nowrap tracking-wider flex items-center gap-1 group"
-                                            >
-                                                {timeAgo(log.createdAt)}
-                                                <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            </a>
+                                        {/* Prizes list — $APE + NFTs sorted by rarity, NFT names are OpenSea links */}
+                                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 pl-7">
+                                            {winner.total_ape > 0 && (
+                                                <span className="text-[10px] font-black text-white/50 leading-tight mr-1">
+                                                    {winner.total_ape} $APE
+                                                </span>
+                                            )}
+                                            {winner.prizes.map((prize, pi) => {
+                                                const openseaUrl = prize.contract_address && prize.token_id
+                                                    ? `https://opensea.io/item/ape_chain/${prize.contract_address}/${prize.token_id}`
+                                                    : null
+                                                return openseaUrl ? (
+                                                    <a
+                                                        key={pi}
+                                                        href={openseaUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-[10px] text-white/40 hover:text-white/70 font-medium leading-tight transition-colors underline underline-offset-2 decoration-white/20 hover:decoration-white/50"
+                                                    >
+                                                        {prize.name}
+                                                    </a>
+                                                ) : (
+                                                    <span key={pi} className="text-[10px] text-white/40 font-medium leading-tight">
+                                                        {prize.name}
+                                                    </span>
+                                                )
+                                            })}
                                         </div>
-                                    </motion.div>
+                                    </div>
                                 ))}
-                            </AnimatePresence>
-                        </div>
-                    )}
-                </div>
+                                {/* Infinite scroll sentinel */}
+                                <div ref={winnersSentinelRef} className="h-1" />
+                                {isLoadingMoreWinners && (
+                                    <div className="flex justify-center py-2">
+                                        <Loader2 className="w-4 h-4 animate-spin text-white/20" />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* --- Recent / Your History Tabs --- */}
+                {(historyTab === "global" || historyTab === "personal") && (
+                    <div className="flex flex-col gap-2 relative min-h-[150px]">
+                        {isLoadingHistory ? (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+                            </div>
+                        ) : historyData.length === 0 ? (
+                            <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">
+                                {historyTab === "personal" ? "No games played yet" : "No history found"}
+                            </div>
+                        ) : (
+                            <div
+                                className="max-h-[220px] overflow-y-auto pr-1 custom-scrollbar flex flex-col gap-1.5 pb-4"
+                                style={{ maskImage: "linear-gradient(to bottom, black 80%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 80%, transparent 100%)" }}
+                            >
+                                <AnimatePresence>
+                                    {historyData.map((log) => (
+                                        <motion.div
+                                            key={log.id}
+                                            initial={{ opacity: 0, y: 5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="flex items-center text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2 gap-2"
+                                        >
+                                            {/* Prize name */}
+                                            <span className="font-bold text-white/60 truncate flex-1 min-w-0">{log.prizeName}</span>
+
+                                            {/* Time */}
+                                            {historyTab === "global" ? (
+                                                <a
+                                                    href={`https://apechain.calderaexplorer.xyz/tx/${log.txHash}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-white/30 hover:text-orange-400 font-bold transition-colors whitespace-nowrap flex items-center gap-1 group flex-shrink-0 text-[10px]"
+                                                >
+                                                    {timeAgo(log.createdAt)}
+                                                    <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </a>
+                                            ) : (
+                                                <span className="text-white/30 font-bold whitespace-nowrap flex-shrink-0 text-[10px]">
+                                                    {timeAgo(log.createdAt)}
+                                                </span>
+                                            )}
+
+                                            {/* Share button (personal only) */}
+                                            {historyTab === "personal" && (
+                                                <button
+                                                    onClick={() => {
+                                                        playSound("pick")
+                                                        setShareHistoryEntry(log)
+                                                        setShowHistoryShareModal(true)
+                                                    }}
+                                                    onMouseEnter={() => playSound("hover")}
+                                                    className="flex-shrink-0 p-1.5 rounded-lg bg-white/5 hover:bg-[#0069FF]/20 border border-white/10 hover:border-[#0069FF]/40 text-white/30 hover:text-[#0069FF] transition-all cursor-pointer"
+                                                    title="Share this win"
+                                                >
+                                                    <Share2 className="w-3 h-3" />
+                                                </button>
+                                            )}
+                                        </motion.div>
+                                    ))}
+                                </AnimatePresence>
+                                {/* Infinite scroll sentinel */}
+                                <div ref={historySentinelRef} className="h-1" />
+                                {isLoadingMoreHistory && (
+                                    <div className="flex justify-center py-2">
+                                        <Loader2 className="w-4 h-4 animate-spin text-white/20" />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
+
+            {/* === HISTORY SHARE MODAL === */}
+            {shareHistoryEntry && (
+                <GlitchWinShareModal
+                    isOpen={showHistoryShareModal}
+                    onClose={() => { setShowHistoryShareModal(false); setShareHistoryEntry(null) }}
+                    wonPrize={{
+                        id: String(shareHistoryEntry.id),
+                        type: shareHistoryEntry.prizeType,
+                        name: shareHistoryEntry.prizeName,
+                        imageUrl: shareHistoryEntry.imageUrl,
+                        amount: 1,
+                        nftTokenId: shareHistoryEntry.nftTokenId,
+                    }}
+                    xpGained={shareHistoryEntry.xpAwarded || 0}
+                    shardsGained={0}
+                    currentXp={0}
+                    xpBefore={{ level: 1, progress: 0, nextMilestone: 1000 }}
+                    xpAfter={{ level: 1, progress: 0, nextMilestone: 1000 }}
+                />
+            )}
 
             {/* === SEASON 1 LEADERBOARD MODAL === */}
             <AnimatePresence>

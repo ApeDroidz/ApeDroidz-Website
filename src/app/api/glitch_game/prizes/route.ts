@@ -36,6 +36,7 @@ export async function GET() {
                     .select("id, name, image_url, token_id, contract_address")
                     .eq("prize_type_id", category.id)
                     .eq("status", "available")
+                    .order("id", { ascending: true })
                     .limit(limit)
 
                 if (invError) {
