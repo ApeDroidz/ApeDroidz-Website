@@ -22,7 +22,7 @@ export async function GET(req: Request) {
         // 1. Fetch ALL prize_types
         const { data: allPrizeTypes, error: ptErr } = await supabaseAdmin
             .from('prize_types')
-            .select('id, name, type, image_url, drop_chance, contract_address')
+            .select('id, name, type, image_url, drop_chance')
             .eq('is_active', true);
 
         if (ptErr) throw ptErr;
@@ -110,15 +110,14 @@ export async function GET(req: Request) {
             const tokenId = String(log.prize_amount_or_id || '');
             const dropChance = Number(prizeInfo.drop_chance) || 1;
 
-            // Precise NFT lookup: prefer contract-scoped key
-            const prizeContract = (prizeInfo.contract_address || '').toLowerCase();
-            let nftDetail = prizeContract
-                ? nftDetailsByContractToken.get(`${prizeContract}/${tokenId}`)
-                : undefined;
-
-            // Fallback: prefer non-battery candidates when no contract match
-            if (!nftDetail) {
-                const candidates = nftDetailsByToken.get(tokenId) || [];
+            // Lookup NFT details from nft_inventory by token_id
+            // Try to find best match, preferring non-battery candidates
+            let nftDetail: { name: string; image_url: string; contract_address: string; token_id: string } | undefined;
+            const candidates = nftDetailsByToken.get(tokenId) || [];
+            if (candidates.length === 1) {
+                nftDetail = candidates[0];
+            } else if (candidates.length > 1) {
+                // Prefer non-battery candidates to avoid cross-collection collision
                 nftDetail = candidates.find(c => !isStandardBattery(c.name)) ?? candidates[0];
             }
 
@@ -146,10 +145,10 @@ export async function GET(req: Request) {
             if (isBattery) {
                 entry.standard_battery_count += 1;
                 // Save first battery sample for OpenSea link
-                if (!entry.standard_battery_sample && (nftDetail?.contract_address || prizeInfo.contract_address)) {
+                if (!entry.standard_battery_sample && nftDetail?.contract_address) {
                     entry.standard_battery_sample = {
-                        contract_address: nftDetail?.contract_address || prizeInfo.contract_address || '',
-                        token_id: nftDetail?.token_id || tokenId,
+                        contract_address: nftDetail.contract_address,
+                        token_id: nftDetail.token_id || tokenId,
                     };
                 }
             } else {
