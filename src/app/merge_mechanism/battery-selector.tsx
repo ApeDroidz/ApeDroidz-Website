@@ -23,10 +23,12 @@ interface BatterySelectorProps {
     selectedShardIndices: Set<number>
     onShardToggle: (index: number) => void
     onShardSelectMany: (count: number) => void
+    onShardSelectMaximum: () => void
     onShardDeselect: () => void
     shardImageUrl?: string | null
     isLoadingShards?: boolean
     isShardDisabled?: boolean
+    isBulkMerge?: boolean
 }
 
 /* ─── Battery Card ─── */
@@ -112,8 +114,8 @@ export function BatterySelector({
     batteries, selectedBatteries, onToggleSelect, onSelect20, onDeselectAll,
     onRefresh, isLoading, disabled = false,
     activeTab, onTabChange,
-    shardBalance, selectedShardIndices, onShardToggle, onShardSelectMany, onShardDeselect,
-    isLoadingShards = false, isShardDisabled = false,
+    shardBalance, selectedShardIndices, onShardToggle, onShardSelectMany, onShardSelectMaximum, onShardDeselect,
+    isLoadingShards = false, isShardDisabled = false, isBulkMerge = false,
 }: BatterySelectorProps) {
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [showAll, setShowAll] = useState(false)
@@ -253,7 +255,8 @@ export function BatterySelector({
                     </button>
                     <div className="flex-1" />
                     <span className="text-sm font-mono font-bold text-white/60 whitespace-nowrap">
-                        <span className={selectedShardCount === 30 ? 'text-[#FF7700]' : ''}>{selectedShardCount}</span>/30
+                        <span className={selectedShardCount > 0 && selectedShardCount % 30 === 0 ? 'text-[#FF7700]' : ''}>{selectedShardCount}</span>
+                        /{isBulkMerge ? Math.floor(shardBalance / 30) * 30 : 30}
                     </span>
                 </div>
 
@@ -294,14 +297,26 @@ export function BatterySelector({
                             Deselect All
                         </button>
                     ) : canSelect ? (
-                        <button
-                            onClick={() => onShardSelectMany(selectTarget)}
-                            disabled={isShardDisabled}
-                            className={`flex-1 h-11 flex items-center justify-center gap-2 rounded-xl border text-xs font-black uppercase tracking-wider transition-all
-                                ${isShardDisabled ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed' : 'bg-white text-black border-white hover:bg-blue-600 hover:border-blue-600 hover:text-white cursor-pointer'}`}
-                        >
-                            Select {selectTarget}
-                        </button>
+                        <>
+                            <button
+                                onClick={() => onShardSelectMany(selectTarget)}
+                                disabled={isShardDisabled}
+                                className={`flex-1 h-11 flex items-center justify-center gap-2 rounded-xl border text-xs font-black uppercase tracking-wider transition-all
+                                    ${isShardDisabled ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed' : 'bg-white text-black border-white hover:bg-blue-600 hover:border-blue-600 hover:text-white cursor-pointer'}`}
+                            >
+                                Select {selectTarget}
+                            </button>
+                            {shardBalance >= 60 && (
+                                <button
+                                    onClick={onShardSelectMaximum}
+                                    disabled={isShardDisabled}
+                                    className={`flex-1 h-11 flex items-center justify-center gap-2 rounded-xl border text-xs font-black uppercase tracking-wider transition-all
+                                        ${isShardDisabled ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed' : 'bg-[#0069FF] text-white border-[#0069FF] hover:bg-[#0050CC] hover:border-[#0050CC] cursor-pointer'}`}
+                                >
+                                    Select Maximum
+                                </button>
+                            )}
+                        </>
                     ) : (
                         <div className="flex-1 h-11 flex items-center justify-center text-xs font-mono text-white/40">
                             Need {Math.max(0, 30 - shardBalance)} more shards

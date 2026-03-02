@@ -185,6 +185,7 @@ interface MergeMachineProps {
     onStartMerge: () => void
     onReset: () => void
     targetImageUrl?: string | null
+    isBulkMerge?: boolean
 }
 
 export function MergeMachine({
@@ -196,6 +197,7 @@ export function MergeMachine({
     onStartMerge,
     onReset,
     targetImageUrl,
+    isBulkMerge = false,
 }: MergeMachineProps) {
     const [isMobile, setIsMobile] = useState(false)
 
@@ -207,8 +209,9 @@ export function MergeMachine({
     }, [])
 
     const isShards = mode === 'shards'
-    const requiredCount = isShards ? 30 : 20
+    const requiredCount = isShards ? (isBulkMerge ? selectedCount : 30) : 20
     const accentColor = isShards ? '#0069FF' : '#FF7700'
+    const batteriesFromShards = Math.floor(selectedCount / 30)
 
     // Calculate glitch intensity
     const getGlitchIntensity = (): 0 | 1 | 2 | 3 | 4 | 5 => {
@@ -229,11 +232,11 @@ export function MergeMachine({
     }
 
     // Button label
-    const required = isShards ? 30 : 20
-    let buttonText = `0/${required} SELECTED`
+    const required = isShards ? (isBulkMerge ? selectedCount : 30) : 20
+    let buttonText = `0/${isShards ? 30 : 20} SELECTED`
     if (mergeSuccess) buttonText = "MERGE COMPLETE"
     else if (isMerging) buttonText = "MERGING..."
-    else if (isReady) buttonText = isShards ? "START SHARD MERGE" : "START MERGE"
+    else if (isReady) buttonText = isShards ? `MERGE ${selectedCount} SHARDS` : "START MERGE"
     else if (selectedCount > 0) buttonText = `${selectedCount}/${required} SELECTED`
 
     const isButtonActive = isReady && !isMerging && !mergeSuccess
@@ -249,8 +252,16 @@ export function MergeMachine({
                 </h1>
                 <p className="text-gray-400 text-xs sm:text-sm font-mono leading-relaxed max-w-2xl mx-auto">
                     {mergeSuccess
-                        ? (isShards ? 'You received a Standard Battery in exchange for 30 Energy Shards.' : 'Congratulations! You have received a SUPER BATTERY.')
-                        : (isShards ? 'Select 30 Energy Shards to merge into 1 Standard Battery.' : 'Select 20 Standard Batteries to merge into 1 Super Battery.')}
+                        ? (isShards
+                            ? (isBulkMerge
+                                ? `You received ${batteriesFromShards} Standard Batteries in exchange for ${selectedCount} Energy Shards.`
+                                : 'You received a Standard Battery in exchange for 30 Energy Shards.')
+                            : 'Congratulations! You have received a SUPER BATTERY.')
+                        : (isShards
+                            ? (isBulkMerge
+                                ? `Select ${selectedCount} Energy Shards to merge into ${batteriesFromShards} Standard Batteries.`
+                                : 'Select 30 Energy Shards to merge into 1 Standard Battery.')
+                            : 'Select 20 Standard Batteries to merge into 1 Super Battery.')}
                 </p>
             </div>
 
@@ -348,11 +359,15 @@ export function MergeMachine({
                             <div className="text-center">
                                 <h2 className={`text-2xl md:text-3xl font-black uppercase tracking-wider mb-2 ${isShards ? 'text-[#0069FF]' : 'text-[#FF7700]'
                                     }`}>
-                                    {isShards ? 'Standard Battery Acquired!' : 'Super Battery Acquired!'}
+                                    {isShards
+                                        ? (isBulkMerge ? `${batteriesFromShards} Standard Batteries Acquired!` : 'Standard Battery Acquired!')
+                                        : 'Super Battery Acquired!'}
                                 </h2>
                                 <p className="text-white/60 text-sm font-mono">
                                     {isShards
-                                        ? 'Your 30 shards have been merged into a Standard Battery.'
+                                        ? (isBulkMerge
+                                            ? `Your ${selectedCount} shards have been merged into ${batteriesFromShards} Standard Batteries.`
+                                            : 'Your 30 shards have been merged into a Standard Battery.')
                                         : 'Your battery has been upgraded successfully.'}
                                 </p>
                             </div>

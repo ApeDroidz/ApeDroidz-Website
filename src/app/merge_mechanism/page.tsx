@@ -57,6 +57,7 @@ function MergeMechanismContent() {
     const [isMerging, setIsMerging] = useState(false)
     const [mergeSuccess, setMergeSuccess] = useState(false)
     const [mergeError, setMergeError] = useState<string | null>(null)
+    const [isBulkMerge, setIsBulkMerge] = useState(false)
 
     // Transfer hooks
     const { transferBatch, isLoading: isTransferring } = useBatchTransfer(BATTERY_CONTRACT_ADDRESS)
@@ -176,6 +177,7 @@ function MergeMechanismContent() {
     // Toggle a specific shard index on/off
     const handleShardToggle = useCallback((index: number) => {
         if (mode !== 'shards') setMode('shards')
+        setIsBulkMerge(false)
         setSelectedShardIndices(prev => {
             const next = new Set(prev)
             if (next.has(index)) {
@@ -190,11 +192,25 @@ function MergeMechanismContent() {
     // Select up to N shards at once (for "Select 30" button)
     const handleShardSelectMany = useCallback((count: number) => {
         if (mode !== 'shards') setMode('shards')
+        setIsBulkMerge(false)
         const indices = Array.from({ length: Math.min(count, shardBalance) }, (_, i) => i)
         setSelectedShardIndices(new Set(indices))
     }, [mode, shardBalance])
 
-    const handleShardDeselectAll = useCallback(() => setSelectedShardIndices(new Set()), [])
+    // Select maximum shards (largest multiple of 30)
+    const handleShardSelectMaximum = useCallback(() => {
+        if (mode !== 'shards') setMode('shards')
+        const maxShards = Math.floor(shardBalance / 30) * 30
+        if (maxShards <= 0) return
+        const indices = Array.from({ length: maxShards }, (_, i) => i)
+        setSelectedShardIndices(new Set(indices))
+        setIsBulkMerge(maxShards > 30)
+    }, [mode, shardBalance])
+
+    const handleShardDeselectAll = useCallback(() => {
+        setSelectedShardIndices(new Set())
+        setIsBulkMerge(false)
+    }, [])
 
     // ──────────────────────────────────────────────────────────
     // MERGE EXECUTION
@@ -202,7 +218,7 @@ function MergeMechanismContent() {
 
     const handleStartMerge = useCallback(() => {
         if (mode === 'batteries' && selectedBatteries.length === 20) setShowConfirmModal(true)
-        if (mode === 'shards' && selectedShardIndices.size === 30) setShowConfirmModal(true)
+        if (mode === 'shards' && selectedShardIndices.size >= 30 && selectedShardIndices.size % 30 === 0) setShowConfirmModal(true)
     }, [mode, selectedBatteries.length, selectedShardIndices.size])
 
     const executeBatteryMerge = async () => {
@@ -251,14 +267,15 @@ function MergeMechanismContent() {
     }
 
     const executeShardMerge = async () => {
-        if (selectedShardIndices.size !== 30 || !account?.address) return
+        const shardCount = selectedShardIndices.size
+        if (shardCount < 30 || shardCount % 30 !== 0 || !account?.address) return
 
         setShowConfirmModal(false)
         setIsMerging(true)
         setMergeError(null)
 
         try {
-            const transferResult = await transferShards()
+            const transferResult = await transferShards(shardCount)
             if (!transferResult || !transferResult.transactionHash) throw new Error("Transaction failed or was rejected")
 
             const response = await fetch("/api/merge/shards", {
@@ -266,7 +283,8 @@ function MergeMechanismContent() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     userWallet: account.address,
-                    txHash: transferResult.transactionHash
+                    txHash: transferResult.transactionHash,
+                    shardCount,
                 })
             })
 
@@ -292,6 +310,7 @@ function MergeMechanismContent() {
     const handleReset = useCallback(() => {
         setMergeSuccess(false)
         setIsMerging(false)
+        setIsBulkMerge(false)
         if (mode === 'batteries') {
             setSelectedBatteries([])
             fetchBatteries()
@@ -305,10 +324,16 @@ function MergeMechanismContent() {
     // RENDER
     // ──────────────────────────────────────────────────────────
 
-    const isReady = mode === 'batteries' ? selectedBatteries.length === 20 : selectedShardIndices.size === 30
+    const isReady = mode === 'batteries'
+        ? selectedBatteries.length === 20
+        : selectedShardIndices.size >= 30 && selectedShardIndices.size % 30 === 0
+    const shardCount = selectedShardIndices.size
+    const batteriesFromShards = Math.floor(shardCount / 30)
     const mergeModalMessage = mode === 'batteries'
         ? "You are exchanging 20 Standard Batteries for 1 Super Battery. All 20 batteries will be sent and you will receive a Super Battery in return. This action cannot be undone."
-        : "You are exchanging 30 Energy Shards for 1 Standard Battery. This action cannot be undone."
+        : isBulkMerge
+            ? `You are exchanging ${shardCount} Energy Shards for ${batteriesFromShards} Standard Batteries. All ${shardCount} shards will be sent and you will receive ${batteriesFromShards} batteries in return. This action cannot be undone.`
+            : "You are exchanging 30 Energy Shards for 1 Standard Battery. This action cannot be undone."
 
     return (
         <main className="relative min-h-screen w-full bg-black font-sans text-white selection:bg-white/20 overflow-x-hidden">
@@ -337,6 +362,7 @@ function MergeMechanismContent() {
                             onStartMerge={handleStartMerge}
                             onReset={handleReset}
                             targetImageUrl={mode === 'shards' ? 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp' : null}
+                            isBulkMerge={isBulkMerge}
                         />
                     </div>
 
@@ -358,10 +384,12 @@ function MergeMechanismContent() {
                                     selectedShardIndices={selectedShardIndices}
                                     onShardToggle={handleShardToggle}
                                     onShardSelectMany={handleShardSelectMany}
+                                    onShardSelectMaximum={handleShardSelectMaximum}
                                     onShardDeselect={handleShardDeselectAll}
                                     isLoadingShards={isLoadingShards}
                                     isShardDisabled={isMerging || mergeSuccess}
                                     shardImageUrl={shardImageUrl}
+                                    isBulkMerge={isBulkMerge}
                                 />
                             </div>
                         </div>

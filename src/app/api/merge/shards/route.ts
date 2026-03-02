@@ -39,17 +39,27 @@ async function logShardMerge(
 export async function POST(req: NextRequest) {
     let userWallet = "unknown";
     let txHash = "";
+    const SHARDS_PER_BATTERY = 30;
 
     try {
         const body = await req.json();
         txHash = body.txHash;
         userWallet = body.userWallet || "unknown";
+        const shardCount: number = body.shardCount || SHARDS_PER_BATTERY;
 
         if (!txHash || !userWallet || userWallet === "unknown") {
             return NextResponse.json({ error: "txHash and userWallet required" }, { status: 400 });
         }
 
+        // Validate shard count
+        if (shardCount < SHARDS_PER_BATTERY || shardCount % SHARDS_PER_BATTERY !== 0) {
+            return NextResponse.json({ error: `shardCount must be a multiple of ${SHARDS_PER_BATTERY}` }, { status: 400 });
+        }
 
+        const batteriesNeeded = shardCount / SHARDS_PER_BATTERY;
+        console.log(`🔷 [Shard Merge] ${userWallet.slice(0, 8)}... sending ${shardCount} shards → ${batteriesNeeded} batteries`);
+
+        // 1. Verify transaction on chain
         const rpc = getRpcClient({ client, chain: apeChain });
         const receipt = await eth_getTransactionReceipt(rpc, { hash: txHash as `0x${string}` });
 
@@ -58,45 +68,90 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Transaction failed on chain" }, { status: 400 });
         }
 
-        // 2. Find one available standard battery in nft_inventory
-        const { data: batteryItem, error: batteryErr } = await supabaseAdmin
+        // 2. Verify the ERC1155 TransferSingle event to confirm exact shard amount
+        // TransferSingle(address operator, address from, address to, uint256 id, uint256 value)
+        const TRANSFER_SINGLE_TOPIC = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62";
+        const ADMIN_WALLET_LOWER = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS!.toLowerCase();
+        const SHARD_CONTRACT = process.env.SHARD_CONTRACT_ADDRESS?.toLowerCase() || process.env.NEXT_PUBLIC_SHARD_CONTRACT_ADDRESS?.toLowerCase();
+
+        let verifiedShardAmount = 0;
+        for (const log of (receipt.logs || [])) {
+            if (
+                log.address?.toLowerCase() === SHARD_CONTRACT &&
+                log.topics?.[0] === TRANSFER_SINGLE_TOPIC
+            ) {
+                // Topics: [0]=event sig, [1]=operator, [2]=from, [3]=to
+                // Data: id (uint256) + value (uint256)
+                const toAddr = "0x" + (log.topics[3] as string).slice(26).toLowerCase();
+                if (toAddr === ADMIN_WALLET_LOWER && log.data) {
+                    // data = abi.encode(uint256 id, uint256 value)
+                    const dataHex = log.data.startsWith("0x") ? log.data.slice(2) : log.data;
+                    // value is the second 32 bytes
+                    const valueHex = dataHex.slice(64, 128);
+                    verifiedShardAmount += Number(BigInt("0x" + valueHex));
+                }
+            }
+        }
+
+        if (verifiedShardAmount < shardCount) {
+            const errorMsg = `Expected ${shardCount} shards but only verified ${verifiedShardAmount} in tx logs`;
+            console.error(`❌ [Shard Merge] ${errorMsg}`);
+            await logShardMerge(userWallet, txHash, "unknown", "failed", errorMsg);
+            return NextResponse.json({ error: errorMsg }, { status: 403 });
+        }
+
+        console.log(`✅ [Shard Merge] Verified ${verifiedShardAmount} shards transferred on-chain`);
+
+        // 3. Check battery availability BEFORE transferring
+        const { data: availableBatteries, error: batteryErr } = await supabaseAdmin
             .from("nft_inventory")
             .select("id, token_id, contract_address, name, image_url")
             .eq("prize_type_id", STANDARD_BATTERY_PRIZE_TYPE_ID)
             .eq("status", "available")
-            .limit(1)
-            .maybeSingle();
+            .order("token_id", { ascending: true })
+            .limit(batteriesNeeded);
 
-        if (batteryErr) throw new Error(`DB error finding battery: ${batteryErr.message}`);
+        if (batteryErr) throw new Error(`DB error finding batteries: ${batteryErr.message}`);
 
-        if (!batteryItem) {
-            await logShardMerge(userWallet, txHash, "unknown", "failed", "No standard batteries in stock");
-            return NextResponse.json(
-                { error: "No standard batteries available at the moment. Contact support." },
-                { status: 503 }
-            );
+        if (!availableBatteries || availableBatteries.length < batteriesNeeded) {
+            const errorMsg = `Not enough batteries in vault. Need ${batteriesNeeded}, available: ${availableBatteries?.length || 0}. Please contact the team.`;
+            await logShardMerge(userWallet, txHash, "unknown", "failed", errorMsg);
+            return NextResponse.json({ error: errorMsg }, { status: 503 });
         }
 
-        // 3. Transfer the battery from vault to user
+        // 4. Transfer all batteries from vault to user
         const vaultAccount = privateKeyToAccount({ client, privateKey: PRIZE_VAULT_PRIVATE_KEY });
-        const batteryContract = getContract({ client, chain: apeChain, address: batteryItem.contract_address });
+        const sentBatteries: Array<{ tokenId: string; name: string; imageUrl: string; txHash: string }> = [];
 
-        const transferTx = transferFrom({
-            contract: batteryContract,
-            from: vaultAccount.address,
-            to: userWallet,
-            tokenId: BigInt(batteryItem.token_id),
-        });
+        for (const batteryItem of availableBatteries) {
+            const batteryContract = getContract({ client, chain: apeChain, address: batteryItem.contract_address });
 
-        const transferReceipt = await sendTransaction({ transaction: transferTx, account: vaultAccount });
+            const transferTx = transferFrom({
+                contract: batteryContract,
+                from: vaultAccount.address,
+                to: userWallet,
+                tokenId: BigInt(batteryItem.token_id),
+            });
 
-        // 4. Mark battery as claimed in inventory
-        await supabaseAdmin
-            .from("nft_inventory")
-            .update({ status: "claimed", winner_wallet: userWallet })
-            .eq("id", batteryItem.id);
+            const transferReceipt = await sendTransaction({ transaction: transferTx, account: vaultAccount });
 
-        // 4.5 Deduct 30 shards from internal DB ledger (secondary to on-chain burn)
+            // Mark battery as claimed
+            await supabaseAdmin
+                .from("nft_inventory")
+                .update({ status: "claimed", winner_wallet: userWallet })
+                .eq("id", batteryItem.id);
+
+            sentBatteries.push({
+                tokenId: batteryItem.token_id,
+                name: batteryItem.name,
+                imageUrl: batteryItem.image_url,
+                txHash: transferReceipt.transactionHash,
+            });
+
+            console.log(`✅ [Shard Merge] Sent Battery #${batteryItem.token_id} to ${userWallet.slice(0, 8)}...`);
+        }
+
+        // 5. Deduct shards from internal DB ledger
         const { data: userRow } = await supabaseAdmin
             .from("glitch_users")
             .select("shards_balance")
@@ -106,23 +161,23 @@ export async function POST(req: NextRequest) {
         if (userRow) {
             await supabaseAdmin
                 .from("glitch_users")
-                .update({ shards_balance: Math.max(0, (userRow.shards_balance || 0) - 30) })
+                .update({ shards_balance: Math.max(0, (userRow.shards_balance || 0) - shardCount) })
                 .ilike("wallet_address", userWallet);
         }
 
-        // 5. Log success
-        await logShardMerge(userWallet, txHash, batteryItem.token_id, "success", null);
+        // 6. Log success
+        const allTokenIds = sentBatteries.map(b => b.tokenId).join(", ");
+        await logShardMerge(userWallet, txHash, allTokenIds, "success", null);
 
-        console.log(`✅ [Shard Merge] ${userWallet.slice(0, 8)}... → Battery #${batteryItem.token_id} (tx: ${transferReceipt.transactionHash})`);
+        console.log(`✅ [Shard Merge] Complete! ${userWallet.slice(0, 8)}... sent ${shardCount} shards → ${sentBatteries.length} batteries (${allTokenIds})`);
 
         return NextResponse.json({
             success: true,
-            battery: {
-                tokenId: batteryItem.token_id,
-                name: batteryItem.name,
-                imageUrl: batteryItem.image_url,
-                txHash: transferReceipt.transactionHash,
-            },
+            batteriesReceived: sentBatteries.length,
+            shardsUsed: shardCount,
+            batteries: sentBatteries,
+            // Keep backward compatibility: also return single battery for non-bulk merges
+            battery: sentBatteries[0],
         });
     } catch (err: any) {
         console.error("🔥 [Shard Merge]:", err.message);

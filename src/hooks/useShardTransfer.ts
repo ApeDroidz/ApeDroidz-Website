@@ -15,11 +15,14 @@ export function useShardTransfer() {
     const { mutateAsync: sendTx, isPending } = useSendTransaction();
     const [error, setError] = useState<string | null>(null);
 
-    const transferShards = useCallback(async () => {
+    const transferShards = useCallback(async (shardCount: number = SHARDS_PER_MERGE) => {
         setError(null);
         if (!account) throw new Error("Wallet not connected");
         if (!ADMIN_WALLET) throw new Error("Admin wallet not configured");
         if (!SHARD_CONTRACT_ADDRESS) throw new Error("Shard contract not configured");
+        if (shardCount < SHARDS_PER_MERGE || shardCount % SHARDS_PER_MERGE !== 0) {
+            throw new Error(`Shard count must be a multiple of ${SHARDS_PER_MERGE}`);
+        }
 
         try {
             const contract = getContract({
@@ -33,7 +36,7 @@ export function useShardTransfer() {
                 from: account.address,
                 to: ADMIN_WALLET,
                 tokenId: BigInt(0),
-                value: BigInt(SHARDS_PER_MERGE),
+                value: BigInt(shardCount),
                 data: "0x",
             });
 
