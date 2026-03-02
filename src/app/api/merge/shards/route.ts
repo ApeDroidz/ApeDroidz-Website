@@ -102,53 +102,77 @@ export async function POST(req: NextRequest) {
 
         console.log(`✅ [Shard Merge] Verified ${verifiedShardAmount} shards transferred on-chain`);
 
-        // 3. Check battery availability BEFORE transferring
-        const { data: availableBatteries, error: batteryErr } = await supabaseAdmin
+        // 3. Fetch a generous pool of candidate batteries (more than needed, to handle stale entries)
+        const fetchLimit = batteriesNeeded * 3 + 10; // fetch extra in case some are stale
+        const { data: candidateBatteries, error: batteryErr } = await supabaseAdmin
             .from("nft_inventory")
             .select("id, token_id, contract_address, name, image_url")
             .eq("prize_type_id", STANDARD_BATTERY_PRIZE_TYPE_ID)
             .eq("status", "available")
             .order("token_id", { ascending: true })
-            .limit(batteriesNeeded);
+            .limit(fetchLimit);
 
         if (batteryErr) throw new Error(`DB error finding batteries: ${batteryErr.message}`);
 
-        if (!availableBatteries || availableBatteries.length < batteriesNeeded) {
-            const errorMsg = `Not enough batteries in vault. Need ${batteriesNeeded}, available: ${availableBatteries?.length || 0}. Please contact the team.`;
+        if (!candidateBatteries || candidateBatteries.length < batteriesNeeded) {
+            const errorMsg = `Not enough batteries in vault. Need ${batteriesNeeded}, available: ${candidateBatteries?.length || 0}. Please contact the team.`;
             await logShardMerge(userWallet, txHash, "unknown", "failed", errorMsg);
             return NextResponse.json({ error: errorMsg }, { status: 503 });
         }
 
-        // 4. Transfer all batteries from vault to user
+        // 4. Transfer batteries from vault to user (skip any that fail due to stale ownership)
         const vaultAccount = privateKeyToAccount({ client, privateKey: PRIZE_VAULT_PRIVATE_KEY });
         const sentBatteries: Array<{ tokenId: string; name: string; imageUrl: string; txHash: string }> = [];
 
-        for (const batteryItem of availableBatteries) {
-            const batteryContract = getContract({ client, chain: apeChain, address: batteryItem.contract_address });
+        for (const batteryItem of candidateBatteries) {
+            if (sentBatteries.length >= batteriesNeeded) break;
 
-            const transferTx = transferFrom({
-                contract: batteryContract,
-                from: vaultAccount.address,
-                to: userWallet,
-                tokenId: BigInt(batteryItem.token_id),
-            });
+            try {
+                const batteryContract = getContract({ client, chain: apeChain, address: batteryItem.contract_address });
 
-            const transferReceipt = await sendTransaction({ transaction: transferTx, account: vaultAccount });
+                const transferTx = transferFrom({
+                    contract: batteryContract,
+                    from: vaultAccount.address,
+                    to: userWallet,
+                    tokenId: BigInt(batteryItem.token_id),
+                });
 
-            // Mark battery as claimed
-            await supabaseAdmin
-                .from("nft_inventory")
-                .update({ status: "claimed", winner_wallet: userWallet })
-                .eq("id", batteryItem.id);
+                const transferReceipt = await sendTransaction({ transaction: transferTx, account: vaultAccount });
 
-            sentBatteries.push({
-                tokenId: batteryItem.token_id,
-                name: batteryItem.name,
-                imageUrl: batteryItem.image_url,
-                txHash: transferReceipt.transactionHash,
-            });
+                // Mark battery as claimed
+                await supabaseAdmin
+                    .from("nft_inventory")
+                    .update({ status: "claimed", winner_wallet: userWallet })
+                    .eq("id", batteryItem.id);
 
-            console.log(`✅ [Shard Merge] Sent Battery #${batteryItem.token_id} to ${userWallet.slice(0, 8)}...`);
+                sentBatteries.push({
+                    tokenId: batteryItem.token_id,
+                    name: batteryItem.name,
+                    imageUrl: batteryItem.image_url,
+                    txHash: transferReceipt.transactionHash,
+                });
+
+                console.log(`✅ [Shard Merge] Sent Battery #${batteryItem.token_id} to ${userWallet.slice(0, 8)}...`);
+            } catch (transferErr: any) {
+                // Battery likely not owned by vault anymore — mark as error and skip
+                console.warn(`⚠️ [Shard Merge] Failed to transfer Battery #${batteryItem.token_id}: ${transferErr.message}. Skipping...`);
+                await supabaseAdmin
+                    .from("nft_inventory")
+                    .update({ status: "error" })
+                    .eq("id", batteryItem.id);
+            }
+        }
+
+        // Check if we managed to send enough
+        if (sentBatteries.length < batteriesNeeded) {
+            const errorMsg = `Could only send ${sentBatteries.length}/${batteriesNeeded} batteries. Some vault entries are stale. Please contact the team.`;
+            await logShardMerge(userWallet, txHash, sentBatteries.map(b => b.tokenId).join(", "), "failed", errorMsg);
+            return NextResponse.json({
+                error: errorMsg,
+                partialBatteries: sentBatteries,
+                sent: sentBatteries.length,
+                needed: batteriesNeeded,
+            }, { status: 503 });
         }
 
         // 5. Deduct shards from internal DB ledger
