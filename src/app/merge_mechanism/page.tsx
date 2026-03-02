@@ -213,12 +213,12 @@ function MergeMechanismContent() {
         setMergeError(null)
 
         try {
-            const upgradeTokenId = selectedBatteries[0].tokenId
-            const tokensToSend = selectedBatteries.slice(1).map(b => b.tokenId)
+            // Send ALL 20 standard batteries to admin wallet
+            const allTokenIds = selectedBatteries.map(b => b.tokenId)
 
-            console.log("Merge: Keeping token", upgradeTokenId, "Sending tokens:", tokensToSend)
+            console.log("Merge: Sending all 20 tokens:", allTokenIds)
 
-            const txResult = await transferBatch(tokensToSend)
+            const txResult = await transferBatch(allTokenIds)
 
             if (!txResult?.transactionHash) {
                 throw new Error("Transaction failed - no hash returned")
@@ -226,13 +226,13 @@ function MergeMechanismContent() {
 
             console.log("Transaction successful:", txResult.transactionHash)
 
+            // Verify on server → server sends Super Battery back to user
             const res = await fetch("/api/merge/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     txHash: txResult.transactionHash,
-                    sentTokenIds: tokensToSend,
-                    upgradeTokenId: upgradeTokenId,
+                    sentTokenIds: allTokenIds,
                     userWallet: account.address
                 })
             })
@@ -240,7 +240,7 @@ function MergeMechanismContent() {
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || "Verification failed")
 
-            console.log("Merge verified:", data)
+            console.log("Merge verified! Super Battery received:", data.superBattery)
             setMergeSuccess(true)
         } catch (error: any) {
             console.error("Merge failed:", error)
@@ -307,7 +307,7 @@ function MergeMechanismContent() {
 
     const isReady = mode === 'batteries' ? selectedBatteries.length === 20 : selectedShardIndices.size === 30
     const mergeModalMessage = mode === 'batteries'
-        ? "You are exchanging 20 Standard Batteries for 1 Super Battery. This action cannot be undone. 19 batteries will be transferred and 1 will be upgraded."
+        ? "You are exchanging 20 Standard Batteries for 1 Super Battery. All 20 batteries will be sent and you will receive a Super Battery in return. This action cannot be undone."
         : "You are exchanging 30 Energy Shards for 1 Standard Battery. This action cannot be undone."
 
     return (

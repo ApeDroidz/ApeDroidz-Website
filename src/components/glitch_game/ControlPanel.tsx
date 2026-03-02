@@ -58,6 +58,8 @@ export interface TopWinner {
     total_ape: number
     prizes: TopWinnerPrize[]
     total_prizes: number
+    standard_battery_count: number
+    standard_battery_sample: { contract_address: string; token_id: string } | null
 }
 
 // --- PACK OPTIONS ---
@@ -983,7 +985,7 @@ export function ControlPanel({
                                                 {winner.total_prizes} NFT{winner.total_prizes !== 1 ? 's' : ''}
                                             </span>
                                         </div>
-                                        {/* Prizes list — $APE + NFTs sorted by rarity, NFT names are OpenSea links */}
+                                        {/* Prizes list — $APE · NFTs by rarity · Standard Batteries count */}
                                         <div className="flex flex-wrap gap-x-2 gap-y-0.5 pl-7">
                                             {winner.total_ape > 0 && (
                                                 <>
@@ -1013,6 +1015,28 @@ export function ControlPanel({
                                                     </span>
                                                 )
                                             })}
+                                            {/* Standard batteries — same style as NFTs, with OpenSea link to one sample */}
+                                            {winner.standard_battery_count > 0 && (
+                                                <>
+                                                    {(winner.prizes.length > 0 || winner.total_ape > 0) && (
+                                                        <span className="text-[10px] text-white/20 leading-tight">·</span>
+                                                    )}
+                                                    {winner.standard_battery_sample?.contract_address && winner.standard_battery_sample?.token_id ? (
+                                                        <a
+                                                            href={`https://opensea.io/item/ape_chain/${winner.standard_battery_sample.contract_address}/${winner.standard_battery_sample.token_id}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-[10px] text-white/40 hover:text-white/70 font-medium leading-tight transition-colors underline underline-offset-2 decoration-white/20 hover:decoration-white/50"
+                                                        >
+                                                            {winner.standard_battery_count}x Standard Battery
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-[10px] text-white/40 font-medium leading-tight">
+                                                            {winner.standard_battery_count}x Standard Battery
+                                                        </span>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

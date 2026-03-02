@@ -1,141 +1,256 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createThirdwebClient, getContract } from "thirdweb";
-import { apeChain } from "@/lib/thirdweb";
+import { createThirdwebClient, getContract, defineChain } from "thirdweb";
+import { privateKeyToAccount } from "thirdweb/wallets";
+import { transferFrom } from "thirdweb/extensions/erc721";
+import { sendTransaction } from "thirdweb";
 import { eth_getTransactionReceipt, getRpcClient } from "thirdweb/rpc";
 import { ownerOf } from "thirdweb/extensions/erc721";
 import { supabaseAdmin } from "@/lib/supabase";
+
+const PRIZE_VAULT_PRIVATE_KEY = process.env.PRIZE_VAULT_PRIVATE_KEY!;
+const SUPER_BATTERY_PRIZE_TYPE_ID = 'super_battery';
+const BATTERY_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BATTERY_CONTRACT_ADDRESS!;
+const ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS!.toLowerCase();
 
 const client = createThirdwebClient({
     clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
     secretKey: process.env.THIRDWEB_SECRET_KEY,
 });
+const apeChain = defineChain(33139);
 
-const BATTERY_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BATTERY_CONTRACT_ADDRESS!;
-const ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS!.toLowerCase();
+async function logBatteryMerge(
+    userWallet: string,
+    txHash: string,
+    sentTokenIds: string[],
+    rewardTokenId: string,
+    status: "success" | "failed",
+    errorMessage: string | null
+) {
+    try {
+        await supabaseAdmin.from("merge_logs").insert({
+            user_wallet: userWallet,
+            tx_hash: txHash || "no_hash",
+            sent_token_ids: sentTokenIds,
+            upgraded_token_id: rewardTokenId,
+            status,
+            error_message: errorMessage,
+        });
+    } catch (e) {
+        console.error("[battery-merge] log failed:", e);
+    }
+}
 
+// POST /api/merge/verify
+// New flow: user sends ALL 20 standard batteries to admin → server sends 1 super battery from vault to user
 export async function POST(req: NextRequest) {
     let userWallet = "unknown";
     let txHash = "";
     let sentTokenIds: string[] = [];
-    let upgradeTokenId = "";
 
     try {
         const body = await req.json();
         txHash = body.txHash;
-        sentTokenIds = body.sentTokenIds;
-        upgradeTokenId = body.upgradeTokenId;
+        sentTokenIds = body.sentTokenIds; // ALL 20 token IDs
         userWallet = body.userWallet || "unknown";
 
         // === INPUT VALIDATION ===
-        if (!txHash || !sentTokenIds || !upgradeTokenId) {
-            await logMergeAttempt(userWallet, txHash, sentTokenIds, upgradeTokenId, 'failed', 'Missing required data');
+        if (!txHash || !sentTokenIds || !userWallet || userWallet === "unknown") {
+            await logBatteryMerge(userWallet, txHash, sentTokenIds, "unknown", "failed", "Missing required data");
             return NextResponse.json({ error: "Missing required data" }, { status: 400 });
         }
 
-        if (!Array.isArray(sentTokenIds) || sentTokenIds.length !== 19) {
-            await logMergeAttempt(userWallet, txHash, sentTokenIds, upgradeTokenId, 'failed', 'Must send exactly 19 tokens');
-            return NextResponse.json({ error: "Must send exactly 19 tokens" }, { status: 400 });
+        if (!Array.isArray(sentTokenIds) || sentTokenIds.length !== 20) {
+            await logBatteryMerge(userWallet, txHash, sentTokenIds, "unknown", "failed", "Must send exactly 20 tokens");
+            return NextResponse.json({ error: "Must send exactly 20 standard batteries" }, { status: 400 });
         }
 
-        // Verify upgradeTokenId is NOT in sentTokenIds (prevent exploit)
-        if (sentTokenIds.includes(upgradeTokenId)) {
-            await logMergeAttempt(userWallet, txHash, sentTokenIds, upgradeTokenId, 'failed', 'Upgrade token in sent list - exploit attempt');
-            return NextResponse.json({ error: "Upgrade token cannot be in sent list" }, { status: 400 });
-        }
+        // === 1. VERIFY TRANSACTION ON CHAIN ===
+        console.log(`🔋 [Battery Merge] Verifying tx ${txHash.slice(0, 10)}... from ${userWallet.slice(0, 8)}...`);
 
-        // === VERIFY TRANSACTION ON CHAIN ===
-        const rpcRequest = getRpcClient({ client, chain: apeChain });
-        const receipt = await eth_getTransactionReceipt(rpcRequest, {
-            hash: txHash as `0x${string}`,
-        });
+        const rpc = getRpcClient({ client, chain: apeChain });
+        const receipt = await eth_getTransactionReceipt(rpc, { hash: txHash as `0x${string}` });
 
         if (!receipt || receipt.status !== "success") {
-            await logMergeAttempt(userWallet, txHash, sentTokenIds, upgradeTokenId, 'failed', 'Transaction failed on chain');
+            await logBatteryMerge(userWallet, txHash, sentTokenIds, "unknown", "failed", "Transaction failed on chain");
             return NextResponse.json({ error: "Transaction failed on chain" }, { status: 400 });
         }
 
-        // === VERIFY ALL 19 TOKENS ARE NOW OWNED BY ADMIN ===
-        const contract = getContract({
-            client,
-            chain: apeChain,
-            address: BATTERY_CONTRACT_ADDRESS,
+        // === 2. VERIFY TRANSFERS: parse Transfer event logs from receipt ===
+        // ERC721 Transfer event: Transfer(address from, address to, uint256 tokenId)
+        // Topic0 = keccak256("Transfer(address,address,uint256)")
+        const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+        const batteryContractLower = BATTERY_CONTRACT_ADDRESS.toLowerCase();
+        const userWalletLower = userWallet.toLowerCase();
+
+        // Parse all Transfer logs from the battery contract in this transaction
+        const transferLogs = (receipt.logs || []).filter((log: any) => {
+            return (
+                log.address?.toLowerCase() === batteryContractLower &&
+                log.topics?.[0] === TRANSFER_TOPIC &&
+                log.topics?.length >= 4  // Transfer has 3 indexed params: from, to, tokenId
+            );
         });
 
-        // Check ownership of all sent tokens in parallel
-        const ownershipChecks = await Promise.all(
-            sentTokenIds.map(async (tokenId: string) => {
-                try {
-                    const owner = await ownerOf({
-                        contract,
-                        tokenId: BigInt(tokenId)
-                    });
-                    return { tokenId, owner: owner.toLowerCase(), valid: owner.toLowerCase() === ADMIN_WALLET };
-                } catch (error) {
-                    console.error(`Failed to check owner of token ${tokenId}:`, error);
-                    return { tokenId, owner: null, valid: false };
-                }
-            })
-        );
+        // Extract verified transfers: from=user, to=admin
+        const verifiedTokenIds = new Set<string>();
+        for (const log of transferLogs) {
+            // Topics: [0]=event sig, [1]=from (padded), [2]=to (padded), [3]=tokenId (padded)
+            const fromAddr = "0x" + (log.topics[1] as string).slice(26).toLowerCase();
+            const toAddr = "0x" + (log.topics[2] as string).slice(26).toLowerCase();
+            const tokenIdHex = log.topics[3] as string;
+            const tokenId = BigInt(tokenIdHex).toString();
 
-        // Check if all tokens are now with admin
-        const failedChecks = ownershipChecks.filter(check => !check.valid);
-        if (failedChecks.length > 0) {
-            const errorMsg = `Ownership failed for tokens: ${failedChecks.map(c => c.tokenId).join(', ')}`;
-            console.error("Ownership verification failed for tokens:", failedChecks);
-            await logMergeAttempt(userWallet, txHash, sentTokenIds, upgradeTokenId, 'failed', errorMsg);
-            return NextResponse.json({
-                error: "Fraud attempt: Admin did not receive all tokens",
-                failedTokens: failedChecks.map(c => c.tokenId)
-            }, { status: 403 });
+            if (fromAddr === userWalletLower && toAddr === ADMIN_WALLET) {
+                verifiedTokenIds.add(tokenId);
+            }
         }
 
-        // === ALL CHECKS PASSED - UPDATE DATABASE ===
-        // Use upsert in case battery doesn't exist in DB yet
-        const { error: dbError } = await supabaseAdmin
-            .from('batteries')
-            .upsert({
-                token_id: parseInt(upgradeTokenId),
-                type: 'Super'
-            }, { onConflict: 'token_id' });
+        console.log(`🔋 [Battery Merge] Found ${verifiedTokenIds.size} verified transfers from user in tx logs`);
 
-        if (dbError) {
-            console.error("Database update error:", dbError);
-            await logMergeAttempt(userWallet, txHash, sentTokenIds, upgradeTokenId, 'failed', `DB update failed: ${dbError.message}`);
-            return NextResponse.json({ error: "Database update failed" }, { status: 500 });
+        // Check that all 20 sent token IDs appear in the verified set
+        const missingFromLogs = sentTokenIds.filter(id => !verifiedTokenIds.has(id));
+
+        if (missingFromLogs.length > 0) {
+            // Fallback: for any tokens not found in logs (edge case), verify current ownership
+            console.warn(`⚠️ [Battery Merge] ${missingFromLogs.length} tokens not found in Transfer logs, checking ownerOf...`);
+
+            const batteryContract = getContract({
+                client,
+                chain: apeChain,
+                address: BATTERY_CONTRACT_ADDRESS,
+            });
+
+            const ownershipChecks = await Promise.all(
+                missingFromLogs.map(async (tokenId: string) => {
+                    try {
+                        const owner = await ownerOf({
+                            contract: batteryContract,
+                            tokenId: BigInt(tokenId)
+                        });
+                        return { tokenId, valid: owner.toLowerCase() === ADMIN_WALLET };
+                    } catch {
+                        return { tokenId, valid: false };
+                    }
+                })
+            );
+
+            const failedChecks = ownershipChecks.filter(c => !c.valid);
+            if (failedChecks.length > 0) {
+                const errorMsg = `Transfer verification failed for tokens: ${failedChecks.map(c => c.tokenId).join(', ')}. User: ${userWallet}`;
+                console.error("❌ " + errorMsg);
+                await logBatteryMerge(userWallet, txHash, sentTokenIds, "unknown", "failed", errorMsg);
+                return NextResponse.json({
+                    error: "Not all 20 batteries were transferred from your wallet to admin. Merge rejected.",
+                    failedTokens: failedChecks.map(c => c.tokenId)
+                }, { status: 403 });
+            }
         }
 
-        // Log successful merge
-        await logMergeAttempt(userWallet, txHash, sentTokenIds, upgradeTokenId, 'success', null);
+        console.log(`✅ [Battery Merge] All 20 batteries verified: transferred from ${userWallet.slice(0, 8)}... to admin`);
 
-        console.log(`Merge verified: Token ${upgradeTokenId} upgraded to Super. 19 tokens transferred to admin.`);
-        return NextResponse.json({ success: true, message: "Merge completed successfully!" });
 
-    } catch (error: any) {
-        console.error("Merge verification error:", error);
-        await logMergeAttempt(userWallet, txHash, sentTokenIds, upgradeTokenId, 'failed', error.message || 'Unknown error');
-        return NextResponse.json({ error: error.message || "Verification failed" }, { status: 500 });
-    }
-}
+        // === 3. FIND AVAILABLE SUPER BATTERY IN NFT INVENTORY ===
+        const { data: superBattery, error: sbErr } = await supabaseAdmin
+            .from("nft_inventory")
+            .select("id, token_id, contract_address, name, image_url")
+            .eq("prize_type_id", SUPER_BATTERY_PRIZE_TYPE_ID)
+            .eq("status", "available")
+            .order("token_id", { ascending: true })
+            .limit(1)
+            .maybeSingle();
 
-// Helper function to log merge attempts
-async function logMergeAttempt(
-    userWallet: string,
-    txHash: string,
-    sentTokenIds: string[],
-    upgradedTokenId: string,
-    status: 'success' | 'failed' | 'pending',
-    errorMessage: string | null
-) {
-    try {
-        await supabaseAdmin.from('merge_logs').insert({
-            user_wallet: userWallet,
-            tx_hash: txHash || 'no_hash',
-            sent_token_ids: sentTokenIds || [],
-            upgraded_token_id: upgradedTokenId || 'unknown',
-            status,
-            error_message: errorMessage
+        if (sbErr) throw new Error(`DB error finding super battery: ${sbErr.message}`);
+
+        if (!superBattery) {
+            await logBatteryMerge(userWallet, txHash, sentTokenIds, "unknown", "failed", "No super batteries in stock");
+            return NextResponse.json(
+                { error: "No super batteries available at the moment. Please contact support." },
+                { status: 503 }
+            );
+        }
+
+        console.log(`🔋 [Battery Merge] Found Super Battery #${superBattery.token_id} (contract: ${superBattery.contract_address})`);
+
+        // === 4. RESERVE THE SUPER BATTERY (prevent race conditions) ===
+        const { data: reserved, error: reserveErr } = await supabaseAdmin
+            .from("nft_inventory")
+            .update({ status: "claimed", winner_wallet: userWallet })
+            .eq("id", superBattery.id)
+            .eq("status", "available") // Only update if still available (atomic check)
+            .select()
+            .single();
+
+        if (reserveErr || !reserved) {
+            // Race condition: someone else claimed it first, try again
+            const { data: fallback, error: fallbackErr } = await supabaseAdmin
+                .from("nft_inventory")
+                .select("id, token_id, contract_address, name, image_url")
+                .eq("prize_type_id", SUPER_BATTERY_PRIZE_TYPE_ID)
+                .eq("status", "available")
+                .order("token_id", { ascending: true })
+                .limit(1)
+                .maybeSingle();
+
+            if (fallbackErr || !fallback) {
+                await logBatteryMerge(userWallet, txHash, sentTokenIds, "unknown", "failed", "No super batteries available (race condition)");
+                return NextResponse.json({ error: "No super batteries available. Please try again." }, { status: 503 });
+            }
+
+            // Claim the fallback
+            await supabaseAdmin
+                .from("nft_inventory")
+                .update({ status: "claimed", winner_wallet: userWallet })
+                .eq("id", fallback.id)
+                .eq("status", "available");
+
+            // Use fallback battery
+            Object.assign(superBattery, fallback);
+        }
+
+        // === 5. TRANSFER SUPER BATTERY FROM VAULT TO USER ===
+        const vaultAccount = privateKeyToAccount({ client, privateKey: PRIZE_VAULT_PRIVATE_KEY });
+        const superBatteryContract = getContract({ client, chain: apeChain, address: superBattery.contract_address });
+
+        console.log(`📤 [Battery Merge] Transferring Super Battery #${superBattery.token_id} to ${userWallet.slice(0, 8)}...`);
+
+        const transferTx = transferFrom({
+            contract: superBatteryContract,
+            from: vaultAccount.address,
+            to: userWallet,
+            tokenId: BigInt(superBattery.token_id),
         });
-    } catch (logError) {
-        console.error("Failed to log merge attempt:", logError);
+
+        const transferReceipt = await sendTransaction({ transaction: transferTx, account: vaultAccount });
+
+        console.log(`✅ [Battery Merge] Transfer complete! TX: ${transferReceipt.transactionHash}`);
+
+        // === 6. MARK SENT BATTERIES AS BURNED IN batteries TABLE ===
+        // Mark all 20 standard batteries as burned in the batteries table (if they exist there)
+        for (const tokenId of sentTokenIds) {
+            await supabaseAdmin
+                .from("batteries")
+                .update({ is_burned: true })
+                .eq("token_id", parseInt(tokenId));
+        }
+
+        // === 7. LOG SUCCESS ===
+        await logBatteryMerge(userWallet, txHash, sentTokenIds, superBattery.token_id, "success", null);
+
+        console.log(`✅ [Battery Merge] Complete! ${userWallet.slice(0, 8)}... sent 20 std batteries → received Super Battery #${superBattery.token_id}`);
+
+        return NextResponse.json({
+            success: true,
+            message: "Merge completed successfully!",
+            superBattery: {
+                tokenId: superBattery.token_id,
+                name: superBattery.name,
+                imageUrl: superBattery.image_url,
+                txHash: transferReceipt.transactionHash,
+            },
+        });
+    } catch (err: any) {
+        console.error("🔥 [Battery Merge] Critical Error:", err.message);
+        await logBatteryMerge(userWallet, txHash, sentTokenIds, "unknown", "failed", err.message);
+        return NextResponse.json({ error: err.message || "Battery merge failed" }, { status: 500 });
     }
 }
