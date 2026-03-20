@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createThirdwebClient, getContract, defineChain } from "thirdweb";
 import { privateKeyToAccount } from "thirdweb/wallets";
 import { transferFrom } from "thirdweb/extensions/erc721";
-import { sendTransaction } from "thirdweb";
+import { sendTransactionWithRetry } from '@/lib/sendWithRetry';
 import { eth_getTransactionReceipt, getRpcClient } from "thirdweb/rpc";
 import { ownerOf } from "thirdweb/extensions/erc721";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest) {
             tokenId: BigInt(superBattery.token_id),
         });
 
-        const transferReceipt = await sendTransaction({ transaction: transferTx, account: vaultAccount });
+        const transferReceipt = await sendTransactionWithRetry({ transaction: transferTx, account: vaultAccount, label: 'BatteryMerge' });
 
         console.log(`✅ [Battery Merge] Transfer complete! TX: ${transferReceipt.transactionHash}`);
 

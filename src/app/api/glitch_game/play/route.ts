@@ -4,7 +4,7 @@ import { createThirdwebClient, defineChain, getContract, prepareTransaction, toW
 import { privateKeyToAccount } from 'thirdweb/wallets';
 import { transferFrom as erc721Transfer } from 'thirdweb/extensions/erc721';
 import { safeTransferFrom as erc1155Transfer } from 'thirdweb/extensions/erc1155';
-import { sendTransaction } from 'thirdweb';
+import { sendTransactionWithRetry } from '@/lib/sendWithRetry';
 
 const PRIZE_VAULT_PRIVATE_KEY = process.env.PRIZE_VAULT_PRIVATE_KEY!;
 const THIRDWEB_CLIENT_ID = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!;
@@ -145,8 +145,8 @@ export async function POST(req: Request) {
                 throw new Error('NFT Prize selected but no inventory item available.');
             }
 
-            // Отправка транзакции
-            const receipt = await sendTransaction({ transaction: tx, account: vaultAccount });
+            // Отправка транзакции (с retry при nonce ошибках)
+            const receipt = await sendTransactionWithRetry({ transaction: tx, account: vaultAccount, label: 'GlitchGame' });
             txHash = receipt.transactionHash;
             logStatus = 'success';
 

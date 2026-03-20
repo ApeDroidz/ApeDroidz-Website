@@ -56,17 +56,18 @@ export async function GET(req: Request) {
             .map((log: any) => log.prize_amount_or_id);
 
         // Batch-fetch NFT details from nft_inventory
-        const nftDetailMap = new Map<string, { name: string; image_url: string }>();
+        const nftDetailMap = new Map<string, { name: string; image_url: string; contract_address: string }>();
         if (nftTokenIds.length > 0) {
             const { data: nftItems } = await supabaseAdmin
                 .from('nft_inventory')
-                .select('token_id, name, image_url')
+                .select('token_id, name, image_url, contract_address')
                 .in('token_id', nftTokenIds);
 
             nftItems?.forEach((item: any) => {
                 nftDetailMap.set(String(item.token_id), {
                     name: item.name,
                     image_url: item.image_url,
+                    contract_address: item.contract_address,
                 });
             });
         }
@@ -86,6 +87,8 @@ export async function GET(req: Request) {
                 ? (nftDetail?.image_url || (prizeTypeInfo as any)?.image_url || '')
                 : ((prizeTypeInfo as any)?.image_url || '');
 
+            const contractAddress = isNft && tokenId ? (nftDetail?.contract_address || null) : null;
+
             return {
                 id: log.id,
                 wallet: log.wallet_address,
@@ -93,6 +96,7 @@ export async function GET(req: Request) {
                 prizeType: (prizeTypeInfo as any)?.type || 'unknown',
                 imageUrl,
                 nftTokenId: isNft ? tokenId : null,
+                nftContractAddress: contractAddress,
                 txHash: log.tx_hash,
                 createdAt: log.created_at,
                 xpAwarded: log.xp_awarded ? Number(log.xp_awarded) : 0,

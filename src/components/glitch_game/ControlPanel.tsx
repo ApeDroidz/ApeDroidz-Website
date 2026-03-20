@@ -37,6 +37,7 @@ export interface HistoryLog {
     prizeType: string
     imageUrl: string
     nftTokenId: string | null
+    nftContractAddress: string | null
     txHash: string
     createdAt: string
     xpAwarded: number
@@ -229,11 +230,15 @@ export function ControlPanel({
         }
     }, [historyTab, wallet])
 
-    // Load tab data: only fetch if not already loaded (cache per tab)
+    // Load tab data: always reset and refetch when switching between global/personal
     useEffect(() => {
-        if (historyTab === 'winners' && topWinners.length === 0) {
-            fetchTopWinners(1)
-        } else if (historyTab !== 'winners' && historyData.length === 0) {
+        if (historyTab === 'winners') {
+            if (topWinners.length === 0) fetchTopWinners(1)
+        } else {
+            // Always clear & refetch when switching between global ↔ personal
+            setHistoryData([])
+            setHistoryPage(1)
+            setHistoryHasMore(false)
             fetchHistory(1)
         }
     }, [historyTab])
@@ -1076,8 +1081,36 @@ export function ControlPanel({
                                             animate={{ opacity: 1, y: 0 }}
                                             className="flex items-center text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2 gap-2"
                                         >
-                                            {/* Prize name */}
-                                            <span className="font-bold text-white/60 truncate flex-1 min-w-0">{log.prizeName}</span>
+                                            {/* NFT thumbnail (if it's an NFT prize) */}
+                                            {log.prizeType === 'nft' && log.imageUrl && (
+                                                <div className="flex-shrink-0 w-8 h-8 rounded-md overflow-hidden border border-white/10 bg-white/5">
+                                                    <img
+                                                        src={log.imageUrl}
+                                                        alt={log.prizeName}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* Prize name + NFT badge */}
+                                            <div className="flex flex-col min-w-0 flex-1">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    {log.prizeType === 'nft' && log.nftContractAddress && log.nftTokenId ? (
+                                                        <a
+                                                            href={`https://opensea.io/item/ape_chain/${log.nftContractAddress}/${log.nftTokenId}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="font-bold text-white/80 hover:text-white truncate transition-colors flex items-center gap-1 group/nft"
+                                                        >
+                                                            <span className="truncate">{log.prizeName}</span>
+                                                            <ExternalLink className="w-2.5 h-2.5 flex-shrink-0 opacity-0 group-hover/nft:opacity-100 transition-opacity" />
+                                                        </a>
+                                                    ) : (
+                                                        <span className="font-bold text-white/60 truncate">{log.prizeName}</span>
+                                                    )}
+                                                </div>
+                                            </div>
 
                                             {/* Wallet (global only) */}
                                             {historyTab === "global" && (
