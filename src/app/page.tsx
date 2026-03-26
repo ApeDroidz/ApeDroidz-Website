@@ -8,7 +8,7 @@ import { Header } from "@/components/header"
 import { MotionMenu } from "@/components/motionmenu"
 import { DigitalBackground } from "@/components/digital-background"
 import { ProfileModal } from "@/components/profile-modal"
-import { MintCTA } from "@/components/mint-cta"
+import { GlitchCTA } from "@/components/glitch-cta"
 import { SocialSidebar } from "@/components/social-sidebar"
 
 // Динамический импорт Scene с отключенным SSR
@@ -76,7 +76,7 @@ export default function Home() {
       />
 
       {/* Mint CTA */}
-      <MintCTA />
+      <GlitchCTA />
 
       {/* Social Sidebar */}
       <SocialSidebar />

@@ -49,7 +49,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'No active daily task' }, { status: 404 });
         }
 
-        // 3. Check if already claimed THIS specific task
+        // 3. Check if already claimed THIS specific task (by wallet)
         const { data: existingClaim } = await supabaseAdmin
             .from('daily_claims_log')
             .select('id')
@@ -59,6 +59,22 @@ export async function POST(req: Request) {
 
         if (existingClaim) {
             return NextResponse.json({ error: 'Already claimed this task' }, { status: 429 });
+        }
+
+        // 3b. Check if already claimed THIS specific task (by X account — anti-multi-wallet abuse)
+        if (xHandle?.trim()) {
+            const { data: xClaim } = await supabaseAdmin
+                .from('daily_claims_log')
+                .select('id')
+                .ilike('x_handle', xHandle.trim())
+                .eq('task_config_id', taskConfig.id)
+                .maybeSingle();
+
+            if (xClaim) {
+                return NextResponse.json({
+                    error: `Daily quest already claimed on account ${xHandle.trim()}. Each X account can only claim once per quest.`
+                }, { status: 429 });
+            }
         }
 
         // 4. Validate inputs
