@@ -419,10 +419,13 @@ function GlitchCTAComponent() {
 
                 {/* ── Text & CTA ── */}
                 <div className="flex flex-col gap-1.5 px-2 pb-2 pt-1.5 sm:gap-2 sm:px-3 sm:pb-3 sm:pt-2">
-                    <h3 className="text-[15px] sm:text-[19px] md:text-[22px] font-black text-white leading-[0.92] tracking-tight uppercase">
+                    <h3 className="text-[15px] sm:text-[19px] md:text-[26px] font-black text-white leading-[0.92] tracking-tight uppercase">
                         Try Your Luck<br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white">
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white md:hidden">
                             &amp; Win Rewards
+                        </span>
+                        <span className="hidden md:inline text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white">
+                            And Win Rewards
                         </span>
                     </h3>
 
