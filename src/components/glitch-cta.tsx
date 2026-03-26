@@ -303,7 +303,7 @@ function GlitchCTAComponent() {
             >
                 {/* ── GLITCH GAME SEASON 1 — above cards, left-aligned, -30% ── */}
                 <div className="px-2.5 pt-2.5 pb-1 sm:px-3 sm:pt-3 sm:pb-1.5">
-                    <p className="text-[10px] sm:text-[12px] md:text-[14px] font-black tracking-[0.1em] uppercase leading-none">
+                    <p className="text-[8px] sm:text-[12px] md:text-[14px] font-black tracking-[0.08em] uppercase leading-none whitespace-nowrap">
                         <span className="text-white drop-shadow-[0_0_5px_rgba(255,255,255,.2)]">Glitch Game</span>{" "}
                         <span className="text-[#3b82f6]">Season 1</span>
                     </p>
@@ -422,7 +422,7 @@ function GlitchCTAComponent() {
                     <h3 className="text-[15px] sm:text-[19px] md:text-[22px] font-black text-white leading-[0.92] tracking-tight uppercase">
                         Try Your Luck<br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white">
-                            And Win Rewards
+                            &amp; Win Rewards
                         </span>
                     </h3>
 
