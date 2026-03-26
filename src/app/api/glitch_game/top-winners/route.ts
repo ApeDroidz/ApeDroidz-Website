@@ -19,19 +19,20 @@ export async function GET(req: Request) {
     const offset = (page - 1) * PAGE_SIZE;
 
     try {
-        // 1. Fetch ALL prize_types
+        // 1. Fetch ALL prize_types (include `amount` so we can use authoritative APE amounts)
         const { data: allPrizeTypes, error: ptErr } = await supabaseAdmin
             .from('prize_types')
-            .select('id, name, type, image_url, drop_chance')
+            .select('id, name, type, image_url, drop_chance, amount')
             .eq('is_active', true);
 
         if (ptErr) throw ptErr;
 
         // Classify prize types
         const allNftTypes = (allPrizeTypes || []).filter((pt: any) => pt.type === 'nft');
+        // INCLUSIVE filter: everything that is NOT nft and NOT shard counts as a token/APE prize.
+        // This avoids silent zero-sum when prize type strings change in the DB.
         const apeTypes = (allPrizeTypes || []).filter((pt: any) =>
-            pt.type === 'ape' || pt.type === 'token' ||
-            ((pt.name || '').toLowerCase().includes('ape') && pt.type !== 'nft')
+            pt.type !== 'nft' && pt.type !== 'shard'
         );
 
         if (allNftTypes.length === 0) {
@@ -170,24 +171,46 @@ export async function GET(req: Request) {
             }
         }
 
-        // 5. Fetch APE token wins for wallets in the set
+        // 5. Fetch ALL token/APE wins for wallets in the set, paginating past Supabase's 1000-row default limit
         if (apePrizeIds.length > 0 && walletMap.size > 0) {
-            const walletList = Array.from(walletMap.keys());
-            for (let i = 0; i < walletList.length; i += 100) {
-                const chunk = walletList.slice(i, i + 100);
-                const { data: apeLogs } = await supabaseAdmin
-                    .from('game_logs')
-                    .select('wallet_address, prize_amount_or_id')
-                    .eq('status', 'success')
-                    .in('prize_type_id', apePrizeIds)
-                    .in('wallet_address', chunk);
+            const prizeTypeById = new Map<string, any>();
+            for (const pt of (allPrizeTypes || [])) prizeTypeById.set(pt.id, pt);
 
-                (apeLogs || []).forEach((log: any) => {
-                    const entry = walletMap.get(log.wallet_address);
-                    if (entry) entry.total_ape += parseFloat(log.prize_amount_or_id) || 0;
-                });
+            const walletList = Array.from(walletMap.keys());
+            const PAGE = 1000;
+
+            for (let wi = 0; wi < walletList.length; wi += 100) {
+                const chunk = walletList.slice(wi, wi + 100);
+                let apePage = 0;
+
+                // Paginate through all APE logs for this wallet chunk
+                while (true) {
+                    const { data: apeLogs, error: apeErr } = await supabaseAdmin
+                        .from('game_logs')
+                        .select('wallet_address, prize_type_id, prize_amount_or_id')
+                        .eq('status', 'success')
+                        .in('prize_type_id', apePrizeIds)
+                        .in('wallet_address', chunk)
+                        .range(apePage * PAGE, (apePage + 1) * PAGE - 1);
+
+                    if (apeErr) { console.error('[top-winners] APE fetch error:', apeErr.message); break; }
+                    if (!apeLogs?.length) break;
+
+                    for (const log of apeLogs) {
+                        const entry = walletMap.get(log.wallet_address);
+                        if (!entry) continue;
+                        // Use prize_types.amount as authoritative; fallback to stored value
+                        const prizeT = prizeTypeById.get(log.prize_type_id);
+                        const authAmount = prizeT?.amount != null ? Number(prizeT.amount) : null;
+                        entry.total_ape += authAmount ?? (parseFloat(log.prize_amount_or_id) || 0);
+                    }
+
+                    if (apeLogs.length < PAGE) break; // last page
+                    apePage++;
+                }
             }
         }
+
 
         // 6. Sort and paginate
         const allSorted = Array.from(walletMap.values())
