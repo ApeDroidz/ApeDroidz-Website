@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getContract } from 'thirdweb/contract'
+import { readContract } from 'thirdweb'
+import { client, apeChain } from '@/lib/thirdweb'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+const HONORARY_CONTRACT = '0x427ff4b908c4ba7bc1d689bacac280a0435b2514'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+}
+
+const resolveIpfs = (url: string | undefined | null): string => {
+  if (!url) return ''
+  if (url.startsWith('ipfs://')) return url.replace('ipfs://', 'https://cf-ipfs.com/ipfs/')
+  if (url.startsWith('http')) return url
+  return url
 }
 
 export async function OPTIONS() {
@@ -26,6 +38,31 @@ export async function GET(
 
     if (isNaN(tokenId)) {
       return NextResponse.json({ error: "Invalid ID" }, { status: 400, headers: corsHeaders });
+    }
+
+    // === HONORARY DROIDZ — fetch tokenURI on-chain, proxy IPFS metadata server-side ===
+    if (type === 'honorary') {
+      const contract = getContract({ client, chain: apeChain, address: HONORARY_CONTRACT })
+
+      const tokenURI = await readContract({
+        contract,
+        method: "function tokenURI(uint256) returns (string)",
+        params: [BigInt(tokenId)]
+      })
+
+      const metadataUrl = resolveIpfs(tokenURI)
+      const metaRes = await fetch(metadataUrl, { next: { revalidate: 3600 } })
+      if (!metaRes.ok) {
+        return NextResponse.json({ error: 'Failed to fetch IPFS metadata' }, { status: 502, headers: corsHeaders })
+      }
+      const metadata = await metaRes.json()
+
+      // Resolve image URL inside metadata too
+      if (metadata.image) {
+        metadata.image = resolveIpfs(metadata.image)
+      }
+
+      return NextResponse.json(metadata, { headers: corsHeaders })
     }
 
     // === БЛОК ДРОИДОВ (Без изменений) ===

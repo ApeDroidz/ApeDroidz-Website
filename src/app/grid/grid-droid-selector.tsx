@@ -77,7 +77,9 @@ const GridDroidCard = ({
 
     let borderColor = "border-white/20 hover:border-white/50"
     if (isSelected) {
-        borderColor = "border-[#3B82F6] shadow-[0_0_15px_rgba(59,130,246,0.4)]"
+        borderColor = item.isHonorary
+            ? "border-[#F59E0B] shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+            : "border-[#3B82F6] shadow-[0_0_15px_rgba(59,130,246,0.4)]"
     }
 
     return (
@@ -89,15 +91,28 @@ const GridDroidCard = ({
                 <div className="absolute inset-0 bg-white/5 animate-pulse" />
             )}
             <img
-                src={resolveImageUrl(item.image)}
+                src={item.isHonorary ? item.image : resolveImageUrl(item.image)}
                 alt={item.name}
                 onLoad={() => setIsLoaded(true)}
+                onError={(e) => {
+                    // webp → png fallback for honorary droids
+                    if (item.isHonorary && (e.target as HTMLImageElement).src.endsWith('.webp')) {
+                        (e.target as HTMLImageElement).src = item.image.replace('.webp', '.png')
+                    }
+                }}
                 className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
                 loading="lazy"
             />
             <div className="absolute top-1 right-1 bg-black/70 backdrop-blur-sm px-1.5 py-0.5 rounded text-[8px] font-mono text-white font-bold z-20">
                 {displayId}
             </div>
+            {item.isHonorary && (
+                <div className="absolute bottom-1 left-1 right-1 flex justify-center z-20">
+                    <span className="bg-[#F59E0B]/90 text-black text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-sm leading-none">
+                        HNRRY
+                    </span>
+                </div>
+            )}
             {isSelected && (
                 <div className="absolute top-1 left-1 bg-[#3B82F6] rounded-full p-0.5 z-20">
                     <Check size={10} className="text-white" />

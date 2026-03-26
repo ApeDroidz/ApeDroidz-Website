@@ -30,6 +30,7 @@ export type NFTItem = {
   tokenId?: string
   batteryType?: 'Standard' | 'Super'
   metadata?: any
+  isHonorary?: boolean
 }
 
 // Contract addresses from env

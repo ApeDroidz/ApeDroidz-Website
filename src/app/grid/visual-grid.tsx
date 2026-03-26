@@ -160,6 +160,12 @@ const GridCell = ({
                 src={imageUrl}
                 alt={droid.name}
                 onLoad={() => setIsLoaded(true)}
+                onError={(e) => {
+                    // webp → png fallback for honorary droids
+                    if (droid.isHonorary && (e.target as HTMLImageElement).src.endsWith('.webp')) {
+                        (e.target as HTMLImageElement).src = imageUrl.replace('.webp', '.png')
+                    }
+                }}
                 draggable={false}
                 className={`w-full h-full object-cover block transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
                 style={{ imageRendering: 'pixelated', display: 'block', margin: 0, padding: 0 }}

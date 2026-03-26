@@ -25,9 +25,12 @@ export type NFTItem = {
     tokenId?: string
     batteryType?: 'Standard' | 'Super'
     metadata?: any
+    isHonorary?: boolean
 }
 
 const APEDROIDZ_CONTRACT = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
+const HONORARY_CONTRACT = "0x427ff4b908c4ba7bc1d689bacac280a0435b2514"
+const SUPABASE_ASSETS = "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets"
 
 const getDroidLevel = (item: NFTItem | null): number => {
     if (!item) return 1
@@ -70,8 +73,29 @@ export default function GridPage() {
 
         try {
             const droidContract = getContract({ client, chain: apeChain, address: APEDROIDZ_CONTRACT })
-            const droidNfts = await getOwnedNFTs({ contract: droidContract, owner: account.address })
+            const honoraryContract = getContract({ client, chain: apeChain, address: HONORARY_CONTRACT })
 
+            const [droidNfts, honoraryNfts] = await Promise.all([
+                getOwnedNFTs({ contract: droidContract, owner: account.address }),
+                getOwnedNFTs({ contract: honoraryContract, owner: account.address }).catch(() => [])
+            ])
+
+            // Load honorary droids — image from Supabase by tokenId (webp or png, card handles onError)
+            const loadedHonorary = honoraryNfts.map((nft) => {
+                const tokenId = nft.id.toString()
+                return {
+                    id: `honorary-${tokenId}`,
+                    tokenId: tokenId,
+                    name: (nft.metadata as any)?.name || `Honorary #${tokenId}`,
+                    image: `${SUPABASE_ASSETS}/honorary/${tokenId}.webp`,
+                    type: 'droid' as const,
+                    level: 1,
+                    metadata: nft.metadata || {},
+                    isHonorary: true,
+                }
+            })
+
+            // Load regular droids
             const loadedDroids = await Promise.all(
                 droidNfts.map(async (nft) => {
                     const tokenId = nft.id.toString()
@@ -107,7 +131,9 @@ export default function GridPage() {
                     }
                 })
             )
-            setDroids(loadedDroids)
+
+            // Honorary droids come first
+            setDroids([...loadedHonorary, ...loadedDroids])
         } catch (error) {
             console.error("Error loading droids:", error)
         } finally {
