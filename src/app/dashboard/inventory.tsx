@@ -24,8 +24,8 @@ type BatteryFilter = 'ALL' | 'STANDARD' | 'SUPER'
 const GetMoreCard = ({ type }: { type: 'droid' | 'battery' }) => {
   const [isActive, setIsActive] = useState(false);
   const links = {
-    droid: { os: "https://opensea.io/collection/apedroidz", me: "https://magiceden.io/collections/apechain/0x4e0edc9be4d47d414daf8ed9a6471f41e99577f3" },
-    battery: { os: "https://opensea.io/collection/apedroidz", me: "https://magiceden.io/collections/apechain/..." }
+    droid: { os: "https://opensea.io/collection/apedroidz" },
+    battery: { os: "https://opensea.io/collection/apedroidz" }
   }
   const textSizeClass = type === 'battery' ? 'text-[9px] leading-none' : 'text-[10px] md:text-xs'
 
@@ -43,10 +43,6 @@ const GetMoreCard = ({ type }: { type: 'droid' | 'battery' }) => {
         <a href={links[type].os} target="_blank" rel="noreferrer" className={`group/btn flex-1 w-full flex items-center justify-center gap-1 bg-white/10 hover:bg-white hover:text-black border border-white/20 hover:border-white rounded-[8px] transition-all duration-200 uppercase font-black tracking-normal ${textSizeClass}`} onClick={(e) => e.stopPropagation()}>
           <img src="/Opensea.svg" alt="OS" className="w-4 h-4 object-contain transition-all group-hover/btn:invert" />
           <span className="truncate px-1">OpenSea</span>
-        </a>
-        <a href={links[type].me} target="_blank" rel="noreferrer" className={`group/btn flex-1 w-full flex items-center justify-center gap-1 bg-white/10 hover:bg-white hover:text-black border border-white/20 hover:border-white rounded-[8px] transition-all duration-200 uppercase font-black tracking-normal ${textSizeClass}`} onClick={(e) => e.stopPropagation()}>
-          <img src="/MagicEden.svg" alt="ME" className="w-4 h-4 object-contain transition-all group-hover/btn:invert" />
-          <span className="truncate px-1">Magic Eden</span>
         </a>
       </div>
     </div>

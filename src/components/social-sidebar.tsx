@@ -24,17 +24,6 @@ const SOCIALS = [
         )
     },
     {
-        name: "Magic Eden",
-        url: "https://magiceden.io/collections/apechain/0x4e0edc9be4d47d414daf8ed9a6471f41e99577f3",
-        icon: (
-            <img
-                src="/MagicEden.svg"
-                alt="Magic Eden"
-                className="w-[22px] h-[22px] object-contain brightness-0 invert-[0.7] group-hover:invert transition-all duration-300"
-            />
-        )
-    },
-    {
         name: "Opensea",
         url: "https://opensea.io/collection/apedroidz",
         icon: (

@@ -34,11 +34,6 @@ const SOCIALS = [
     )
   },
   {
-    name: "Magic Eden", url: "https://magiceden.io/collections/apechain/0x4e0edc9be4d47d414daf8ed9a6471f41e99577f3", icon: (
-      <img src="/MagicEden.svg" alt="ME" className="w-5 h-5 opacity-40 hover:opacity-100 transition-opacity" />
-    )
-  },
-  {
     name: "OpenSea", url: "https://opensea.io/collection/apedroidz", icon: (
       <img src="/Opensea.svg" alt="OS" className="w-5 h-5 opacity-40 hover:opacity-100 transition-opacity" />
     )

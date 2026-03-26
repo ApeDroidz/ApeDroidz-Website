@@ -646,13 +646,9 @@ export function ControlPanel({
                                             <p className="text-xs text-white/40 px-4">You need at least 1 ApeDroid to access daily free games.</p>
                                         </div>
                                         <div className="flex items-stretch gap-3 w-full max-w-[280px] mt-2">
-                                            <a href="https://magiceden.io/collections/apechain/0x4e0edc9be4d47d414daf8ed9a6471f41e99577f3" target="_blank" rel="noopener noreferrer" className="flex-1 flex justify-center items-center gap-2 h-[42px] rounded-xl bg-[#111] hover:bg-[#222] border border-white/10 transition-colors">
-                                                <img src="/MagicEden.svg" alt="Magic Eden" className="w-[18px] h-[18px] opacity-70" />
-                                                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Buy on ME</span>
-                                            </a>
                                             <a href="https://opensea.io/collection/apedroidz" target="_blank" rel="noopener noreferrer" className="flex-1 flex justify-center items-center gap-2 h-[42px] rounded-xl bg-[#111] hover:bg-[#222] border border-white/10 transition-colors">
                                                 <img src="/Opensea.svg" alt="OpenSea" className="w-[18px] h-[18px] opacity-70" />
-                                                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Buy on OS</span>
+                                                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Buy on OpenSea</span>
                                             </a>
                                         </div>
                                     </div>

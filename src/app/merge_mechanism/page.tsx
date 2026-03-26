@@ -150,6 +150,9 @@ function MergeMechanismContent() {
             router.replace('/merge_mechanism', { scroll: false })
             setSelectedShardIndices(new Set())
         }
+        // If the user had just merged and switches tab, reset the success screen
+        // so the result card doesn't visually flip to wrong battery type
+        setMergeSuccess(false)
     }, [mode, router])
 
     // ──────────────────────────────────────────────────────────
