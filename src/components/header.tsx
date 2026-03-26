@@ -307,17 +307,6 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   </div>
                 )}
 
-                {/* 2. Mint Batteries */}
-                {pathname !== '/batteries_mint' && (
-                  <Link
-                    href="/batteries_mint"
-                    onClick={closeMenu}
-                    className="flex items-center justify-start gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
-                  >
-                    <Battery size={18} className="-rotate-90 text-[#A1A1AA]" />
-                    Mint Batteries
-                  </Link>
-                )}
 
                 {/* 3. Dashboard / Back */}
                 {!isDashboard && !showDashboardNav && (
