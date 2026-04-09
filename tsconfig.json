@@ -37,6 +37,8 @@
   ],
   "exclude": [
     "node_modules",
-    "game-server"
+    "game-server",
+    "test_query.ts",
+    "test_rank.ts"
   ]
 }
