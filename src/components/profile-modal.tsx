@@ -25,8 +25,12 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const normalizedAddress = account?.address
 
     const [activeTab, setActiveTab] = useState<'profile' | 'leaderboard'>('profile')
+    const [leaderboardSeason, setLeaderboardSeason] = useState<'s1' | 's2'>('s1')
     const [leaderboard, setLeaderboard] = useState<any[]>([])
+    const [leaderboardS2, setLeaderboardS2] = useState<any[]>([])
+    const [playerS2Rank, setPlayerS2Rank] = useState<number | null>(null)
     const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
+    const [loadingLeaderboardS2, setLoadingLeaderboardS2] = useState(false)
     const [isEditingName, setIsEditingName] = useState(false)
     const [newName, setNewName] = useState("")
     const [xHandle, setXHandle] = useState("")
@@ -61,6 +65,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                 refetch()
             }
             fetchLeaderboard()
+            fetchLeaderboardS2(normalizedAddress)
         }
         wasOpenRef.current = isOpen
     }, [isOpen]) // Only depend on isOpen, not initialTab
@@ -97,6 +102,20 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
             setXHandle(glitchData.x_handle)
         }
         setIsLoadingX(false)
+    }
+
+    const fetchLeaderboardS2 = async (walletAddr?: string) => {
+        setLoadingLeaderboardS2(true)
+        try {
+            const url = walletAddr
+                ? `/api/leaderboard/season2?limit=50&wallet=${walletAddr}`
+                : '/api/leaderboard/season2?limit=50'
+            const res = await fetch(url)
+            const data = await res.json()
+            setLeaderboardS2(data.leaderboard ?? [])
+            if (data.player?.rank) setPlayerS2Rank(data.player.rank)
+        } catch { setLeaderboardS2([]) }
+        setLoadingLeaderboardS2(false)
     }
 
     const fetchLeaderboard = async () => {
@@ -439,27 +458,81 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                 )}
                             </motion.div>
                         ) : (
-                            /* LEADERBOARD - blue-600 */
+                            /* LEADERBOARD */
                             <motion.div key="leaderboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
-                                {loadingLeaderboard ? <Loader2 className="animate-spin text-[#3b82f6] mx-auto py-20" /> : (
-                                    leaderboard.map((user, idx) => (
-                                        <div key={user.wallet_address} className={`flex items-center p-5 rounded-[24px] border transition-all ${user.wallet_address === normalizedAddress ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40' : 'bg-white/5 border-transparent'}`}>
-                                            <div className="w-12 font-black text-[#3b82f6] text-xl">#{idx + 1}</div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="text-base font-black text-white uppercase tracking-tight">{user.username || `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`}</div>
-                                                    {user.x_handle && (
-                                                        <a href={`https://x.com/${user.x_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-white transition-colors" title={user.x_handle}>
-                                                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-                                                        </a>
-                                                    )}
+
+                                {/* Season switcher */}
+                                <div className="flex bg-white/5 p-1 rounded-2xl self-start mb-1">
+                                    <button
+                                        onClick={() => setLeaderboardSeason('s1')}
+                                        className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardSeason === 's1' ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/20' : 'text-white/40 hover:text-white/60'}`}
+                                    >
+                                        Season 1
+                                    </button>
+                                    <button
+                                        onClick={() => setLeaderboardSeason('s2')}
+                                        className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardSeason === 's2' ? 'bg-[#00FF94] text-black shadow-lg shadow-[#00FF94]/20' : 'text-white/40 hover:text-white/60'}`}
+                                    >
+                                        Season 2
+                                    </button>
+                                </div>
+
+                                <AnimatePresence mode="wait">
+                                    {leaderboardSeason === 's1' ? (
+                                        <motion.div key="s1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
+                                            {loadingLeaderboard ? <Loader2 className="animate-spin text-[#3b82f6] mx-auto py-20" /> : (
+                                                leaderboard.map((user, idx) => (
+                                                    <div key={user.wallet_address} className={`flex items-center p-5 rounded-[24px] border transition-all ${user.wallet_address?.toLowerCase() === normalizedAddress?.toLowerCase() ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40' : 'bg-white/5 border-transparent'}`}>
+                                                        <div className="w-12 font-black text-[#3b82f6] text-xl">#{idx + 1}</div>
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="text-base font-black text-white uppercase tracking-tight">{user.username || `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`}</div>
+                                                                {user.x_handle && (
+                                                                    <a href={`https://x.com/${user.x_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-white transition-colors" title={user.x_handle}>
+                                                                        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-[10px] text-white/30 uppercase font-black tracking-widest">{user.rank_title || "Baby Droid"} (LVL {user.level || 1})</div>
+                                                        </div>
+                                                        <div className="text-right text-xl font-black text-[#3b82f6]">{new Intl.NumberFormat('en-US').format(user.xp)}</div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div key="s2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
+                                            {/* Player's own rank banner */}
+                                            {normalizedAddress && playerS2Rank && (
+                                                <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#00FF94]/5 border border-[#00FF94]/20">
+                                                    <span className="text-[#00FF94] font-black text-sm">Your rank: #{playerS2Rank}</span>
+                                                    <span className="text-white/30 text-[10px] font-mono">Glitch Game + Glitch Flight</span>
                                                 </div>
-                                                <div className="text-[10px] text-white/30 uppercase font-black tracking-widest">{user.rank_title || "Baby Droid"} (LVL {user.level || 1})</div>
+                                            )}
+                                            <div className="text-[10px] text-white/20 font-mono uppercase tracking-widest px-1">
+                                                Combined XP: Glitch Game + Glitch Flight
                                             </div>
-                                            <div className="text-right text-xl font-black text-[#3b82f6]">{new Intl.NumberFormat('en-US').format(user.xp)}</div>
-                                        </div>
-                                    ))
-                                )}
+                                            {loadingLeaderboardS2 ? <Loader2 className="animate-spin text-[#00FF94] mx-auto py-20" /> : (
+                                                leaderboardS2.map((user: any) => (
+                                                    <div key={user.wallet} className={`flex items-center p-5 rounded-[24px] border transition-all ${user.wallet?.toLowerCase() === normalizedAddress?.toLowerCase() ? 'bg-[#00FF94]/5 border-[#00FF94]/30' : 'bg-white/5 border-transparent'}`}>
+                                                        <div className={`w-12 font-black text-xl ${user.rank <= 3 ? 'text-yellow-400' : 'text-[#00FF94]'}`}>#{user.rank}</div>
+                                                        <div className="flex-1">
+                                                            <div className="text-sm font-black text-white uppercase tracking-tight">
+                                                                {user.wallet?.toLowerCase() === normalizedAddress?.toLowerCase()
+                                                                    ? (currentUsername || `${user.wallet.slice(0, 6)}…${user.wallet.slice(-4)}`)
+                                                                    : `${user.wallet.slice(0, 6)}…${user.wallet.slice(-4)}`}
+                                                            </div>
+                                                            <div className="text-[10px] text-white/30 font-mono">
+                                                                {user.games_played}G · {user.flights_played}F
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right text-xl font-black text-[#00FF94]">{new Intl.NumberFormat('en-US').format(user.season_xp)} <span className="text-[10px] text-white/30 font-mono">XP</span></div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </motion.div>
                         )}
                     </AnimatePresence>

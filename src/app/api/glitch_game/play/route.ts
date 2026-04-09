@@ -108,13 +108,23 @@ export async function POST(req: Request) {
         // ── 4. XP & LEADERBOARD ──
         xpGained = finalPrize.xp_reward || 0;
         if (xpGained > 0) {
-            await supabaseAdmin.from('users').update({ xp: (user.xp || 0) + xpGained }).ilike('wallet_address', wallet);
+            const { data: currentUser } = await supabaseAdmin.from('users').select('xp').ilike('wallet_address', wallet).maybeSingle();
+            await supabaseAdmin.from('users').update({ xp: (currentUser?.xp || 0) + xpGained }).ilike('wallet_address', wallet);
 
             const { data: s1User } = await supabaseAdmin.from('glitch_season_1').select('season_xp, games_played').eq('wallet_address', wallet).maybeSingle();
             await supabaseAdmin.from('glitch_season_1').upsert({
                 wallet_address: wallet,
                 season_xp: (s1User?.season_xp || 0) + xpGained,
                 games_played: (s1User?.games_played || 0) + 1
+            }, { onConflict: 'wallet_address' });
+
+            // Season 2 (combined Glitch Game + Glitch Flight XP)
+            const { data: s2User } = await supabaseAdmin.from('glitch_season_2').select('season_xp, games_played').eq('wallet_address', wallet.toLowerCase()).maybeSingle();
+            await supabaseAdmin.from('glitch_season_2').upsert({
+                wallet_address: wallet.toLowerCase(),
+                season_xp: (s2User?.season_xp || 0) + xpGained,
+                games_played: (s2User?.games_played || 0) + 1,
+                updated_at: new Date().toISOString(),
             }, { onConflict: 'wallet_address' });
         }
 
