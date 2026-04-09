@@ -1,19 +1,40 @@
 import 'dotenv/config'
 import http from 'http'
 import { createWsServer } from './wsServer'
+import { logger } from './logger'
 
 const PORT = parseInt(process.env.PORT ?? '3001')
 
-// ── HTTP health check server (required by Railway) ─────────────────────────────
-// Railway needs an HTTP server to know the process is healthy.
-// We run HTTP and WebSocket on the same port using the upgrade mechanism.
+// ── In-memory error ring buffer (last 100 errors) ──────────────────────────────
+const errorLog: { ts: string; event: string; data: unknown }[] = []
+export function recordError(event: string, data: unknown): void {
+    errorLog.push({ ts: new Date().toISOString(), event, data })
+    if (errorLog.length > 100) errorLog.shift()
+}
 
+// ── HTTP server ────────────────────────────────────────────────────────────────
 const httpServer = http.createServer((req, res) => {
-    if (req.url === '/health') {
+    const url = req.url ?? ''
+
+    if (url === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ status: 'ok', ts: Date.now() }))
+        res.end(JSON.stringify({ status: 'ok', ts: Date.now(), uptime: process.uptime() }))
         return
     }
+
+    // GET /errors — recent error log (protected by INTERNAL_SECRET header)
+    if (url === '/errors') {
+        const secret = req.headers['x-internal-secret']
+        if (!process.env.INTERNAL_SECRET || secret !== process.env.INTERNAL_SECRET) {
+            res.writeHead(401)
+            res.end('Unauthorized')
+            return
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(errorLog))
+        return
+    }
+
     res.writeHead(404)
     res.end()
 })
@@ -69,7 +90,7 @@ async function handleAuth(client: Client, payload: { wallet: string }): Promise<
     const balance = await getBalance(wallet)
     const state = gameLoop.getPublicState()
     send(client.ws, { type: 'auth_ok', wallet, balance, gameState: state })
-    console.log(`[WS] Auth: ${wallet.slice(0, 10)}… balance=${balance}`)
+    logger.info('ws_auth', { wallet: wallet.slice(0, 10), balance, phase: state.phase })
 }
 
 async function handleBet(client: Client, payload: { amount: number }): Promise<void> {
@@ -78,14 +99,22 @@ async function handleBet(client: Client, payload: { amount: number }): Promise<v
     if (!amount || amount <= 0) { send(client.ws, { type: 'error', msg: 'Invalid amount' }); return }
 
     const result = await gameLoop.placeBet(client.wallet, amount)
-    if (!result.ok) { send(client.ws, { type: 'error', msg: result.error }); return }
+    if (!result.ok) {
+        logger.warn('bet_rejected', { wallet: client.wallet.slice(0, 10), amount, reason: result.error })
+        send(client.ws, { type: 'error', msg: result.error })
+        return
+    }
     send(client.ws, { type: 'bet_ok', amount, newBalance: result.newBalance })
 }
 
 async function handleCashout(client: Client): Promise<void> {
     if (!client.wallet) { send(client.ws, { type: 'error', msg: 'Auth required' }); return }
     const result = await gameLoop.cashout(client.wallet)
-    if (!result.ok) { send(client.ws, { type: 'error', msg: result.error }); return }
+    if (!result.ok) {
+        logger.warn('cashout_rejected', { wallet: client.wallet.slice(0, 10), reason: result.error })
+        send(client.ws, { type: 'error', msg: result.error })
+        return
+    }
     send(client.ws, { type: 'cashout_ok', at: result.at, profit: result.profit, xpGained: result.xpGained, newBalance: result.newBalance })
 }
 
@@ -135,25 +164,35 @@ wss.on('connection', (ws: WebSocket) => {
         clients.delete(ws)
     })
 
-    ws.on('error', (e: Error) => console.error('[WS] Error:', e.message))
+    ws.on('error', (e: Error) => {
+        logger.error('ws_socket_error', { wallet: client.wallet, error: e.message })
+        recordError('ws_socket_error', e.message)
+    })
 })
 
 // ── Start ───────────────────────────────────────────────────────────────────────
 
 httpServer.listen(PORT, '0.0.0.0', async () => {
-    console.log(`[Server] Listening on port ${PORT}`)
+    logger.info('server_start', { port: PORT })
     try {
         await gameLoop.start()
     } catch (e: any) {
-        console.error('[GameLoop] Fatal:', e.message)
+        logger.error('game_loop_fatal', { error: e.message })
+        recordError('game_loop_fatal', e.message)
         process.exit(1)
     }
 })
 
-httpServer.on('error', (e) => {
-    console.error('[HTTP] Fatal:', e.message)
+httpServer.on('error', (e: Error) => {
+    logger.error('http_fatal', { error: e.message })
     process.exit(1)
 })
 
-process.on('uncaughtException', (e) => console.error('[Process] Uncaught:', e))
-process.on('unhandledRejection', (e) => console.error('[Process] Unhandled rejection:', e))
+process.on('uncaughtException', (e: Error) => {
+    logger.error('uncaught_exception', { error: e.message, stack: e.stack })
+    recordError('uncaught_exception', e.message)
+})
+process.on('unhandledRejection', (reason: unknown) => {
+    logger.error('unhandled_rejection', { reason: String(reason) })
+    recordError('unhandled_rejection', String(reason))
+})

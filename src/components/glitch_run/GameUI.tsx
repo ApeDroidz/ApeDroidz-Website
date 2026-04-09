@@ -803,7 +803,7 @@ export function RunControlPanel({
                                             onChange={e =>
                                                 setBetAmount(Math.min(Math.max(5, Number(e.target.value)), balance ?? 0, 1000))
                                             }
-                                            disabled={(phase === 'running' && !queueBet) || (phase === 'waiting' && hasBet)}
+                                            disabled={phase === 'waiting' && hasBet}
                                             className="w-20 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-sm font-mono text-right disabled:opacity-30 focus:outline-none focus:border-[#00FF94]/50"
                                         />
                                         <span className="text-white/30 text-xs font-mono">APE</span>
@@ -817,7 +817,7 @@ export function RunControlPanel({
                                     step={1}
                                     value={betAmount}
                                     onChange={e => setBetAmount(Number(e.target.value))}
-                                    disabled={(phase === 'running' && !queueBet) || (phase === 'waiting' && hasBet)}
+                                    disabled={phase === 'waiting' && hasBet}
                                     className="w-full h-1 accent-[#00FF94] disabled:opacity-30 cursor-pointer"
                                 />
 
@@ -828,7 +828,6 @@ export function RunControlPanel({
                                             key={v}
                                             onClick={() => setBetAmount(Math.min(v, balance ?? 0))}
                                             disabled={
-                                                (phase === 'running' && !queueBet) ||
                                                 (phase === 'waiting' && hasBet) ||
                                                 (balance ?? 0) < v
                                             }

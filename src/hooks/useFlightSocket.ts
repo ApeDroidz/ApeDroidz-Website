@@ -19,6 +19,7 @@ export interface FlightSocketState {
     balance: number | null
     balanceLoading: boolean
     hasBet: boolean
+    betAmount: number | null  // amount of current bet (optimistic)
     cashedOutAt: number | null
     lastXpGained: number
     lastProfit: number | null
@@ -45,6 +46,7 @@ const INITIAL_STATE: FlightSocketState = {
     balance: null,
     balanceLoading: true,
     hasBet: false,
+    betAmount: null,
     cashedOutAt: null,
     lastXpGained: 0,
     lastProfit: null,
@@ -59,8 +61,13 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
     const reconnectTimer = useRef<NodeJS.Timeout | null>(null)
     const pingTimer = useRef<NodeJS.Timeout | null>(null)
     const isMounted = useRef(true)
+    // Track pending bet for rollback
+    const pendingBetRef = useRef<{ amount: number; prevBalance: number | null } | null>(null)
 
     const [state, setState] = useState<FlightSocketState>(INITIAL_STATE)
+    // Keep a ref to current state for rollback access
+    const stateRef = useRef(state)
+    useEffect(() => { stateRef.current = state }, [state])
 
     useEffect(() => { walletRef.current = wallet }, [wallet])
 
@@ -142,7 +149,7 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
                     serverSeed: '',
                     crashPoint: null,
                     // Reset per-round state on new round
-                    ...(msg.type === 'waiting' ? { hasBet: false, cashedOutAt: null, lastXpGained: 0, lastProfit: null } : {}),
+                    ...(msg.type === 'waiting' ? { hasBet: false, betAmount: null, cashedOutAt: null, lastXpGained: 0, lastProfit: null } : {}),
                 }))
                 break
             }
@@ -184,10 +191,13 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
             }
 
             case 'bet_ok': {
+                // Confirm — sync authoritative balance from server
+                pendingBetRef.current = null
                 setState(s => ({
                     ...s,
                     hasBet: true,
-                    balance: msg.newBalance,
+                    betAmount: msg.amount ?? s.betAmount,
+                    balance: msg.newBalance ?? s.balance,
                     error: null,
                 }))
                 break
@@ -214,8 +224,20 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
             }
 
             case 'error': {
-                setState(s => ({ ...s, error: msg.msg }))
-                // Clear error after 4s
+                // Rollback optimistic bet if there was one pending
+                if (pendingBetRef.current) {
+                    const { amount, prevBalance } = pendingBetRef.current
+                    pendingBetRef.current = null
+                    setState(s => ({
+                        ...s,
+                        hasBet: false,
+                        betAmount: null,
+                        balance: prevBalance,
+                        error: msg.msg,
+                    }))
+                } else {
+                    setState(s => ({ ...s, error: msg.msg }))
+                }
                 setTimeout(() => setState(s => ({ ...s, error: null })), 4000)
                 break
             }
@@ -249,7 +271,18 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
 
     const actions: FlightSocketActions = {
         auth: (w) => send({ type: 'auth', wallet: w }),
-        bet: (amount) => send({ type: 'bet', amount }),
+        bet: (amount) => {
+            // Optimistic: mark bet placed + deduct balance immediately
+            const prev = stateRef.current
+            pendingBetRef.current = { amount, prevBalance: prev.balance }
+            setState(s => ({
+                ...s,
+                hasBet: true,
+                betAmount: amount,
+                balance: s.balance !== null ? parseFloat((s.balance - amount).toFixed(4)) : null,
+            }))
+            send({ type: 'bet', amount })
+        },
         cashout: () => send({ type: 'cashout' }),
         refreshBalance: () => {
             if (walletRef.current) send({ type: 'auth', wallet: walletRef.current })

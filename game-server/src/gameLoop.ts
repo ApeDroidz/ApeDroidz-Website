@@ -4,6 +4,7 @@ import {
     deductBalance, creditBalance, insertBetLog, existingBetInSession,
     updateBetCashout, updateBetLost, awardXp, getBalance,
 } from './db'
+import { logger } from './logger'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ export class GameLoop {
     }
 
     async start(): Promise<void> {
-        console.log('[GameLoop] Starting…')
+        logger.info('game_loop_start')
         await this.beginWaiting()
     }
 
@@ -91,7 +92,7 @@ export class GameLoop {
         try {
             sessionId = await createSession({ roundNumber: round, serverSeed, serverSeedHash, crashPoint })
         } catch (e: any) {
-            console.error('[GameLoop] createSession failed:', e.message)
+            logger.error('session_create_failed', { round, error: e.message })
         }
 
         this.state = {
@@ -107,7 +108,7 @@ export class GameLoop {
         }
 
         this.broadcast({ type: 'waiting', round, serverSeedHash, countdown: this.state.countdown })
-        console.log(`[GameLoop] Round ${round} waiting — crashPoint: ${crashPoint} (secret)`)
+        logger.info('round_waiting', { round, sessionId })
 
         let cd = 5
         this.countdownInterval = setInterval(async () => {
@@ -133,7 +134,7 @@ export class GameLoop {
         }
 
         this.broadcast({ type: 'running', round: this.state.round })
-        console.log(`[GameLoop] Round ${this.state.round} running`)
+        logger.info('round_running', { round: this.state.round, bets: this.state.bets.size })
 
         this.tickInterval = setInterval(() => {
             const elapsed = Date.now() - this.startTime
@@ -175,7 +176,9 @@ export class GameLoop {
             serverSeedHash: this.state.serverSeedHash,
         })
 
-        console.log(`[GameLoop] Round ${round} crashed at ${crashPoint}x`)
+        const winners = [...bets.values()].filter(b => b.cashedOutAt != null).length
+        const losers  = [...bets.values()].filter(b => b.cashedOutAt == null).length
+        logger.info('round_crashed', { round, crashPoint, totalBets: bets.size, winners, losers, sessionId })
 
         // Mark session crashed in DB
         if (sessionId) {
@@ -191,7 +194,7 @@ export class GameLoop {
                 dbOps.push(
                     updateBetLost(bet.logId, xp)
                         .then(() => awardXp(wallet, xp))
-                        .catch(e => console.error('[crash] updateBetLost', e.message))
+                        .catch(e => logger.error('update_bet_lost_failed', { wallet, error: e.message }))
                 )
                 this.sendTo(wallet, { type: 'lost', betAmount: bet.amount, xpGained: xp, round })
             }
@@ -245,7 +248,7 @@ export class GameLoop {
         }
 
         bets.set(w, { logId, wallet: w, amount })
-        console.log(`[GameLoop] Bet: ${w.slice(0, 8)}… ${amount} APE (round ${this.state.round})`)
+        logger.info('bet_placed', { wallet: w.slice(0, 10), amount, round: this.state.round, newBalance: deduct.newBalance })
 
         return { ok: true, newBalance: deduct.newBalance }
     }
@@ -284,7 +287,7 @@ export class GameLoop {
             awardXp(w, xpGained),
         ])
 
-        console.log(`[GameLoop] Cashout: ${w.slice(0, 8)}… at ${at}x (+${profit} APE)`)
+        logger.info('cashout', { wallet: w.slice(0, 10), at, profit, xpGained, round: this.state.round, newBalance })
 
         return { ok: true, at, profit, xpGained, newBalance }
     }
