@@ -180,7 +180,7 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -888,9 +888,9 @@ export function RunControlPanel({
                                     value={betAmount}
                                     onChange={setBetAmount}
                                     min={5}
-                                    max={Math.min(1000, balance ?? 0) || 5}
+                                    max={Math.min(50, balance ?? 0) || 5}
                                     step={5}
-                                    disabled={(phase === 'waiting' && hasBet) || !!queueBet || (phase === 'running' && !!cashedOutAt)}
+                                    disabled={(phase === 'waiting' && hasBet) || !!queueBet || (phase === 'running' && !!cashedOutAt) || (phase === 'crashed' && hasBet)}
                                 />
 
                                 {/* Quick picks */}
@@ -903,6 +903,7 @@ export function RunControlPanel({
                                                 (phase === 'waiting' && hasBet) ||
                                                 !!queueBet ||
                                                 (phase === 'running' && !!cashedOutAt) ||
+                                                (phase === 'crashed' && hasBet) ||
                                                 (balance ?? 0) < v
                                             }
                                             className="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00FF94]/30 text-white/60 hover:text-white text-[11px] font-extrabold font-mono disabled:opacity-20 disabled:cursor-not-allowed transition-all"
