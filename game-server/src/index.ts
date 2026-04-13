@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { verifyMessage } from 'ethers'
 import http from 'http'
 import { randomBytes } from 'crypto'
 import { logger } from './logger'
@@ -95,30 +96,13 @@ function sendTo(wallet: string, msg: object): void {
 
 const gameLoop = new GameLoop(broadcast, sendTo)
 
-// ── Signature verification via Next.js ────────────────────────────────────────
+// ── Signature verification (direct EIP-191 — no HTTP round-trip needed) ─────────
 
-async function verifyWsAuth(wallet: string, nonce: string, signature: string): Promise<boolean> {
-    const apiUrl = process.env.NEXTJS_API_URL
-    if (!apiUrl) {
-        logger.error('verify_ws_auth_no_url', { error: 'NEXTJS_API_URL not configured' })
-        return false
-    }
-    const secret = process.env.GAME_SERVER_SECRET
-    if (!secret) return false
-
+function verifyWsAuth(wallet: string, nonce: string, signature: string): boolean {
     try {
-        const res = await fetch(`${apiUrl}/api/flight/verify-ws-auth`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-internal-secret': secret,
-            },
-            body: JSON.stringify({ wallet, nonce, signature }),
-            signal: AbortSignal.timeout(5000),
-        })
-        if (!res.ok) return false
-        const data = await res.json() as { valid: boolean }
-        return data.valid === true
+        const message = `Glitch Flight Auth: ${nonce}`
+        const recovered = verifyMessage(message, signature)
+        return recovered.toLowerCase() === wallet.toLowerCase()
     } catch (e: any) {
         logger.error('verify_ws_auth_failed', { error: e.message })
         return false
@@ -149,7 +133,7 @@ async function handleAuth(
         return
     }
 
-    const isValid = await verifyWsAuth(wallet, payload.nonce, payload.signature)
+    const isValid = verifyWsAuth(wallet, payload.nonce, payload.signature)
     if (!isValid) {
         client.authFailures++
         logger.warn('ws_auth_rejected', { wallet: wallet.slice(0, 10), failures: client.authFailures })

@@ -150,7 +150,8 @@ export function useFlightSocket(
         ws.onclose = () => {
             if (!isMounted.current) return
             console.log('[FlightSocket] Disconnected — reconnecting in 3s…')
-            setState(s => ({ ...s, connected: false }))
+            // Stop balance spinner on disconnect — will reload after reconnect + auth
+            setState(s => ({ ...s, connected: false, balanceLoading: false }))
             if (pingTimer.current) clearInterval(pingTimer.current)
             challengeNonceRef.current = null
             reconnectTimer.current = setTimeout(connect, 3000)
@@ -301,6 +302,11 @@ export function useFlightSocket(
                 } else {
                     setState(s => ({ ...s, error: msg.msg }))
                 }
+                // If we were waiting for auth balance, stop the spinner
+                setState(s => ({
+                    ...s,
+                    balanceLoading: s.balanceLoading ? false : s.balanceLoading,
+                }))
                 setTimeout(() => setState(s => ({ ...s, error: null })), 4000)
                 break
             }
