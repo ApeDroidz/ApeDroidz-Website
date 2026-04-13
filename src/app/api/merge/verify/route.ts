@@ -224,16 +224,7 @@ export async function POST(req: NextRequest) {
 
         console.log(`✅ [Battery Merge] Transfer complete! TX: ${transferReceipt.transactionHash}`);
 
-        // === 6. MARK SENT BATTERIES AS BURNED IN batteries TABLE ===
-        // Mark all 20 standard batteries as burned in the batteries table (if they exist there)
-        for (const tokenId of sentTokenIds) {
-            await supabaseAdmin
-                .from("batteries")
-                .update({ is_burned: true })
-                .eq("token_id", parseInt(tokenId));
-        }
-
-        // === 7. LOG SUCCESS ===
+        // === 6. LOG SUCCESS ===
         await logBatteryMerge(userWallet, txHash, sentTokenIds, superBattery.token_id, "success", null);
 
         console.log(`✅ [Battery Merge] Complete! ${userWallet.slice(0, 8)}... sent 20 std batteries → received Super Battery #${superBattery.token_id}`);
