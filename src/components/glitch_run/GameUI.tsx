@@ -181,19 +181,21 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
 
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Full-screen backdrop — blurs and darkens everything behind */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/80 backdrop-blur-xl"
                 onClick={onClose}
             />
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
                 onClick={e => e.stopPropagation()}
-                className="relative w-full max-w-2xl bg-black/80 backdrop-blur-3xl border border-white/10 rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[80vh] max-h-[800px]"
+                className="relative w-full max-w-2xl bg-black/90 backdrop-blur-3xl border border-white/10 rounded-[40px] shadow-[0_0_80px_rgba(0,0,0,0.9),0_0_40px_rgba(0,255,148,0.04)] overflow-hidden flex flex-col h-[80vh] max-h-[800px]"
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 sm:p-8 border-b border-white/5 bg-white/[0.02] shrink-0">
