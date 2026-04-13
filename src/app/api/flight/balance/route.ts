@@ -9,6 +9,10 @@ export async function GET(req: NextRequest) {
     const wallet = req.nextUrl.searchParams.get('wallet')
     if (!wallet) return NextResponse.json({ error: 'wallet required' }, { status: 400 })
 
+    if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+        return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 })
+    }
+
     const { data, error } = await supabaseAdmin
         .from('flight_balances')
         .select('balance')
@@ -16,7 +20,7 @@ export async function GET(req: NextRequest) {
         .maybeSingle()
 
     if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ error: 'Failed to fetch balance' }, { status: 500 })
     }
 
     return NextResponse.json({ balance: data?.balance ?? 0 })

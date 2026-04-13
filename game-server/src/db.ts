@@ -130,16 +130,9 @@ export async function updateBetLost(logId: string, xpGained: number): Promise<vo
 export async function awardXp(wallet: string, xpGained: number): Promise<void> {
     const w = wallet.toLowerCase()
 
-    // users table
-    const { data: user } = await db.from('users').select('xp').ilike('wallet_address', w).maybeSingle()
-    await db.from('users').update({ xp: (user?.xp ?? 0) + xpGained }).ilike('wallet_address', w)
+    // Atomic increment — avoids TOCTOU from concurrent read-then-write
+    await db.rpc('increment_user_xp', { p_wallet: w, p_xp: xpGained })
 
-    // season 2
-    const { data: s2 } = await db.from('glitch_season_2').select('season_xp, flights_played').eq('wallet_address', w).maybeSingle()
-    await db.from('glitch_season_2').upsert({
-        wallet_address: w,
-        season_xp: (s2?.season_xp ?? 0) + xpGained,
-        flights_played: (s2?.flights_played ?? 0) + 1,
-        updated_at: new Date().toISOString(),
-    }, { onConflict: 'wallet_address' })
+    // Season 2 — upsert with atomic increment via stored proc
+    await db.rpc('increment_season2_xp', { p_wallet: w, p_xp: xpGained })
 }

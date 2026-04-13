@@ -16,7 +16,7 @@ export function hashServerSeed(serverSeed: string): string {
 }
 
 export function computeCrashPoint(serverSeed: string): number {
-    const houseEdge = parseFloat(process.env.HOUSE_EDGE ?? '0.2')
+    const houseEdge = parseFloat(process.env.HOUSE_EDGE ?? '0.1')
 
     const hmac = createHmac('sha256', serverSeed).update('crash').digest('hex')
     // Take the first 8 hex chars → 32-bit unsigned int

@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import http from 'http'
-import { createWsServer } from './wsServer'
+import { randomBytes } from 'crypto'
 import { logger } from './logger'
 
 const PORT = parseInt(process.env.PORT ?? '3001')
@@ -22,10 +22,10 @@ const httpServer = http.createServer((req, res) => {
         return
     }
 
-    // GET /errors — recent error log (protected by INTERNAL_SECRET header)
+    // GET /errors — recent error log (protected by GAME_SERVER_SECRET header)
     if (url === '/errors') {
         const secret = req.headers['x-internal-secret']
-        if (!process.env.INTERNAL_SECRET || secret !== process.env.INTERNAL_SECRET) {
+        if (!process.env.GAME_SERVER_SECRET || secret !== process.env.GAME_SERVER_SECRET) {
             res.writeHead(401)
             res.end('Unauthorized')
             return
@@ -44,16 +44,36 @@ import WebSocket, { WebSocketServer } from 'ws'
 import { GameLoop } from './gameLoop'
 import { getBalance } from './db'
 
+// ── Per-connection rate limit ─────────────────────────────────────────────────
+const MSG_RATE_MAX    = 30   // max messages per window
+const MSG_RATE_WINDOW = 10_000  // 10 second window
+
+// ── Per-IP connection limit ───────────────────────────────────────────────────
+const MAX_CONNS_PER_IP = 5   // max simultaneous WebSocket connections from one IP
+
 // ── Client registry ─────────────────────────────────────────────────────────────
 
 interface Client {
     ws: WebSocket
     wallet: string | null
+    ip: string
     isAlive: boolean
+    authenticated: boolean
+    /** Server-issued challenge nonce for auth — unique per connection */
+    challenge: string
+    /** Rate limiting */
+    msgCount: number
+    msgWindowStart: number
+    /** Auth attempt limiting — disconnect after too many failures */
+    authFailures: number
 }
+
+const MAX_AUTH_FAILURES = 3   // disconnect after this many bad auth attempts
 
 const clients = new Map<WebSocket, Client>()
 const walletSockets = new Map<string, WebSocket>()
+/** Track how many open connections exist per IP */
+const ipConnCount = new Map<string, number>()
 
 function send(ws: WebSocket, msg: object): void {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
@@ -75,26 +95,109 @@ function sendTo(wallet: string, msg: object): void {
 
 const gameLoop = new GameLoop(broadcast, sendTo)
 
+// ── Signature verification via Next.js ────────────────────────────────────────
+
+async function verifyWsAuth(wallet: string, nonce: string, signature: string): Promise<boolean> {
+    const apiUrl = process.env.NEXTJS_API_URL
+    if (!apiUrl) {
+        logger.error('verify_ws_auth_no_url', { error: 'NEXTJS_API_URL not configured' })
+        return false
+    }
+    const secret = process.env.GAME_SERVER_SECRET
+    if (!secret) return false
+
+    try {
+        const res = await fetch(`${apiUrl}/api/flight/verify-ws-auth`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-internal-secret': secret,
+            },
+            body: JSON.stringify({ wallet, nonce, signature }),
+            signal: AbortSignal.timeout(5000),
+        })
+        if (!res.ok) return false
+        const data = await res.json() as { valid: boolean }
+        return data.valid === true
+    } catch (e: any) {
+        logger.error('verify_ws_auth_failed', { error: e.message })
+        return false
+    }
+}
+
 // ── Message handlers ────────────────────────────────────────────────────────────
 
-async function handleAuth(client: Client, payload: { wallet: string }): Promise<void> {
+async function handleAuth(
+    client: Client,
+    payload: { wallet: string; nonce?: string; signature?: string }
+): Promise<void> {
     const wallet = payload.wallet?.toLowerCase()
     if (!wallet || !/^0x[0-9a-f]{40}$/i.test(wallet)) {
         send(client.ws, { type: 'error', msg: 'Invalid wallet address' })
         return
     }
-    if (client.wallet) walletSockets.delete(client.wallet)
+
+    // Verify the challenge signature
+    if (!payload.nonce || !payload.signature) {
+        send(client.ws, { type: 'error', msg: 'Signature required — sign the challenge to authenticate' })
+        return
+    }
+
+    // Nonce must match the server-issued challenge for this connection
+    if (payload.nonce !== client.challenge) {
+        send(client.ws, { type: 'error', msg: 'Invalid nonce' })
+        return
+    }
+
+    const isValid = await verifyWsAuth(wallet, payload.nonce, payload.signature)
+    if (!isValid) {
+        client.authFailures++
+        logger.warn('ws_auth_rejected', { wallet: wallet.slice(0, 10), failures: client.authFailures })
+        if (client.authFailures >= MAX_AUTH_FAILURES) {
+            send(client.ws, { type: 'error', msg: 'Too many failed auth attempts — disconnecting' })
+            client.ws.terminate()
+            return
+        }
+        send(client.ws, { type: 'error', msg: 'Auth failed — invalid signature' })
+        return
+    }
+
+    // ── Kill any existing zombie connection for this wallet ──────────────────
+    const existingWs = walletSockets.get(wallet)
+    if (existingWs && existingWs !== client.ws) {
+        logger.info('ws_zombie_cleanup', { wallet: wallet.slice(0, 10) })
+        const oldClient = clients.get(existingWs)
+        if (oldClient) oldClient.wallet = null
+        existingWs.terminate()
+        clients.delete(existingWs)
+    }
+
+    // De-register old wallet if re-authing as a different one
+    if (client.wallet && client.wallet !== wallet) {
+        walletSockets.delete(client.wallet)
+    }
+
     client.wallet = wallet
+    client.authenticated = true
     walletSockets.set(wallet, client.ws)
 
     const balance = await getBalance(wallet)
     const state = gameLoop.getPublicState()
-    send(client.ws, { type: 'auth_ok', wallet, balance, gameState: state })
-    logger.info('ws_auth', { wallet: wallet.slice(0, 10), balance, phase: state.phase })
+    const bet = gameLoop.getState().bets.get(wallet)
+    send(client.ws, {
+        type: 'auth_ok',
+        wallet,
+        balance,
+        gameState: state,
+        hasBet: !!bet,
+        betAmount: bet?.amount ?? null,
+        cashedOutAt: bet?.cashedOutAt ?? null,
+    })
+    logger.info('ws_auth', { wallet: wallet.slice(0, 10), balance, phase: state.phase, hasBet: !!bet })
 }
 
 async function handleBet(client: Client, payload: { amount: number }): Promise<void> {
-    if (!client.wallet) { send(client.ws, { type: 'error', msg: 'Auth required' }); return }
+    if (!client.wallet || !client.authenticated) { send(client.ws, { type: 'error', msg: 'Auth required' }); return }
     const amount = Number(payload.amount)
     if (!amount || amount <= 0) { send(client.ws, { type: 'error', msg: 'Invalid amount' }); return }
 
@@ -108,7 +211,7 @@ async function handleBet(client: Client, payload: { amount: number }): Promise<v
 }
 
 async function handleCashout(client: Client): Promise<void> {
-    if (!client.wallet) { send(client.ws, { type: 'error', msg: 'Auth required' }); return }
+    if (!client.wallet || !client.authenticated) { send(client.ws, { type: 'error', msg: 'Auth required' }); return }
     const result = await gameLoop.cashout(client.wallet)
     if (!result.ok) {
         logger.warn('cashout_rejected', { wallet: client.wallet.slice(0, 10), reason: result.error })
@@ -120,34 +223,82 @@ async function handleCashout(client: Client): Promise<void> {
 
 // ── WebSocket setup ─────────────────────────────────────────────────────────────
 
-const wss = new WebSocketServer({ server: httpServer })
+// maxPayload: reject messages larger than 4KB — prevents CPU/memory DoS from giant JSON blobs
+const wss = new WebSocketServer({ server: httpServer, maxPayload: 4 * 1024 })
 
 setInterval(() => {
     for (const [ws, client] of clients) {
         if (!client.isAlive) {
             ws.terminate()
-            clients.delete(ws)
             if (client.wallet) walletSockets.delete(client.wallet)
-            return
+            const prev = ipConnCount.get(client.ip) ?? 1
+            if (prev <= 1) ipConnCount.delete(client.ip)
+            else ipConnCount.set(client.ip, prev - 1)
+            clients.delete(ws)
+            continue   // was `return` — bug: exited the whole interval, leaving dead connections uncleaned
         }
         client.isAlive = false
         ws.ping()
     }
 }, 30_000)
 
-wss.on('connection', (ws: WebSocket) => {
-    const client: Client = { ws, wallet: null, isAlive: true }
+wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
+    // Extract client IP (behind Railway/nginx proxy)
+    const ip = (req.headers['x-forwarded-for'] as string ?? req.socket.remoteAddress ?? 'unknown')
+        .split(',')[0].trim()
+
+    // ── Per-IP connection limit ───────────────────────────────────────────────
+    const currentCount = ipConnCount.get(ip) ?? 0
+    if (currentCount >= MAX_CONNS_PER_IP) {
+        logger.warn('ws_conn_limit_reached', { ip, count: currentCount })
+        ws.close(1008, 'Too many connections from your IP')
+        return
+    }
+    ipConnCount.set(ip, currentCount + 1)
+
+    // Issue a unique challenge nonce for this connection
+    const challenge = randomBytes(16).toString('hex')
+    const client: Client = {
+        ws,
+        wallet: null,
+        ip,
+        isAlive: true,
+        authenticated: false,
+        challenge,
+        msgCount: 0,
+        msgWindowStart: Date.now(),
+        authFailures: 0,
+    }
     clients.set(ws, client)
 
     ws.on('pong', () => { client.isAlive = true })
 
-    // Send current state on connect
+    // Send initial game state + challenge nonce
     send(ws, { type: 'state', gameState: gameLoop.getPublicState() })
+    send(ws, { type: 'challenge', nonce: challenge })
 
     ws.on('message', async (raw: Buffer) => {
-        let msg: { type: string;[k: string]: unknown }
+        // ── Per-connection rate limiting ──────────────────────────────────────
+        const now = Date.now()
+        if (now - client.msgWindowStart > MSG_RATE_WINDOW) {
+            client.msgCount = 0
+            client.msgWindowStart = now
+        }
+        client.msgCount++
+        if (client.msgCount > MSG_RATE_MAX) {
+            send(ws, { type: 'error', msg: 'Too many messages — slow down' })
+            return
+        }
+
+        let msg: { type: string; [k: string]: unknown }
         try { msg = JSON.parse(raw.toString()) }
         catch { send(ws, { type: 'error', msg: 'Invalid JSON' }); return }
+
+        // ── Auth gate: only auth and ping allowed before authentication ───────
+        if (!client.authenticated && msg.type !== 'auth' && msg.type !== 'ping') {
+            send(ws, { type: 'error', msg: 'Authentication required' })
+            return
+        }
 
         switch (msg.type) {
             case 'auth':     await handleAuth(client, msg as any); break
@@ -161,6 +312,10 @@ wss.on('connection', (ws: WebSocket) => {
     ws.on('close', () => {
         const c = clients.get(ws)
         if (c?.wallet) walletSockets.delete(c.wallet)
+        // Decrement per-IP counter
+        const prev = ipConnCount.get(ip) ?? 1
+        if (prev <= 1) ipConnCount.delete(ip)
+        else ipConnCount.set(ip, prev - 1)
         clients.delete(ws)
     })
 

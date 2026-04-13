@@ -21,7 +21,10 @@ export default function GlitchFlightPage() {
     const [isProfileOpen, setIsProfileOpen] = useState(false)
     const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'leaderboard'>('profile')
 
-    const [socket, actions] = useFlightSocket(account?.address)
+    const [socket, actions] = useFlightSocket(
+        account?.address,
+        account ? (msg: string) => account.signMessage({ message: msg }) : undefined
+    )
 
     // ── Bet amount (local UI state only) ────────────────────────────────────────
     const [betAmount, setBetAmount] = useState(10)

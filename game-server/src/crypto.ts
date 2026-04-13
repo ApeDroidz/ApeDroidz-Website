@@ -14,7 +14,7 @@ export function hashServerSeed(seed: string): string {
  * then computeCrashPoint(serverSeed) === crash_point shown after.
  */
 export function computeCrashPoint(serverSeed: string): number {
-    const houseEdge = parseFloat(process.env.HOUSE_EDGE ?? '0.04')
+    const houseEdge = parseFloat(process.env.HOUSE_EDGE ?? '0.1')
 
     const hmac = createHmac('sha256', serverSeed).update('crash').digest('hex')
     const h = parseInt(hmac.slice(0, 8), 16)

@@ -55,14 +55,26 @@ const INITIAL_STATE: FlightSocketState = {
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
-export function useFlightSocket(wallet: string | undefined): [FlightSocketState, FlightSocketActions] {
+/**
+ * @param wallet  - Connected wallet address (from thirdweb useActiveAccount)
+ * @param signFn  - Function to sign a message with the wallet (from account.signMessage)
+ *                  Required for WebSocket authentication via EIP-191 challenge-response.
+ */
+export function useFlightSocket(
+    wallet: string | undefined,
+    signFn?: (message: string) => Promise<string>
+): [FlightSocketState, FlightSocketActions] {
     const wsRef = useRef<WebSocket | null>(null)
     const walletRef = useRef(wallet)
+    const signFnRef = useRef(signFn)
+    const challengeNonceRef = useRef<string | null>(null)
     const reconnectTimer = useRef<NodeJS.Timeout | null>(null)
     const pingTimer = useRef<NodeJS.Timeout | null>(null)
     const isMounted = useRef(true)
     // Track pending bet for rollback
     const pendingBetRef = useRef<{ amount: number; prevBalance: number | null } | null>(null)
+    // Track pending cashout for optimistic rollback
+    const pendingCashoutRef = useRef(false)
 
     const [state, setState] = useState<FlightSocketState>(INITIAL_STATE)
     // Keep a ref to current state for rollback access
@@ -70,10 +82,27 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
     useEffect(() => { stateRef.current = state }, [state])
 
     useEffect(() => { walletRef.current = wallet }, [wallet])
+    useEffect(() => { signFnRef.current = signFn }, [signFn])
 
     const send = useCallback((msg: object) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify(msg))
+        }
+    }, [])
+
+    /** Sign the current challenge and send an auth message */
+    const doAuth = useCallback(async (w: string) => {
+        const nonce = challengeNonceRef.current
+        const sign = signFnRef.current
+        if (!nonce || !sign) return
+        try {
+            const message = `Glitch Flight Auth: ${nonce}`
+            const signature = await sign(message)
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: 'auth', wallet: w, nonce, signature }))
+            }
+        } catch (e) {
+            console.error('[FlightSocket] Sign failed', e)
         }
     }, [])
 
@@ -92,6 +121,9 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
             wsRef.current.close()
         }
 
+        // Reset challenge on new connection
+        challengeNonceRef.current = null
+
         const ws = new WebSocket(url)
         wsRef.current = ws
 
@@ -100,16 +132,12 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
             console.log('[FlightSocket] Connected')
             setState(s => ({ ...s, connected: true, error: null }))
 
-            // Auth immediately if wallet available
-            if (walletRef.current) {
-                ws.send(JSON.stringify({ type: 'auth', wallet: walletRef.current }))
-            }
-
             // Start ping keepalive
             if (pingTimer.current) clearInterval(pingTimer.current)
             pingTimer.current = setInterval(() => {
                 if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }))
             }, 20_000)
+            // Auth happens after server sends the challenge message
         }
 
         ws.onmessage = (event) => {
@@ -124,6 +152,7 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
             console.log('[FlightSocket] Disconnected — reconnecting in 3s…')
             setState(s => ({ ...s, connected: false }))
             if (pingTimer.current) clearInterval(pingTimer.current)
+            challengeNonceRef.current = null
             reconnectTimer.current = setTimeout(connect, 3000)
         }
 
@@ -135,8 +164,33 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
     const handleMessage = useCallback((msg: any) => {
         switch (msg.type) {
 
+            // Server-issued challenge — sign and authenticate
+            case 'challenge': {
+                challengeNonceRef.current = msg.nonce
+                // Auto-auth if wallet and signFn are available
+                if (walletRef.current && signFnRef.current) {
+                    setState(s => ({ ...s, balanceLoading: true }))
+                    doAuth(walletRef.current)
+                }
+                break
+            }
+
             // Initial state on connect (before auth)
-            case 'state':
+            case 'state': {
+                const gs = msg.gameState ?? msg
+                setState(s => ({
+                    ...s,
+                    phase: gs.phase ?? s.phase,
+                    round: gs.round ?? s.round,
+                    serverSeedHash: gs.serverSeedHash ?? s.serverSeedHash,
+                    countdown: gs.countdown ?? 5,
+                    multiplier: gs.phase === 'waiting' ? 1.0 : (gs.multiplier ?? s.multiplier),
+                    serverSeed: '',
+                    crashPoint: null,
+                }))
+                break
+            }
+
             case 'waiting': {
                 const gs = msg.gameState ?? msg
                 setState(s => ({
@@ -148,8 +202,8 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
                     multiplier: 1.0,
                     serverSeed: '',
                     crashPoint: null,
-                    // Reset per-round state on new round
-                    ...(msg.type === 'waiting' ? { hasBet: false, betAmount: null, cashedOutAt: null, lastXpGained: 0, lastProfit: null } : {}),
+                    // Reset per-round bet state only on phase transition (not on every countdown tick)
+                    ...(s.phase !== 'waiting' ? { hasBet: false, betAmount: null, cashedOutAt: null, lastXpGained: 0, lastProfit: null } : {}),
                 }))
                 break
             }
@@ -186,6 +240,10 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
                     serverSeedHash: msg.gameState?.serverSeedHash ?? s.serverSeedHash,
                     countdown: msg.gameState?.countdown ?? s.countdown,
                     multiplier: msg.gameState?.multiplier ?? s.multiplier,
+                    // Restore bet state (critical for reconnect/refresh during active round)
+                    hasBet: msg.hasBet ?? s.hasBet,
+                    betAmount: msg.betAmount ?? s.betAmount,
+                    cashedOutAt: msg.cashedOutAt ?? s.cashedOutAt,
                 }))
                 break
             }
@@ -204,6 +262,7 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
             }
 
             case 'cashout_ok': {
+                pendingCashoutRef.current = false
                 setState(s => ({
                     ...s,
                     cashedOutAt: msg.at,
@@ -224,9 +283,13 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
             }
 
             case 'error': {
-                // Rollback optimistic bet if there was one pending
-                if (pendingBetRef.current) {
-                    const { amount, prevBalance } = pendingBetRef.current
+                if (pendingCashoutRef.current) {
+                    // Rollback optimistic cashout
+                    pendingCashoutRef.current = false
+                    setState(s => ({ ...s, cashedOutAt: null, error: msg.msg }))
+                } else if (pendingBetRef.current) {
+                    // Rollback optimistic bet
+                    const { prevBalance } = pendingBetRef.current
                     pendingBetRef.current = null
                     setState(s => ({
                         ...s,
@@ -245,7 +308,7 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
             case 'pong':
                 break
         }
-    }, [])
+    }, [doAuth])
 
     // Connect on mount
     useEffect(() => {
@@ -259,18 +322,22 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
         }
     }, [connect])
 
-    // Re-auth when wallet changes
+    // Re-auth when wallet changes (reuse the existing connection's challenge nonce)
     useEffect(() => {
         if (!wallet) {
             setState(s => ({ ...s, balance: null, balanceLoading: false }))
             return
         }
+        if (!signFnRef.current || !challengeNonceRef.current) {
+            // Will auth when challenge arrives (handled in 'challenge' case above)
+            return
+        }
         setState(s => ({ ...s, balanceLoading: true }))
-        send({ type: 'auth', wallet })
-    }, [wallet, send])
+        doAuth(wallet)
+    }, [wallet, doAuth])
 
     const actions: FlightSocketActions = {
-        auth: (w) => send({ type: 'auth', wallet: w }),
+        auth: (w) => { doAuth(w) },
         bet: (amount) => {
             // Optimistic: mark bet placed + deduct balance immediately
             const prev = stateRef.current
@@ -283,9 +350,16 @@ export function useFlightSocket(wallet: string | undefined): [FlightSocketState,
             }))
             send({ type: 'bet', amount })
         },
-        cashout: () => send({ type: 'cashout' }),
+        cashout: () => {
+            // Optimistic: immediately show cashed-out state at current multiplier
+            pendingCashoutRef.current = true
+            setState(s => ({ ...s, cashedOutAt: s.multiplier }))
+            send({ type: 'cashout' })
+        },
         refreshBalance: () => {
-            if (walletRef.current) send({ type: 'auth', wallet: walletRef.current })
+            if (!walletRef.current) return
+            setState(s => ({ ...s, balanceLoading: true }))
+            doAuth(walletRef.current)
         },
     }
 

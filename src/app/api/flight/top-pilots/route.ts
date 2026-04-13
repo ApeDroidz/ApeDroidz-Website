@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
         .order('profit', { ascending: false })
         .limit(limit * 3) // fetch extra to deduplicate per wallet
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Failed to fetch leaderboard' }, { status: 500 })
 
     // Keep only each wallet's best single win
     const seen = new Set<string>()

@@ -222,6 +222,9 @@ export class GameLoop {
         if (amount < 5) {
             return { ok: false, error: 'Minimum bet is 5 APE' }
         }
+        if (amount > 50) {
+            return { ok: false, error: 'Maximum bet is 50 APE' }
+        }
 
         const w = wallet.toLowerCase()
 
@@ -277,11 +280,30 @@ export class GameLoop {
         const payout = parseFloat((at * bet.amount).toFixed(4))
         const xpGained = calcXp(at)
 
-        // Mark as cashed out in memory immediately
+        // Mark as cashed out in memory immediately (single-threaded: no concurrent cashout can pass the check above)
         bet.cashedOutAt = at
 
-        // Credit balance + write DB in parallel
-        const newBalance = await creditBalance(w, payout)
+        // Credit balance — retry up to 3 times before giving up.
+        // bet.cashedOutAt is already set so there is zero double-cashout risk on retry.
+        let newBalance = 0
+        let credited = false
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                newBalance = await creditBalance(w, payout)
+                credited = true
+                break
+            } catch (creditErr: any) {
+                logger.error('cashout_credit_failed', { wallet: w.slice(0, 10), payout, attempt, error: creditErr.message })
+                if (attempt < 3) await new Promise(r => setTimeout(r, 150 * attempt))
+            }
+        }
+        if (!credited) {
+            // All retries exhausted — log for manual review.
+            // The player should contact support; we do NOT unset cashedOutAt
+            // to prevent a double-cashout if the server recovers.
+            logger.error('cashout_credit_unrecoverable', { wallet: w, payout, round: this.state.round })
+        }
+
         await Promise.allSettled([
             updateBetCashout(bet.logId, at, profit, xpGained),
             awardXp(w, xpGained),

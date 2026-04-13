@@ -361,8 +361,9 @@ function FlightHistorySection({ wallet, refreshTrigger }: { wallet?: string; ref
                     ) : pilots.length === 0 ? (
                         <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">No flights yet</div>
                     ) : (
-                        <div className="max-h-[280px] overflow-y-auto pr-1 flex flex-col gap-1.5 pb-4"
-                            style={{ maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)' }}>
+                        <div className="max-h-[280px] overflow-y-auto flex flex-col gap-1.5 pb-4
+                            [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-white/40"
+                            style={{ maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)', scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}>
                             {pilots.map(p => (
                                 <div key={p.wallet} className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
                                     <span className="text-[11px] font-black w-5 shrink-0 text-white/40">#{p.rank}</span>
@@ -438,17 +439,86 @@ function FlightHistorySection({ wallet, refreshTrigger }: { wallet?: string; ref
     )
 }
 
+// ─── Amount stepper ───────────────────────────────────────────────────────────
+function AmountStepper({
+    value, onChange, min, max, step = 10, disabled,
+}: {
+    value: number
+    onChange: (v: number) => void
+    min: number
+    max?: number
+    step?: number
+    disabled?: boolean
+}) {
+    // Local string state so user can freely type (including clearing the field)
+    const [inputStr, setInputStr] = useState(String(value))
+    useEffect(() => { setInputStr(String(value)) }, [value])
+
+    const clamp = (v: number) => Math.min(max ?? Infinity, Math.max(min, v))
+
+    const dec = () => onChange(clamp(value - step))
+    const inc = () => onChange(clamp(value + step))
+    const canDec = !disabled && value > min
+    const canInc = !disabled && (max === undefined || value < max)
+
+    const handleBlur = () => {
+        const parsed = parseFloat(inputStr)
+        const clamped = isNaN(parsed) ? min : clamp(parsed)
+        onChange(clamped)
+        setInputStr(String(clamped))
+    }
+
+    const btnCls = (active: boolean) =>
+        `w-9 h-9 flex items-center justify-center rounded-lg border transition-all shrink-0 ${
+            active
+                ? 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:border-white/30 cursor-pointer'
+                : 'bg-white/5 border-white/[0.08] text-white/20 cursor-not-allowed'
+        }`
+
+    return (
+        <div className={`flex items-center gap-2 ${disabled ? 'opacity-30 pointer-events-none' : ''}`}>
+            <button type="button" onClick={dec} disabled={!canDec} className={btnCls(canDec)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                </svg>
+            </button>
+
+            <div className="flex-1 flex items-center justify-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                <input
+                    type="text"
+                    inputMode="numeric"
+                    value={inputStr}
+                    onChange={e => setInputStr(e.target.value)}
+                    onBlur={handleBlur}
+                    disabled={disabled}
+                    className="bg-transparent text-white text-sm font-extrabold font-mono text-center focus:outline-none w-16 min-w-0"
+                />
+                <span className="text-white/40 text-xs font-bold font-mono shrink-0">APE</span>
+            </div>
+
+            <button type="button" onClick={inc} disabled={!canInc} className={btnCls(canInc)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                </svg>
+            </button>
+        </div>
+    )
+}
+
 // ─── Fuel tab (deposit / withdraw) ───────────────────────────────────────────
 function FuelTab({
     balance,
     onBalanceChange,
+    onRefreshBalance,
 }: {
     balance: number
     onBalanceChange: (b: number) => void
+    onRefreshBalance?: () => void
 }) {
     const account = useActiveAccount()
     const { mutateAsync: sendAndConfirm, isPending: isSending } = useSendAndConfirmTransaction()
 
+    const [fuelMode, setFuelMode] = useState<'deposit' | 'withdraw'>('deposit')
     const [depositAmt, setDepositAmt] = useState(10)
     const [withdrawAmt, setWithdrawAmt] = useState(100)
     const [depositStatus, setDepositStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle')
@@ -468,22 +538,23 @@ function FuelTab({
                 value: toWei(String(depositAmt)),
             })
             const receipt = await sendAndConfirm(tx)
-            // Tell server about the deposit
+            // Tell server about the deposit — amount is read from chain, not sent here
             const res = await fetch('/api/flight/deposit', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wallet: account.address, tx_hash: receipt.transactionHash, amount: depositAmt }),
+                headers: { 'Content-Type': 'application/json', 'X-Wallet-Address': account.address },
+                body: JSON.stringify({ wallet: account.address, tx_hash: receipt.transactionHash }),
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error)
             onBalanceChange(data.new_balance)
+            onRefreshBalance?.()
             setDepositStatus('success')
             setStatusMsg(`Deposited ${depositAmt} APE`)
         } catch (e: any) {
             setDepositStatus('error')
             setStatusMsg(e.message?.slice(0, 80) ?? 'Deposit failed')
         }
-    }, [account, depositAmt, sendAndConfirm, onBalanceChange])
+    }, [account, depositAmt, sendAndConfirm, onBalanceChange, onRefreshBalance])
 
     // ── WITHDRAW ──
     const handleWithdraw = useCallback(async () => {
@@ -491,24 +562,33 @@ function FuelTab({
         setWithdrawStatus('pending')
         setStatusMsg('')
         try {
-            const nonce = `${account.address}-${Date.now()}`
+            // Embed timestamp for server-side TTL check, plus random UUID for uniqueness
+            const nonce = `${Date.now()}.${crypto.randomUUID()}`
             const message = `Withdraw ${withdrawAmt} APE nonce:${nonce}`
             const signature = await account.signMessage({ message })
             const res = await fetch('/api/flight/withdraw', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Wallet-Address': account.address },
                 body: JSON.stringify({ wallet: account.address, amount: withdrawAmt, nonce, signature }),
             })
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error)
+            if (!res.ok) {
+                const msg: string = data.error ?? 'Withdraw failed'
+                // 500s or blockchain failures → friendly message with error code
+                if (!res.ok && (res.status >= 500 || msg.toLowerCase().includes('blockchain') || msg.toLowerCase().includes('internal'))) {
+                    throw new Error('Something went wrong — contact support (ERR-W01)')
+                }
+                throw new Error(msg.slice(0, 80))
+            }
             onBalanceChange(data.new_balance)
+            onRefreshBalance?.()
             setWithdrawStatus('success')
             setStatusMsg(`Withdrew ${withdrawAmt} APE → wallet`)
         } catch (e: any) {
             setWithdrawStatus('error')
-            setStatusMsg(e.message?.slice(0, 80) ?? 'Withdraw failed')
+            setStatusMsg(e.message?.slice(0, 90) ?? 'Withdraw failed')
         }
-    }, [account, withdrawAmt, balance, onBalanceChange])
+    }, [account, withdrawAmt, balance, onBalanceChange, onRefreshBalance])
 
     if (!account) {
         return (
@@ -520,98 +600,106 @@ function FuelTab({
 
     const busy = depositStatus === 'pending' || withdrawStatus === 'pending' || isSending
 
+    const isError = depositStatus === 'error' || withdrawStatus === 'error'
+
     return (
         <div className="p-4 sm:p-5 flex flex-col gap-4">
-            {/* Balance */}
-            <div className="flex items-center justify-between py-2 border-b border-white/5">
-                <span className="text-[11px] font-bold text-white/40 uppercase tracking-widest">In-game balance</span>
-                <span className="font-mono text-base font-extrabold text-[#00FF94]">{balance.toFixed(2)} APE</span>
+            {/* Mode toggle */}
+            <div className="flex rounded-xl overflow-hidden border border-white/10 bg-white/[0.03]">
+                {(['deposit', 'withdraw'] as const).map(mode => (
+                    <button
+                        key={mode}
+                        onClick={() => { setFuelMode(mode); setStatusMsg('') }}
+                        disabled={busy}
+                        className={`flex-1 py-2 text-[11px] font-black uppercase tracking-widest transition-all ${
+                            fuelMode === mode
+                                ? 'bg-white/10 text-white shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.15)]'
+                                : 'text-white/30 hover:text-white/60'
+                        }`}
+                    >
+                        {mode}
+                    </button>
+                ))}
             </div>
 
-            {/* Deposit */}
-            <div className="flex flex-col gap-2">
-                <span className="text-[11px] font-bold text-white/50 uppercase tracking-widest">Deposit APE</span>
-                <div className="flex gap-2">
-                    <input
-                        type="number" min={0.1} step={0.1}
+            {/* Deposit panel */}
+            {fuelMode === 'deposit' && (
+                <div className="flex flex-col gap-2">
+
+                    <AmountStepper
                         value={depositAmt}
-                        onChange={e => setDepositAmt(Math.max(0.1, Number(e.target.value)))}
+                        onChange={setDepositAmt}
+                        min={10}
+                        step={10}
                         disabled={busy}
-                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm font-mono text-right disabled:opacity-30 focus:outline-none focus:border-[#00FF94]/40"
                     />
-                    <span className="self-center text-white/30 text-xs font-mono shrink-0">APE</span>
+                    <div className="grid grid-cols-4 gap-1">
+                        {[10, 25, 50, 100].map(v => (
+                            <button key={v} disabled={busy} onClick={() => setDepositAmt(v)}
+                                className="py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white text-[11px] font-extrabold font-mono disabled:opacity-20 transition-all">
+                                {v}
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        onClick={handleDeposit}
+                        disabled={busy || depositAmt < 10}
+                        className={`w-full py-2.5 rounded-xl font-black text-sm tracking-widest uppercase transition-all mt-2 ${
+                            busy
+                                ? 'bg-white/10 text-white/20 cursor-default'
+                                : 'bg-white text-black hover:bg-white/90 cursor-pointer'
+                        }`}
+                    >
+                        {depositStatus === 'pending' || isSending ? `In Process — ${depositAmt} APE…` : `Deposit ${depositAmt} APE`}
+                    </button>
                 </div>
-                <div className="grid grid-cols-4 gap-1">
-                    {[5, 10, 25, 50].map(v => (
-                        <button key={v} disabled={busy} onClick={() => setDepositAmt(v)}
-                            className="py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 hover:text-white text-[10px] font-mono disabled:opacity-20 transition-all">
-                            {v}
-                        </button>
-                    ))}
-                </div>
-                <button
-                    onClick={handleDeposit}
-                    disabled={busy || depositAmt <= 0}
-                    className={`w-full py-2.5 rounded-xl font-black text-sm tracking-widest uppercase transition-all ${
-                        busy ? 'bg-white/10 text-white/20 cursor-default'
-                             : 'bg-white text-black hover:bg-white/90 cursor-pointer'
-                    }`}
-                >
-                    {depositStatus === 'pending' || isSending ? `In Process — ${depositAmt} APE…` : `Deposit ${depositAmt} APE`}
-                </button>
-            </div>
+            )}
 
-            <div className="border-t border-white/5" />
-
-            {/* Withdraw */}
-            <div className="flex flex-col gap-2">
-                <span className="text-[11px] font-bold text-white/50 uppercase tracking-widest">Withdraw APE</span>
-                <div className="flex gap-2">
-                    <input
-                        type="number" min={100} max={balance} step={1}
+            {/* Withdraw panel */}
+            {fuelMode === 'withdraw' && (
+                <div className="flex flex-col gap-2">
+                    <AmountStepper
                         value={withdrawAmt}
-                        onChange={e => setWithdrawAmt(Math.min(Math.max(100, Number(e.target.value)), balance))}
+                        onChange={setWithdrawAmt}
+                        min={100}
+                        max={Math.min(balance, 500)}
+                        step={25}
                         disabled={busy}
-                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm font-mono text-right disabled:opacity-30 focus:outline-none focus:border-[#00FF94]/40"
                     />
-                    <span className="self-center text-white/30 text-xs font-mono shrink-0">APE</span>
+                    <button
+                        onClick={() => setWithdrawAmt(Math.min(balance, 500))}
+                        disabled={busy || balance <= 0}
+                        className="text-[10px] font-mono text-white/30 hover:text-white/60 transition-colors text-right disabled:opacity-20"
+                    >
+                        Max: {Math.min(balance, 500).toFixed(2)} APE
+                    </button>
+                    <button
+                        onClick={handleWithdraw}
+                        disabled={busy || withdrawAmt < 100 || withdrawAmt > balance}
+                        className={`w-full py-2.5 rounded-xl font-black text-sm tracking-widest uppercase transition-all ${
+                            busy || withdrawAmt < 100 || withdrawAmt > balance
+                                ? 'bg-white/10 text-white/20 cursor-default'
+                                : 'bg-white text-black hover:bg-white/90 cursor-pointer'
+                        }`}
+                    >
+                        {withdrawStatus === 'pending' ? 'Signing…' : withdrawAmt < 100 ? 'Min 100 APE' : `Withdraw ${withdrawAmt} APE`}
+                    </button>
                 </div>
-                <button
-                    onClick={() => setWithdrawAmt(balance)}
-                    disabled={busy || balance <= 0}
-                    className="text-[10px] font-mono text-white/30 hover:text-[#00FF94] transition-colors text-right disabled:opacity-20"
-                >
-                    Max: {balance.toFixed(2)}
-                </button>
-                <button
-                    onClick={handleWithdraw}
-                    disabled={busy || withdrawAmt < 100 || withdrawAmt > balance}
-                    className={`w-full py-2.5 rounded-xl font-black text-sm tracking-widest uppercase transition-all ${
-                        busy || withdrawAmt < 100 || withdrawAmt > balance
-                            ? 'bg-white/5 text-white/20 cursor-default border border-white/10'
-                            : 'bg-[#00FF94]/10 border border-[#00FF94]/30 text-[#00FF94] hover:bg-[#00FF94]/20 cursor-pointer'
-                    }`}
-                >
-                    {withdrawStatus === 'pending' ? 'Signing…' : withdrawAmt < 100 ? 'Min 100 APE' : `Withdraw ${withdrawAmt} APE`}
-                </button>
-            </div>
+            )}
 
             {/* Status message */}
             {statusMsg && (
                 <motion.p
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`text-[11px] font-mono text-center ${
-                        depositStatus === 'error' || withdrawStatus === 'error'
-                            ? 'text-red-400' : 'text-[#00FF94]'
-                    }`}
+                    className={`text-[11px] font-mono text-center ${isError ? 'text-red-400' : 'text-[#00FF94]'}`}
                 >
                     {statusMsg}
                 </motion.p>
             )}
 
             {/* Vault address */}
-            <div className="text-[9px] font-mono text-white/15 text-center leading-relaxed break-all">
+            <div className="text-[9px] font-mono text-white/40 text-center leading-relaxed break-all">
                 Vault: {VAULT_WALLET ?? '—'}<br />
                 Min withdraw: 100 APE · max 500 APE/day
             </div>
@@ -644,6 +732,7 @@ export interface RunControlPanelProps {
     balance: number | null
     balanceLoading?: boolean
     onBalanceChange: (b: number | null) => void
+    onRefreshBalance?: () => void
     seasonRank?: number | null
     rankLoading?: boolean
     roundHistory: RoundResult[]
@@ -660,7 +749,7 @@ export interface RunControlPanelProps {
 }
 
 export function RunControlPanel({
-    phase, multiplier, betAmount, setBetAmount, balance, balanceLoading, onBalanceChange,
+    phase, multiplier, betAmount, setBetAmount, balance, balanceLoading, onBalanceChange, onRefreshBalance,
     seasonRank, rankLoading, roundHistory, onBet, onCashout,
     hasBet, cashedOutAt, crashPoint, lastXpGained,
     queueBet, onQueueBet, historyRefreshTrigger, socketError,
@@ -684,7 +773,8 @@ export function RunControlPanel({
     )
 
     return (
-        <div className="w-full lg:w-[30%] flex flex-col gap-3 sm:gap-5 p-3 sm:p-6 lg:pt-[50px] shrink-0">
+        <div className="w-full lg:w-[30%] flex flex-col gap-3 sm:gap-5 p-3 sm:p-6 lg:pt-[50px] shrink-0 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:[&::-webkit-scrollbar]:w-[3px] lg:[&::-webkit-scrollbar-track]:bg-transparent lg:[&::-webkit-scrollbar-thumb]:bg-white/15 lg:[&::-webkit-scrollbar-thumb]:rounded-full"
+            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent' }}>
 
             {/* ── Stats row ── */}
             <motion.div
@@ -790,48 +880,32 @@ export function RunControlPanel({
                         >
                             {/* Flight amount */}
                             <div className="flex flex-col gap-2.5">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[11px] font-bold text-white/50 uppercase tracking-widest">
-                                        Flight amount
-                                    </span>
-                                    <div className="flex items-center gap-1.5">
-                                        <input
-                                            type="number"
-                                            min={5}
-                                            max={Math.min(1000, balance ?? 0)}
-                                            value={betAmount}
-                                            onChange={e =>
-                                                setBetAmount(Math.min(Math.max(5, Number(e.target.value)), balance ?? 0, 1000))
-                                            }
-                                            disabled={phase === 'waiting' && hasBet}
-                                            className="w-20 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-sm font-mono text-right disabled:opacity-30 focus:outline-none focus:border-[#00FF94]/50"
-                                        />
-                                        <span className="text-white/30 text-xs font-mono">APE</span>
-                                    </div>
-                                </div>
+                                <span className="text-[11px] font-bold text-white/50 uppercase tracking-widest">
+                                    Flight amount
+                                </span>
 
-                                <input
-                                    type="range"
-                                    min={5}
-                                    max={Math.max(5, Math.min(1000, balance ?? 0)) || 5}
-                                    step={1}
+                                <AmountStepper
                                     value={betAmount}
-                                    onChange={e => setBetAmount(Number(e.target.value))}
-                                    disabled={phase === 'waiting' && hasBet}
-                                    className="w-full h-1 accent-[#00FF94] disabled:opacity-30 cursor-pointer"
+                                    onChange={setBetAmount}
+                                    min={5}
+                                    max={Math.min(1000, balance ?? 0) || 5}
+                                    step={5}
+                                    disabled={(phase === 'waiting' && hasBet) || !!queueBet || (phase === 'running' && !!cashedOutAt)}
                                 />
 
                                 {/* Quick picks */}
                                 <div className="grid grid-cols-4 gap-1.5">
-                                    {[5, 10, 25, 50, 100, 250].slice(0, 4).map(v => (
+                                    {[5, 10, 25, 50].map(v => (
                                         <button
                                             key={v}
                                             onClick={() => setBetAmount(Math.min(v, balance ?? 0))}
                                             disabled={
                                                 (phase === 'waiting' && hasBet) ||
+                                                !!queueBet ||
+                                                (phase === 'running' && !!cashedOutAt) ||
                                                 (balance ?? 0) < v
                                             }
-                                            className="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00FF94]/30 text-white/50 hover:text-white text-[11px] font-mono disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                                            className="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00FF94]/30 text-white/60 hover:text-white text-[11px] font-extrabold font-mono disabled:opacity-20 disabled:cursor-not-allowed transition-all"
                                         >
                                             {v}
                                         </button>
@@ -1003,9 +1077,10 @@ export function RunControlPanel({
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -12 }}
                             transition={{ duration: 0.18 }}
-                            className="overflow-y-auto max-h-[460px] sm:max-h-[560px]"
+                            className="overflow-y-auto max-h-[460px] sm:max-h-[560px] [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-white/40"
+                            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}
                         >
-                            <FuelTab balance={balance ?? 0} onBalanceChange={onBalanceChange} />
+                            <FuelTab balance={balance ?? 0} onBalanceChange={onBalanceChange} onRefreshBalance={onRefreshBalance} />
                         </motion.div>
                     )}
                 </AnimatePresence>
