@@ -317,6 +317,8 @@ export function GameScene({ multiplier, phase, countdown, cashedOut }: GameScene
     const [crashTextExit, setCrashTextExit] = useState(false)
     const prevCashedOut = useRef(cashedOut)
     const prevPhase = useRef(phase)
+    // Guard: cashout animation fires at most once per round
+    const hasFiredCashoutAnim = useRef(false)
     const cloudContainerRef = useRef<HTMLDivElement>(null)
     const coinContainerRef = useRef<HTMLDivElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
@@ -357,6 +359,9 @@ export function GameScene({ multiplier, phase, countdown, cashedOut }: GameScene
             setCrashTextExit(false)
             setFillKey(k => k + 1)
             setLandEnterKey(k => k + 1)
+            // Reset cashout animation guard for the new round
+            hasFiredCashoutAnim.current = false
+            prevCashedOut.current = false
             // Reset playback speed on all travel animations
             ;[cloudContainerRef, coinContainerRef].forEach(ref => {
                 ref.current?.getAnimations({ subtree: true }).forEach(a => {
@@ -393,9 +398,10 @@ export function GameScene({ multiplier, phase, countdown, cashedOut }: GameScene
         })
     }, [multiplier, phase])
 
-    // Coin burst + blue flash on cashout
+    // Coin burst + blue flash on cashout — fires exactly once per round
     useEffect(() => {
-        if (cashedOut && !prevCashedOut.current) {
+        if (cashedOut && !hasFiredCashoutAnim.current) {
+            hasFiredCashoutAnim.current = true
             setCoinBurstKey(k => k + 1)
             setShowCoinBurst(true)
             setFlashKey(k => k + 1)

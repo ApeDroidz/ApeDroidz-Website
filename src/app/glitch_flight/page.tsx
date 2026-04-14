@@ -130,10 +130,17 @@ export default function GlitchFlightPage() {
         const amt = betAmountRef.current
         if ((socket.balance ?? 0) < amt || amt < 5) return
 
-        queueBetRef.current = false
-        setQueueBet(false)
+        queueBetRef.current = false   // prevent double-fire, but keep UI state until confirmed
         actions.bet(amt)
     }, [socket.phase]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Clear queue indicator only after server confirms the bet (hasBet=true)
+    // This prevents the brief window where queueBet=false + hasBet=false shows wrong UI
+    useEffect(() => {
+        if (socket.hasBet && queueBet) {
+            setQueueBet(false)
+        }
+    }, [socket.hasBet, queueBet])
 
     // ── Handlers ─────────────────────────────────────────────────────────────────
     const handleBet = useCallback(() => {
