@@ -1,0 +1,195 @@
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/adminAuth'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+interface Alert {
+    severity: 'critical' | 'warning' | 'info'
+    kind: string
+    message: string
+    detail?: any
+}
+
+/**
+ * GET /api/admin/health
+ *
+ * Surface anomalies and bug-shaped issues that need attention. The intent is
+ * "open the panel, see red dots = something to fix" rather than a crystal
+ * ball. Designed to be cheap — runs in <1s for a normal-size DB.
+ */
+export async function GET(req: Request) {
+    const denied = await requireAdmin(req)
+    if (denied) return denied
+
+    const now = Date.now()
+    const since24h = new Date(now - 86400_000).toISOString()
+    const since7d = new Date(now - 7 * 86400_000).toISOString()
+
+    try {
+        const [
+            pendingInvest, errorsRecent, mergesFailed,
+            stuckPending, dupHandles, vaultRow,
+            highWinRate, multiAccountByX, recentRollbacks,
+        ] = await Promise.all([
+            supabaseAdmin.from('flight_transactions')
+                .select('id, wallet_address, amount, created_at, tx_hash, type')
+                .eq('status', 'pending_investigation')
+                .order('created_at', { ascending: false }).limit(50),
+
+            supabaseAdmin.from('game_logs')
+                .select('wallet_address, prize_type_id, error_message, created_at')
+                .eq('status', 'error').gte('created_at', since24h)
+                .order('created_at', { ascending: false }).limit(50),
+
+            supabaseAdmin.from('merge_logs')
+                .select('user_wallet, tx_hash, error_message, created_at')
+                .eq('status', 'failed').gte('created_at', since7d)
+                .order('created_at', { ascending: false }).limit(20),
+
+            // Pending withdrawals stuck >1h
+            supabaseAdmin.from('flight_transactions')
+                .select('id, wallet_address, amount, created_at, tx_hash')
+                .eq('type', 'withdrawal').eq('status', 'pending')
+                .lt('created_at', new Date(now - 60 * 60_000).toISOString())
+                .order('created_at', { ascending: true }).limit(20),
+
+            // Same X handle on multiple wallets in the daily claims log
+            supabaseAdmin.from('daily_claims_log')
+                .select('x_handle, wallet_address, claimed_at')
+                .not('x_handle', 'is', null).gte('claimed_at', since7d),
+
+            // Vault balance vs daily cap
+            supabaseAdmin.from('vault_limits').select('daily_withdrawal_cap, max_win_pct')
+                .eq('id', 1).maybeSingle(),
+
+            // Wallets with very high cards win rate (>= 90% NFT prizes)
+            supabaseAdmin.from('game_logs')
+                .select('wallet_address, prize_type_id')
+                .eq('status', 'success').gte('created_at', since7d),
+
+            // Same X handle multi-wallet (sister query — collected separately for recency)
+            supabaseAdmin.from('glitch_users')
+                .select('wallet_address, x_handle').not('x_handle', 'is', null),
+
+            // NFT inventory rolled back in the last 24h (winner_wallet null but won_at recent)
+            supabaseAdmin.from('nft_inventory').select('id, token_id, prize_type_id, status')
+                .eq('status', 'available').gte('won_at', since24h),
+        ])
+
+        const alerts: Alert[] = []
+
+        // ── pending_investigation — manual review needed ────────────────────
+        if ((pendingInvest.data ?? []).length > 0) {
+            alerts.push({
+                severity: 'critical',
+                kind: 'flight_pending_investigation',
+                message: `${pendingInvest.data?.length} flight transaction(s) in pending_investigation`,
+                detail: pendingInvest.data,
+            })
+        }
+
+        // ── stuck pending withdrawals ───────────────────────────────────────
+        if ((stuckPending.data ?? []).length > 0) {
+            alerts.push({
+                severity: 'critical',
+                kind: 'flight_stuck_withdrawals',
+                message: `${stuckPending.data?.length} withdrawal(s) stuck in 'pending' >1h`,
+                detail: stuckPending.data,
+            })
+        }
+
+        // ── recent errors spike ─────────────────────────────────────────────
+        if ((errorsRecent.data ?? []).length > 0) {
+            alerts.push({
+                severity: (errorsRecent.data?.length ?? 0) > 10 ? 'critical' : 'warning',
+                kind: 'cards_errors_recent',
+                message: `${errorsRecent.data?.length} Cards errors in last 24h`,
+                detail: (errorsRecent.data ?? []).slice(0, 20),
+            })
+        }
+
+        // ── failed merges ───────────────────────────────────────────────────
+        if ((mergesFailed.data ?? []).length > 0) {
+            alerts.push({
+                severity: 'warning',
+                kind: 'merge_failures',
+                message: `${mergesFailed.data?.length} failed merge attempt(s) in last 7d`,
+                detail: mergesFailed.data,
+            })
+        }
+
+        // ── multi-account detection (same X handle, different wallets) ─────
+        const handleMap: Record<string, Set<string>> = {}
+        for (const row of (multiAccountByX.data ?? [])) {
+            const h = String(row.x_handle ?? '').toLowerCase()
+            if (!h) continue
+            if (!handleMap[h]) handleMap[h] = new Set()
+            handleMap[h].add(String(row.wallet_address ?? '').toLowerCase())
+        }
+        const dupes = Object.entries(handleMap)
+            .filter(([, set]) => set.size > 1)
+            .map(([handle, set]) => ({ handle, wallets: [...set] }))
+        if (dupes.length > 0) {
+            alerts.push({
+                severity: 'warning',
+                kind: 'multi_account_x_handle',
+                message: `${dupes.length} X handle(s) used by multiple wallets`,
+                detail: dupes.slice(0, 20),
+            })
+        }
+
+        // ── high win rate (Cards) ───────────────────────────────────────────
+        const winRateMap: Record<string, { total: number; nfts: number }> = {}
+        for (const r of (highWinRate.data ?? [])) {
+            const w = String(r.wallet_address ?? '').toLowerCase()
+            if (!w) continue
+            if (!winRateMap[w]) winRateMap[w] = { total: 0, nfts: 0 }
+            winRateMap[w].total++
+            const p = String(r.prize_type_id ?? '')
+            // Anything that isn't a shard or token is treated as a "high-value" prize.
+            if (!p.startsWith('shard') && p !== 'std_battery') winRateMap[w].nfts++
+        }
+        const sus = Object.entries(winRateMap)
+            .filter(([, v]) => v.total >= 10 && v.nfts / v.total >= 0.9)
+            .map(([w, v]) => ({ wallet: w, plays: v.total, nftRate: (v.nfts / v.total).toFixed(2) }))
+        if (sus.length > 0) {
+            alerts.push({
+                severity: 'warning',
+                kind: 'cards_suspicious_winrate',
+                message: `${sus.length} wallet(s) with >=90% NFT win rate over last 7d`,
+                detail: sus,
+            })
+        }
+
+        // ── inventory rollbacks (NFT transfers that failed) ────────────────
+        if ((recentRollbacks.data ?? []).length > 0) {
+            alerts.push({
+                severity: 'info',
+                kind: 'inventory_rollbacks',
+                message: `${recentRollbacks.data?.length} inventory item(s) rolled back to available in last 24h`,
+                detail: recentRollbacks.data,
+            })
+        }
+
+        return NextResponse.json({
+            generatedAt: new Date().toISOString(),
+            alerts: alerts.sort((a, b) =>
+                ({ critical: 0, warning: 1, info: 2 }[a.severity] - { critical: 0, warning: 1, info: 2 }[b.severity])
+            ),
+            stats: {
+                vaultLimits: vaultRow.data ?? null,
+                pendingInvestigationCount: pendingInvest.data?.length ?? 0,
+                stuckWithdrawalsCount: stuckPending.data?.length ?? 0,
+                cardsErrors24hCount: errorsRecent.data?.length ?? 0,
+                mergeFailures7dCount: mergesFailed.data?.length ?? 0,
+                multiAccountFlags: dupes.length,
+                susWinRate: sus.length,
+            },
+        }, { headers: { 'cache-control': 'no-store' } })
+    } catch (err: any) {
+        console.error('[admin/health]', err.message)
+        return NextResponse.json({ error: err.message }, { status: 500 })
+    }
+}

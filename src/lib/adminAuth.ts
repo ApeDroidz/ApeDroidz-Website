@@ -115,3 +115,27 @@ export async function isAdminTokenValid(token: string | null | undefined): Promi
 export function isMaintenanceModeEnabled(): boolean {
     return process.env.MAINTENANCE_MODE !== '0'
 }
+
+// ── API route guard ───────────────────────────────────────────────────────────
+
+/**
+ * Same shape as `requireWalletAuth`: returns a `Response` to bail with, or
+ * `null` to continue. Use at the top of every /api/admin/* route handler.
+ *
+ *   const denied = await requireAdmin(req)
+ *   if (denied) return denied
+ */
+export async function requireAdmin(req: Request): Promise<Response | null> {
+    const cookieHeader = req.headers.get('cookie') ?? ''
+    const re = new RegExp(`(?:^|;\\s*)${ADMIN_COOKIE_NAME}=([^;]+)`)
+    const match = cookieHeader.match(re)
+    const token = match ? decodeURIComponent(match[1]) : null
+    const ok = await isAdminTokenValid(token)
+    if (!ok) {
+        return new Response(JSON.stringify({ error: 'Admin authentication required' }), {
+            status: 401,
+            headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+        })
+    }
+    return null
+}
