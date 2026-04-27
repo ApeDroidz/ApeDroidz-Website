@@ -2,7 +2,7 @@ import { generateServerSeed, hashServerSeed, computeCrashPoint } from './crypto'
 import {
     createSession, markSessionRunning, markSessionCrashed, getLastRoundNumber,
     deductBalance, creditBalance, insertBetLog, existingBetInSession,
-    updateBetCashout, updateBetLost, awardXp, getBalance,
+    updateBetCashout, updateBetLost, awardXp, updateQuestProgress,
 } from './db'
 import { logger } from './logger'
 
@@ -153,7 +153,7 @@ export class GameLoop {
 
     // ── CRASH phase ────────────────────────────────────────────────────────────
 
-    private async doCrash(finalMultiplier: number): Promise<void> {
+    private async doCrash(_finalMultiplier: number): Promise<void> {
         const { round, sessionId, crashPoint, bets } = this.state
         this.state.phase = 'crashed'
         this.state.multiplier = crashPoint  // snap to exact value
@@ -193,7 +193,11 @@ export class GameLoop {
                 const xp = calcXp(null)
                 dbOps.push(
                     updateBetLost(bet.logId, xp)
-                        .then(() => awardXp(wallet, xp))
+                        .then(() => Promise.all([
+                            awardXp(wallet, xp),
+                            updateQuestProgress(wallet, 0), // multiplier 0 = lost/no cashout
+                        ]))
+                        .then(() => {})
                         .catch(e => logger.error('update_bet_lost_failed', { wallet, error: e.message }))
                 )
                 this.sendTo(wallet, { type: 'lost', betAmount: bet.amount, xpGained: xp, round })
@@ -307,6 +311,7 @@ export class GameLoop {
         await Promise.allSettled([
             updateBetCashout(bet.logId, at, profit, xpGained),
             awardXp(w, xpGained),
+            updateQuestProgress(w, at),
         ])
 
         logger.info('cashout', { wallet: w.slice(0, 10), at, profit, xpGained, round: this.state.round, newBalance })

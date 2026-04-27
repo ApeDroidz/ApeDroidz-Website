@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { CheckCircle, AlertCircle, Loader2, Ticket, Shield, ExternalLink, Timer, CheckSquare, Square, X, Share2, Trophy } from "lucide-react"
+import { S2LeaderboardPanel } from "./S2LeaderboardPanel"
 import { useUserProgress } from "@/hooks/useUserProgress"
 import { timeAgo } from "@/lib/utils"
 import { fadeUp } from "@/lib/animations"
@@ -11,6 +12,7 @@ import { useSendTransaction } from "thirdweb/react"
 import { prepareTransaction, toWei } from "thirdweb"
 import { client, apeChain } from "@/lib/thirdweb"
 import { GlitchWinShareModal } from "./GlitchWinShareModal"
+import { useGlitchSession } from "@/hooks/useGlitchSession"
 
 // --- TYPES ---
 export interface ControlPanelProps {
@@ -97,6 +99,9 @@ export function ControlPanel({
     onRefetch,
     isFetchingState
 }: ControlPanelProps) {
+    // Session — required before mutating endpoints (daily/buy/update-x)
+    const { ensureLogin } = useGlitchSession()
+
     // Sound helper
     const playSound = (type: "hover" | "pick") => {
         const file = type === "hover" ? "/sounds/fx/ui_hover_buttons.mp3" : "/sounds/fx/crd_pick_sound.mp3"
@@ -110,27 +115,8 @@ export function ControlPanel({
     const [activeTask, setActiveTask] = useState<ActiveTask | null>(null)
     const [alreadyClaimed, setAlreadyClaimed] = useState(false)
 
-    // --- S1 LEADERBOARD STATE ---
-    const [isS1LeaderboardOpen, setIsS1LeaderboardOpen] = useState(false)
-    const [s1Leaderboard, setS1Leaderboard] = useState<any[]>([])
-    const [isLoadingS1Leaderboard, setIsLoadingS1Leaderboard] = useState(false)
-
-    // Fetch Leaderboard for Modal
-    const fetchS1Leaderboard = useCallback(async () => {
-        setIsLoadingS1Leaderboard(true)
-        try {
-            const res = await fetch('/api/leaderboard/season1');
-            const data = await res.json();
-            if (data.leaderboard) setS1Leaderboard(data.leaderboard);
-        } catch (e) {
-            console.error("Error fetching S1 leaderboard", e)
-        }
-        setIsLoadingS1Leaderboard(false)
-    }, [])
-
-    useEffect(() => {
-        if (isS1LeaderboardOpen) fetchS1Leaderboard()
-    }, [isS1LeaderboardOpen, fetchS1Leaderboard])
+    // --- LEADERBOARD MODAL STATE ---
+    const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false)
     // --- HISTORY STATE ---
     type HistoryTab = "winners" | "global" | "personal"
     const [historyTab, setHistoryTab] = useState<HistoryTab>("winners")
@@ -146,6 +132,12 @@ export function ControlPanel({
     const [winnersPage, setWinnersPage] = useState(1)
     const [winnersHasMore, setWinnersHasMore] = useState(false)
     const [isLoadingMoreWinners, setIsLoadingMoreWinners] = useState(false)
+    // NFT gallery expand state per winner
+    const [expandedWinners, setExpandedWinners] = useState<Set<string>>(new Set())
+    // Personal history prizes panel expand state
+    const [prizesExpanded, setPrizesExpanded] = useState(false)
+    // Tooltip state
+    const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
 
     // --- SHARE FROM HISTORY STATE ---
     const [shareHistoryEntry, setShareHistoryEntry] = useState<HistoryLog | null>(null)
@@ -425,11 +417,17 @@ export function ControlPanel({
         }
 
         try {
+            const ok = await ensureLogin()
+            if (!ok) {
+                setDailyMsg({ type: "error", text: "Please sign in" })
+                setIsVerifying(false)
+                return
+            }
             const res = await fetch("/api/glitch_game/daily", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({
-                    wallet,
                     proofLink: proofLink.trim(),
                     xHandle: handleToUse
                 }),
@@ -453,17 +451,23 @@ export function ControlPanel({
 
     const handleSaveX = async () => {
         if (!wallet || !tempXHandle.trim()) return
+        const ok = await ensureLogin()
+        if (!ok) {
+            setDailyMsg({ type: "error", text: "Please sign in" })
+            return
+        }
         setIsSavingX(true)
 
         let clean = tempXHandle.trim()
         if (!clean.startsWith('@')) clean = '@' + clean
 
         try {
-            // Use API to bypass RLS
+            // Wallet identity is taken from the session cookie — body doesn't need it.
             const res = await fetch('/api/user/update-x', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wallet, xHandle: clean })
+                credentials: 'include',
+                body: JSON.stringify({ xHandle: clean })
             })
 
             const data = await res.json()
@@ -509,7 +513,8 @@ export function ControlPanel({
             // 3. Wait a bit for chain confirmation
             await new Promise(r => setTimeout(r, 3000))
 
-            // 4. Verify on server
+            // 4. Verify on server. Buy doesn't need a session cookie because
+            //    on-chain `tx.from` already proves wallet ownership.
             const res = await fetch("/api/glitch_game/buy", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -534,10 +539,6 @@ export function ControlPanel({
     }
 
     const canClaim = isHolder && !alreadyClaimed && activeTask && proofLink.trim().length > 5 && hasLiked && hasRetweeted;
-
-    // --- TAB STATE ---
-    type ControlPanelTab = "buy" | "daily";
-    const [activeTab, setActiveTab] = useState<ControlPanelTab>("buy");
 
     return (
         <div className="w-full lg:w-[30%] flex flex-col gap-6 p-4 sm:p-6 pt-16 lg:pt-[50px]"> {/* Lowered container */}
@@ -585,325 +586,86 @@ export function ControlPanel({
                     )}
                     <div className="flex items-center gap-2 leading-none">
                         <span className="text-[10px] font-bold tracking-widest text-white/50 uppercase">Rank</span>
-                        <button onClick={() => { playSound("pick"); setIsS1LeaderboardOpen(true); fetchTopStats(); }} onMouseEnter={() => playSound("hover")} className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors cursor-pointer text-left mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Leaderboard</button>
+                        <button onClick={() => { playSound("pick"); setIsLeaderboardOpen(true); fetchTopStats(); }} onMouseEnter={() => playSound("hover")} className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors cursor-pointer text-left mb-[1px] underline decoration-white/30 hover:decoration-white underline-offset-2">Leaderboard</button>
                     </div>
                 </div>
             </motion.div>
 
-            {/* === MAIN CONTENT CARD (Tabs + Content) === */}
+            {/* === MAIN CONTENT CARD === */}
             <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md overflow-hidden flex flex-col relative group">
-
-                {/* --- TAB HEADER --- */}
-                <div className="flex border-b border-white/10">
-                    <button
-                        onClick={() => { playSound("pick"); setActiveTab("buy") }}
-                        onMouseEnter={() => playSound("hover")}
-                        className={`flex-1 py-4 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider transition-all
-                            ${activeTab === "buy"
-                                ? "bg-white/5 text-white shadow-[inset_0_-1px_0_0_#fff]"
-                                : "text-white/40 hover:text-white/60 hover:bg-white/[0.02]"}`}
-                    >
-                        <span className="pointer-events-none">Tickets</span>
-                    </button>
-                    <button
-                        onClick={() => { playSound("pick"); setActiveTab("daily") }}
-                        onMouseEnter={() => playSound("hover")}
-                        className={`flex-1 py-4 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider transition-all
-                            ${activeTab === "daily"
-                                ? "bg-white/5 text-white shadow-[inset_0_-1px_0_0_#fff]"
-                                : "text-white/40 hover:text-white/60 hover:bg-white/[0.02]"}`}
-                    >
-                        <span className="pointer-events-none">Free Daily</span>
-                    </button>
-                </div>
-
-                {/* --- CONTENT BODY --- */}
-                <div className="relative">
-                    <AnimatePresence mode="wait">
-                        {activeTab === "daily" ? (
-                            /* === DAILY CONTENT === */
-                            <motion.div
-                                key="daily"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                transition={{ duration: 0.2 }}
-                                className="p-5 flex flex-col gap-4 transition-all duration-300"
+                <div className="p-5 flex flex-col gap-4">
+                    <h3 className="text-3xl font-black text-white uppercase tracking-tight text-left mt-2 mb-2">Buy Tickets</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {PACKS.map(pack => (
+                            <button
+                                key={pack.size}
+                                onClick={() => { playSound("pick"); setSelectedPack(selectedPack === pack.size ? null : pack.size) }}
+                                onMouseEnter={() => playSound("hover")}
+                                disabled={!wallet || buyingPack !== null}
+                                className={`h-[72px] rounded-xl border flex items-center justify-center gap-2 transition-all duration-200
+                                    ${selectedPack === pack.size
+                                        ? "bg-white/15 border-white/40 text-white shadow-lg shadow-white/5"
+                                        : wallet && buyingPack === null
+                                            ? "bg-[#111] border-white/10 text-white/80 hover:bg-[#222] hover:border-white/30 hover:text-white cursor-pointer"
+                                            : "bg-black/20 border-white/5 text-white/20 cursor-not-allowed"
+                                    }`}
                             >
-                                <h3 className="text-3xl font-black text-white uppercase tracking-tight text-left mt-2 mb-2">Only For Holders</h3>
-
-                                {!wallet ? (
-                                    <p className="text-xs font-medium text-white/40 text-center py-2">Connect wallet to access daily rewards.</p>
-
-                                ) : !isHolder ? (
-                                    /* ── NON-HOLDER STATE ── */
-                                    <div className="flex flex-col items-center justify-center gap-4 py-8 bg-white/[0.02] rounded-xl border border-white/5 text-center px-4 mt-2">
-                                        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
-                                            <Shield className="w-6 h-6 text-white/30" />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-1">Get Your Droid</h4>
-                                            <p className="text-xs text-white/40 px-4">You need at least 1 ApeDroid to access daily free games.</p>
-                                        </div>
-                                        <div className="flex items-stretch gap-3 w-full max-w-[280px] mt-2">
-                                            <a href="https://opensea.io/collection/apedroidz" target="_blank" rel="noopener noreferrer" className="flex-1 flex justify-center items-center gap-2 h-[42px] rounded-xl bg-[#111] hover:bg-[#222] border border-white/10 transition-colors">
-                                                <img src="/Opensea.svg" alt="OpenSea" className="w-[18px] h-[18px] opacity-70" />
-                                                <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Buy on OpenSea</span>
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                ) : isLoading ? (
-                                    /* ── SKELETON LOADING ── */
-                                    <div className="space-y-3 animate-pulse">
-                                        <div className="h-6 w-3/4 bg-white/[0.05] rounded-md" />
-                                        <div className="h-4 w-full bg-white/[0.05] rounded-md" />
-                                        <div className="h-4 w-2/3 bg-white/[0.05] rounded-md" />
-                                        <div className="flex gap-2 pt-2">
-                                            <div className="h-9 w-20 bg-white/[0.05] rounded-md" />
-                                            <div className="h-9 w-20 bg-white/[0.05] rounded-md" />
-                                            <div className="h-9 flex-1 bg-white/[0.05] rounded-md" />
-                                        </div>
-                                    </div>
-
-                                ) : alreadyClaimed && activeTask ? (
-                                    /* ── CLAIMED STATE ── */
-                                    <div className="flex flex-col items-center justify-center gap-2 py-6 bg-white/[0.03] rounded-xl border border-white/5 relative overflow-hidden">
-                                        <div className="flex flex-col items-center gap-1 mb-4 text-center">
-                                            <div className="flex items-center gap-2">
-                                                <CheckCircle className="w-5 h-5 text-white/40" />
-                                                <span className="text-sm font-black text-white/40 uppercase tracking-widest">DAILY TICKET CLAIMED</span>
-                                            </div>
-                                            <span className="text-xs font-black text-[#0069FF] uppercase tracking-widest">+ 100 XP</span>
-                                        </div>
-                                        <div className="flex flex-col items-center gap-1">
-                                            <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Next Mission In</span>
-                                            <span className="font-mono text-2xl text-white/80 font-bold tracking-widest">{taskCountdown || "--:--:--"}</span>
-                                        </div>
-                                        <div className="absolute inset-0 bg-gradient-to-t from-blue-500/10 to-transparent pointer-events-none" />
-                                    </div>
-
-                                ) : !activeTask ? (
-                                    <p className="text-xs text-white/30 text-center py-2">No active missions available.</p>
-
+                                {buyingPack === pack.size ? (
+                                    <Loader2 className="w-6 h-6 animate-spin text-white" />
                                 ) : (
-                                    /* ── ACTIVE TASK UI ── */
-                                    <>
-                                        <div className="relative">
-                                            {/* Title & Link */}
-                                            <div className="flex items-center gap-2 mb-2 pr-20">
-                                                <a
-                                                    href={activeTask.tweet_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-sm font-bold text-white/90 uppercase tracking-wide leading-tight hover:text-[#0069FF] transition-colors flex items-center gap-2 group/link"
-                                                >
-                                                    {activeTask.title || "Daily Mission"}
-                                                    <ExternalLink className="w-3.5 h-3.5 text-white/30 group-hover/link:text-[#0069FF]" />
-                                                </a>
-                                            </div>
-
-                                            {/* Timer (Top Right) */}
-                                            <div className="absolute -top-1 right-0 flex items-center gap-1.5 px-2 py-1 rounded bg-white/[0.05] border border-white/5 text-[10px] font-mono text-white/40">
-                                                <Timer className="w-3 h-3" />
-                                                <span>{taskCountdown}</span>
-                                            </div>
-
-                                            <p className="text-xs text-white/60 font-medium leading-relaxed mb-4">
-                                                Engage with our latest post to earn a free game.
-                                            </p>
-
-                                            {/* ACTION ROW: Like | RT | Input */}
-                                            <div className="flex items-center gap-3">
-                                                {/* Like */}
-                                                <button
-                                                    onClick={() => { playSound("pick"); setHasLiked(!hasLiked) }}
-                                                    onMouseEnter={() => playSound("hover")}
-                                                    className="flex items-center gap-2 px-3 h-10 rounded-xl bg-black/20 hover:bg-black/40 border border-white/10 transition-all cursor-pointer group/btn"
-                                                >
-                                                    {hasLiked ? <CheckSquare className="w-4 h-4 text-white/90 pointer-events-none" /> : <Square className="w-4 h-4 text-white/30 group-hover/btn:text-white/60 pointer-events-none" />}
-                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${hasLiked ? "text-white/90" : "text-white/50"} pointer-events-none`}>Like</span>
-                                                </button>
-
-                                                {/* RT */}
-                                                <button
-                                                    onClick={() => { playSound("pick"); setHasRetweeted(!hasRetweeted) }}
-                                                    onMouseEnter={() => playSound("hover")}
-                                                    className="flex items-center gap-2 px-3 h-10 rounded-xl bg-black/20 hover:bg-black/40 border border-white/10 transition-all cursor-pointer group/btn"
-                                                >
-                                                    {hasRetweeted ? <CheckSquare className="w-4 h-4 text-white/90 pointer-events-none" /> : <Square className="w-4 h-4 text-white/30 group-hover/btn:text-white/60 pointer-events-none" />}
-                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${hasRetweeted ? "text-white/90" : "text-white/50"} pointer-events-none`}>RT</span>
-                                                </button>
-
-                                                {/* Link Input */}
-                                                <input
-                                                    type="url"
-                                                    placeholder="Link to comment..."
-                                                    value={proofLink}
-                                                    onChange={e => { setProofLink(e.target.value); setDailyMsg(null) }}
-                                                    disabled={isVerifying}
-                                                    className="flex-1 h-10 px-3 rounded-xl bg-black/20 border border-white/10 text-white/90
-                                                 text-[11px] font-medium placeholder:text-white/20 focus:outline-none focus:border-white/30
-                                                 transition-all disabled:opacity-50 min-w-0"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Verify button OR Inline X Input */}
-                                        {isLinkingX ? (
-                                            <div className="w-full flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0069FF]/10 border border-[#0069FF]/30">
-                                                    <AlertCircle className="w-3 h-3 text-[#0069FF]" />
-                                                    <span className="text-[10px] font-bold text-[#0069FF] uppercase tracking-wide">Link X to Verify</span>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        autoFocus
-                                                        type="text"
-                                                        placeholder="@username"
-                                                        value={tempXHandle}
-                                                        onChange={e => setTempXHandle(e.target.value)}
-                                                        onKeyDown={e => e.key === 'Enter' && handleSaveX()}
-                                                        className="flex-1 h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-xs focus:outline-none focus:border-[#0069FF] transition-all placeholder:text-white/20"
-                                                    />
-                                                    <button
-                                                        onClick={() => { playSound("pick"); handleSaveX() }}
-                                                        onMouseEnter={() => playSound("hover")}
-                                                        disabled={!tempXHandle.trim() || isSavingX}
-                                                        className="px-4 h-10 bg-[#0069FF] hover:bg-[#0055CC] text-white rounded-xl flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        {isSavingX ? <Loader2 className="w-4 h-4 animate-spin" /> : <div className="text-[10px] font-black uppercase tracking-wider pointer-events-none">Save</div>}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => { playSound("pick"); handleClaim() }}
-                                                onMouseEnter={() => canClaim && !isVerifying && playSound("hover")}
-                                                disabled={!canClaim || isVerifying}
-                                                className={`w-full h-11 rounded-xl text-[10px] font-black tracking-[0.15em] uppercase
-                              border transition-all duration-300 flex items-center justify-center gap-2
-                              ${canClaim && !isVerifying
-                                                        ? "bg-[#0069FF] border-[#0069FF] text-white hover:bg-[#0055CC] shadow-lg shadow-blue-900/20 cursor-pointer"
-                                                        : "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"
-                                                    }`}
-                                            >
-                                                {isVerifying ? (
-                                                    <>
-                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                        VERIFYING...
-                                                    </>
-                                                ) : <span className="pointer-events-none">VERIFY & CLAIM</span>}
-                                            </button>
-                                        )}
-
-                                        {/* Message */}
-                                        <AnimatePresence>
-                                            {dailyMsg && (
-                                                <motion.div
-                                                    className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-medium ${dailyMsg.type === "success"
-                                                        ? "bg-green-500/10 border border-green-500/20 text-green-400"
-                                                        : "bg-red-500/10 border border-red-500/20 text-red-400"
-                                                        }`}
-                                                    initial={{ opacity: 0, y: -5 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0 }}
-                                                >
-                                                    {dailyMsg.type === "success"
-                                                        ? <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                                                        : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
-                                                    {dailyMsg.text}
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </>
-                                )}
-                            </motion.div>
-                        ) : (
-                            /* === BUY TICKETS CONTENT === */
-                            <motion.div
-                                key="buy"
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                transition={{ duration: 0.2 }}
-                                className="p-5 flex flex-col gap-4"
-                            >
-                                <h3 className="text-3xl font-black text-white uppercase tracking-tight text-left mt-2 mb-2">Buy Tickets</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {PACKS.map(pack => (
-                                        <button
-                                            key={pack.size}
-                                            onClick={() => { playSound("pick"); setSelectedPack(selectedPack === pack.size ? null : pack.size) }}
-                                            onMouseEnter={() => playSound("hover")}
-                                            disabled={!wallet || buyingPack !== null}
-                                            className={`h-[72px] rounded-xl border flex items-center justify-center gap-2 transition-all duration-200
-                                                ${selectedPack === pack.size
-                                                    ? "bg-white/15 border-white/40 text-white shadow-lg shadow-white/5"
-                                                    : wallet && buyingPack === null
-                                                        ? "bg-[#111] border-white/10 text-white/80 hover:bg-[#222] hover:border-white/30 hover:text-white cursor-pointer"
-                                                        : "bg-black/20 border-white/5 text-white/20 cursor-not-allowed"
-                                                }`}
-                                        >
-                                            {buyingPack === pack.size ? (
-                                                <Loader2 className="w-6 h-6 animate-spin text-white" />
-                                            ) : (
-                                                <div className="flex items-center gap-2 pointer-events-none">
-                                                    <span className="font-bold text-3xl leading-none pointer-events-none">{pack.size}</span>
-                                                    <Ticket className={`w-7 h-7 ${selectedPack === pack.size ? "text-orange-400" : wallet ? "text-orange-400" : "opacity-30"} pointer-events-none stroke-[2.5]`} />
-                                                </div>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Total Price + BUY Button */}
-                                <div className="pt-3 border-t border-white/5 flex items-center justify-between gap-3">
-                                    <div className="flex flex-col">
-                                        <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Total Price</span>
-                                        <span className={`text-lg font-black tracking-tight ${selectedPack ? "text-white" : "text-white/20"}`}>
-                                            {selectedPack ? `${selectedPack * TICKET_PRICE_APE} APE` : "0 APE"}
-                                        </span>
+                                    <div className="flex items-center gap-2 pointer-events-none">
+                                        <span className="font-bold text-3xl leading-none pointer-events-none">{pack.size}</span>
+                                        <Ticket className={`w-7 h-7 ${selectedPack === pack.size ? "text-orange-400" : wallet ? "text-orange-400" : "opacity-30"} pointer-events-none stroke-[2.5]`} />
                                     </div>
-                                    <button
-                                        onClick={() => { playSound("pick"); handleBuy() }}
-                                        onMouseEnter={() => selectedPack && wallet && buyingPack === null && playSound("hover")}
-                                        disabled={!selectedPack || !wallet || buyingPack !== null}
-                                        className={`px-6 h-11 rounded-xl text-[10px] font-black tracking-[0.15em] uppercase
-                            border transition-all duration-300 flex items-center justify-center gap-2
-                            ${selectedPack && wallet && buyingPack === null
-                                                ? "bg-orange-500 border-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-900/30 cursor-pointer"
-                                                : "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"
-                                            }`}
-                                    >
-                                        {buyingPack !== null ? (
-                                            <>
-                                                <Loader2 className="w-3.5 h-3.5 animate-spin pointer-events-none" />
-                                                <span className="pointer-events-none">{buyMsg?.text === "Verifying transaction..." ? "VERIFYING..." : "SENDING..."}</span>
-                                            </>
-                                        ) : <span className="pointer-events-none">BUY TICKETS</span>}
-                                    </button>
-                                </div>
+                                )}
+                            </button>
+                        ))}
+                    </div>
 
-                                {/* Buy Message */}
-                                <AnimatePresence>
-                                    {buyMsg && (
-                                        <motion.div
-                                            className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-medium ${buyMsg.type === "success"
-                                                ? "bg-green-500/10 border border-green-500/20 text-green-400"
-                                                : "bg-red-500/10 border border-red-500/20 text-red-400"
-                                                }`}
-                                            initial={{ opacity: 0, y: -5 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0 }}
-                                        >
-                                            {buyMsg.type === "success"
-                                                ? <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                                                : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
-                                            {buyMsg.text}
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+                    {/* Total Price + BUY Button */}
+                    <div className="pt-3 border-t border-white/5 flex items-center justify-between gap-3">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Total Price</span>
+                            <span className={`text-lg font-black tracking-tight ${selectedPack ? "text-white" : "text-white/20"}`}>
+                                {selectedPack ? `${selectedPack * TICKET_PRICE_APE} APE` : "0 APE"}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => { playSound("pick"); handleBuy() }}
+                            onMouseEnter={() => selectedPack && wallet && buyingPack === null && playSound("hover")}
+                            disabled={!selectedPack || !wallet || buyingPack !== null}
+                            className={`px-6 h-11 rounded-xl text-[10px] font-black tracking-[0.15em] uppercase
+                                border transition-all duration-300 flex items-center justify-center gap-2
+                                ${selectedPack && wallet && buyingPack === null
+                                    ? "bg-orange-500 border-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-900/30 cursor-pointer"
+                                    : "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"
+                                }`}
+                        >
+                            {buyingPack !== null ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin pointer-events-none" />
+                                    <span className="pointer-events-none">{buyMsg?.text === "Verifying transaction..." ? "VERIFYING..." : "SENDING..."}</span>
+                                </>
+                            ) : <span className="pointer-events-none">BUY TICKETS</span>}
+                        </button>
+                    </div>
+
+                    {/* Buy Message */}
+                    <AnimatePresence>
+                        {buyMsg && (
+                            <motion.div
+                                className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-medium ${buyMsg.type === "success"
+                                    ? "bg-green-500/10 border border-green-500/20 text-green-400"
+                                    : "bg-red-500/10 border border-red-500/20 text-red-400"
+                                    }`}
+                                initial={{ opacity: 0, y: -5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                            >
+                                {buyMsg.type === "success"
+                                    ? <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                                    : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+                                {buyMsg.text}
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -950,9 +712,31 @@ export function ControlPanel({
                 {/* --- Top Winners Tab --- */}
                 {historyTab === "winners" && (
                     <div className="flex flex-col gap-2 relative min-h-[150px]">
+                        {/* NFT name tooltip */}
+                        {tooltip && (
+                            <div
+                                className="fixed z-[999] pointer-events-none px-2.5 py-1.5 rounded-lg bg-black/90 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white/80 whitespace-nowrap shadow-xl"
+                                style={{ left: tooltip.x + 12, top: tooltip.y - 36 }}
+                            >
+                                {tooltip.text}
+                            </div>
+                        )}
                         {isLoadingWinners ? (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+                            <div className="flex flex-col gap-2 pt-1">
+                                {Array.from({ length: 3 }).map((_, i) => (
+                                    <div key={i} className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5 animate-pulse">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-5 h-3 bg-white/10 rounded" />
+                                            <div className="h-3 w-24 bg-white/10 rounded" />
+                                            <div className="h-5 w-16 bg-white/5 rounded ml-auto" />
+                                        </div>
+                                        <div className="flex gap-1.5 pl-7">
+                                            {Array.from({ length: 5 }).map((_, j) => (
+                                                <div key={j} className="w-9 h-9 rounded-lg bg-white/5" />
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         ) : topWinners.length === 0 ? (
                             <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">
@@ -960,87 +744,146 @@ export function ControlPanel({
                             </div>
                         ) : (
                             <div
-                                className="max-h-[280px] overflow-y-auto pr-1 custom-scrollbar flex flex-col gap-2 pb-4"
-                                style={{ maskImage: "linear-gradient(to bottom, black 80%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 80%, transparent 100%)" }}
+                                className="max-h-[320px] overflow-y-auto pr-1 custom-scrollbar flex flex-col gap-2 pb-4"
+                                style={{ maskImage: "linear-gradient(to bottom, black 85%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 85%, transparent 100%)" }}
                             >
-                                {topWinners.map((winner) => (
-                                    <div
-                                        key={winner.wallet}
-                                        className="flex flex-col gap-1.5 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
-                                    >
-                                        {/* Rank + Wallet row */}
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[11px] font-black w-5 flex-shrink-0 text-white/40">
-                                                #{winner.rank}
-                                            </span>
-                                            <a
-                                                href={`https://opensea.io/${winner.wallet}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="font-mono text-[10px] text-white/50 hover:text-white transition-colors flex items-center gap-1 group"
-                                            >
-                                                {winner.wallet.slice(0, 6)}...{winner.wallet.slice(-4)}
-                                                <ExternalLink className="w-2 h-2 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                            </a>
-                                            <span className="ml-auto text-[9px] font-black text-white/25 uppercase tracking-wider">
-                                                {winner.total_prizes} NFT{winner.total_prizes !== 1 ? 's' : ''}
-                                            </span>
-                                        </div>
-                                        {/* Prizes list — $APE · NFTs by rarity · Standard Batteries count */}
-                                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 pl-7">
-                                            {winner.total_ape > 0 && (
-                                                <>
-                                                    <span className="text-[10px] font-medium text-white/40 leading-tight">
-                                                        {winner.total_ape} $APE
+                                {topWinners.map((winner) => {
+                                    const isExpanded = expandedWinners.has(winner.wallet)
+                                    // Separate batteries from regular NFT prizes
+                                    const isStdBattery = (p: TopWinnerPrize) => { const n = p.name.toLowerCase(); return n.includes('battery') && !n.includes('super') }
+                                    const isSuperBattery = (p: TopWinnerPrize) => { const n = p.name.toLowerCase(); return n.includes('super') && n.includes('battery') }
+                                    const batteryPrizes = winner.prizes.filter(p => isStdBattery(p))
+                                    const superBatteryPrizes = winner.prizes.filter(p => isSuperBattery(p))
+                                    const nftPrizes = winner.prizes.filter(p => p.image_url && p.contract_address && p.token_id && !isStdBattery(p) && !isSuperBattery(p))
+                                    const PREVIEW_COUNT = 6
+                                    const visibleNfts = isExpanded ? nftPrizes : nftPrizes.slice(0, PREVIEW_COUNT)
+                                    const hasMore = nftPrizes.length > PREVIEW_COUNT
+
+                                    return (
+                                        <div
+                                            key={winner.wallet}
+                                            className="flex flex-col gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
+                                        >
+                                            {/* Rank + Wallet + APE total row */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-black w-5 flex-shrink-0 text-white/40">
+                                                    #{winner.rank}
+                                                </span>
+                                                <a
+                                                    href={`https://opensea.io/${winner.wallet}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="font-mono text-[10px] text-white/50 hover:text-white transition-colors flex items-center gap-1 group"
+                                                >
+                                                    {winner.wallet.slice(0, 6)}...{winner.wallet.slice(-4)}
+                                                    <ExternalLink className="w-2 h-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </a>
+                                                {winner.total_ape > 0 && (
+                                                    <span className="font-black text-[11px] text-white/50 ml-auto">
+                                                        {winner.total_ape} APE
                                                     </span>
-                                                    <span className="text-[10px] text-white/20 leading-tight">·</span>
-                                                </>
-                                            )}
-                                            {winner.prizes.map((prize, pi) => {
-                                                const openseaUrl = prize.contract_address && prize.token_id
-                                                    ? `https://opensea.io/item/ape_chain/${prize.contract_address}/${prize.token_id}`
-                                                    : null
-                                                return openseaUrl ? (
-                                                    <a
-                                                        key={pi}
-                                                        href={openseaUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-[10px] text-white/40 hover:text-white/70 font-medium leading-tight transition-colors underline underline-offset-2 decoration-white/20 hover:decoration-white/50"
-                                                    >
-                                                        {prize.name}
-                                                    </a>
-                                                ) : (
-                                                    <span key={pi} className="text-[10px] text-white/40 font-medium leading-tight">
-                                                        {prize.name}
+                                                )}
+                                                {winner.total_ape === 0 && (
+                                                    <span className="ml-auto text-[9px] font-black text-white/20 uppercase tracking-wider">
+                                                        {winner.total_prizes} NFT{winner.total_prizes !== 1 ? 's' : ''}
                                                     </span>
-                                                )
-                                            })}
-                                            {/* Standard batteries — same style as NFTs, with OpenSea link to one sample */}
-                                            {winner.standard_battery_count > 0 && (
-                                                <>
-                                                    {(winner.prizes.length > 0 || winner.total_ape > 0) && (
-                                                        <span className="text-[10px] text-white/20 leading-tight">·</span>
+                                                )}
+                                            </div>
+
+                                            {/* NFT thumbnails gallery */}
+                                            {(nftPrizes.length > 0 || batteryPrizes.length > 0 || superBatteryPrizes.length > 0) && (
+                                                <div className="relative">
+                                                    <div className="flex flex-wrap gap-1.5 pl-7">
+                                                        {visibleNfts.map((prize, pi) => {
+                                                            const openseaUrl = `https://opensea.io/item/ape_chain/${prize.contract_address}/${prize.token_id}`
+                                                            return (
+                                                                <a
+                                                                    key={pi}
+                                                                    href={openseaUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    onMouseEnter={(e) => setTooltip({ text: prize.name, x: e.clientX, y: e.clientY })}
+                                                                    onMouseMove={(e) => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
+                                                                    onMouseLeave={() => setTooltip(null)}
+                                                                    className="block w-9 h-9 rounded-lg overflow-hidden border border-white/10 hover:border-white/40 transition-all hover:scale-110 hover:z-10 relative flex-shrink-0 bg-white/5 group/nft"
+                                                                >
+                                                                    <img
+                                                                        src={prize.image_url}
+                                                                        alt={prize.name}
+                                                                        className="w-full h-full object-cover brightness-[0.7] group-hover/nft:brightness-100 transition-[filter] duration-150"
+                                                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                                                                    />
+                                                                </a>
+                                                            )
+                                                        })}
+
+                                                        {/* Super battery (rarer): 1 thumbnail + count — shown before standard */}
+                                                        {superBatteryPrizes.length > 0 && superBatteryPrizes[0].image_url && (
+                                                            <div
+                                                                className="relative flex-shrink-0"
+                                                                onMouseEnter={(e) => setTooltip({ text: `${superBatteryPrizes[0].name}${superBatteryPrizes.length > 1 ? ` ×${superBatteryPrizes.length}` : ''}`, x: e.clientX, y: e.clientY })}
+                                                                onMouseMove={(e) => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
+                                                                onMouseLeave={() => setTooltip(null)}
+                                                            >
+                                                                <div className="w-9 h-9 rounded-lg overflow-hidden border border-yellow-400/20 bg-white/5">
+                                                                    <img src={superBatteryPrizes[0].image_url} alt={superBatteryPrizes[0].name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                                                </div>
+                                                                {superBatteryPrizes.length > 1 && (
+                                                                    <span className="absolute -bottom-1 -right-1.5 bg-black/90 border border-yellow-400/20 text-[8px] font-black text-yellow-400/70 px-1 py-px rounded leading-none">
+                                                                        ×{superBatteryPrizes.length}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Standard battery: 1 thumbnail + count */}
+                                                        {batteryPrizes.length > 0 && batteryPrizes[0].image_url && (
+                                                            <div
+                                                                className="relative flex-shrink-0"
+                                                                onMouseEnter={(e) => setTooltip({ text: `${batteryPrizes[0].name}${batteryPrizes.length > 1 ? ` ×${batteryPrizes.length}` : ''}`, x: e.clientX, y: e.clientY })}
+                                                                onMouseMove={(e) => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
+                                                                onMouseLeave={() => setTooltip(null)}
+                                                            >
+                                                                <div className="w-9 h-9 rounded-lg overflow-hidden border border-white/10 bg-white/5">
+                                                                    <img src={batteryPrizes[0].image_url} alt={batteryPrizes[0].name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                                                </div>
+                                                                {batteryPrizes.length > 1 && (
+                                                                    <span className="absolute -bottom-1 -right-1.5 bg-black/90 border border-white/15 text-[8px] font-black text-white/60 px-1 py-px rounded leading-none">
+                                                                        ×{batteryPrizes.length}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Fade + show more */}
+                                                        {!isExpanded && hasMore && (
+                                                            <button
+                                                                onClick={() => setExpandedWinners(new Set([winner.wallet]))}
+                                                                className="w-9 h-9 rounded-lg border border-white/10 hover:border-white/30 bg-white/5 hover:bg-white/10 flex items-center justify-center text-[8px] font-black text-white/40 hover:text-white/70 transition-all flex-shrink-0 cursor-pointer"
+                                                            >
+                                                                +{nftPrizes.length - PREVIEW_COUNT}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    {/* Subtle fade on right when collapsed */}
+                                                    {!isExpanded && nftPrizes.length > 4 && (
+                                                        <div className="absolute right-0 inset-y-0 w-10 pointer-events-none bg-gradient-to-l from-black/60 to-transparent rounded-r-lg" />
                                                     )}
-                                                    {winner.standard_battery_sample?.contract_address && winner.standard_battery_sample?.token_id ? (
-                                                        <a
-                                                            href={`https://opensea.io/item/ape_chain/${winner.standard_battery_sample.contract_address}/${winner.standard_battery_sample.token_id}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-[10px] text-white/40 hover:text-white/70 font-medium leading-tight transition-colors underline underline-offset-2 decoration-white/20 hover:decoration-white/50"
-                                                        >
-                                                            {winner.standard_battery_count}x Standard Battery
-                                                        </a>
-                                                    ) : (
-                                                        <span className="text-[10px] text-white/40 font-medium leading-tight">
-                                                            {winner.standard_battery_count}x Standard Battery
-                                                        </span>
-                                                    )}
-                                                </>
+                                                </div>
+                                            )}
+
+                                            {/* Collapse btn if expanded */}
+                                            {isExpanded && hasMore && (
+                                                <button
+                                                    onClick={() => setExpandedWinners(prev => { const s = new Set(prev); s.delete(winner.wallet); return s })}
+                                                    className="ml-7 text-[8px] font-black uppercase tracking-wider text-white/25 hover:text-white/50 transition-colors cursor-pointer text-left"
+                                                >
+                                                    Show less
+                                                </button>
                                             )}
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                                 {/* Infinite scroll sentinel */}
                                 <div ref={winnersSentinelRef} className="h-1" />
                                 {isLoadingMoreWinners && (
@@ -1055,9 +898,71 @@ export function ControlPanel({
 
                 {/* --- Recent / Your History Tabs --- */}
                 {(historyTab === "global" || historyTab === "personal") && (
-                    <div className="flex flex-col gap-2 relative min-h-[150px]">
+                    <div className="flex flex-col gap-3 relative min-h-[150px]">
+                        {/* Personal: prizes gallery at top */}
+                        {historyTab === "personal" && !isLoadingHistory && historyData.length > 0 && (() => {
+                            const personalNfts = historyData.filter(log => log.prizeType === 'nft' && log.imageUrl)
+                            const PRIZE_PREVIEW = 8
+                            const visiblePersonalNfts = prizesExpanded ? personalNfts : personalNfts.slice(0, PRIZE_PREVIEW)
+                            const hasPrizeMore = personalNfts.length > PRIZE_PREVIEW
+                            if (personalNfts.length === 0) return null
+                            return (
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center justify-between px-1">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Prizes Won</span>
+                                        <span className="text-[9px] font-black text-white/20">{personalNfts.length}</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {visiblePersonalNfts.map((log, i) => (
+                                            log.nftContractAddress && log.nftTokenId ? (
+                                                <a
+                                                    key={i}
+                                                    href={`https://opensea.io/item/ape_chain/${log.nftContractAddress}/${log.nftTokenId}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onMouseEnter={(e) => setTooltip({ text: log.prizeName, x: e.clientX, y: e.clientY })}
+                                                    onMouseMove={(e) => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
+                                                    onMouseLeave={() => setTooltip(null)}
+                                                    className="block w-9 h-9 rounded-lg overflow-hidden border border-white/10 hover:border-white/40 transition-all hover:scale-110 flex-shrink-0 bg-white/5"
+                                                >
+                                                    <img src={log.imageUrl} alt={log.prizeName} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                                </a>
+                                            ) : (
+                                                <div
+                                                    key={i}
+                                                    className="w-9 h-9 rounded-lg overflow-hidden border border-white/10 flex-shrink-0 bg-white/5"
+                                                    onMouseEnter={(e) => setTooltip({ text: log.prizeName, x: e.clientX, y: e.clientY })}
+                                                    onMouseMove={(e) => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
+                                                    onMouseLeave={() => setTooltip(null)}
+                                                >
+                                                    <img src={log.imageUrl} alt={log.prizeName} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                                </div>
+                                            )
+                                        ))}
+                                        {!prizesExpanded && hasPrizeMore && (
+                                            <button
+                                                onClick={() => setPrizesExpanded(true)}
+                                                className="w-9 h-9 rounded-lg border border-white/10 hover:border-white/30 bg-white/5 hover:bg-white/10 flex items-center justify-center text-[8px] font-black text-white/40 hover:text-white/70 transition-all flex-shrink-0 cursor-pointer"
+                                            >
+                                                +{personalNfts.length - PRIZE_PREVIEW}
+                                            </button>
+                                        )}
+                                    </div>
+                                    {prizesExpanded && hasPrizeMore && (
+                                        <button
+                                            onClick={() => setPrizesExpanded(false)}
+                                            className="text-[8px] font-black uppercase tracking-wider text-white/25 hover:text-white/50 transition-colors cursor-pointer text-left px-1"
+                                        >
+                                            Show less
+                                        </button>
+                                    )}
+                                    <div className="h-px bg-white/5 mt-1" />
+                                </div>
+                            )
+                        })()}
+
                         {isLoadingHistory ? (
-                            <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="flex items-center justify-center py-6">
                                 <Loader2 className="w-5 h-5 animate-spin text-white/30" />
                             </div>
                         ) : historyData.length === 0 ? (
@@ -1065,104 +970,104 @@ export function ControlPanel({
                                 {historyTab === "personal" ? "No games played yet" : "No history found"}
                             </div>
                         ) : (
-                            <div
-                                className="max-h-[220px] overflow-y-auto pr-1 custom-scrollbar flex flex-col gap-1.5 pb-4"
-                                style={{ maskImage: "linear-gradient(to bottom, black 80%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 80%, transparent 100%)" }}
-                            >
-                                <AnimatePresence>
-                                    {historyData.map((log) => (
-                                        <motion.div
-                                            key={log.id}
-                                            initial={{ opacity: 0, y: 5 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            className="flex items-center text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2 gap-2"
-                                        >
-                                            {/* NFT thumbnail (if it's an NFT prize) */}
-                                            {log.prizeType === 'nft' && log.imageUrl && (
-                                                <div className="flex-shrink-0 w-8 h-8 rounded-md overflow-hidden border border-white/10 bg-white/5">
-                                                    <img
-                                                        src={log.imageUrl}
-                                                        alt={log.prizeName}
-                                                        className="w-full h-full object-cover"
-                                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {/* Prize name + NFT badge */}
-                                            <div className="flex flex-col min-w-0 flex-1">
-                                                <div className="flex items-center gap-1.5 min-w-0">
-                                                    {log.prizeType === 'nft' && log.nftContractAddress && log.nftTokenId ? (
-                                                        <a
-                                                            href={`https://opensea.io/item/ape_chain/${log.nftContractAddress}/${log.nftTokenId}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="font-bold text-white/80 hover:text-white truncate transition-colors flex items-center gap-1 group/nft"
-                                                        >
-                                                            <span className="truncate">{log.prizeName}</span>
-                                                            <ExternalLink className="w-2.5 h-2.5 flex-shrink-0 opacity-0 group-hover/nft:opacity-100 transition-opacity" />
-                                                        </a>
-                                                    ) : (
-                                                        <span className="font-bold text-white/60 truncate">{log.prizeName}</span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Wallet (global only) */}
-                                            {historyTab === "global" && (
-                                                <a
-                                                    href={`https://opensea.io/${log.wallet}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="font-mono text-[10px] text-white/30 hover:text-white/60 transition-colors flex-shrink-0 flex items-center gap-0.5 group"
-                                                >
-                                                    {log.wallet.slice(0, 6)}...{log.wallet.slice(-4)}
-                                                </a>
-                                            )}
-
-                                            {/* Time */}
-                                            {historyTab === "global" ? (
-                                                <a
-                                                    href={`https://apechain.calderaexplorer.xyz/tx/${log.txHash}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-white/25 hover:text-orange-400 font-bold transition-colors whitespace-nowrap flex items-center gap-1 group flex-shrink-0 text-[10px]"
-                                                >
-                                                    {timeAgo(log.createdAt)}
-                                                    <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                </a>
-                                            ) : (
-                                                <span className="text-white/30 font-bold whitespace-nowrap flex-shrink-0 text-[10px]">
-                                                    {timeAgo(log.createdAt)}
-                                                </span>
-                                            )}
-
-                                            {/* Share button (personal only) */}
-                                            {historyTab === "personal" && (
-                                                <button
-                                                    onClick={() => {
-                                                        playSound("pick")
-                                                        setShareHistoryEntry(log)
-                                                        setShowHistoryShareModal(true)
-                                                    }}
-                                                    onMouseEnter={() => playSound("hover")}
-                                                    className="flex-shrink-0 p-1.5 rounded-lg bg-white/5 hover:bg-[#0069FF]/20 border border-white/10 hover:border-[#0069FF]/40 text-white/30 hover:text-[#0069FF] transition-all cursor-pointer"
-                                                    title="Share this win"
-                                                >
-                                                    <Share2 className="w-3 h-3" />
-                                                </button>
-                                            )}
-                                        </motion.div>
-                                    ))}
-                                </AnimatePresence>
-                                {/* Infinite scroll sentinel */}
-                                <div ref={historySentinelRef} className="h-1" />
-                                {isLoadingMoreHistory && (
-                                    <div className="flex justify-center py-2">
-                                        <Loader2 className="w-4 h-4 animate-spin text-white/20" />
-                                    </div>
+                            <>
+                                {historyTab === "personal" && (
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/20 px-1">Game History</span>
                                 )}
-                            </div>
+                                <div
+                                    className="max-h-[220px] overflow-y-auto pr-1 custom-scrollbar flex flex-col gap-1.5 pb-4"
+                                    style={{ maskImage: "linear-gradient(to bottom, black 80%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 80%, transparent 100%)" }}
+                                >
+                                    <AnimatePresence>
+                                        {historyData.map((log) => (
+                                            <motion.div
+                                                key={log.id}
+                                                initial={{ opacity: 0, y: 5 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="flex items-center text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2 gap-2"
+                                            >
+                                                {/* NFT thumbnail (if it's an NFT prize) */}
+                                                {log.prizeType === 'nft' && log.imageUrl && (
+                                                    <div className="flex-shrink-0 w-8 h-8 rounded-md overflow-hidden border border-white/10 bg-white/5">
+                                                        <img src={log.imageUrl} alt={log.prizeName} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                                    </div>
+                                                )}
+
+                                                {/* Prize name */}
+                                                <div className="flex flex-col min-w-0 flex-1">
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                        {log.prizeType === 'nft' && log.nftContractAddress && log.nftTokenId ? (
+                                                            <a
+                                                                href={`https://opensea.io/item/ape_chain/${log.nftContractAddress}/${log.nftTokenId}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="font-bold text-white/80 hover:text-white truncate transition-colors flex items-center gap-1 group/nft"
+                                                            >
+                                                                <span className="truncate">{log.prizeName}</span>
+                                                                <ExternalLink className="w-2.5 h-2.5 flex-shrink-0 opacity-0 group-hover/nft:opacity-100 transition-opacity" />
+                                                            </a>
+                                                        ) : (
+                                                            <span className="font-bold text-white/60 truncate">{log.prizeName}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Wallet (global only) */}
+                                                {historyTab === "global" && (
+                                                    <a
+                                                        href={`https://opensea.io/${log.wallet}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="font-mono text-[10px] text-white/30 hover:text-white/60 transition-colors flex-shrink-0 flex items-center gap-0.5 group"
+                                                    >
+                                                        {log.wallet.slice(0, 6)}...{log.wallet.slice(-4)}
+                                                    </a>
+                                                )}
+
+                                                {/* Time */}
+                                                {historyTab === "global" ? (
+                                                    <a
+                                                        href={`https://apechain.calderaexplorer.xyz/tx/${log.txHash}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-white/25 hover:text-orange-400 font-bold transition-colors whitespace-nowrap flex items-center gap-1 group flex-shrink-0 text-[10px]"
+                                                    >
+                                                        {timeAgo(log.createdAt)}
+                                                        <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-white/30 font-bold whitespace-nowrap flex-shrink-0 text-[10px]">
+                                                        {timeAgo(log.createdAt)}
+                                                    </span>
+                                                )}
+
+                                                {/* Share button (personal only) */}
+                                                {historyTab === "personal" && (
+                                                    <button
+                                                        onClick={() => {
+                                                            playSound("pick")
+                                                            setShareHistoryEntry(log)
+                                                            setShowHistoryShareModal(true)
+                                                        }}
+                                                        onMouseEnter={() => playSound("hover")}
+                                                        className="flex-shrink-0 p-1.5 rounded-lg bg-white/5 hover:bg-[#0069FF]/20 border border-white/10 hover:border-[#0069FF]/40 text-white/30 hover:text-[#0069FF] transition-all cursor-pointer"
+                                                        title="Share this win"
+                                                    >
+                                                        <Share2 className="w-3 h-3" />
+                                                    </button>
+                                                )}
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
+                                    {/* Infinite scroll sentinel */}
+                                    <div ref={historySentinelRef} className="h-1" />
+                                    {isLoadingMoreHistory && (
+                                        <div className="flex justify-center py-2">
+                                            <Loader2 className="w-4 h-4 animate-spin text-white/20" />
+                                        </div>
+                                    )}
+                                </div>
+                            </>
                         )}
                     </div>
                 )}
@@ -1189,87 +1094,34 @@ export function ControlPanel({
                 />
             )}
 
-            {/* === SEASON 1 LEADERBOARD MODAL === */}
+            {/* === SEASON 2 LEADERBOARD MODAL === */}
             <AnimatePresence>
-                {isS1LeaderboardOpen && (
+                {isLeaderboardOpen && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                            onClick={() => setIsS1LeaderboardOpen(false)}
+                            onClick={() => setIsLeaderboardOpen(false)}
                         />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-2xl bg-black/80 backdrop-blur-3xl border border-white/10 rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[80vh] max-h-[800px]"
+                            className="relative w-full max-w-lg bg-black/80 backdrop-blur-3xl border border-white/10 rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[80vh] max-h-[700px]"
                         >
-                            {/* Header */}
-                            <div className="flex items-center justify-between p-6 sm:p-8 border-b border-white/5 bg-white/[0.02]">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex flex-col">
-                                        <div className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-none flex items-center gap-2">
-                                            <span className="text-[#3b82f6]">SEASON 1</span> LEADERBOARD
-                                        </div>
-                                        <span className="text-[10px] sm:text-xs text-white/40 uppercase font-bold tracking-[0.2em] mt-1">Glitch Game Rankings</span>
-                                    </div>
-                                </div>
+                            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/5 bg-white/[0.02] shrink-0">
+                                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/40">Season 2 Leaderboard</span>
                                 <button
-                                    onClick={() => setIsS1LeaderboardOpen(false)}
-                                    className="p-3 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full transition-all"
+                                    onClick={() => setIsLeaderboardOpen(false)}
+                                    className="p-2.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full transition-all"
                                 >
-                                    <X size={20} />
+                                    <X size={18} />
                                 </button>
                             </div>
-
-                            {/* Content */}
-                            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar-wide">
-                                <div className="flex flex-col gap-3">
-                                    {isLoadingS1Leaderboard ? (
-                                        Array.from({ length: 5 }).map((_, i) => (
-                                            <div key={i} className="flex items-center p-4 sm:p-5 rounded-[24px] border border-white/5 bg-white/[0.02] animate-pulse">
-                                                <div className="w-10 sm:w-12 h-6 sm:h-7 bg-white/10 rounded-lg" />
-                                                <div className="flex-1 min-w-0 pr-4 flex flex-col gap-2">
-                                                    <div className="h-5 sm:h-6 w-32 sm:w-40 bg-white/10 rounded-md" />
-                                                    <div className="h-3 w-48 sm:w-56 bg-white/5 rounded-md" />
-                                                </div>
-                                                <div className="text-right flex flex-col items-end gap-1.5">
-                                                    <div className="h-6 sm:h-7 w-16 sm:w-20 bg-[#3b82f6]/20 rounded-md" />
-                                                    <div className="h-3 w-12 sm:w-14 bg-white/10 rounded-md" />
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        s1Leaderboard.map((u, idx) => (
-                                            <div key={u.wallet_address} className={`flex items-center p-4 sm:p-5 rounded-[24px] border transition-all ${u.wallet_address.toLowerCase() === wallet?.toLowerCase() ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 shadow-[0_0_20px_rgba(59,130,246,0.15)]' : 'bg-white/5 border-transparent hover:border-white/10 hover:bg-white/10'}`}>
-                                                <div className="w-10 sm:w-12 font-black text-[#3b82f6] text-lg sm:text-xl">#{idx + 1}</div>
-                                                <div className="flex-1 min-w-0 pr-4">
-                                                    <div className="text-sm sm:text-base font-black text-white uppercase tracking-tight flex items-center gap-2 truncate">
-                                                        <span className="truncate">{u.username || `${u.wallet_address.slice(0, 6)}...${u.wallet_address.slice(-4)}`}</span>
-                                                        {u.x_handle && (
-                                                            <a href={`https://x.com/${u.x_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:text-[#2563eb] transition-colors flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                                                                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-[9px] sm:text-[10px] text-white/30 uppercase font-black tracking-widest flex items-center gap-2 sm:gap-3 mt-1 truncate">
-                                                        <span className="truncate">{u.rank_title || "Baby Droid"} (LVL {u.level || 1})</span>
-                                                        <div className="w-1 h-1 rounded-full bg-white/20 flex-shrink-0" />
-                                                        <span className="text-white/50 flex-shrink-0">{u.games_played || 0} GAMES</span>
-                                                        <div className="w-1 h-1 rounded-full bg-white/20 flex-shrink-0" />
-                                                        <span className="text-white/50 flex-shrink-0">{u.quests_finished || 0} QUESTS</span>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right flex flex-col items-end">
-                                                    <div className="text-lg sm:text-xl font-black text-[#3b82f6]">{new Intl.NumberFormat('en-US').format(u.season_xp)}</div>
-                                                    <div className="text-[8px] sm:text-[9px] font-black uppercase text-white/30 tracking-widest">Season XP</div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
+                            <div className="flex-1 min-h-0 p-4">
+                                <S2LeaderboardPanel wallet={wallet} />
                             </div>
                         </motion.div>
                     </div>

@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { isValidWallet } from '@/lib/walletAuth';
 
 /**
  * GET /api/glitch_game/balance?wallet=0x...
  *
  * Returns the user's games_balance and x_handle from glitch_users.
- * Uses supabaseAdmin to bypass RLS so the frontend can always read its own balance.
+ * Wallet address is regex-validated to prevent `ilike` wildcard abuse
+ * (e.g. `?wallet=%` would otherwise leak another user's balance).
  */
 export async function GET(req: NextRequest) {
     const wallet = req.nextUrl.searchParams.get('wallet');
 
-    if (!wallet) {
+    if (!wallet || !isValidWallet(wallet)) {
         return NextResponse.json({ games_balance: 0, x_handle: null });
     }
 
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabaseAdmin
         .from('glitch_users')
         .select('games_balance, x_handle')
-        .ilike('wallet_address', wallet)
+        .eq('wallet_address', wallet.toLowerCase())
         .maybeSingle();
 
     if (error) {

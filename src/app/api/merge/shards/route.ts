@@ -145,6 +145,20 @@ export async function POST(req: NextRequest) {
                     .update({ status: "claimed", winner_wallet: userWallet })
                     .eq("id", batteryItem.id);
 
+                // Insert into `batteries` so /api/upgrade can resolve the type later.
+                // Without this row, a future upgrade with this battery would burn
+                // the NFT on-chain and then fail server-side — losing the battery.
+                try {
+                    await supabaseAdmin
+                        .from('batteries')
+                        .upsert(
+                            { token_id: parseInt(batteryItem.token_id), type: 'Standard', is_burned: false },
+                            { onConflict: 'token_id' }
+                        );
+                } catch (e: any) {
+                    console.warn(`⚠️ [Shard Merge] batteries upsert for #${batteryItem.token_id} failed:`, e?.message);
+                }
+
                 sentBatteries.push({
                     tokenId: batteryItem.token_id,
                     name: batteryItem.name,

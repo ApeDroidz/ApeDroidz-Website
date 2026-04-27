@@ -52,11 +52,12 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Determine if we're on game, grid, or merge page
-  const isGamePage = pathname === '/glitch_game';
+  const isGamePage = pathname === '/glitch_game' || pathname === '/glitch_games/cards' || pathname === '/glitch_games/flight' || pathname === '/glitch_flight';
+  const isGlitchGamesPage = pathname === '/glitch_games';
   const isGridPage = pathname === '/grid';
   const isMergePage = pathname === '/merge_mechanism';
   const isMintPage = pathname === '/batteries_mint';
-  const showDashboardNav = isGamePage || isGridPage || isMergePage;
+  const showDashboardNav = isGamePage || isGlitchGamesPage || isGridPage || isMergePage;
 
   const closeMenu = () => setIsMenuOpen(false);
 
@@ -92,9 +93,9 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
 
 
 
-          {/* Game */}
-          {!isGamePage && (
-            <Link href="/glitch_game">
+          {/* Glitch Games hub */}
+          {!isGlitchGamesPage && (
+            <Link href="/glitch_games">
               <motion.div
                 className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
                 whileHover={{ scale: 1.05 }}
@@ -102,7 +103,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               >
                 <Gamepad2 size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
                 <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
-                  Glitch Game
+                  Glitch Games
                 </div>
               </motion.div>
             </Link>
@@ -327,15 +328,15 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                 {/* Divider */}
                 <div className="h-px bg-white/10 mt-4 mb-2" />
 
-                {/* 4. Glitch Game */}
-                {!isGamePage && (
+                {/* 4. Glitch Games hub */}
+                {!isGlitchGamesPage && (
                   <Link
-                    href="/glitch_game"
+                    href="/glitch_games"
                     onClick={closeMenu}
                     className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
                   >
                     <Gamepad2 size={18} className="text-[#A1A1AA]" />
-                    <span className="text-white font-medium text-sm">Glitch Game</span>
+                    <span className="text-white font-medium text-sm">Glitch Games</span>
                   </Link>
                 )}
 

@@ -133,6 +133,28 @@ export async function awardXp(wallet: string, xpGained: number): Promise<void> {
     // Atomic increment — avoids TOCTOU from concurrent read-then-write
     await db.rpc('increment_user_xp', { p_wallet: w, p_xp: xpGained })
 
-    // Season 2 — upsert with atomic increment via stored proc
+    // Season 2 — upsert with atomic increment via stored proc (also updates s2_level)
     await db.rpc('increment_season2_xp', { p_wallet: w, p_xp: xpGained })
+}
+
+// ── Quest Progress ─────────────────────────────────────────────────────────────
+
+export async function updateQuestProgress(wallet: string, multiplier: number): Promise<void> {
+    const w = wallet.toLowerCase()
+    try {
+        await db.rpc('update_quest_progress', {
+            p_wallet: w,
+            p_game_type: 'flight',
+            p_multiplier: multiplier,
+        })
+        // Update referral progress (non-critical)
+        await db.rpc('update_referral_progress', {
+            p_invitee_wallet: w,
+            p_game_type: 'flight',
+            p_is_holder: false,
+        })
+    } catch (e: any) {
+        // Non-fatal: quest progress failure should never block gameplay
+        console.warn('[QuestProgress] Flight update failed:', e.message)
+    }
 }

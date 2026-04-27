@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase"
+import { isValidWallet } from "@/lib/walletAuth"
 
 /**
  * GET /api/games/state?wallet=0x...
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     const queryWallet = req.nextUrl.searchParams.get("wallet")
     const wallet = queryWallet
 
-    if (!wallet) {
+    if (!wallet || !isValidWallet(wallet)) {
         return NextResponse.json({ activeTask: null, claimed: false, claimedAt: null })
     }
 
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
     const { data: existingClaim } = await supabaseAdmin
         .from("daily_claims_log")
         .select("claimed_at")
-        .eq("wallet_address", wallet)
+        .eq("wallet_address", wallet.toLowerCase())
         .eq("task_config_id", task.id)
         .maybeSingle()
 

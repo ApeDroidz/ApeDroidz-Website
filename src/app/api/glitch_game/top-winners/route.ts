@@ -152,16 +152,16 @@ export async function GET(req: Request) {
                         token_id: nftDetail.token_id || tokenId,
                     };
                 }
-            } else {
-                entry.prizes.push({
-                    name: finalName,
-                    image_url: nftDetail?.image_url || prizeInfo.image_url || '',
-                    drop_chance: dropChance,
-                    won_at: log.created_at,
-                    contract_address: nftDetail?.contract_address || '',
-                    token_id: nftDetail?.token_id || tokenId,
-                });
             }
+            // Include ALL NFT prizes (including batteries) for thumbnail display
+            entry.prizes.push({
+                name: finalName,
+                image_url: nftDetail?.image_url || prizeInfo.image_url || '',
+                drop_chance: dropChance,
+                won_at: log.created_at,
+                contract_address: nftDetail?.contract_address || '',
+                token_id: nftDetail?.token_id || tokenId,
+            });
         }
 
         // Remove wallets with no qualifying prizes AND no batteries (shouldn't happen but safety check)

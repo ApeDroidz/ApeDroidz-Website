@@ -224,7 +224,28 @@ export async function POST(req: NextRequest) {
 
         console.log(`✅ [Battery Merge] Transfer complete! TX: ${transferReceipt.transactionHash}`);
 
-        // === 6. LOG SUCCESS ===
+        // === 6. INSERT BATTERY ROW (REQUIRED BY /api/upgrade) ===
+        // Without this, the upgrade route can't determine the battery type and
+        // the on-chain burn would still happen but the upgrade RPC would fail —
+        // user loses battery. Upsert is idempotent on `token_id`.
+        try {
+            const { error: insertErr } = await supabaseAdmin
+                .from('batteries')
+                .upsert(
+                    { token_id: parseInt(superBattery.token_id), type: 'Super', is_burned: false },
+                    { onConflict: 'token_id' }
+                );
+            if (insertErr) {
+                console.error('⚠️ [Battery Merge] batteries row upsert failed:', insertErr.message);
+                // Non-fatal: user can still receive the NFT; /api/upgrade has fallback.
+            } else {
+                console.log(`📝 [Battery Merge] batteries row recorded: tokenId=${superBattery.token_id}, type=Super`);
+            }
+        } catch (e: any) {
+            console.warn('⚠️ [Battery Merge] batteries row insert raised:', e?.message);
+        }
+
+        // === 7. LOG SUCCESS ===
         await logBatteryMerge(userWallet, txHash, sentTokenIds, superBattery.token_id, "success", null);
 
         console.log(`✅ [Battery Merge] Complete! ${userWallet.slice(0, 8)}... sent 20 std batteries → received Super Battery #${superBattery.token_id}`);

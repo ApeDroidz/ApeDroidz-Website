@@ -3,9 +3,11 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, X, Gem, Zap, Gamepad2, Share2, Repeat, Ticket } from "lucide-react"
+import { Loader2, X, Gem, Zap, Gamepad2, Share2, Repeat, Ticket, ArrowLeft } from "lucide-react"
+import Link from "next/link"
 import { GlitchWinShareModal } from "./GlitchWinShareModal"
 import { useUserProgress } from "@/hooks/useUserProgress"
+import { useGlitchSession } from "@/hooks/useGlitchSession"
 import { ConnectButton } from "thirdweb/react"
 import { client, apeChain } from "@/lib/thirdweb"
 import { createWallet } from "thirdweb/wallets"
@@ -195,6 +197,9 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
     const [showShareModal, setShowShareModal] = useState(false)
     const [mobileTooltipIdx, setMobileTooltipIdx] = useState<number | null>(null)
 
+    // Session/auth — Cards play requires a logged-in wallet session
+    const { ensureLogin } = useGlitchSession()
+
     // XP animation state
     const { xp: currentXp, level: currentLevel, progress: currentProgress, refetch: refetchProgress } = useUserProgress()
     const [animatedXpProgress, setAnimatedXpProgress] = useState<number | null>(null)
@@ -219,11 +224,13 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
     useEffect(() => {
         ; (async () => {
             try {
-                // Background warmup to prevent cold-start delays for first game
+                // Background warmup to prevent cold-start delays for first game.
+                // Warmup does not require auth (no DB writes).
                 if (wallet) {
                     fetch("/api/glitch_game/play", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
+                        credentials: "include",
                         body: JSON.stringify({ wallet, action: "warmup" }),
                     }).catch(() => { })
                 }
@@ -300,6 +307,15 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
         // Strict guard: don't allow double-taps or overlapping auto-starts
         if (phase !== "idle" || balance < 1 || !wallet) return
 
+        // Ensure the user has a valid session cookie. If not, prompts a single
+        // signMessage to /api/auth/login. Returns false if the user rejects.
+        const ok = await ensureLogin()
+        if (!ok) {
+            setError("Sign the login message to play")
+            setIsAutoMode(false)
+            return
+        }
+
         // Immediately switch phase so subsequent synchronous checks fail
         setPhase("gathering")
         setError(null)
@@ -311,6 +327,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
         preRollPromiseRef.current = fetch("/api/glitch_game/play", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ wallet }),
         }).then(async res => {
             const data = await res.json()
@@ -652,22 +669,35 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
 `}</style>
 
             {/* ── HEADER ── */}
-            <div className="w-full flex flex-col items-center mb-4 sm:mb-6 lg:mb-8">
-                <motion.h1
-                    className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white text-center uppercase italic leading-none"
-                    initial={{ opacity: 0, y: -15 }}
-                    animate={{ opacity: 1, y: 0 }}
+            <div className="w-full flex items-center mb-4 sm:mb-6 lg:mb-8">
+                {/* Back button */}
+                <Link
+                    href="/glitch_games"
+                    className="flex items-center gap-1.5 text-white/30 hover:text-white/70 transition-colors text-[10px] font-black uppercase tracking-widest flex-shrink-0 mr-4"
                 >
-                    <span className="drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">Glitch Game</span> <span className="text-[#3b82f6]">SEASON 1</span>
-                </motion.h1>
-                <motion.p
-                    className="font-bold text-[8px] sm:text-[10px] text-white/40 tracking-[0.3em] sm:tracking-[0.5em] text-center uppercase mt-1.5"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.15 }}
-                >
-                    Decrypt the mainframe &amp; Win Rewards
-                </motion.p>
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back
+                </Link>
+                {/* Title — centered in remaining space */}
+                <div className="flex-1 flex flex-col items-center">
+                    <motion.h1
+                        className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white text-center uppercase italic leading-none"
+                        initial={{ opacity: 0, y: -15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                    >
+                        <span className="drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">Glitch Cards</span> <span className="text-[#3b82f6]">Season 2</span>
+                    </motion.h1>
+                    <motion.p
+                        className="font-bold text-[8px] sm:text-[10px] text-white/40 tracking-[0.3em] sm:tracking-[0.5em] text-center uppercase mt-1.5"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.15 }}
+                    >
+                        Decrypt the mainframe &amp; Win Rewards
+                    </motion.p>
+                </div>
+                {/* Spacer to keep title visually centered */}
+                <div className="flex-shrink-0 ml-4 w-[52px]" />
             </div>
 
             {/* ── Error ── */}

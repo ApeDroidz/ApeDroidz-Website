@@ -17,6 +17,7 @@ import { ShareModal } from "@/components/share-modal"
 import { ProfileModal } from "@/components/profile-modal"
 import { resolveImageUrl } from "@/lib/utils"
 import { useUserProgress } from "@/hooks/useUserProgress"
+import { useGlitchSession } from "@/hooks/useGlitchSession"
 import { supabase } from "@/lib/supabase"
 import { Share, ExternalLink, Zap } from "lucide-react"
 
@@ -64,6 +65,7 @@ export default function DashboardPage() {
   const { mutateAsync: sendTx } = useSendTransaction()
   const router = useRouter()
   const { refetch: refetchProgress } = useUserProgress()
+  const { ensureLogin } = useGlitchSession()
 
   // --- STATES ---
   const batteryCache = useRef<Record<string, any>>({})
@@ -251,7 +253,39 @@ export default function DashboardPage() {
     setIsUpgrading(true)
 
     try {
-      // 1. BURN BATTERY ON-CHAIN
+      // 0. AUTH — required before any burn so we never lose a battery to a 401.
+      const ok = await ensureLogin()
+      if (!ok) {
+        setToastState({ isOpen: true, type: 'error', title: 'Sign-in required', message: 'Please sign the login message to upgrade.' })
+        setIsUpgrading(false)
+        return
+      }
+
+      // 1. PRECHECK — validate ownership, droid level, battery type BEFORE burn.
+      //    If anything is wrong, abort cleanly. Battery is NOT touched.
+      const precheckRes = await fetch('/api/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tokenId: selectedDroid.tokenId,
+          batteryId: selectedBattery.tokenId,
+          phase: 'precheck',
+        }),
+      })
+      const precheck = await precheckRes.json().catch(() => ({}))
+      if (!precheckRes.ok || !precheck?.ok) {
+        setToastState({
+          isOpen: true,
+          type: 'error',
+          title: 'Cannot upgrade',
+          message: precheck?.error || 'Pre-check failed. Battery NOT burned.',
+        })
+        setIsUpgrading(false)
+        return
+      }
+
+      // 2. BURN BATTERY ON-CHAIN — only after precheck passed.
       if (BATTERY_CONTRACT) {
         const batteryContractInstance = getContract({ client, chain: apeChain, address: BATTERY_CONTRACT })
         const transaction = burn({
@@ -278,14 +312,18 @@ export default function DashboardPage() {
         }
       }
 
-      // 2. CALL API TO UPDATE METADATA (Already protected by backend checks, but now we burn first)
+      // 3. COMMIT — server now verifies on-chain that the battery is burned,
+      //    upserts the batteries row (auto-recovers missing rows from merges),
+      //    and runs the upgrade RPC. Idempotent — safe to retry on flake.
       const [response, _] = await Promise.all([
         fetch('/api/upgrade', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             tokenId: selectedDroid.tokenId,
-            batteryId: selectedBattery.tokenId // Backend verifies type from DB
+            batteryId: selectedBattery.tokenId,
+            phase: 'commit',
           }),
         }),
         new Promise(resolve => setTimeout(resolve, 2000))

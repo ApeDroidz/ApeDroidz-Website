@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect, useRef, useCallback, CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useActiveAccount, useSendAndConfirmTransaction } from 'thirdweb/react'
 import { createThirdwebClient, defineChain, prepareTransaction, toWei } from 'thirdweb'
@@ -9,6 +10,19 @@ import { X, Trophy, ExternalLink, Loader2 } from 'lucide-react'
 const thirdwebClient = createThirdwebClient({ clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID! })
 const apeChain = defineChain(33139)
 const VAULT_WALLET = process.env.NEXT_PUBLIC_FLIGHT_VAULT_WALLET_ADDRESS!
+
+// ─── Sound helper ─────────────────────────────────────────────────────────────
+function playUiSound(type: 'hover' | 'click' | 'cashout' = 'click') {
+    const map = {
+        hover:   ['/sounds/fx/ui_hover_buttons.mp3', 0.25],
+        click:   ['/sounds/fx/crd_pick_sound.mp3',   0.45],
+        cashout: ['/sounds/fx/win(1).MP3',           0.5 ],
+    } as const
+    const [file, vol] = map[type]
+    const a = new Audio(file as string)
+    a.volume = vol as number
+    a.play().catch(() => {})
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface RoundResult {
@@ -22,12 +36,14 @@ export function MultiplierOverlay({
     multiplier,
     countdown,
     crashPoint,
+    cashedOutAt,
     lastXpGained,
 }: {
     phase: 'waiting' | 'running' | 'crashed'
     multiplier: number
     countdown: number
     crashPoint?: number
+    cashedOutAt?: number | null
     lastXpGained?: number
 }) {
     const color = useMemo(() => {
@@ -43,6 +59,8 @@ export function MultiplierOverlay({
         if (multiplier < 5) return 'drop-shadow-[0_0_28px_rgba(255,240,0,0.7)]'
         return 'drop-shadow-[0_0_36px_rgba(255,150,0,0.85)]'
     }, [multiplier, phase])
+
+    const hasCashedOut = cashedOutAt != null && cashedOutAt > 0
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-start pt-5 z-10">
@@ -69,18 +87,45 @@ export function MultiplierOverlay({
                         animate={{ scale: 1, opacity: 1 }}
                         className="flex flex-col items-center gap-1"
                     >
+                        {/* Global multiplier (or crash point) */}
                         <div className={`text-4xl sm:text-6xl md:text-7xl font-black font-mono transition-all duration-75 ${color} ${glow}`}>
                             {phase === 'crashed'
                                 ? `${crashPoint?.toFixed(2)}x`
                                 : `${multiplier.toFixed(2)}x`}
                         </div>
-                        {phase === 'crashed' && lastXpGained ? (
+
+                        {/* Show your locked cashout + XP immediately when APEd out (running or crashed) */}
+                        {hasCashedOut && (phase === 'running' || phase === 'crashed') ? (
                             <motion.div
-                                initial={{ opacity: 0, y: 6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="text-white/50 font-bold text-xs uppercase tracking-[0.25em] mt-1"
+                                key="cashedOutXp"
+                                initial={{ opacity: 0, y: 8, scale: 0.8 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                transition={{ type: 'spring', damping: 14, stiffness: 260 }}
+                                className="flex flex-col items-center gap-0.5 mt-1"
                             >
-                                +{lastXpGained} XP
+                                {phase === 'crashed' && (
+                                    <span className="text-[9px] text-white/35 font-mono uppercase tracking-[0.25em]">
+                                        Aped out {cashedOutAt!.toFixed(2)}x
+                                    </span>
+                                )}
+                                {lastXpGained ? (
+                                    <span className="text-xl sm:text-2xl font-black text-[#00FF94] drop-shadow-[0_0_18px_rgba(0,255,148,0.85)]">
+                                        +{lastXpGained} XP
+                                    </span>
+                                ) : null}
+                            </motion.div>
+                        ) : phase === 'crashed' && lastXpGained ? (
+                            /* Crash with no cashout (lost) */
+                            <motion.div
+                                key="lostXp"
+                                initial={{ opacity: 0, y: 8, scale: 0.8 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                transition={{ type: 'spring', damping: 14, stiffness: 260 }}
+                                className="mt-1"
+                            >
+                                <span className="text-lg sm:text-xl font-black text-white/50 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
+                                    +{lastXpGained} XP
+                                </span>
                             </motion.div>
                         ) : null}
                     </motion.div>
@@ -142,8 +187,8 @@ function rankColor(rank: number, isMe: boolean): string {
     if (rank === 1) return 'text-yellow-400'
     if (rank === 2) return 'text-slate-300'
     if (rank === 3) return ''
-    if (isMe) return 'text-[#00FF94]'
-    return 'text-[#00FF94]'
+    if (isMe) return 'text-[#3b82f6]'
+    return 'text-[#3b82f6]'
 }
 
 function rankStyle(rank: number): CSSProperties | undefined {
@@ -179,7 +224,9 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
 
     if (!isOpen) return null
 
-    return (
+    // Render via portal at document.body — bypasses any ancestor stacking context
+    // created by Framer Motion transforms, preventing the game scene from rendering on top
+    const modal = (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             {/* Full-screen backdrop — blurs and darkens everything behind */}
             <motion.div
@@ -195,15 +242,15 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ type: 'spring', damping: 28, stiffness: 320 }}
                 onClick={e => e.stopPropagation()}
-                className="relative w-full max-w-2xl bg-black/90 backdrop-blur-3xl border border-white/10 rounded-[40px] shadow-[0_0_80px_rgba(0,0,0,0.9),0_0_40px_rgba(0,255,148,0.04)] overflow-hidden flex flex-col h-[80vh] max-h-[800px]"
+                className="relative w-full max-w-2xl bg-black/90 backdrop-blur-3xl border border-white/10 rounded-[40px] shadow-[0_0_80px_rgba(0,0,0,0.9),0_0_40px_rgba(59,130,246,0.06)] overflow-hidden flex flex-col h-[80vh] max-h-[800px]"
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 sm:p-8 border-b border-white/5 bg-white/[0.02] shrink-0">
                     <div className="flex flex-col">
                         <div className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-none flex items-center gap-2">
-                            <span className="text-[#00FF94]">SEASON 2</span> LEADERBOARD
+                            <span className="text-[#3b82f6]">SEASON 2</span> LEADERBOARD
                         </div>
-                        <span className="text-[10px] sm:text-xs text-white/40 uppercase font-bold tracking-[0.2em] mt-1">Glitch Game + Glitch Flight XP</span>
+                        <span className="text-[10px] sm:text-xs text-white/40 uppercase font-bold tracking-[0.2em] mt-1">Glitch Cards + Glitch Flight XP</span>
                     </div>
                     <button
                         onClick={onClose}
@@ -237,12 +284,15 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
                         ) : (
                             data.map((entry: any) => {
                                 const isMe = entry.wallet?.toLowerCase() === wallet?.toLowerCase()
+                                const displayName = entry.username
+                                    ? entry.username
+                                    : `${entry.wallet?.slice(0, 6)}…${entry.wallet?.slice(-4)}`
                                 return (
                                     <div
                                         key={entry.wallet}
                                         className={`flex items-center p-4 sm:p-5 rounded-[24px] border transition-all ${
                                             isMe
-                                                ? 'bg-[#00FF94]/5 border-[#00FF94]/30 shadow-[0_0_20px_rgba(0,255,148,0.08)]'
+                                                ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 shadow-[0_0_20px_rgba(59,130,246,0.12)]'
                                                 : 'bg-white/5 border-transparent hover:border-white/10 hover:bg-white/10'
                                         }`}
                                     >
@@ -250,20 +300,32 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
                                             #{entry.rank}
                                         </div>
                                         <div className="flex-1 min-w-0 pr-4">
-                                            <div className={`text-sm sm:text-base font-black uppercase tracking-tight truncate ${isMe ? 'text-[#00FF94]' : 'text-white'}`}>
-                                                {isMe ? 'You' : `${entry.wallet?.slice(0, 6)}…${entry.wallet?.slice(-4)}`}
+                                            <div className={`text-sm sm:text-base font-black uppercase tracking-tight flex items-center gap-1.5 min-w-0 ${isMe ? 'text-[#3b82f6]' : 'text-white'}`}>
+                                                <span className="truncate">{isMe ? 'You' : displayName}</span>
+                                                {entry.x_handle && (
+                                                    <a
+                                                        href={`https://x.com/${entry.x_handle.replace('@', '')}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={e => e.stopPropagation()}
+                                                        className="text-white/30 hover:text-white/60 transition-colors flex-shrink-0"
+                                                        title={entry.x_handle}
+                                                    >
+                                                        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                                                    </a>
+                                                )}
                                             </div>
                                             <div className="text-[9px] sm:text-[10px] text-white/30 uppercase font-black tracking-widest flex items-center gap-2 mt-1">
-                                                <span>{entry.games_played} games</span>
+                                                <span>{entry.games_played} cards</span>
                                                 <span className="opacity-40">·</span>
                                                 <span>{entry.flights_played} flights</span>
                                             </div>
                                         </div>
                                         <div className="text-right flex flex-col items-end">
-                                            <div className={`text-lg sm:text-xl font-black ${isMe ? 'text-[#00FF94]' : 'text-[#00FF94]'}`}>
+                                            <div className="text-lg sm:text-xl font-black text-[#3b82f6]">
                                                 {new Intl.NumberFormat().format(entry.season_xp)}
                                             </div>
-                                            <div className="text-[8px] sm:text-[9px] font-black uppercase text-white/30 tracking-widest">Season XP</div>
+                                            <div className="text-[8px] sm:text-[9px] font-black uppercase text-white/30 tracking-widest">XP</div>
                                         </div>
                                     </div>
                                 )
@@ -274,6 +336,9 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
             </motion.div>
         </div>
     )
+
+    if (typeof document === 'undefined') return null
+    return createPortal(modal, document.body)
 }
 
 // ─── Top Pilots / My Flights history section ──────────────────────────────────
@@ -408,8 +473,8 @@ function FlightHistorySection({ wallet, refreshTrigger }: { wallet?: string; ref
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] font-mono text-white/40">#{total - page * PAGE - i}</span>
-                                                    <span className={`text-[10px] font-black ${won ? 'text-emerald-400/65' : 'text-red-400/55'}`}>
-                                                        {won ? `Aped Out ${f.cashout_at?.toFixed(2)}x` : '✕ Crashed'}
+                                                    <span className={`text-[10px] font-black ${won ? 'text-emerald-400/65' : 'text-white/30'}`}>
+                                                        {won ? `Aped Out ${f.cashout_at?.toFixed(2)}x` : 'Crashed'}
                                                     </span>
                                                     <span className="text-[9px] font-mono text-white/40 ml-auto">crash {f.flight_sessions?.crash_point?.toFixed(2)}x</span>
                                                 </div>
@@ -507,15 +572,263 @@ function AmountStepper({
     )
 }
 
+// ─── Tx history types & helpers ───────────────────────────────────────────────
+interface TxRow {
+    id: string
+    type: 'deposit' | 'withdraw'
+    amount: number
+    status: string
+    tx_hash: string | null
+    created_at: string
+}
+
+function timeAgo(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime()
+    const m = Math.floor(diff / 60000)
+    if (m < 1)  return 'just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    return `${Math.floor(h / 24)}d ago`
+}
+
+function statusColor(status: string) {
+    if (status === 'confirmed') return 'bg-[#00FF94]'
+    if (status === 'pending')   return 'bg-yellow-400'
+    return 'bg-red-500'
+}
+
+// ── Full-history modal ──────────────────────────────────────────────────────
+function TxHistoryModal({ wallet, onClose }: { wallet: string; onClose: () => void }) {
+    const [rows, setRows]     = useState<TxRow[]>([])
+    const [total, setTotal]   = useState(0)
+    const [page, setPage]     = useState(0)
+    const [loading, setLoading] = useState(true)
+    const PAGE = 20
+
+    const load = useCallback(async (p: number) => {
+        setLoading(true)
+        try {
+            const res = await fetch(
+                `/api/flight/transactions?wallet=${encodeURIComponent(wallet)}&limit=${PAGE}&offset=${p * PAGE}`,
+                { cache: 'no-store' }
+            )
+            const d = await res.json()
+            setRows(d.transactions ?? [])
+            setTotal(d.total ?? 0)
+        } catch { /* silent */ } finally { setLoading(false) }
+    }, [wallet])
+
+    useEffect(() => { load(page) }, [load, page])
+
+    const pages = Math.ceil(total / PAGE)
+
+    return createPortal(
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4"
+            onClick={onClose}
+        >
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <motion.div
+                initial={{ y: 40, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 40, opacity: 0 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                className="relative z-10 w-full max-w-sm bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden flex flex-col max-h-[80vh]"
+                onClick={e => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
+                    <div>
+                        <div className="text-sm font-black text-white uppercase tracking-tight">Transfer History</div>
+                        <div className="text-[9px] text-white/30 font-mono mt-0.5">{total} transactions</div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all"
+                    >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <path d="M1 1l10 10M11 1L1 11" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* List */}
+                <div className="flex-1 overflow-y-auto min-h-0
+                    [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent
+                    [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full"
+                >
+                    {loading ? (
+                        <div className="p-5 flex flex-col gap-2">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="h-10 rounded-xl bg-white/5 animate-pulse" />
+                            ))}
+                        </div>
+                    ) : rows.length === 0 ? (
+                        <div className="py-12 text-center text-white/20 text-xs font-mono">No transfers yet</div>
+                    ) : (
+                        <div className="p-3 flex flex-col gap-1.5">
+                            {rows.map(tx => (
+                                <div key={tx.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.025] border border-white/[0.06]">
+                                    {/* Icon */}
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                        tx.type === 'deposit' ? 'bg-[#00FF94]/10' : 'bg-orange-400/10'
+                                    }`}>
+                                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                            className={tx.type === 'deposit' ? 'text-[#00FF94]' : 'text-orange-400'}
+                                            style={{ color: 'currentColor' }}
+                                        >
+                                            {tx.type === 'deposit'
+                                                ? <><path d="M6 1v8M2 5l4 4 4-4" /><path d="M1 11h10" /></>
+                                                : <><path d="M6 11V3M2 7l4-4 4 4" /><path d="M1 1h10" /></>
+                                            }
+                                        </svg>
+                                    </div>
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[11px] font-black text-white uppercase tracking-wide">
+                                                {tx.type === 'deposit' ? '+' : '−'}{tx.amount.toFixed(2)} APE
+                                            </span>
+                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor(tx.status)}`} />
+                                        </div>
+                                        <div className="text-[9px] text-white/30 font-mono mt-0.5">{timeAgo(tx.created_at)}</div>
+                                    </div>
+                                    {/* Tx link */}
+                                    {tx.tx_hash && (
+                                        <a
+                                            href={`https://apescan.io/tx/${tx.tx_hash}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={e => e.stopPropagation()}
+                                            className="text-white/20 hover:text-white/60 transition-colors shrink-0"
+                                            title="View on explorer"
+                                        >
+                                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V7" />
+                                                <path d="M8 1h3v3" />
+                                                <path d="M11 1L5 7" />
+                                            </svg>
+                                        </a>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Pagination */}
+                {pages > 1 && (
+                    <div className="flex items-center justify-between px-5 py-3 border-t border-white/10 shrink-0">
+                        <button
+                            disabled={page === 0}
+                            onClick={() => setPage(p => p - 1)}
+                            className="text-[10px] font-mono text-white/30 hover:text-white disabled:opacity-20 transition-colors"
+                        >← Prev</button>
+                        <span className="text-[9px] font-mono text-white/20">{page + 1} / {pages}</span>
+                        <button
+                            disabled={page >= pages - 1}
+                            onClick={() => setPage(p => p + 1)}
+                            className="text-[10px] font-mono text-white/30 hover:text-white disabled:opacity-20 transition-colors"
+                        >Next →</button>
+                    </div>
+                )}
+            </motion.div>
+        </motion.div>,
+        document.body
+    )
+}
+
+// ── Inline mini-history (last 5 rows, no scroll) ────────────────────────────
+function TxHistoryPreview({ wallet, onViewAll, refreshKey }: { wallet: string; onViewAll: () => void; refreshKey: number }) {
+    const [rows, setRows]     = useState<TxRow[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        let cancelled = false
+        setLoading(true)
+        fetch(`/api/flight/transactions?wallet=${encodeURIComponent(wallet)}&limit=5`, { cache: 'no-store' })
+            .then(r => r.json())
+            .then(d => { if (!cancelled) { setRows(d.transactions ?? []); setLoading(false) } })
+            .catch(() => { if (!cancelled) setLoading(false) })
+        return () => { cancelled = true }
+    }, [wallet, refreshKey])
+
+    return (
+        <div className="flex flex-col gap-2">
+            {/* Section header */}
+            <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-white/25 uppercase tracking-[0.2em]">Transfers</span>
+                <button
+                    onClick={onViewAll}
+                    className="text-[9px] font-black text-white/25 hover:text-white/60 uppercase tracking-[0.15em] transition-colors"
+                >
+                    All →
+                </button>
+            </div>
+
+            {loading ? (
+                <div className="flex flex-col gap-1.5">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="h-8 rounded-lg bg-white/5 animate-pulse" />
+                    ))}
+                </div>
+            ) : rows.length === 0 ? (
+                <div className="text-center text-white/15 text-[10px] font-mono py-3">No transfers yet</div>
+            ) : (
+                <div className="flex flex-col gap-1">
+                    {rows.map(tx => (
+                        <div key={tx.id} className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white/[0.025]">
+                            <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                                tx.type === 'deposit' ? 'bg-[#00FF94]/10' : 'bg-orange-400/10'
+                            }`}>
+                                <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                                    className={tx.type === 'deposit' ? 'text-[#00FF94]' : 'text-orange-400'}
+                                    style={{ color: 'currentColor' }}
+                                >
+                                    {tx.type === 'deposit'
+                                        ? <><path d="M6 1v8M2 5l4 4 4-4" /><path d="M1 11h10" /></>
+                                        : <><path d="M6 11V3M2 7l4-4 4 4" /><path d="M1 1h10" /></>
+                                    }
+                                </svg>
+                            </div>
+                            <span className={`text-[11px] font-black flex-1 ${tx.type === 'deposit' ? 'text-[#00FF94]/80' : 'text-orange-400/80'}`}>
+                                {tx.type === 'deposit' ? '+' : '−'}{tx.amount.toFixed(2)} APE
+                            </span>
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor(tx.status)}`} />
+                            <span className="text-[9px] font-mono text-white/20 shrink-0">{timeAgo(tx.created_at)}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ─── Fuel tab (deposit / withdraw) ───────────────────────────────────────────
 function FuelTab({
     balance,
     onBalanceChange,
     onRefreshBalance,
+    depositStatus,
+    setDepositStatus,
+    withdrawStatus,
+    setWithdrawStatus,
+    statusMsg,
+    setStatusMsg,
 }: {
     balance: number
     onBalanceChange: (b: number) => void
     onRefreshBalance?: () => void
+    depositStatus: 'idle' | 'pending' | 'success' | 'error'
+    setDepositStatus: (s: 'idle' | 'pending' | 'success' | 'error') => void
+    withdrawStatus: 'idle' | 'pending' | 'success' | 'error'
+    setWithdrawStatus: (s: 'idle' | 'pending' | 'success' | 'error') => void
+    statusMsg: string
+    setStatusMsg: (s: string) => void
 }) {
     const account = useActiveAccount()
     const { mutateAsync: sendAndConfirm, isPending: isSending } = useSendAndConfirmTransaction()
@@ -523,15 +836,14 @@ function FuelTab({
     const [fuelMode, setFuelMode] = useState<'deposit' | 'withdraw'>('deposit')
     const [depositAmt, setDepositAmt] = useState(10)
     const [withdrawAmt, setWithdrawAmt] = useState(100)
-    const [depositStatus, setDepositStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle')
-    const [withdrawStatus, setWithdrawStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle')
-    const [statusMsg, setStatusMsg] = useState('')
+    const [historyOpen, setHistoryOpen] = useState(false)
+    const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
 
     // ── DEPOSIT ──
     const handleDeposit = useCallback(async () => {
         if (!account || depositAmt <= 0) return
         setDepositStatus('pending')
-        setStatusMsg('')
+        setStatusMsg('Sending transaction…')
         try {
             const tx = prepareTransaction({
                 chain: apeChain,
@@ -540,23 +852,47 @@ function FuelTab({
                 value: toWei(String(depositAmt)),
             })
             const receipt = await sendAndConfirm(tx)
-            // Tell server about the deposit — amount is read from chain, not sent here
-            const res = await fetch('/api/flight/deposit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Wallet-Address': account.address },
-                body: JSON.stringify({ wallet: account.address, tx_hash: receipt.transactionHash }),
-            })
-            const data = await res.json()
-            if (!res.ok) throw new Error(data.error)
-            onBalanceChange(data.new_balance)
-            onRefreshBalance?.()
-            setDepositStatus('success')
-            setStatusMsg(`Deposited ${depositAmt} APE`)
+
+            // Retry loop: sendAndConfirm gives us 1 confirmation; server now only
+            // requires 1, so the first attempt almost always succeeds immediately.
+            // Retries are a safety net for edge cases (node lag, reorgs).
+            const MAX_RETRIES = 5   // 5 × 2 s = 10 s max
+            let attempt = 0
+            while (true) {
+                if (attempt > 0) {
+                    setStatusMsg(`Verifying… (${attempt}/${MAX_RETRIES})`)
+                    await new Promise(r => setTimeout(r, 2000))
+                }
+                const res = await fetch('/api/flight/deposit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Wallet-Address': account.address },
+                    body: JSON.stringify({ wallet: account.address, tx_hash: receipt.transactionHash }),
+                })
+                const data = await res.json()
+                if (res.ok) {
+                    onBalanceChange(data.new_balance)
+                    onRefreshBalance?.()
+                    setDepositStatus('success')
+                    setStatusMsg(`Deposited ${depositAmt} APE`)
+                    return
+                }
+                // Retry on "not enough confirmations" (server returns 400 with this wording)
+                const isConfirmationErr = typeof data.error === 'string' &&
+                    data.error.toLowerCase().includes('confirmation')
+                if (isConfirmationErr && attempt < MAX_RETRIES) {
+                    attempt++
+                    continue
+                }
+                // Hard error (wrong vault, duplicate tx, etc.)
+                throw new Error(data.error)
+            }
         } catch (e: any) {
             setDepositStatus('error')
             setStatusMsg(e.message?.slice(0, 80) ?? 'Deposit failed')
+        } finally {
+            setHistoryRefreshKey(k => k + 1)
         }
-    }, [account, depositAmt, sendAndConfirm, onBalanceChange, onRefreshBalance])
+    }, [account, depositAmt, sendAndConfirm, onBalanceChange, onRefreshBalance, setDepositStatus, setStatusMsg])
 
     // ── WITHDRAW ──
     const handleWithdraw = useCallback(async () => {
@@ -576,8 +912,7 @@ function FuelTab({
             const data = await res.json()
             if (!res.ok) {
                 const msg: string = data.error ?? 'Withdraw failed'
-                // 500s or blockchain failures → friendly message with error code
-                if (!res.ok && (res.status >= 500 || msg.toLowerCase().includes('blockchain') || msg.toLowerCase().includes('internal'))) {
+                if (res.status >= 500 || msg.toLowerCase().includes('blockchain') || msg.toLowerCase().includes('internal')) {
                     throw new Error('Something went wrong — contact support (ERR-W01)')
                 }
                 throw new Error(msg.slice(0, 80))
@@ -589,8 +924,10 @@ function FuelTab({
         } catch (e: any) {
             setWithdrawStatus('error')
             setStatusMsg(e.message?.slice(0, 90) ?? 'Withdraw failed')
+        } finally {
+            setHistoryRefreshKey(k => k + 1)
         }
-    }, [account, withdrawAmt, balance, onBalanceChange, onRefreshBalance])
+    }, [account, withdrawAmt, balance, onBalanceChange, onRefreshBalance, setWithdrawStatus, setStatusMsg])
 
     if (!account) {
         return (
@@ -652,7 +989,9 @@ function FuelTab({
                                 : 'bg-white text-black hover:bg-white/90 cursor-pointer'
                         }`}
                     >
-                        {depositStatus === 'pending' || isSending ? `In Process — ${depositAmt} APE…` : `Deposit ${depositAmt} APE`}
+                        {(depositStatus === 'pending' || isSending)
+                            ? (statusMsg || `Processing — ${depositAmt} APE…`)
+                            : `Deposit ${depositAmt} APE`}
                     </button>
                 </div>
             )}
@@ -705,6 +1044,25 @@ function FuelTab({
                 Vault: {VAULT_WALLET ?? '—'}<br />
                 Min withdraw: 100 APE · max 500 APE/day
             </div>
+
+            {/* ── Transfer history ── */}
+            <div className="border-t border-white/[0.06] pt-4">
+                <TxHistoryPreview
+                    wallet={account.address}
+                    onViewAll={() => setHistoryOpen(true)}
+                    refreshKey={historyRefreshKey}
+                />
+            </div>
+
+            {/* Full-history modal */}
+            <AnimatePresence>
+                {historyOpen && (
+                    <TxHistoryModal
+                        wallet={account.address}
+                        onClose={() => setHistoryOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     )
 }
@@ -759,6 +1117,11 @@ export function RunControlPanel({
     const account = useActiveAccount()
     const [activeTab, setActiveTab] = useState<'play' | 'fuel'>('play')
     const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false)
+
+    // Fuel tab state lifted here so it survives tab switching
+    const [depositStatus, setDepositStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle')
+    const [withdrawStatus, setWithdrawStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle')
+    const [fuelStatusMsg, setFuelStatusMsg] = useState('')
 
     const canBet = phase === 'waiting' && !hasBet && (balance ?? 0) >= betAmount && betAmount >= 5
     const canCashout = phase === 'running' && hasBet && !cashedOutAt
@@ -848,7 +1211,8 @@ export function RunControlPanel({
                 {/* Tab header */}
                 <div className="flex border-b border-white/10">
                     <button
-                        onClick={() => setActiveTab('play')}
+                        onClick={() => { playUiSound('click'); setActiveTab('play') }}
+                        onMouseEnter={() => playUiSound('hover')}
                         className={`flex-1 py-2.5 sm:py-4 flex items-center justify-center text-xs font-bold uppercase tracking-wider transition-all ${
                             activeTab === 'play'
                                 ? 'bg-white/5 text-white shadow-[inset_0_-1px_0_0_#fff]'
@@ -858,7 +1222,8 @@ export function RunControlPanel({
                         Play
                     </button>
                     <button
-                        onClick={() => setActiveTab('fuel')}
+                        onClick={() => { playUiSound('click'); setActiveTab('fuel') }}
+                        onMouseEnter={() => playUiSound('hover')}
                         className={`flex-1 py-2.5 sm:py-4 flex items-center justify-center text-xs font-bold uppercase tracking-wider transition-all ${
                             activeTab === 'fuel'
                                 ? 'bg-white/5 text-white shadow-[inset_0_-1px_0_0_#fff]'
@@ -900,7 +1265,8 @@ export function RunControlPanel({
                                     {[5, 10, 25, 50].map(v => (
                                         <button
                                             key={v}
-                                            onClick={() => setBetAmount(Math.min(v, balance ?? 0))}
+                                            onClick={() => { playUiSound('click'); setBetAmount(Math.min(v, balance ?? 0)) }}
+                                            onMouseEnter={() => playUiSound('hover')}
                                             disabled={
                                                 (phase === 'waiting' && hasBet) ||
                                                 !!queueBet ||
@@ -925,7 +1291,8 @@ export function RunControlPanel({
                                         animate={{ opacity: 1 }}
                                         exit={{ opacity: 0 }}
                                         whileTap={{ scale: 0.97 }}
-                                        onClick={onBet}
+                                        onClick={() => { playUiSound('click'); onBet() }}
+                                        onMouseEnter={() => playUiSound('hover')}
                                         disabled={!canBet}
                                         className={`w-full py-3 sm:py-4 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase flex items-center justify-center gap-2 transition-all ${
                                             canBet
@@ -1004,7 +1371,8 @@ export function RunControlPanel({
                                         transition={{ boxShadow: { repeat: Infinity, duration: 1.1 } }}
                                         exit={{ opacity: 0, scale: 0.95 }}
                                         whileTap={{ scale: 0.96 }}
-                                        onClick={onCashout}
+                                        onClick={() => { playUiSound('cashout'); onCashout() }}
+                                        onMouseEnter={() => playUiSound('hover')}
                                         className="w-full py-3 sm:py-5 rounded-2xl font-black text-base sm:text-lg tracking-widest uppercase bg-[#00FF94] text-black hover:scale-[1.02] transition-transform"
                                     >
                                         APE OUT {multiplier.toFixed(2)}x
@@ -1020,6 +1388,11 @@ export function RunControlPanel({
                                     >
                                         Aped Out {cashedOutAt.toFixed(2)}x<br />
                                         <span className="text-[11px] opacity-70 normal-case tracking-normal font-bold">+{((cashedOutAt - 1) * betAmount).toFixed(2)} APE profit</span>
+                                        {lastXpGained ? (
+                                            <span className="block text-base font-black text-[#00FF94] drop-shadow-[0_0_10px_rgba(0,255,148,0.7)] mt-0.5 tracking-wide">
+                                                +{lastXpGained} XP
+                                            </span>
+                                        ) : null}
                                     </motion.div>
                                 )}
 
@@ -1031,6 +1404,11 @@ export function RunControlPanel({
                                         className="w-full py-3 sm:py-4 rounded-2xl bg-red-950/40 border border-red-600/30 text-red-400 font-black text-sm tracking-widest uppercase text-center"
                                     >
                                         Crashed — {betAmount} APE
+                                        {lastXpGained ? (
+                                            <span className="block text-sm font-black text-white/50 mt-0.5 tracking-wide normal-case">
+                                                +{lastXpGained} XP
+                                            </span>
+                                        ) : null}
                                     </motion.div>
                                 )}
 
@@ -1043,6 +1421,11 @@ export function RunControlPanel({
                                     >
                                         Aped Out {cashedOutAt.toFixed(2)}x<br />
                                         <span className="text-[11px] opacity-70 normal-case tracking-normal font-bold">+{((cashedOutAt - 1) * betAmount).toFixed(2)} APE</span>
+                                        {lastXpGained ? (
+                                            <span className="block text-base font-black text-[#00FF94] drop-shadow-[0_0_10px_rgba(0,255,148,0.7)] mt-0.5 tracking-wide">
+                                                +{lastXpGained} XP
+                                            </span>
+                                        ) : null}
                                     </motion.div>
                                 )}
 
@@ -1083,7 +1466,17 @@ export function RunControlPanel({
                             className="overflow-y-auto max-h-[460px] sm:max-h-[560px] [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-white/40"
                             style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}
                         >
-                            <FuelTab balance={balance ?? 0} onBalanceChange={onBalanceChange} onRefreshBalance={onRefreshBalance} />
+                            <FuelTab
+                                balance={balance ?? 0}
+                                onBalanceChange={onBalanceChange}
+                                onRefreshBalance={onRefreshBalance}
+                                depositStatus={depositStatus}
+                                setDepositStatus={setDepositStatus}
+                                withdrawStatus={withdrawStatus}
+                                setWithdrawStatus={setWithdrawStatus}
+                                statusMsg={fuelStatusMsg}
+                                setStatusMsg={setFuelStatusMsg}
+                            />
                         </motion.div>
                     )}
                 </AnimatePresence>

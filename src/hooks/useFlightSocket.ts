@@ -113,6 +113,21 @@ export function useFlightSocket(
             return
         }
 
+        // ── Force TLS in production. Plain ws:// would let MITM attackers
+        //    rewrite bet/cashout commands. localhost is allowed for dev.
+        try {
+            const parsed = new URL(url)
+            const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname)
+            if (parsed.protocol !== 'wss:' && !isLocal) {
+                console.error('[FlightSocket] Refusing to connect over non-TLS ws://', url)
+                setState(s => ({ ...s, error: 'Insecure WebSocket URL — TLS required', connected: false }))
+                return
+            }
+        } catch (e) {
+            console.error('[FlightSocket] Invalid WS URL:', url)
+            return
+        }
+
         if (wsRef.current) {
             wsRef.current.onopen = null
             wsRef.current.onmessage = null

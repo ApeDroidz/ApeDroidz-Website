@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
+import Link from 'next/link'
 import { useActiveAccount } from 'thirdweb/react'
 import { Header } from '@/components/header'
 import { DigitalBackground } from '@/components/digital-background'
@@ -116,6 +117,30 @@ export default function GlitchFlightPage() {
         }
     }, [socket.cashedOutAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
+    // ── Flight sounds ───────────────────────────────────────────────────────────
+    const windAudioRef = useRef<HTMLAudioElement | null>(null)
+
+    useEffect(() => {
+        if (socket.phase === 'running') {
+            if (!windAudioRef.current) {
+                windAudioRef.current = new Audio('/flight/f_sounds/zvuk%20vetra.mp3')
+                windAudioRef.current.loop = true
+                windAudioRef.current.volume = 0.35
+            }
+            windAudioRef.current.currentTime = 0
+            windAudioRef.current.play().catch(() => {})
+        } else if (socket.phase === 'crashed') {
+            windAudioRef.current?.pause()
+            const boom = new Audio('/flight/f_sounds/boom.mp3')
+            boom.volume = 0.6
+            boom.play().catch(() => {})
+        }
+    }, [socket.phase])
+
+    useEffect(() => {
+        return () => { windAudioRef.current?.pause() }
+    }, [])
+
     // ── Queue bet: auto-bet next round ──────────────────────────────────────────
     const queueBetRef = useRef(false)
     const betAmountRef = useRef(betAmount)
@@ -177,23 +202,35 @@ export default function GlitchFlightPage() {
                     {/* ── Left: Game area ── */}
                     <div className="flex flex-col items-center w-full relative px-3 sm:px-6 pt-1 sm:pt-2 min-w-0 lg:flex-1">
 
-                        <div className="w-full flex flex-col items-center mb-2 sm:mb-4">
-                            <motion.h1
-                                className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white text-center uppercase italic leading-none"
-                                initial={{ opacity: 0, y: -15 }}
-                                animate={{ opacity: 1, y: 0 }}
+                        <div className="w-full flex items-center mb-2 sm:mb-4">
+                            {/* Back button */}
+                            <Link
+                                href="/glitch_games"
+                                className="flex items-center gap-1.5 text-white/30 hover:text-white/70 transition-colors text-[10px] font-black uppercase tracking-widest flex-shrink-0 mr-4"
                             >
-                                <span className="drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">Glitch Flight</span>{' '}
-                                <span className="text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">- Season 2</span>
-                            </motion.h1>
-                            <motion.p
-                                className="font-bold text-[8px] sm:text-[10px] text-white/40 tracking-[0.2em] sm:tracking-[0.5em] text-center uppercase mt-1"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: 0.15 }}
-                            >
-                                Fly higher. Cash out before the crash.
-                            </motion.p>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                                Back
+                            </Link>
+                            {/* Title */}
+                            <div className="flex-1 flex flex-col items-center">
+                                <motion.h1
+                                    className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white text-center uppercase italic leading-none"
+                                    initial={{ opacity: 0, y: -15 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                >
+                                    <span className="drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">Glitch Flight</span>{' '}
+                                    <span className="text-[#3b82f6]">Season 2</span>
+                                </motion.h1>
+                                <motion.p
+                                    className="font-bold text-[8px] sm:text-[10px] text-white/40 tracking-[0.2em] sm:tracking-[0.5em] text-center uppercase mt-1"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.15 }}
+                                >
+                                    Fly higher. Cash out before the crash.
+                                </motion.p>
+                            </div>
+                            <div className="flex-shrink-0 ml-4 w-[52px]" />
                         </div>
 
                         <motion.div
@@ -219,6 +256,7 @@ export default function GlitchFlightPage() {
                                     multiplier={socket.multiplier}
                                     countdown={socket.countdown}
                                     crashPoint={socket.crashPoint ?? undefined}
+                                    cashedOutAt={socket.cashedOutAt}
                                     lastXpGained={socket.lastXpGained}
                                 />
                             )}

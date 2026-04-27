@@ -13,10 +13,15 @@ const BATTERY_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BATTERY_CONTRACT_ADDRES
 const LEVEL_MILESTONES = [0, 1000, 3000, 5000, 10000, 30000, 50000, 100000, 200000, 300000]
 
 interface UserProgressState {
-    xp: number
-    level: number
-    rank: string
-    progress: number
+    xp: number          // total display XP (NFT + S1 + S2)
+    nftXp: number       // XP from NFTs only (blockchain-synced)
+    s1Xp: number        // Season 1 gameplay XP
+    s2Xp: number        // Season 2 gameplay XP
+    s2Level: number     // in-season Level (1-10)
+    s2RankTitle: string // in-season rank title
+    level: number       // global ecosystem level
+    rank: string        // global rank
+    progress: number    // 0-100 progress to next global level
     stats: { droids: number, batteries: number }
     username: string
     isLoading: boolean
@@ -35,6 +40,11 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
 
     const [state, setState] = useState<UserProgressState>({
         xp: 0,
+        nftXp: 0,
+        s1Xp: 0,
+        s2Xp: 0,
+        s2Level: 1,
+        s2RankTitle: "Rookie Pilot",
         level: 1,
         rank: "Baby Droid",
         progress: 0,
@@ -76,19 +86,37 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
             isFetching.current = true
             console.log(`📊 FetchProgress started for ${address.slice(0, 8)}... forceSync=${forceSync}`)
 
-            // 1. Читаем БД (Истина для скорости)
-            const { data: dbUser, error: dbError } = await supabase.from('users').select('*').ilike('wallet_address', address).maybeSingle()
+            // 1. Fetch DB user + Season XP in parallel
+            const [userRes, s1Res, s2Res] = await Promise.all([
+                supabase.from('users').select('*').ilike('wallet_address', address).maybeSingle(),
+                supabase.from('glitch_season_1').select('season_xp').ilike('wallet_address', address).maybeSingle(),
+                supabase.from('glitch_season_2').select('season_xp, s2_level, s2_rank_title').ilike('wallet_address', address).maybeSingle(),
+            ])
 
-            if (dbError && dbError.code !== 'PGRST116') { // PGRST116 = not found, which is OK
-                console.error("❌ DB user fetch error:", dbError)
+            const dbUser = userRes.data
+            const s1Xp = s1Res.data?.season_xp ?? 0
+            const s2Xp = s2Res.data?.season_xp ?? 0
+            const s2Level = s2Res.data?.s2_level ?? 1
+            const s2RankTitle = s2Res.data?.s2_rank_title ?? 'Rookie Pilot'
+
+            if (userRes.error && userRes.error.code !== 'PGRST116') {
+                console.error("❌ DB user fetch error:", userRes.error)
             }
 
             if (dbUser) {
-                console.log(`👤 Found user in DB: XP=${dbUser.xp}, Level=${dbUser.level}`)
-                const { level, rank, progress } = calculateStats(dbUser.xp)
+                // Total display XP = NFT XP (from DB) + Season 1 + Season 2
+                const nftXp = dbUser.xp ?? 0
+                const totalXp = nftXp + s1Xp + s2Xp
+                console.log(`👤 Found user in DB: NFT XP=${nftXp}, S1=${s1Xp}, S2=${s2Xp}, Total=${totalXp}`)
+                const { level, rank, progress } = calculateStats(totalXp)
                 setState(prev => ({
                     ...prev,
-                    xp: dbUser.xp,
+                    xp: totalXp,
+                    nftXp,
+                    s1Xp,
+                    s2Xp,
+                    s2Level,
+                    s2RankTitle,
                     level, rank, progress,
                     stats: { droids: dbUser.droids_count, batteries: dbUser.batteries_count },
                     username: dbUser.username || "",
@@ -96,8 +124,7 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
                 }))
             } else {
                 console.log("👤 No user found in DB - will sync from blockchain")
-                // Set loading false even for new users to show UI
-                setState(prev => ({ ...prev, isLoading: false }))
+                setState(prev => ({ ...prev, s1Xp, s2Xp, s2Level, s2RankTitle, isLoading: false }))
             }
 
             // 2. Синхронизация с Блокчейном (Фоновая проверка)
@@ -210,16 +237,21 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
                     }
                 })
 
-                // Calculate stats FIRST to compare with DB
-                const { level, rank, progress } = calculateStats(totalXP)
+                // totalXP here = NFT-only XP (from blockchain)
+                // Display XP = nftXP + s1Xp + s2Xp
+                const displayXP = totalXP + s1Xp + s2Xp
+                const { level, rank, progress } = calculateStats(displayXP)
 
-                // Если данные отличаются (XP, Level или Rank) - обновляем User Table
-                const dbLevel = dbUser?.level || 0
-                const dbRank = dbUser?.rank_title || ""
-
-                if (!dbUser || dbUser.xp !== totalXP || dbLevel !== level || dbRank !== rank) {
+                // Only re-sync DB if NFT XP changed (avoid overwriting season XP)
+                const dbNftXp = dbUser?.xp || 0
+                if (!dbUser || dbNftXp !== totalXP) {
                     setState({
-                        xp: totalXP,
+                        xp: displayXP,
+                        nftXp: totalXP,
+                        s1Xp,
+                        s2Xp,
+                        s2Level,
+                        s2RankTitle,
                         level, rank, progress,
                         stats: { droids: droidsCount, batteries: batteriesCount },
                         username: dbUser?.username || "",
@@ -227,18 +259,16 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
                     })
                     const { error: upsertError } = await supabase.from('users').upsert({
                         wallet_address: address,
-                        xp: totalXP,
+                        xp: totalXP,       // store NFT XP only — season XP lives in season tables
                         droids_count: droidsCount,
                         batteries_count: batteriesCount,
-                        level: level,
-                        rank_title: rank,
                         updated_at: new Date().toISOString()
                     }, { onConflict: 'wallet_address' })
 
                     if (upsertError) {
                         console.error("❌ Failed to update User Progress in DB:", upsertError)
                     } else {
-                        console.log(`✅ User Progress Saved: Level ${level}, XP ${totalXP}`)
+                        console.log(`✅ User Progress Saved: NFT XP ${totalXP}, Display XP ${displayXP}`)
                     }
                 }
             }

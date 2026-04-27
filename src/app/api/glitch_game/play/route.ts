@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createThirdwebClient, defineChain, getContract, prepareTransaction, toWei } from 'thirdweb';
 import { privateKeyToAccount } from 'thirdweb/wallets';
 import { transferFrom as erc721Transfer } from 'thirdweb/extensions/erc721';
 import { safeTransferFrom as erc1155Transfer } from 'thirdweb/extensions/erc1155';
 import { sendTransactionWithRetry } from '@/lib/sendWithRetry';
+import { requireWalletAuth, isValidWallet } from '@/lib/walletAuth';
 
 const PRIZE_VAULT_PRIVATE_KEY = process.env.PRIZE_VAULT_PRIVATE_KEY!;
 const THIRDWEB_CLIENT_ID = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!;
@@ -16,16 +18,37 @@ const SHARD_AMOUNTS: Record<string, number> = {
     shard_x1: 1, shard_x3: 3, shard_x5: 5, shard_x10: 10, shard_x25: 25,
 };
 
-export async function POST(req: Request) {
-    const body = await req.json();
-    const wallet: string = body.wallet;
+/**
+ * Cryptographically secure roll in [0, max). Uses crypto.randomBytes — NOT
+ * Math.random — because this directly determines NFT/APE prize selection.
+ */
+function secureRoll(max: number): number {
+    if (!Number.isFinite(max) || max <= 0) return 0;
+    // 32 bits of entropy is plenty for our weight scale (0…< ~few thousand).
+    const u32 = randomBytes(4).readUInt32BE(0);
+    return (u32 / 0x100000000) * max;
+}
 
-    if (body.action === 'warmup') {
+export async function POST(req: Request) {
+    let body: any;
+    try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+
+    // Warmup ping does not need auth — it's cold-start mitigation only and
+    // performs no DB writes.
+    if (body?.action === 'warmup') {
         return NextResponse.json({ status: 'warmed_up' });
     }
 
-    if (!wallet) {
-        return NextResponse.json({ error: 'Wallet required' }, { status: 400 });
+    // ── Authentication: wallet comes from session cookie, NEVER from body ──
+    const auth = requireWalletAuth(req);
+    if (auth instanceof Response) return auth;
+    const wallet = auth.wallet; // lowercase, validated
+
+    // Defensive: optional body wallet must match session.
+    if (typeof body?.wallet === 'string' && body.wallet.length > 0) {
+        if (!isValidWallet(body.wallet) || body.wallet.toLowerCase() !== wallet) {
+            return NextResponse.json({ error: 'Wallet mismatch — please re-authenticate' }, { status: 403 });
+        }
     }
 
     async function writeErrorLog(errMsg: string) {
@@ -50,12 +73,11 @@ export async function POST(req: Request) {
     let xpGained = 0;
     let shardsGained = 0;
     let logStatus = 'error';
-    let logNote = '';
     let prizeAmountOrId: string | null = null;
     let inventoryItem: any = null;
 
     try {
-        // ── 1. DEDUCT BALANCE ──
+        // ── 1. DEDUCT BALANCE (atomic via SQL RPC) ──
         const { data: deductRes, error: deductErr } = await supabaseAdmin
             .rpc('deduct_glitch_game_balance', { p_wallet_address: wallet });
 
@@ -66,7 +88,7 @@ export async function POST(req: Request) {
         }
         const user = deductRes.data;
 
-        // ── 2. RNG ──
+        // ── 2. RNG (cryptographic) ──
         const { data: prizeTypes, error: ptErr } = await supabaseAdmin
             .from('prize_types')
             .select('*')
@@ -76,7 +98,7 @@ export async function POST(req: Request) {
         if (ptErr || !prizeTypes?.length) throw new Error('No prizes configured');
 
         const totalWeight = prizeTypes.reduce((s: number, p: any) => s + Number(p.drop_chance), 0);
-        const roll = Math.random() * totalWeight;
+        const roll = secureRoll(totalWeight);
         let cumulative = 0;
         let selectedPrize = prizeTypes[0];
         for (const pt of prizeTypes) {
@@ -94,10 +116,7 @@ export async function POST(req: Request) {
                 });
 
             if (reserveErr || !reserveRes?.success) {
-                // Теперь мы четко увидим в консоли, если база упадет с SQL-ошибкой
                 console.warn(`⚠️ [Play] DB Error or Stockout for ${finalPrize.id}. Reason:`, reserveErr?.message || reserveRes?.error);
-
-                // Fallback logic
                 const fallback = prizeTypes.find((p: any) => p.id === 'shard_x5') || prizeTypes.find((p: any) => p.type === 'shard');
                 if (fallback) finalPrize = fallback;
             } else {
@@ -105,27 +124,29 @@ export async function POST(req: Request) {
             }
         }
 
-        // ── 4. XP & LEADERBOARD ──
+        // ── 4. XP & LEADERBOARD (atomic via RPCs — no read-then-write) ──
         xpGained = finalPrize.xp_reward || 0;
         if (xpGained > 0) {
-            const { data: currentUser } = await supabaseAdmin.from('users').select('xp').ilike('wallet_address', wallet).maybeSingle();
-            await supabaseAdmin.from('users').update({ xp: (currentUser?.xp || 0) + xpGained }).ilike('wallet_address', wallet);
+            // Atomic global XP increment (creates row if missing).
+            await supabaseAdmin.rpc('increment_user_xp', { p_wallet: wallet, p_xp: xpGained })
+                .catch((e: any) => console.warn('[Play] increment_user_xp failed:', e.message));
 
-            const { data: s1User } = await supabaseAdmin.from('glitch_season_1').select('season_xp, games_played').eq('wallet_address', wallet).maybeSingle();
+            // Season 1: still uses upsert because increment_season1_xp may not exist.
+            // We accept a small race here because S1 is legacy / read-only-ish.
+            const { data: s1User } = await supabaseAdmin
+                .from('glitch_season_1')
+                .select('season_xp, games_played')
+                .eq('wallet_address', wallet)
+                .maybeSingle();
             await supabaseAdmin.from('glitch_season_1').upsert({
                 wallet_address: wallet,
                 season_xp: (s1User?.season_xp || 0) + xpGained,
-                games_played: (s1User?.games_played || 0) + 1
+                games_played: (s1User?.games_played || 0) + 1,
             }, { onConflict: 'wallet_address' });
 
-            // Season 2 (combined Glitch Game + Glitch Flight XP)
-            const { data: s2User } = await supabaseAdmin.from('glitch_season_2').select('season_xp, games_played').eq('wallet_address', wallet.toLowerCase()).maybeSingle();
-            await supabaseAdmin.from('glitch_season_2').upsert({
-                wallet_address: wallet.toLowerCase(),
-                season_xp: (s2User?.season_xp || 0) + xpGained,
-                games_played: (s2User?.games_played || 0) + 1,
-                updated_at: new Date().toISOString(),
-            }, { onConflict: 'wallet_address' });
+            // Season 2 — atomic increment via RPC.
+            await supabaseAdmin.rpc('increment_season2_xp', { p_wallet: wallet, p_xp: xpGained })
+                .catch((e: any) => console.warn('[Play] increment_season2_xp failed:', e.message));
         }
 
         // ── 5. THIRDWEB BLOCKCHAIN TRANSFER ──
@@ -155,21 +176,18 @@ export async function POST(req: Request) {
                 throw new Error('NFT Prize selected but no inventory item available.');
             }
 
-            // Отправка транзакции (с retry при nonce ошибках)
             const receipt = await sendTransactionWithRetry({ transaction: tx, account: vaultAccount, label: 'GlitchGame' });
             txHash = receipt.transactionHash;
             logStatus = 'success';
 
-            // Подтверждение в базе
             if (inventoryItem) {
                 await supabaseAdmin.from('nft_inventory').update({ status: 'claimed', tx_hash: txHash, won_at: new Date().toISOString() }).eq('id', inventoryItem.id);
             }
             if (finalPrize.type === 'shard') {
-                await supabaseAdmin.from('users').update({ shards_balance: (user.shards_balance || 0) + shardsGained }).ilike('wallet_address', wallet);
+                await supabaseAdmin.from('users').update({ shards_balance: (user.shards_balance || 0) + shardsGained }).eq('wallet_address', wallet);
             }
 
         } catch (transferErr: any) {
-            // Спасительный откат! Возвращаем предмет на склад, если блокчейн упал
             if (inventoryItem) {
                 console.log(`⚠️ [Play] Transfer failed, rolling back NFT #${inventoryItem.token_id} to available`);
                 await supabaseAdmin.from('nft_inventory').update({ status: 'available', winner_wallet: null }).eq('id', inventoryItem.id);
@@ -187,7 +205,23 @@ export async function POST(req: Request) {
             xp_awarded: xpGained ? String(xpGained) : null,
         });
 
-        // ── 7. FRONTEND RESPONSE ──
+        // ── 7. QUEST PROGRESS (fire-and-forget, non-blocking) ──
+        supabaseAdmin.rpc('update_quest_progress', {
+            p_wallet: wallet,
+            p_game_type: 'cards',
+            p_multiplier: 0,
+        }).then(({ error }: { error: any }) => {
+            if (error) console.warn('[QuestProgress] Cards update failed:', error.message)
+        });
+
+        supabaseAdmin.rpc('update_referral_progress', {
+            p_invitee_wallet: wallet,
+            p_game_type: 'cards',
+            p_is_holder: false,
+        }).then(({ error }: { error: any }) => {
+            if (error) console.warn('[ReferralProgress] Cards update failed:', error.message)
+        });
+
         return NextResponse.json({
             success: true,
             prize: {

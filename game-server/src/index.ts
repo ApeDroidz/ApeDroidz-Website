@@ -52,6 +52,14 @@ const MSG_RATE_WINDOW = 10_000  // 10 second window
 // ── Per-IP connection limit ───────────────────────────────────────────────────
 const MAX_CONNS_PER_IP = 5   // max simultaneous WebSocket connections from one IP
 
+// ── Per-IP auth attempt limit (defence in depth on top of per-conn limit) ─────
+// Each IP can attempt at most 20 auth messages within a 1-minute window before
+// new auth requests from that IP are rejected. This prevents an attacker from
+// cycling through 5 sockets per IP and bypassing the per-socket counter.
+const AUTH_IP_RATE_MAX     = 20
+const AUTH_IP_RATE_WINDOW  = 60_000
+const ipAuthCounter = new Map<string, { count: number; windowStart: number }>()
+
 // ── Client registry ─────────────────────────────────────────────────────────────
 
 interface Client {
@@ -115,6 +123,21 @@ async function handleAuth(
     client: Client,
     payload: { wallet: string; nonce?: string; signature?: string }
 ): Promise<void> {
+    // ── Per-IP auth rate limit ────────────────────────────────────────────
+    const now = Date.now()
+    const ipState = ipAuthCounter.get(client.ip)
+    if (!ipState || now - ipState.windowStart > AUTH_IP_RATE_WINDOW) {
+        ipAuthCounter.set(client.ip, { count: 1, windowStart: now })
+    } else {
+        ipState.count++
+        if (ipState.count > AUTH_IP_RATE_MAX) {
+            logger.warn('ws_auth_ip_rate_limit', { ip: client.ip, count: ipState.count })
+            send(client.ws, { type: 'error', msg: 'Too many auth attempts from this IP — try again later' })
+            client.ws.terminate()
+            return
+        }
+    }
+
     const wallet = payload.wallet?.toLowerCase()
     if (!wallet || !/^0x[0-9a-f]{40}$/i.test(wallet)) {
         send(client.ws, { type: 'error', msg: 'Invalid wallet address' })
@@ -224,9 +247,29 @@ setInterval(() => {
         client.isAlive = false
         ws.ping()
     }
+
+    // GC expired auth rate-limit entries to prevent unbounded growth
+    const now = Date.now()
+    for (const [ip, state] of ipAuthCounter) {
+        if (now - state.windowStart > AUTH_IP_RATE_WINDOW * 2) {
+            ipAuthCounter.delete(ip)
+        }
+    }
 }, 30_000)
 
 wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
+    // ── Enforce TLS in production via x-forwarded-proto from the proxy.
+    //    Set REQUIRE_TLS=1 in Railway/Cloud Run/etc. to harden against
+    //    accidental ws:// rollouts where MITM could rewrite bet/cashout.
+    if (process.env.REQUIRE_TLS === '1') {
+        const proto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0].trim()
+        if (proto && proto !== 'https' && proto !== 'wss') {
+            logger.warn('ws_reject_non_tls', { proto })
+            ws.close(1008, 'TLS required')
+            return
+        }
+    }
+
     // Extract client IP (behind Railway/nginx proxy)
     const ip = (req.headers['x-forwarded-for'] as string ?? req.socket.remoteAddress ?? 'unknown')
         .split(',')[0].trim()
