@@ -128,25 +128,41 @@ export async function POST(req: Request) {
         xpGained = finalPrize.xp_reward || 0;
         if (xpGained > 0) {
             // Atomic global XP increment (creates row if missing).
-            await supabaseAdmin.rpc('increment_user_xp', { p_wallet: wallet, p_xp: xpGained })
-                .catch((e: any) => console.warn('[Play] increment_user_xp failed:', e.message));
+            // NOTE: Supabase's PostgrestBuilder is THENABLE but does NOT
+            // implement .catch() — using `.rpc(...).catch(...)` directly
+            // throws "catch is not a function". Use `{ error } = await …`
+            // pattern instead.
+            try {
+                const { error } = await supabaseAdmin.rpc('increment_user_xp', { p_wallet: wallet, p_xp: xpGained });
+                if (error) console.warn('[Play] increment_user_xp failed:', error.message);
+            } catch (e: any) {
+                console.warn('[Play] increment_user_xp threw:', e?.message);
+            }
 
             // Season 1: still uses upsert because increment_season1_xp may not exist.
             // We accept a small race here because S1 is legacy / read-only-ish.
-            const { data: s1User } = await supabaseAdmin
-                .from('glitch_season_1')
-                .select('season_xp, games_played')
-                .ilike('wallet_address', wallet)
-                .maybeSingle();
-            await supabaseAdmin.from('glitch_season_1').upsert({
-                wallet_address: wallet,
-                season_xp: (s1User?.season_xp || 0) + xpGained,
-                games_played: (s1User?.games_played || 0) + 1,
-            }, { onConflict: 'wallet_address' });
+            try {
+                const { data: s1User } = await supabaseAdmin
+                    .from('glitch_season_1')
+                    .select('season_xp, games_played')
+                    .ilike('wallet_address', wallet)
+                    .maybeSingle();
+                await supabaseAdmin.from('glitch_season_1').upsert({
+                    wallet_address: wallet,
+                    season_xp: (s1User?.season_xp || 0) + xpGained,
+                    games_played: (s1User?.games_played || 0) + 1,
+                }, { onConflict: 'wallet_address' });
+            } catch (e: any) {
+                console.warn('[Play] season_1 upsert failed:', e?.message);
+            }
 
             // Season 2 — atomic increment via RPC.
-            await supabaseAdmin.rpc('increment_season2_xp', { p_wallet: wallet, p_xp: xpGained })
-                .catch((e: any) => console.warn('[Play] increment_season2_xp failed:', e.message));
+            try {
+                const { error } = await supabaseAdmin.rpc('increment_season2_xp', { p_wallet: wallet, p_xp: xpGained });
+                if (error) console.warn('[Play] increment_season2_xp failed:', error.message);
+            } catch (e: any) {
+                console.warn('[Play] increment_season2_xp threw:', e?.message);
+            }
         }
 
         // ── 5. THIRDWEB BLOCKCHAIN TRANSFER ──

@@ -281,8 +281,12 @@ export async function POST(req: NextRequest) {
                 .eq('id', txId)
 
         } finally {
-            // Always release vault send mutex — runs even when catch returns early
-            await supabaseAdmin.rpc('release_vault_send_lock', { p_tx_id: txId }).catch(() => {})
+            // Always release vault send mutex — runs even when catch returns early.
+            // Note: Supabase PostgrestBuilder is thenable but lacks `.catch()`
+            // in some runtime/version combinations, so use try/await.
+            try {
+                await supabaseAdmin.rpc('release_vault_send_lock', { p_tx_id: txId })
+            } catch { /* swallow — best-effort release */ }
         }
 
         // ── 10. Return new balance ─────────────────────────────────────────────

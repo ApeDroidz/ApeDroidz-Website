@@ -147,27 +147,25 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             <UserLevelBadge onClick={onOpenProfile} />
           )}
 
-          {/* Glitch Games hub */}
+          {/* Glitch Games hub — accent button with label, draws the eye */}
           {!isGlitchGamesPage && (
             <Link href="/glitch_games">
               <motion.div
-                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
+                className="flex items-center gap-2 h-[48px] px-4 bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Gamepad2 size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
-                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
-                  Glitch Games
-                </div>
+                <Gamepad2 size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
+                <span className="text-sm font-bold text-[#A1A1AA] group-hover:text-white transition-colors">Games</span>
               </motion.div>
             </Link>
           )}
 
-          {/* Tools dropdown — collapses Mint / Merge / Grid into one button */}
+          {/* Tools dropdown — icon-only button */}
           <div ref={toolsRef} className="relative">
             <motion.button
               onClick={() => setIsToolsOpen(o => !o)}
-              className={`flex items-center justify-center gap-1.5 h-[48px] px-3 bg-black border rounded-xl transition-all duration-300 shadow-lg group cursor-pointer relative ${
+              className={`flex items-center justify-center h-[48px] w-[48px] bg-black border rounded-xl transition-all duration-300 shadow-lg group cursor-pointer relative ${
                 isAnyToolsPage || isToolsOpen
                   ? 'border-white/30 bg-white/5'
                   : 'border-white/15 hover:bg-white/10 hover:border-white/30'
@@ -176,10 +174,13 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               whileTap={{ scale: 0.95 }}
               aria-haspopup="menu"
               aria-expanded={isToolsOpen}
+              aria-label="Tools"
             >
-              <Wrench size={18} className={`transition-colors ${isAnyToolsPage || isToolsOpen ? 'text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
-              <span className={`text-sm font-bold transition-colors ${isAnyToolsPage || isToolsOpen ? 'text-white' : 'text-[#A1A1AA] group-hover:text-white'}`}>Tools</span>
-              <ChevronDown size={14} className={`transition-transform ${isToolsOpen ? 'rotate-180 text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
+              <Wrench size={20} className={`transition-colors ${isAnyToolsPage || isToolsOpen ? 'text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
+              <ChevronDown size={10} className={`absolute bottom-1 right-1 transition-transform ${isToolsOpen ? 'rotate-180 text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
+              <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
+                Tools
+              </div>
             </motion.button>
 
             <AnimatePresence>
@@ -214,20 +215,32 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             </AnimatePresence>
           </div>
 
-          {/* Dashboard / Back to Menu */}
+          {/* Dashboard — icon-only with tooltip; on dashboard page it's "Back to Menu" home icon */}
           {!isDashboard ? (
-            <Link
-              href="/dashboard"
-              className="flex items-center justify-center h-[48px] px-6 bg-transparent border border-white/15 text-white text-sm font-bold rounded-xl hover:bg-white/10 hover:border-white/50 transition-all duration-300"
-            >
-              Go to Dashboard
+            <Link href="/dashboard">
+              <motion.div
+                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <LayoutDashboard size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
+                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
+                  Dashboard
+                </div>
+              </motion.div>
             </Link>
           ) : (
-            <Link
-              href="/"
-              className="flex items-center justify-center h-[48px] px-6 bg-transparent border border-white/15 text-white text-sm font-bold rounded-xl hover:bg-white/10 hover:border-white/50 transition-all duration-300"
-            >
-              Back to Menu
+            <Link href="/">
+              <motion.div
+                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Home size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
+                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
+                  Back to Menu
+                </div>
+              </motion.div>
             </Link>
           )}
 
