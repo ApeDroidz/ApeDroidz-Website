@@ -393,8 +393,10 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
                                             {activeTask.title || "Daily Mission"}
                                         </a>
                                     </div>
-                                    <span className="text-[9px] font-black text-[#0069FF]">
-                                        +{100 * ticketsPerDay} XP · +{ticketsPerDay} Ticket{ticketsPerDay !== 1 ? 's' : ''}
+                                    <span className="text-[9px] font-black">
+                                        <span className="text-[#0069FF]">+{100 * ticketsPerDay} XP</span>
+                                        <span className="text-white/30 font-bold"> · </span>
+                                        <span className="text-orange-400">+{ticketsPerDay} Ticket{ticketsPerDay !== 1 ? 's' : ''}</span>
                                         {ticketsPerDay > 1 && (
                                             <span className="text-white/30 font-bold"> · {droidCount} droids</span>
                                         )}
@@ -591,9 +593,9 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
                         const rewardCls = isFresh || claimed
                             ? 'text-neutral-600'
                             : unlocked
-                            ? (hasTicket ? 'text-yellow-500' : 'text-purple-400')
+                            ? (hasTicket ? 'text-orange-400' : 'text-purple-400')
                             : upcoming
-                            ? (hasTicket ? 'text-yellow-900' : 'text-purple-900/80')
+                            ? (hasTicket ? 'text-orange-900' : 'text-purple-900/80')
                             : 'text-neutral-700'
 
                         return (
@@ -692,7 +694,12 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
                                             <span className={`text-[10px] font-black flex items-center gap-1 transition-colors duration-700 ${isFresh ? 'text-green-400' : 'text-white/20'}`}>
                                                 {isFresh && <CheckCircle className="w-3 h-3" />}
                                                 +{xp} XP
-                                                {bonus && <span className="text-white/15 font-bold">· {bonus}</span>}
+                                                {bonus && (
+                                                    <span className="font-bold">
+                                                        <span className="text-white/15">· </span>
+                                                        <span className={bonus.includes('Ticket') ? 'text-orange-400/40' : 'text-white/15'}>{bonus}</span>
+                                                    </span>
+                                                )}
                                             </span>
                                         </div>
                                     )
@@ -725,7 +732,11 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
                                                         +{xp} XP
                                                     </span>
                                                     {bonus && (
-                                                        <span className={`text-[9px] font-black ${ready ? 'text-yellow-400/70' : 'text-white/20'}`}>
+                                                        <span className={`text-[9px] font-black ${
+                                                            ready
+                                                                ? (bonus.includes('Ticket') ? 'text-orange-400' : 'text-[#3b82f6]')
+                                                                : 'text-white/20'
+                                                        }`}>
                                                             {bonus}
                                                         </span>
                                                     )}
