@@ -370,33 +370,42 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
                             </span>
                             <span className="text-[10px] font-black text-white/20 flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3 text-green-500/50" />
-                                +100 XP
+                                +{100 * Math.max(1, ticketsPerDay)} XP
                             </span>
                         </div>
 
                     ) : (
                         /* Active — compact header row + expandable body */
                         <div className={`flex flex-col rounded-xl border transition-colors overflow-hidden ${ticketExpanded ? 'bg-[#0069FF]/5 border-[#0069FF]/20' : 'bg-white/[0.02] border-white/[0.04]'}`}>
-                            {/* Header row — title is a clickable link */}
+                            {/* Header row — only the TITLE is a clickable link.
+                                The reward line below is plain text so accidental
+                                clicks on it don't punt the user to X. */}
                             <div className="flex items-center gap-3 px-3 py-2.5">
-                                <a
-                                    href={activeTask.tweet_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`flex-1 min-w-0 group transition-colors ${ticketExpanded ? 'text-white' : 'text-white/70 hover:text-white'}`}
-                                >
+                                <div className={`flex-1 min-w-0 transition-colors ${ticketExpanded ? 'text-white' : 'text-white/70'}`}>
                                     <div className="flex items-center gap-1 min-w-0">
-                                        <span className={`font-black leading-snug flex-1 min-w-0 truncate transition-all ${ticketExpanded ? 'text-sm' : 'text-[10px]'}`}>
+                                        <a
+                                            href={activeTask.tweet_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`font-black leading-snug flex-1 min-w-0 truncate transition-all hover:text-white hover:underline decoration-[#0069FF]/40 underline-offset-2 ${ticketExpanded ? 'text-sm' : 'text-[10px]'}`}
+                                            title="Open the X post"
+                                        >
                                             {activeTask.title || "Daily Mission"}
-                                        </span>
+                                        </a>
                                     </div>
                                     <span className="text-[9px] font-black text-[#0069FF]">
-                                        +100 XP · +{ticketsPerDay} Ticket{ticketsPerDay !== 1 ? 's' : ''}
+                                        +{100 * ticketsPerDay} XP · +{ticketsPerDay} Ticket{ticketsPerDay !== 1 ? 's' : ''}
                                         {ticketsPerDay > 1 && (
                                             <span className="text-white/30 font-bold"> · {droidCount} droids</span>
                                         )}
                                     </span>
-                                </a>
+                                    {/* Always visible hint so single-droid holders know
+                                        bigger wallets get more rewards. Compact tooltip-style
+                                        line so it doesn't clutter the row. */}
+                                    <span className="block text-[8px] text-white/25 font-medium leading-tight mt-0.5">
+                                        +1 extra ticket &amp; +100 XP per 30 droids held
+                                    </span>
+                                </div>
 
                                 {/* Button(s) with timer overlay */}
                                 <div className="relative flex-shrink-0 flex items-center gap-1.5">

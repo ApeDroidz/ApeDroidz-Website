@@ -318,21 +318,12 @@ export default function GlitchGamesPage() {
                                 <span className="text-[#3b82f6]">Season 2</span>
                             </motion.h1>
 
-                            {/* Stats — inline with title on desktop */}
+                            {/* Stats — inline with title on desktop.
+                                Order: Tickets → APE Flight → S2 Rank (with mini
+                                "leaderboard" link to ProfileModal, mirroring
+                                the Cards/Flight in-game UIs). */}
                             <div className="lg:flex-1 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center lg:pl-6">
-                                <div className="flex flex-col gap-1">
-                                    {statsLoading ? (
-                                        <div className="h-[22px] w-10 bg-white/10 rounded animate-pulse mb-1" />
-                                    ) : (
-                                        <span className="font-mono text-[20px] font-extrabold text-white leading-none tracking-tight">
-                                            {s2Rank != null ? `#${s2Rank}` : '--'}
-                                        </span>
-                                    )}
-                                    <span className="text-[9px] font-bold tracking-widest text-white/40 uppercase leading-none">S2 Rank</span>
-                                </div>
-
-                                <div className="w-px h-8 bg-white/10 mx-3" />
-
+                                {/* 1. Tickets */}
                                 <div className="flex flex-col gap-1">
                                     {statsLoading ? (
                                         <div className="h-[22px] w-8 bg-white/10 rounded animate-pulse mb-1" />
@@ -351,6 +342,7 @@ export default function GlitchGamesPage() {
 
                                 <div className="w-px h-8 bg-white/10 mx-3" />
 
+                                {/* 2. APE Flight */}
                                 <div className="flex flex-col gap-1">
                                     {statsLoading ? (
                                         <div className="h-[22px] w-14 bg-white/10 rounded animate-pulse mb-1" />
@@ -364,6 +356,30 @@ export default function GlitchGamesPage() {
                                         <Link href="/glitch_games/flight" className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors underline decoration-white/30 hover:decoration-white underline-offset-2">
                                             Add
                                         </Link>
+                                    </div>
+                                </div>
+
+                                <div className="w-px h-8 bg-white/10 mx-3" />
+
+                                {/* 3. S2 Rank — clickable opens ProfileModal on Leaderboard tab.
+                                    Mirrors the small "leaderboard" link present in /glitch_games/cards
+                                    and /glitch_games/flight game UIs. */}
+                                <div className="flex flex-col gap-1">
+                                    {statsLoading ? (
+                                        <div className="h-[22px] w-10 bg-white/10 rounded animate-pulse mb-1" />
+                                    ) : (
+                                        <span className="font-mono text-[20px] font-extrabold text-white leading-none tracking-tight">
+                                            {s2Rank != null ? `#${s2Rank}` : '--'}
+                                        </span>
+                                    )}
+                                    <div className="flex items-center gap-1.5 leading-none">
+                                        <span className="text-[9px] font-bold tracking-widest text-white/40 uppercase leading-none">S2 Rank</span>
+                                        <button
+                                            onClick={() => { setProfileInitialTab('leaderboard'); setIsProfileOpen(true) }}
+                                            className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors underline decoration-white/30 hover:decoration-white underline-offset-2"
+                                        >
+                                            Leaderboard
+                                        </button>
                                     </div>
                                 </div>
                             </div>

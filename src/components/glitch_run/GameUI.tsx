@@ -87,10 +87,16 @@ export function MultiplierOverlay({
                         animate={{ scale: 1, opacity: 1 }}
                         className="flex flex-col items-center gap-1"
                     >
-                        {/* Global multiplier (or crash point) */}
+                        {/* Global multiplier (during running) or "CRASHED" (after).
+                            We deliberately hide the exact crash multiplier from
+                            the public UI — players see only their own cashout
+                            value (Aped out below). This prevents pattern-
+                            recognition of the cap mechanism and keeps the cap
+                            tier values out of public view. Provably-fair audit
+                            still works via the revealed serverSeed. */}
                         <div className={`text-4xl sm:text-6xl md:text-7xl font-black font-mono transition-all duration-75 ${color} ${glow}`}>
                             {phase === 'crashed'
-                                ? `${crashPoint?.toFixed(2)}x`
+                                ? 'CRASHED'
                                 : `${multiplier.toFixed(2)}x`}
                         </div>
 
@@ -136,24 +142,28 @@ export function MultiplierOverlay({
 }
 
 // ─── Round history pills ──────────────────────────────────────────────────────
-function crashPillColor(cp: number): string {
-    // Match MultiplierOverlay colors, but muted
-    if (cp < 2)  return 'bg-[#00FF94]/5 border-[#00FF94]/15 text-[#00FF94]/55'
-    if (cp < 5)  return 'bg-yellow-950/50 border-yellow-700/20 text-yellow-300/60'
-    return 'bg-orange-950/50 border-orange-700/20 text-orange-400/65'
+// We render abstract status pills (won / lost / didn't play) rather than
+// crash multipliers — keeps the cap mechanism out of public view.
+function pillForResult(result: 'won' | 'lost' | null | undefined): { cls: string; label: string } {
+    if (result === 'won')  return { cls: 'bg-[#00FF94]/10 border-[#00FF94]/40 text-[#00FF94]', label: 'W' }
+    if (result === 'lost') return { cls: 'bg-red-500/10 border-red-500/40 text-red-400', label: 'L' }
+    return                       { cls: 'bg-white/[0.03] border-white/10 text-white/30', label: '·' }
 }
 
 export function RoundHistoryPills({ history }: { history: RoundResult[] }) {
     return (
         <div className="flex gap-1.5 items-center overflow-hidden flex-nowrap flex-1 min-w-0">
-            {history.slice(0, 20).map((r, i) => (
-                <span
-                    key={i}
-                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold border shrink-0 ${crashPillColor(r.crashPoint)}`}
-                >
-                    {r.crashPoint.toFixed(2)}x
-                </span>
-            ))}
+            {history.slice(0, 20).map((r, i) => {
+                const p = pillForResult(r.userResult)
+                return (
+                    <span
+                        key={i}
+                        className={`min-w-[24px] px-2 py-0.5 rounded text-[11px] font-mono font-black border shrink-0 text-center ${p.cls}`}
+                    >
+                        {p.label}
+                    </span>
+                )
+            })}
         </div>
     )
 }
@@ -166,7 +176,7 @@ function RoundHistoryList({ history }: { history: RoundResult[] }) {
                 <div key={i} className="px-5 py-2.5 flex items-center justify-between">
                     <span className="text-white/30 text-[11px] font-mono">Round #{history.length - i}</span>
                     <span
-                        className={`text-[11px] font-mono font-bold ${
+                        className={`text-[10px] font-mono font-black uppercase tracking-widest ${
                             r.userResult === 'won'
                                 ? 'text-[#00FF94]'
                                 : r.userResult === 'lost'
@@ -174,7 +184,9 @@ function RoundHistoryList({ history }: { history: RoundResult[] }) {
                                 : 'text-white/30'
                         }`}
                     >
-                        {r.crashPoint.toFixed(2)}x
+                        {r.userResult === 'won' ? 'Won'
+                            : r.userResult === 'lost' ? 'Lost'
+                            : '—'}
                     </span>
                 </div>
             ))}
@@ -488,7 +500,7 @@ function FlightHistorySection({ wallet, refreshTrigger }: { wallet?: string; ref
                                                     <span className={`text-[10px] font-black ${won ? 'text-emerald-400/65' : 'text-white/30'}`}>
                                                         {won ? `Aped Out ${f.cashout_at?.toFixed(2)}x` : 'Crashed'}
                                                     </span>
-                                                    <span className="text-[9px] font-mono text-white/40 ml-auto">crash {f.flight_sessions?.crash_point?.toFixed(2)}x</span>
+                                                    {/* Crash multiplier intentionally hidden — players see only their own cashout. */}
                                                 </div>
                                                 <div className="text-[9px] font-mono text-white/40 mt-0.5">
                                                     +{f.xp_gained} XP · {new Date(f.created_at).toLocaleDateString()}
@@ -1308,27 +1320,46 @@ export function RunControlPanel({
                                     disabled={(phase === 'waiting' && hasBet) || !!queueBet || (phase === 'running' && !!cashedOutAt) || (phase === 'crashed' && hasBet)}
                                 />
 
-                                {/* Quick picks — clamped to current dynamic max */}
-                                <div className="grid grid-cols-4 gap-1.5">
-                                    {[5, 10, 25, 50].filter(v => v <= Math.max(minBet, Math.floor(maxBet))).map(v => (
-                                        <button
-                                            key={v}
-                                            onClick={() => { playUiSound('click'); setBetAmount(Math.min(v, balance ?? 0, Math.floor(maxBet))) }}
-                                            onMouseEnter={() => playUiSound('hover')}
-                                            disabled={
-                                                (phase === 'waiting' && hasBet) ||
-                                                !!queueBet ||
-                                                (phase === 'running' && !!cashedOutAt) ||
-                                                (phase === 'crashed' && hasBet) ||
-                                                (balance ?? 0) < v ||
-                                                v > maxBet
-                                            }
-                                            className="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00FF94]/30 text-white/60 hover:text-white text-[11px] font-extrabold font-mono disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                                {/* Quick picks — generated dynamically from the current
+                                    server-set min/max so they always make sense. We pick
+                                    four anchor points: minBet, ⅓, ⅔, max. Duplicates are
+                                    deduped (e.g. when min == ⅓), so when the window is
+                                    narrow we get 2-3 distinct buttons. */}
+                                {(() => {
+                                    const m = Math.floor(maxBet)
+                                    const lo = minBet
+                                    const raw = [
+                                        lo,
+                                        Math.max(lo, Math.floor(m / 3)),
+                                        Math.max(lo, Math.floor((m * 2) / 3)),
+                                        m,
+                                    ]
+                                    const picks = Array.from(new Set(raw)).filter(v => v >= lo && v <= m)
+                                    return (
+                                        <div
+                                            className="grid gap-1.5"
+                                            style={{ gridTemplateColumns: `repeat(${Math.max(1, picks.length)}, minmax(0, 1fr))` }}
                                         >
-                                            {v}
-                                        </button>
-                                    ))}
-                                </div>
+                                            {picks.map(v => (
+                                                <button
+                                                    key={v}
+                                                    onClick={() => { playUiSound('click'); setBetAmount(Math.min(v, balance ?? 0, m)) }}
+                                                    onMouseEnter={() => playUiSound('hover')}
+                                                    disabled={
+                                                        (phase === 'waiting' && hasBet) ||
+                                                        !!queueBet ||
+                                                        (phase === 'running' && !!cashedOutAt) ||
+                                                        (phase === 'crashed' && hasBet) ||
+                                                        (balance ?? 0) < v
+                                                    }
+                                                    className="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00FF94]/30 text-white/60 hover:text-white text-[11px] font-extrabold font-mono disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                                                >
+                                                    {v}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )
+                                })()}
                             </div>
 
                             {/* Action button — styled like glitch_game PLAY button */}

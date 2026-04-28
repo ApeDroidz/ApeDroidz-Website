@@ -140,7 +140,10 @@ export async function POST(req: Request) {
         }
 
         // ── 7. XP — atomic, no read-then-write ─────────────────────────────
-        const xpGained = 100;
+        // XP scales with the number of tickets the holder is entitled to:
+        // 1 ticket ⇒ 100 XP, 2 tickets ⇒ 200 XP, … (matches `ticketsToGrant`
+        // computed from the on-chain droid count above).
+        const xpGained = 100 * ticketsToGrant;
         try {
             await supabaseAdmin.rpc('increment_user_xp', { p_wallet: wallet, p_xp: xpGained });
 
