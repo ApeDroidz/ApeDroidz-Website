@@ -147,16 +147,18 @@ export function MultiplierOverlay({
 // visible. Rounds the player bet on get a stronger outline + W/L tinting
 // so you can spot your own rounds in the strip.
 //
-// Tiers (chosen to feel intuitive in a crash game):
-//   red    : < 1.5x   — instant / near-instant
-//   yellow : 1.5–3x   — small win territory
-//   orange : 3–7x     — solid round
-//   green  : ≥ 7x     — big run
+// Tiers — mirror the live MultiplierOverlay palette so the strip "feels"
+// like the running multiplier: starts green and warms toward red as X
+// climbs. Adds a red tier for extreme rounds beyond the overlay's reach.
+//   green  : < 2x    — safe early-cash zone
+//   yellow : 2–5x    — getting hot
+//   orange : 5–10x   — danger
+//   red    : ≥ 10x   — bank-bender
 function tierCls(crash: number): { text: string; border: string } {
-    if (crash < 1.5) return { text: 'text-red-400',     border: 'border-red-500/30' }
-    if (crash < 3)   return { text: 'text-yellow-300',  border: 'border-yellow-300/30' }
-    if (crash < 7)   return { text: 'text-orange-400',  border: 'border-orange-400/30' }
-    return                  { text: 'text-[#00FF94]',   border: 'border-[#00FF94]/40' }
+    if (crash < 2)   return { text: 'text-[#00FF94]',  border: 'border-[#00FF94]/40' }
+    if (crash < 5)   return { text: 'text-yellow-300', border: 'border-yellow-300/30' }
+    if (crash < 10)  return { text: 'text-orange-400', border: 'border-orange-400/30' }
+    return                  { text: 'text-red-400',    border: 'border-red-500/30' }
 }
 
 export function RoundHistoryPills({ history }: { history: RoundResult[] }) {
