@@ -520,7 +520,7 @@ function FlightHistorySection({ wallet, refreshTrigger }: { wallet?: string; ref
                                         // Open an X (Twitter) intent prefilled with the result.
                                         // No image gen here — keeps the click instant; players who
                                         // want a card can screenshot the row.
-                                        const text = `Just aped out at ${f.cashout_at?.toFixed(2)}x on Glitch Flight — +${f.profit?.toFixed(2)} APE 🚀\n\nplay → https://apedroidz.com/glitch_flight`
+                                        const text = `Just aped out at ${f.cashout_at?.toFixed(2)}x on Glitch Flight +${f.profit?.toFixed(2)} APE 🚀\n\nplay → https://apedroidz.com/glitch_flight`
                                         const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`
                                         window.open(url, '_blank', 'noopener,noreferrer')
                                     }

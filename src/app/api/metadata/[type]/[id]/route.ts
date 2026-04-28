@@ -98,11 +98,26 @@ export async function GET(
         return !['level', 'upgraded', 'upgrade level', 'upgraded level', 'rank', 'rank value'].includes(tType);
       });
 
+      // Cache-bust HTTP image URLs by level/super-state. Marketplaces (OpenSea,
+      // Magic Eden) cache the image asset by its absolute URL — if the path
+      // stays the same after an upgrade they keep showing the old PNG until
+      // the next forced refresh. Appending ?v=…  changes the URL exactly when
+      // the visual changes, so caches see "new asset" and re-pull.
+      // We skip cache-busting for ipfs:// URIs because IPFS is content-addressed
+      // (different content already → different CID, no need for query params).
+      const bustVersion = `${currentLevel}${isSuper ? 's' : ''}`;
+      const bustImage = (url: string | undefined | null): string => {
+        if (!url) return '';
+        if (url.startsWith('ipfs://')) return url;
+        const sep = url.includes('?') ? '&' : '?';
+        return `${url}${sep}v=${bustVersion}`;
+      };
+
       // Base metadata object
       const metadata: Record<string, any> = {
         name: `ApeDroid #${droid.token_id}`,
         description: droid.description || "3333 glitch-born Droidz on ApeChain.",
-        image: droid.image_url,
+        image: bustImage(droid.image_url),
         mml: droid.mml_url, // Added MML parameter from DB
         external_url: "https://apedroidz.com/dashboard",
         attributes: [
@@ -113,7 +128,7 @@ export async function GET(
 
       // Add animation_url ONLY for level 2+ droids (from DB column)
       if (currentLevel >= 2 && droid.animation_url) {
-        metadata.animation_url = droid.animation_url;
+        metadata.animation_url = bustImage(droid.animation_url);
       }
 
       return NextResponse.json(metadata, { headers: corsHeaders });
