@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useActiveAccount, useSendAndConfirmTransaction } from 'thirdweb/react'
 import { createThirdwebClient, defineChain, prepareTransaction, toWei } from 'thirdweb'
-import { X, Trophy, ExternalLink, Loader2 } from 'lucide-react'
+import { X, Trophy, ExternalLink, Loader2, Share2 } from 'lucide-react'
 
 const thirdwebClient = createThirdwebClient({ clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID! })
 const apeChain = defineChain(33139)
@@ -516,6 +516,14 @@ function FlightHistorySection({ wallet, refreshTrigger }: { wallet?: string; ref
                                 style={{ maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)' }}>
                                 {flights.map((f, i) => {
                                     const won = f.cashout_at != null
+                                    const shareWin = () => {
+                                        // Open an X (Twitter) intent prefilled with the result.
+                                        // No image gen here — keeps the click instant; players who
+                                        // want a card can screenshot the row.
+                                        const text = `Just aped out at ${f.cashout_at?.toFixed(2)}x on Glitch Flight — +${f.profit?.toFixed(2)} APE 🚀\n\nplay → https://apedroidz.com/glitch_flight`
+                                        const url = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`
+                                        window.open(url, '_blank', 'noopener,noreferrer')
+                                    }
                                     return (
                                         <div key={f.id} className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
                                             <div className="flex-1 min-w-0">
@@ -533,6 +541,15 @@ function FlightHistorySection({ wallet, refreshTrigger }: { wallet?: string; ref
                                             <span className={`text-[11px] font-black shrink-0 ${won ? 'text-emerald-400/65' : 'text-red-400/55'}`}>
                                                 {won ? `+${f.profit?.toFixed(2)}` : `-${f.bet_amount.toFixed(2)}`}
                                             </span>
+                                            {won && (
+                                                <button
+                                                    onClick={shareWin}
+                                                    className="shrink-0 p-1.5 rounded-lg bg-white/5 hover:bg-[#0069FF]/20 border border-white/10 hover:border-[#0069FF]/40 text-white/30 hover:text-[#0069FF] transition-all cursor-pointer"
+                                                    title="Share this flight"
+                                                >
+                                                    <Share2 className="w-3 h-3" />
+                                                </button>
+                                            )}
                                         </div>
                                     )
                                 })}

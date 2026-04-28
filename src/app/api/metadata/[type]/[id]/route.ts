@@ -9,10 +9,20 @@ export const revalidate = 0
 
 const HONORARY_CONTRACT = '0x427ff4b908c4ba7bc1d689bacac280a0435b2514'
 
+// `force-dynamic` only stops Next.js from caching the route output. Without
+// these headers any upstream CDN/edge (Vercel, Cloudflare) and consumers
+// like OpenSea are free to cache the JSON for hours, which is exactly what
+// caused metadata refreshes to lag after each upgrade. `no-store` tells
+// every layer to refetch on demand.
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+  'Vercel-CDN-Cache-Control': 'no-store',
+  'Pragma': 'no-cache',
+  'Expires': '0',
 }
 
 const resolveIpfs = (url: string | undefined | null): string => {
