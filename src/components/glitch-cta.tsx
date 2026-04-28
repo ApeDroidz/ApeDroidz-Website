@@ -6,76 +6,38 @@ import { ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 // ─── Config ────────────────────────────────────────────────────────────────────
-// Flight first, then Cards. Each clip plays through ONE full cycle (we parse
-// the GIF binary to get its real duration) before crossfading to the next.
-// `key` on the <img> remounts it so the GIF restarts from frame 0 each cycle —
-// mirrors the "fresh on each hover" feel of the videos on /glitch_games.
+// Flight first, then Cards. Each plays for SLOT_MS, then crossfades.
+//
+// We use a fixed schedule rather than parsing the GIF's binary frame delays
+// because (a) the parser was unreliable on these particular files and could
+// return absurd durations (e.g. >30s) when LZW image data happened to contain
+// the magic GCE bytes, leaving the panel "stuck" on the first gif; and
+// (b) a uniform cadence is easier to reason about — set once, both gifs
+// rotate predictably.
+//
+// Restart trick: bumping `cycle` forces React to remount the <img>, which
+// makes the GIF play from frame 0 again instead of letting it loop silently
+// in place. Mirrors the "fresh on each hover" feel of /glitch_games videos.
+const SLOT_MS = 5500
 const SLOTS = [
     { src: "/glitch_flight.gif", alt: "Glitch Flight preview" },
     { src: "/glitch_cards.gif",  alt: "Glitch Cards preview"  },
 ]
 
-const DEFAULT_MS = 5000   // fallback if duration parsing fails
-const MIN_MS = 1500        // sanity-clamp: never swap faster than this
-
-/**
- * Parse a GIF's total animation duration (ms) by walking its frame headers.
- *
- * GIF structure: every animated frame is preceded by a Graphic Control
- * Extension block: 0x21 0xF9 0x04 [packed] [delay_lo] [delay_hi] [tcid] 0x00.
- * Delay is in centiseconds (1/100 s). Many encoders write 0 (= "no delay"
- * which most browsers treat as ~100ms) so we floor it.
- */
-async function getGifDurationMs(url: string): Promise<number> {
-    try {
-        const res = await fetch(url, { cache: "force-cache" })
-        if (!res.ok) return DEFAULT_MS
-        const buf = new Uint8Array(await res.arrayBuffer())
-        let total = 0
-        for (let i = 0; i + 7 < buf.length; i++) {
-            if (buf[i] === 0x21 && buf[i + 1] === 0xF9 && buf[i + 2] === 0x04) {
-                const delay = (buf[i + 4] | (buf[i + 5] << 8)) || 10  // floor 0→10cs (~100ms)
-                total += delay * 10
-                i += 7
-            }
-        }
-        if (total < MIN_MS) return Math.max(total || DEFAULT_MS, MIN_MS)
-        return total
-    } catch {
-        return DEFAULT_MS
-    }
-}
-
 // ─── Component ─────────────────────────────────────────────────────────────────
 function GlitchCTAComponent() {
     const [slot, setSlot] = useState(0)
     const [cycle, setCycle] = useState(0)
-    // Per-slot duration in ms. Parsed from each GIF on mount.
-    const [durations, setDurations] = useState<number[]>(() => SLOTS.map(() => DEFAULT_MS))
     const slotRef = useRef(0)
-    const timerRef = useRef<number | null>(null)
 
-    // Parse durations once.
     useEffect(() => {
-        let alive = true
-        Promise.all(SLOTS.map(s => getGifDurationMs(s.src))).then(ds => {
-            if (!alive) return
-            setDurations(ds)
-        })
-        return () => { alive = false }
-    }, [])
-
-    // Drive the swap loop, re-scheduling whenever the slot or its duration changes.
-    useEffect(() => {
-        const ms = durations[slotRef.current] ?? DEFAULT_MS
-        if (timerRef.current) window.clearTimeout(timerRef.current)
-        timerRef.current = window.setTimeout(() => {
+        const id = window.setInterval(() => {
             slotRef.current = (slotRef.current + 1) % SLOTS.length
             setSlot(slotRef.current)
             setCycle(c => c + 1)
-        }, ms)
-        return () => { if (timerRef.current) window.clearTimeout(timerRef.current) }
-    }, [slot, durations])
+        }, SLOT_MS)
+        return () => window.clearInterval(id)
+    }, [])
 
     const current = SLOTS[slot]
 
@@ -84,7 +46,9 @@ function GlitchCTAComponent() {
             initial={{ opacity: 0, x: -50, y: 50 }}
             animate={{ opacity: 1, x: 0, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 1 }}
-            className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 w-[180px] sm:w-[230px] md:w-[340px]"
+            // Slightly narrower than before (was 180/230/340) so the bottom-right
+            // VEO watermark gets clipped by the object-position trick below.
+            className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 w-[160px] sm:w-[200px] md:w-[290px]"
             style={{ isolation: "isolate", willChange: "transform" }}
         >
             <Link
@@ -99,9 +63,16 @@ function GlitchCTAComponent() {
                     </p>
                 </div>
 
-                {/* ── Preview window: alternating Flight / Cards GIFs (16:9) ── */}
+                {/* ── Preview window ───────────────────────────────────────────
+                     - aspect-[5/3] (1.667) is slightly tighter than the gif's
+                       16:9 (1.78). With object-cover that means the image
+                       overflows horizontally → we clip a few % off the sides.
+                     - object-left anchors it to the left edge so the clip
+                       happens entirely on the RIGHT, where the VEO watermark
+                       lives. Net effect: VEO is cropped without obviously
+                       distorting the gif. */}
                 <div className="relative px-1.5 sm:px-1">
-                    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/5 bg-[#090909]">
+                    <div className="relative w-full aspect-[5/3] rounded-xl overflow-hidden border border-white/5 bg-[#090909]">
                         <AnimatePresence mode="sync">
                             <motion.img
                                 key={`${slot}-${cycle}`}
@@ -112,14 +83,14 @@ function GlitchCTAComponent() {
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.35, ease: "easeOut" }}
-                                className="absolute inset-0 w-full h-full object-cover"
+                                className="absolute inset-0 w-full h-full object-cover object-left"
                                 onError={(e) => {
                                     ;(e.currentTarget as HTMLImageElement).style.display = "none"
                                 }}
                             />
                         </AnimatePresence>
 
-                        {/* Subtle inner vignette */}
+                        {/* Inner vignette */}
                         <div
                             className="absolute inset-0 pointer-events-none rounded-xl"
                             style={{ boxShadow: "inset 0 0 18px rgba(0,0,0,0.55)" }}

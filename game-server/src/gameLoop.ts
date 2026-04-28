@@ -3,8 +3,35 @@ import {
     createSession, markSessionRunning, markSessionCrashed, getLastRoundNumber,
     deductBalance, creditBalance, insertBetLog, existingBetInSession,
     updateBetCashout, updateBetLost, awardXp, updateQuestProgress,
+    getVaultLiquidity,
 } from './db'
 import { logger } from './logger'
+
+// ── Bet limits & vault protection ─────────────────────────────────────────────
+// All env-driven so a hot fix doesn't need a code change.
+//
+//   MIN_BET_APE                — hard floor (default 5)
+//   MAX_BET_APE                — hard ceiling regardless of vault size (default 50)
+//   MAX_ROUND_LIABILITY_PCT    — single-bet exposure cap. Worst-case payout
+//                                (bet × 65.51) cannot exceed vault × this.
+//                                Default 0.05 → at most 5% of vault per single bet.
+//   MAX_TOTAL_LIABILITY_PCT    — sum of (bet × 65.51) across all live bets
+//                                in this round cannot exceed vault × this.
+//                                Default 0.10 → at most 10% of vault total.
+//   CRASH_CAP_MAX              — must mirror the highest cap-tier value in
+//                                crypto.ts (currently 65.51).
+const MIN_BET                  = parseFloat(process.env.MIN_BET_APE ?? '5')
+const MAX_BET                  = parseFloat(process.env.MAX_BET_APE ?? '50')
+const MAX_ROUND_LIABILITY_PCT  = parseFloat(process.env.MAX_ROUND_LIABILITY_PCT ?? '0.05')
+const MAX_TOTAL_LIABILITY_PCT  = parseFloat(process.env.MAX_TOTAL_LIABILITY_PCT ?? '0.10')
+const CRASH_CAP_MAX            = parseFloat(process.env.CRASH_CAP_MAX ?? '65.51')
+
+/** Single-bet ceiling = min(hard cap, dynamic-by-liquidity). 0 if vault empty. */
+function computeMaxBet(vaultBalance: number): number {
+    if (vaultBalance <= 0) return 0
+    const dynamic = (vaultBalance * MAX_ROUND_LIABILITY_PCT) / CRASH_CAP_MAX
+    return Math.max(0, Math.min(MAX_BET, dynamic))
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -27,6 +54,10 @@ export interface GameState {
     elapsed: number           // ms since running started
     countdown: number
     bets: Map<string, PlayerBet>  // wallet → bet
+    // ── Vault protection (refreshed each round) ──
+    vaultBalance: number          // logical APE in vault at round start
+    currentLiability: number      // sum of (bet × CRASH_CAP_MAX) for placed bets
+    maxBet: number                // dynamic per-bet ceiling broadcast to clients
 }
 
 // ── Broadcast callback (injected from ws server) ───────────────────────────────
@@ -69,6 +100,8 @@ export class GameLoop {
             multiplier: s.multiplier,
             countdown: s.countdown,
             elapsed: s.elapsed,
+            maxBet: s.maxBet,
+            minBet: MIN_BET,
         }
     }
 
@@ -95,6 +128,11 @@ export class GameLoop {
             logger.error('session_create_failed', { round, error: e.message })
         }
 
+        // Refresh vault liquidity once per round so single-bet & total-liability
+        // caps are based on current liquidity, not stale data.
+        const vaultBalance = await getVaultLiquidity()
+        const maxBet = computeMaxBet(vaultBalance)
+
         this.state = {
             phase: 'waiting',
             round,
@@ -105,16 +143,19 @@ export class GameLoop {
             elapsed: 0,
             countdown: 5,
             bets: new Map(),
+            vaultBalance,
+            currentLiability: 0,
+            maxBet,
         }
 
-        this.broadcast({ type: 'waiting', round, serverSeedHash, countdown: this.state.countdown })
-        logger.info('round_waiting', { round, sessionId })
+        this.broadcast({ type: 'waiting', round, serverSeedHash, countdown: this.state.countdown, maxBet, minBet: MIN_BET })
+        logger.info('round_waiting', { round, sessionId, vault: vaultBalance.toFixed(2), maxBet: maxBet.toFixed(2) })
 
         let cd = 5
         this.countdownInterval = setInterval(async () => {
             cd--
             this.state.countdown = cd
-            this.broadcast({ type: 'waiting', round, serverSeedHash, countdown: cd })
+            this.broadcast({ type: 'waiting', round, serverSeedHash, countdown: cd, maxBet: this.state.maxBet, minBet: MIN_BET })
 
             if (cd <= 0) {
                 clearInterval(this.countdownInterval!)
@@ -212,7 +253,7 @@ export class GameLoop {
     // ── Public actions ─────────────────────────────────────────────────────────
 
     async placeBet(wallet: string, amount: number): Promise<{ ok: boolean; error?: string; newBalance?: number }> {
-        const { phase, sessionId, bets } = this.state
+        const { phase, sessionId, bets, vaultBalance, currentLiability, maxBet } = this.state
 
         if (phase !== 'waiting') {
             return { ok: false, error: 'Round already started. Wait for next round.' }
@@ -223,11 +264,31 @@ export class GameLoop {
         if (bets.has(wallet.toLowerCase())) {
             return { ok: false, error: 'Already placed a bet this round' }
         }
-        if (amount < 5) {
-            return { ok: false, error: 'Minimum bet is 5 APE' }
+        if (amount < MIN_BET) {
+            return { ok: false, error: `Minimum bet is ${MIN_BET} APE` }
         }
-        if (amount > 50) {
-            return { ok: false, error: 'Maximum bet is 50 APE' }
+        if (amount > MAX_BET) {
+            return { ok: false, error: `Maximum bet is ${MAX_BET} APE` }
+        }
+
+        // ── Vault protection: reject bets that could drain the bank ──────────
+        // (a) Single-bet cap — worst-case payout (bet × CRASH_CAP_MAX) must not
+        //     exceed MAX_ROUND_LIABILITY_PCT of the vault. `maxBet` already
+        //     encodes this, so we just compare.
+        // (b) Total round cap — sum of (bet × CRASH_CAP_MAX) for every active
+        //     bet this round must stay below MAX_TOTAL_LIABILITY_PCT × vault.
+        //     Without this, 5 players each placing the per-bet max could still
+        //     wipe the bank if the round caps at 65.51x.
+        if (vaultBalance <= 0) {
+            return { ok: false, error: 'Vault unavailable — please retry' }
+        }
+        if (amount > maxBet) {
+            return { ok: false, error: `Max bet right now is ${maxBet.toFixed(2)} APE (vault liquidity)` }
+        }
+        const newLiability = currentLiability + amount * CRASH_CAP_MAX
+        const totalCap     = vaultBalance * MAX_TOTAL_LIABILITY_PCT
+        if (newLiability > totalCap) {
+            return { ok: false, error: 'Round bet pool full — try the next round' }
         }
 
         const w = wallet.toLowerCase()
@@ -255,7 +316,14 @@ export class GameLoop {
         }
 
         bets.set(w, { logId, wallet: w, amount })
-        logger.info('bet_placed', { wallet: w.slice(0, 10), amount, round: this.state.round, newBalance: deduct.newBalance })
+        // Track total potential payout liability for this round so we can
+        // reject further bets if the pool is full.
+        this.state.currentLiability += amount * CRASH_CAP_MAX
+        logger.info('bet_placed', {
+            wallet: w.slice(0, 10), amount, round: this.state.round,
+            newBalance: deduct.newBalance,
+            roundLiability: this.state.currentLiability.toFixed(2),
+        })
 
         return { ok: true, newBalance: deduct.newBalance }
     }
@@ -337,6 +405,9 @@ export class GameLoop {
             elapsed: 0,
             countdown: 5,
             bets: new Map(),
+            vaultBalance: 0,
+            currentLiability: 0,
+            maxBet: 0,
         }
     }
 }

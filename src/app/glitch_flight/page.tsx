@@ -153,7 +153,9 @@ export default function GlitchFlightPage() {
         if (socket.hasBet) return
         if (!account?.address) return
         const amt = betAmountRef.current
-        if ((socket.balance ?? 0) < amt || amt < 5) return
+        if ((socket.balance ?? 0) < amt) return
+        // Honour the dynamic bet bounds set by the server for THIS round.
+        if (amt < socket.minBet || amt > socket.maxBet) return
 
         queueBetRef.current = false   // prevent double-fire, but keep UI state until confirmed
         actions.bet(amt)
@@ -171,9 +173,13 @@ export default function GlitchFlightPage() {
     const handleBet = useCallback(() => {
         if (socket.phase !== 'waiting') return
         if (socket.hasBet) return
-        if ((socket.balance ?? 0) < betAmount || betAmount < 5) return
+        // Respect both balance and the server-set bet bounds. The hook already
+        // clamps the input via setBetAmount, but we re-check here so a stale
+        // value can't slip through.
+        if ((socket.balance ?? 0) < betAmount) return
+        if (betAmount < socket.minBet || betAmount > socket.maxBet) return
         actions.bet(betAmount)
-    }, [socket.phase, socket.hasBet, socket.balance, betAmount, actions])
+    }, [socket.phase, socket.hasBet, socket.balance, socket.minBet, socket.maxBet, betAmount, actions])
 
     const handleCashout = useCallback(() => {
         if (socket.phase !== 'running' || !socket.hasBet || socket.cashedOutAt != null) return
@@ -305,6 +311,8 @@ export default function GlitchFlightPage() {
                         onQueueBet={setQueueBet}
                         historyRefreshTrigger={historyRefreshTrigger}
                         socketError={socket.error}
+                        minBet={socket.minBet}
+                        maxBet={socket.maxBet}
                     />
                 </motion.div>
             </div>

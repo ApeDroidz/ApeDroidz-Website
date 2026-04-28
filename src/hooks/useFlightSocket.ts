@@ -24,6 +24,9 @@ export interface FlightSocketState {
     lastXpGained: number
     lastProfit: number | null
     error: string | null
+    // Vault-driven bet bounds, refreshed each round by the server.
+    minBet: number            // hard floor (default 5)
+    maxBet: number            // dynamic ceiling = min(MAX_BET_APE, vault*PCT/CRASH_CAP)
 }
 
 export interface FlightSocketActions {
@@ -51,6 +54,8 @@ const INITIAL_STATE: FlightSocketState = {
     lastXpGained: 0,
     lastProfit: null,
     error: null,
+    minBet: 5,    // baseline; overwritten by server `waiting` event
+    maxBet: 50,   // baseline; overwritten by server `waiting` event
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -203,6 +208,9 @@ export function useFlightSocket(
                     multiplier: gs.phase === 'waiting' ? 1.0 : (gs.multiplier ?? s.multiplier),
                     serverSeed: '',
                     crashPoint: null,
+                    // Server may include the dynamic bet bounds in its state snapshot.
+                    ...(typeof gs.maxBet === 'number' ? { maxBet: gs.maxBet } : {}),
+                    ...(typeof gs.minBet === 'number' ? { minBet: gs.minBet } : {}),
                 }))
                 break
             }
@@ -218,6 +226,10 @@ export function useFlightSocket(
                     multiplier: 1.0,
                     serverSeed: '',
                     crashPoint: null,
+                    // Bet bounds — refreshed each round by the server based on
+                    // current vault liquidity.
+                    ...(typeof msg.maxBet === 'number' ? { maxBet: msg.maxBet } : {}),
+                    ...(typeof msg.minBet === 'number' ? { minBet: msg.minBet } : {}),
                     // Reset per-round bet state only on phase transition (not on every countdown tick)
                     ...(s.phase !== 'waiting' ? { hasBet: false, betAmount: null, cashedOutAt: null, lastXpGained: 0, lastProfit: null } : {}),
                 }))

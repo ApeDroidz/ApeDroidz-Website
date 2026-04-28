@@ -125,6 +125,26 @@ export async function updateBetLost(logId: string, xpGained: number): Promise<vo
         .eq('id', logId)
 }
 
+// ── Vault liquidity (used by placeBet to bound max bet) ──────────────────────
+
+/**
+ * Returns the vault's logical APE balance (sum of confirmed deposits minus
+ * confirmed withdrawals). Used by the gameLoop to dynamically size the max
+ * allowed bet so a single big-multiplier win can't drain the bank.
+ *
+ * Returns 0 on RPC failure (fail-closed → all bets rejected if we can't
+ * verify liquidity).
+ */
+export async function getVaultLiquidity(): Promise<number> {
+    try {
+        const { data, error } = await db.rpc('get_vault_net_balance')
+        if (error || data == null) return 0
+        return Number(data) || 0
+    } catch {
+        return 0
+    }
+}
+
 // ── XP & Season 2 ──────────────────────────────────────────────────────────────
 
 export async function awardXp(wallet: string, xpGained: number): Promise<void> {

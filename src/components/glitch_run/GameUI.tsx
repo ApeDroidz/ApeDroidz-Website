@@ -260,23 +260,18 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
                     </button>
                 </div>
 
-                {/* No separate rank banner — user's row is highlighted in the list */}
-
-                {/* List */}
+                {/* List — compact rows that match S2LeaderboardPanel + ProfileModal */}
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2">
                         {loading ? (
-                            Array.from({ length: 5 }).map((_, i) => (
-                                <div key={i} className="flex items-center p-4 sm:p-5 rounded-[24px] border border-white/5 bg-white/[0.02] animate-pulse">
-                                    <div className="w-10 sm:w-12 h-6 sm:h-7 bg-white/10 rounded-lg" />
-                                    <div className="flex-1 min-w-0 pr-4 flex flex-col gap-2">
-                                        <div className="h-5 sm:h-6 w-32 sm:w-40 bg-white/10 rounded-md" />
-                                        <div className="h-3 w-48 sm:w-56 bg-white/5 rounded-md" />
+                            Array.from({ length: 8 }).map((_, i) => (
+                                <div key={i} className="flex items-center px-3 py-3 rounded-2xl border border-white/5 bg-white/[0.02] animate-pulse">
+                                    <div className="w-10 h-5 bg-white/10 rounded mr-2 shrink-0" />
+                                    <div className="flex-1 flex flex-col gap-1.5">
+                                        <div className="h-4 w-28 bg-white/10 rounded" />
+                                        <div className="h-2.5 w-20 bg-white/5 rounded" />
                                     </div>
-                                    <div className="text-right flex flex-col items-end gap-1.5">
-                                        <div className="h-6 sm:h-7 w-16 sm:w-20 bg-[#00FF94]/20 rounded-md" />
-                                        <div className="h-3 w-12 sm:w-14 bg-white/10 rounded-md" />
-                                    </div>
+                                    <div className="h-5 w-14 bg-white/10 rounded" />
                                 </div>
                             ))
                         ) : data.length === 0 ? (
@@ -287,20 +282,32 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
                                 const displayName = entry.username
                                     ? entry.username
                                     : `${entry.wallet?.slice(0, 6)}…${entry.wallet?.slice(-4)}`
+
+                                // Per-rank colours mirror RankBadge / RankXp atoms used elsewhere.
+                                const rankCls =
+                                    entry.rank === 1 ? 'text-yellow-400'
+                                    : entry.rank === 2 ? 'text-slate-300'
+                                    : entry.rank === 3 ? '' : 'text-white/40'
+                                const rankSty =
+                                    entry.rank === 3
+                                        ? { background: 'linear-gradient(135deg,#D9A051,#9F602D)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
+                                        : undefined
+
                                 return (
                                     <div
                                         key={entry.wallet}
-                                        className={`flex items-center p-4 sm:p-5 rounded-[24px] border transition-all ${
+                                        className={`flex items-center px-3 py-2.5 rounded-2xl border transition-all ${
                                             isMe
-                                                ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 shadow-[0_0_20px_rgba(59,130,246,0.12)]'
-                                                : 'bg-white/5 border-transparent hover:border-white/10 hover:bg-white/10'
+                                                ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 shadow-[0_0_16px_rgba(59,130,246,0.12)]'
+                                                : 'bg-white/[0.025] border-transparent hover:border-white/10 hover:bg-white/[0.05]'
                                         }`}
                                     >
-                                        <div className={`w-10 sm:w-12 font-black text-lg sm:text-xl shrink-0 ${rankColor(entry.rank, isMe)}`} style={rankStyle(entry.rank)}>
+                                        <span className={`font-black text-lg w-10 shrink-0 ${rankCls}`} style={rankSty}>
                                             #{entry.rank}
-                                        </div>
-                                        <div className="flex-1 min-w-0 pr-4">
-                                            <div className={`text-sm sm:text-base font-black uppercase tracking-tight flex items-center gap-1.5 min-w-0 ${isMe ? 'text-[#3b82f6]' : 'text-white'}`}>
+                                        </span>
+
+                                        <div className="flex-1 min-w-0 pr-2">
+                                            <div className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 min-w-0 ${isMe ? 'text-[#3b82f6]' : 'text-white'}`}>
                                                 <span className="truncate">{isMe ? 'You' : displayName}</span>
                                                 {entry.x_handle && (
                                                     <a
@@ -315,17 +322,22 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
                                                     </a>
                                                 )}
                                             </div>
-                                            <div className="text-[9px] sm:text-[10px] text-white/30 uppercase font-black tracking-widest flex items-center gap-2 mt-1">
+                                            <div className="text-[9px] text-white/30 uppercase font-black tracking-widest flex items-center gap-1.5 mt-0.5">
                                                 <span>{entry.games_played} cards</span>
                                                 <span className="opacity-40">·</span>
                                                 <span>{entry.flights_played} flights</span>
+                                                {entry.quests_finished != null && (<>
+                                                    <span className="opacity-40">·</span>
+                                                    <span>{entry.quests_finished} quests</span>
+                                                </>)}
                                             </div>
                                         </div>
-                                        <div className="text-right flex flex-col items-end">
-                                            <div className="text-lg sm:text-xl font-black text-[#3b82f6]">
-                                                {new Intl.NumberFormat().format(entry.season_xp)}
+
+                                        <div className="text-right shrink-0">
+                                            <div className={`text-base font-black ${rankCls}`} style={rankSty ?? undefined}>
+                                                {new Intl.NumberFormat('en-US').format(entry.season_xp)}
                                             </div>
-                                            <div className="text-[8px] sm:text-[9px] font-black uppercase text-white/30 tracking-widest">XP</div>
+                                            <div className="text-[8px] font-black uppercase text-white/30 tracking-widest">XP</div>
                                         </div>
                                     </div>
                                 )
@@ -912,7 +924,24 @@ function FuelTab({
             const data = await res.json()
             if (!res.ok) {
                 const msg: string = data.error ?? 'Withdraw failed'
-                if (res.status >= 500 || msg.toLowerCase().includes('blockchain') || msg.toLowerCase().includes('internal')) {
+                const code: string | undefined = data.code
+
+                // Specific reasons we can explain plainly to the player.
+                if (code === 'vault_insufficient_funds') {
+                    throw new Error('Vault is low on APE — please retry in a moment (your balance is restored)')
+                }
+                if (code === 'vault_nonce_conflict') {
+                    throw new Error('Another withdrawal is finishing — wait 10 s and retry')
+                }
+                if (msg.toLowerCase().includes('balance restored')) {
+                    throw new Error('Withdrawal failed — your balance was restored. Try again.')
+                }
+                if (msg.toLowerCase().includes('balance has been held') || msg.toLowerCase().includes('status unknown')) {
+                    // Pending investigation — admin needs to review.
+                    throw new Error(`Withdrawal pending review — contact support${data.request_id ? ` (ID ${data.request_id})` : ''}`)
+                }
+                // Truly unknown 500 — keep the catch-all support code.
+                if (res.status >= 500 || msg.toLowerCase().includes('internal')) {
                     throw new Error('Something went wrong — contact support (ERR-W01)')
                 }
                 throw new Error(msg.slice(0, 80))
@@ -1106,6 +1135,9 @@ export interface RunControlPanelProps {
     onQueueBet?: (v: boolean) => void
     historyRefreshTrigger?: number
     socketError?: string | null
+    // Vault-driven bet bounds — refreshed each round by the server.
+    minBet?: number
+    maxBet?: number
 }
 
 export function RunControlPanel({
@@ -1113,6 +1145,7 @@ export function RunControlPanel({
     seasonRank, rankLoading, roundHistory, onBet, onCashout,
     hasBet, cashedOutAt, crashPoint, lastXpGained,
     queueBet, onQueueBet, historyRefreshTrigger, socketError,
+    minBet = 5, maxBet = 50,
 }: RunControlPanelProps) {
     const account = useActiveAccount()
     const [activeTab, setActiveTab] = useState<'play' | 'fuel'>('play')
@@ -1123,7 +1156,17 @@ export function RunControlPanel({
     const [withdrawStatus, setWithdrawStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle')
     const [fuelStatusMsg, setFuelStatusMsg] = useState('')
 
-    const canBet = phase === 'waiting' && !hasBet && (balance ?? 0) >= betAmount && betAmount >= 5
+    // Auto-clamp the bet amount to the current dynamic max so a user can't
+    // submit a bet that the server will reject. If maxBet shrinks below the
+    // current input (vault drained mid-round), pull it down.
+    useEffect(() => {
+        if (betAmount > maxBet && maxBet > 0) {
+            setBetAmount(Math.max(minBet, Math.floor(maxBet)))
+        }
+    }, [maxBet, minBet, betAmount, setBetAmount])
+
+    const canBet = phase === 'waiting' && !hasBet && (balance ?? 0) >= betAmount
+        && betAmount >= minBet && betAmount <= maxBet
     const canCashout = phase === 'running' && hasBet && !cashedOutAt
 
     // XP pop: show whenever lastXpGained transitions from 0 → non-zero
@@ -1247,32 +1290,38 @@ export function RunControlPanel({
                         >
                             {/* Flight amount */}
                             <div className="flex flex-col gap-2.5">
-                                <span className="text-[11px] font-bold text-white/50 uppercase tracking-widest">
-                                    Flight amount
-                                </span>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-bold text-white/50 uppercase tracking-widest">
+                                        Flight amount
+                                    </span>
+                                    <span className="text-[9px] font-mono text-white/30 uppercase tracking-wider" title="Server-set bet limits, refresh each round based on vault liquidity">
+                                        Max {Math.floor(maxBet)} · Min {minBet}
+                                    </span>
+                                </div>
 
                                 <AmountStepper
                                     value={betAmount}
                                     onChange={setBetAmount}
-                                    min={5}
-                                    max={Math.min(50, balance ?? 0) || 5}
+                                    min={minBet}
+                                    max={Math.max(minBet, Math.min(Math.floor(maxBet), Math.floor(balance ?? 0)))}
                                     step={5}
                                     disabled={(phase === 'waiting' && hasBet) || !!queueBet || (phase === 'running' && !!cashedOutAt) || (phase === 'crashed' && hasBet)}
                                 />
 
-                                {/* Quick picks */}
+                                {/* Quick picks — clamped to current dynamic max */}
                                 <div className="grid grid-cols-4 gap-1.5">
-                                    {[5, 10, 25, 50].map(v => (
+                                    {[5, 10, 25, 50].filter(v => v <= Math.max(minBet, Math.floor(maxBet))).map(v => (
                                         <button
                                             key={v}
-                                            onClick={() => { playUiSound('click'); setBetAmount(Math.min(v, balance ?? 0)) }}
+                                            onClick={() => { playUiSound('click'); setBetAmount(Math.min(v, balance ?? 0, Math.floor(maxBet))) }}
                                             onMouseEnter={() => playUiSound('hover')}
                                             disabled={
                                                 (phase === 'waiting' && hasBet) ||
                                                 !!queueBet ||
                                                 (phase === 'running' && !!cashedOutAt) ||
                                                 (phase === 'crashed' && hasBet) ||
-                                                (balance ?? 0) < v
+                                                (balance ?? 0) < v ||
+                                                v > maxBet
                                             }
                                             className="py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00FF94]/30 text-white/60 hover:text-white text-[11px] font-extrabold font-mono disabled:opacity-20 disabled:cursor-not-allowed transition-all"
                                         >
@@ -1342,9 +1391,9 @@ export function RunControlPanel({
                                         ) : (
                                             <button
                                                 onClick={() => onQueueBet?.(true)}
-                                                disabled={!account || (balance ?? 0) < betAmount || betAmount < 5}
+                                                disabled={!account || (balance ?? 0) < betAmount || betAmount < minBet || betAmount > maxBet}
                                                 className={`w-full py-3 sm:py-4 rounded-2xl font-black text-sm tracking-widest uppercase transition-all ${
-                                                    (!account || (balance ?? 0) < betAmount || betAmount < 5)
+                                                    (!account || (balance ?? 0) < betAmount || betAmount < minBet || betAmount > maxBet)
                                                         ? 'bg-white/10 text-white/20 cursor-default'
                                                         : 'bg-white text-black hover:bg-[#00FF94] hover:text-black shadow-lg shadow-white/10 hover:shadow-[#00FF94]/30 hover:scale-[1.02] cursor-pointer'
                                                 }`}

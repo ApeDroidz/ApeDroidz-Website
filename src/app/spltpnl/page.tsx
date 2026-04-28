@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertTriangle, BarChart3, BoxSelect, Coins, Gamepad2, Loader2, LogOut, Package, Plane, Plus, RefreshCcw, Search, ShieldAlert, Sparkles, Trophy, Users } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, BoxSelect, Coins, ExternalLink, Gamepad2, Loader2, LogOut, Package, Pencil, Plane, Plus, RefreshCcw, Search, ShieldAlert, Sparkles, Target, Trash2, Trophy, Users } from 'lucide-react'
 
 // ── Types (loose — coming from server JSON) ───────────────────────────────────
 
@@ -15,6 +15,7 @@ const TABS = [
     { id: 'season', label: 'Season 2', icon: Trophy },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'prizes', label: 'Prizes', icon: Package },
+    { id: 'quests', label: 'Quests', icon: Target },
     { id: 'health', label: 'Health', icon: ShieldAlert },
 ] as const
 type TabId = typeof TABS[number]['id']
@@ -1151,6 +1152,271 @@ function WalletDrillDown({ data }: { data: any }) {
     )
 }
 
+// ── Tab: Quests ───────────────────────────────────────────────────────────────
+// Daily X-tasks: admin creates a quest by providing the tweet URL + title +
+// active window; players complete it on /glitch_games/cards. This tab lets
+// you manage the quest catalogue and inspect per-quest stats.
+
+interface Quest {
+    id: number
+    title: string
+    tweet_url: string
+    active_from: string
+    active_to: string
+    status: 'scheduled' | 'active' | 'ended'
+    claims_count: number
+    xp_distributed: number
+    created_at?: string
+}
+
+function QuestsTab() {
+    const [quests, setQuests] = useState<Quest[]>([])
+    const [loading, setLoading] = useState(true)
+    const [err, setErr] = useState('')
+    const [showForm, setShowForm] = useState(false)
+    const [editing, setEditing] = useState<Quest | null>(null)
+    const [drillId, setDrillId] = useState<number | null>(null)
+    const [msg, setMsg] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+
+    const flash = (kind: 'success' | 'error', text: string) => {
+        setMsg({ kind, text })
+        window.setTimeout(() => setMsg(null), 3500)
+    }
+
+    const load = useCallback(async () => {
+        setLoading(true); setErr('')
+        try { setQuests((await jsonFetch('/api/admin/quests')).quests ?? []) }
+        catch (e: any) { setErr(e.message) }
+        finally { setLoading(false) }
+    }, [])
+    useEffect(() => { load() }, [load])
+
+    const onDelete = async (q: Quest, hard: boolean) => {
+        const word = hard ? 'permanently delete' : 'end this quest now (soft-delete)'
+        if (!confirm(`Are you sure you want to ${word}?\n\n"${q.title}"`)) return
+        try {
+            await jsonFetch(`/api/admin/quests/${q.id}${hard ? '?hard=1' : ''}`, { method: 'DELETE' })
+            flash('success', hard ? 'Quest deleted' : 'Quest ended')
+            load()
+        } catch (e: any) { flash('error', e.message) }
+    }
+
+    return (
+        <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-sm font-black uppercase tracking-widest">Daily X-task quests</h2>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => { setEditing(null); setShowForm(true) }}
+                        className="text-[10px] font-black uppercase tracking-widest text-white px-3 py-2 bg-[#3b82f6] hover:bg-[#2c63c4] rounded-xl flex items-center gap-1.5"
+                    >
+                        <Plus size={12} /> New quest
+                    </button>
+                    <button onClick={load} className="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white">
+                        <RefreshCcw size={12} />
+                    </button>
+                </div>
+            </div>
+
+            {msg && (
+                <div className={`px-3 py-2 rounded-xl text-xs ${
+                    msg.kind === 'success'
+                        ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                        : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                }`}>
+                    {msg.text}
+                </div>
+            )}
+
+            {/* Form (create or edit) */}
+            {showForm && (
+                <QuestForm
+                    initial={editing}
+                    onClose={() => { setShowForm(false); setEditing(null) }}
+                    onSaved={() => { setShowForm(false); setEditing(null); load(); flash('success', editing ? 'Quest updated' : 'Quest created') }}
+                />
+            )}
+
+            {/* List */}
+            {loading ? <Loading /> : err ? <ErrorBox msg={err} /> : (
+                <Card>
+                    <Table headers={['Status', 'Title / Tweet', 'Window', 'Claims', 'XP', 'Actions']} rows={quests.map((q: Quest) => [
+                        <span key="s" className={`text-[9px] font-black uppercase tracking-widest ${
+                            q.status === 'active' ? 'text-emerald-400'
+                            : q.status === 'scheduled' ? 'text-blue-400'
+                            : 'text-white/30'
+                        }`}>{q.status}</span>,
+                        <div key="t" className="flex flex-col gap-0.5">
+                            <span className="font-bold text-white text-xs">{q.title}</span>
+                            <a href={q.tweet_url} target="_blank" rel="noreferrer" className="font-mono text-[9px] text-[#3b82f6] hover:underline flex items-center gap-1 truncate max-w-[260px]">
+                                <ExternalLink size={9} className="flex-shrink-0" />
+                                {q.tweet_url.replace('https://', '').slice(0, 36)}…
+                            </a>
+                        </div>,
+                        <span key="w" className="text-[10px] text-white/50 font-mono">
+                            {new Date(q.active_from).toLocaleDateString()}<br />
+                            {new Date(q.active_to).toLocaleDateString()}
+                        </span>,
+                        <span key="c" className="font-mono text-white">{fmt(q.claims_count)}</span>,
+                        <span key="x" className="font-mono text-[#3b82f6] font-bold">{fmt(q.xp_distributed)}</span>,
+                        <div key="a" className="flex items-center gap-1">
+                            <button onClick={() => setDrillId(q.id)} className="px-2 py-1 text-[9px] font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 border border-white/10 rounded">Stats</button>
+                            <button onClick={() => { setEditing(q); setShowForm(true) }} className="px-2 py-1 text-[9px] font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 border border-white/10 rounded flex items-center gap-1"><Pencil size={9} /> Edit</button>
+                            {q.status !== 'ended' && (
+                                <button onClick={() => onDelete(q, false)} className="px-2 py-1 text-[9px] font-bold uppercase tracking-widest bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 rounded text-orange-400">End</button>
+                            )}
+                            <button onClick={() => onDelete(q, true)} title="Hard delete (only works if no claims attached)" className="px-2 py-1 text-[9px] font-bold uppercase tracking-widest bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded text-red-400 flex items-center gap-1"><Trash2 size={9} /></button>
+                        </div>,
+                    ])} />
+                </Card>
+            )}
+
+            {/* Drill-down modal */}
+            {drillId != null && (
+                <QuestDrillModal id={drillId} onClose={() => setDrillId(null)} />
+            )}
+        </div>
+    )
+}
+
+function QuestForm({ initial, onClose, onSaved }: { initial: Quest | null; onClose: () => void; onSaved: () => void }) {
+    const [title, setTitle] = useState(initial?.title ?? '')
+    const [url, setUrl] = useState(initial?.tweet_url ?? '')
+    const [from, setFrom] = useState(initial?.active_from ? toLocalInput(initial.active_from) : toLocalInput(new Date().toISOString()))
+    const [to, setTo] = useState(initial?.active_to ? toLocalInput(initial.active_to) : toLocalInput(new Date(Date.now() + 86400_000).toISOString()))
+    const [busy, setBusy] = useState(false)
+    const [err, setErr] = useState('')
+
+    const submit = async () => {
+        setBusy(true); setErr('')
+        try {
+            const body = {
+                title: title.trim(),
+                tweet_url: url.trim(),
+                active_from: new Date(from).toISOString(),
+                active_to: new Date(to).toISOString(),
+            }
+            if (initial) {
+                await jsonFetch(`/api/admin/quests/${initial.id}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                })
+            } else {
+                await jsonFetch('/api/admin/quests', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                })
+            }
+            onSaved()
+        } catch (e: any) { setErr(e.message) }
+        finally { setBusy(false) }
+    }
+
+    return (
+        <Card className="border-[#3b82f6]/30 bg-[#3b82f6]/5">
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-black uppercase tracking-widest">{initial ? 'Edit quest' : 'New quest'}</h3>
+                <button onClick={onClose} className="text-white/30 hover:text-white text-xs">✕</button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FormField label="Title" value={title} onChange={setTitle} placeholder="RT this and tag 3 friends" className="sm:col-span-2" />
+                <FormField label="Tweet / X post URL" value={url} onChange={setUrl} placeholder="https://x.com/account/status/12345" className="sm:col-span-2" />
+                <FormField label="Active from (local time)">
+                    <input type="datetime-local" value={from} onChange={e => setFrom(e.target.value)} className="bg-black/40 border border-white/10 rounded-xl h-10 px-3 text-sm focus:outline-none focus:border-[#3b82f6]" />
+                </FormField>
+                <FormField label="Active to (local time)">
+                    <input type="datetime-local" value={to} onChange={e => setTo(e.target.value)} className="bg-black/40 border border-white/10 rounded-xl h-10 px-3 text-sm focus:outline-none focus:border-[#3b82f6]" />
+                </FormField>
+            </div>
+            {err && <p className="text-xs text-red-400 mt-3">{err}</p>}
+            <div className="flex justify-end gap-2 mt-4">
+                <button onClick={onClose} className="px-3 h-9 text-[10px] uppercase font-bold tracking-widest text-white/50 hover:text-white">Cancel</button>
+                <button
+                    onClick={submit}
+                    disabled={busy || !title || !url}
+                    className="px-4 h-9 bg-[#3b82f6] hover:bg-[#2c63c4] disabled:opacity-40 rounded-xl text-[10px] uppercase font-black tracking-widest text-white flex items-center gap-2"
+                >
+                    {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} {initial ? 'Save' : 'Create'}
+                </button>
+            </div>
+        </Card>
+    )
+}
+
+function QuestDrillModal({ id, onClose }: { id: number; onClose: () => void }) {
+    const [data, setData] = useState<any>(null)
+    const [err, setErr] = useState('')
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        (async () => {
+            setLoading(true); setErr('')
+            try { setData(await jsonFetch(`/api/admin/quests/${id}`)) }
+            catch (e: any) { setErr(e.message) }
+            finally { setLoading(false) }
+        })()
+    }, [id])
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4" onClick={onClose}>
+            <div onClick={e => e.stopPropagation()} className="relative w-full max-w-3xl bg-[#080808] border border-white/10 rounded-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+                <button onClick={onClose} className="absolute top-3 right-3 text-white/30 hover:text-white text-sm">✕</button>
+                {loading ? <Loading /> : err ? <ErrorBox msg={err} /> : data && (
+                    <div className="flex flex-col gap-4">
+                        <div>
+                            <h3 className="text-base font-black uppercase tracking-tight text-white">{data.quest.title}</h3>
+                            <a href={data.quest.tweet_url} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-[#3b82f6] hover:underline flex items-center gap-1 mt-1"><ExternalLink size={10} />{data.quest.tweet_url}</a>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <Card><Stat label="Total claims" value={fmt(data.stats.total_claims)} accent="blue" /></Card>
+                            <Card><Stat label="XP distributed" value={fmt(data.stats.xp_distributed)} accent="green" hint="100 XP per claim" /></Card>
+                        </div>
+
+                        {data.stats.per_day && data.stats.per_day.length > 0 && (
+                            <Card title="Claims per day">
+                                <Histogram
+                                    data={data.stats.per_day.map((d: any) => ({ label: d.day.slice(5), value: d.count }))}
+                                    accent="#3b82f6"
+                                    height={80}
+                                />
+                            </Card>
+                        )}
+
+                        {data.stats.top_handles && data.stats.top_handles.length > 0 && (
+                            <Card title="Top X handles (by distinct wallets claiming with that handle)">
+                                <Table headers={['#', 'Handle', 'Wallets']} rows={data.stats.top_handles.map((h: any, i: number) => [
+                                    <span key="r" className="font-mono text-white/40">{i + 1}</span>,
+                                    <span key="h" className="font-mono text-white text-xs">{h.handle}</span>,
+                                    <span key="w" className="font-mono text-[#3b82f6] font-bold">{h.wallets}</span>,
+                                ])} />
+                            </Card>
+                        )}
+
+                        {data.recentClaims && data.recentClaims.length > 0 && (
+                            <Card title={`Recent claims (last ${data.recentClaims.length})`}>
+                                <Table headers={['Wallet', 'X handle', 'Proof', 'When']} rows={data.recentClaims.slice(0, 30).map((c: any) => [
+                                    <span key="w" className="font-mono text-xs text-white">{shortWallet(c.wallet_address)}</span>,
+                                    <span key="x" className="text-[10px] text-white/60">{c.x_handle ?? '—'}</span>,
+                                    c.proof_link
+                                        ? <a key="p" href={c.proof_link} target="_blank" rel="noreferrer" className="text-[10px] text-[#3b82f6] hover:underline flex items-center gap-1"><ExternalLink size={9} /> link</a>
+                                        : <span key="p" className="text-white/30">—</span>,
+                                    <span key="t" className="font-mono text-[10px] text-white/40">{new Date(c.claimed_at).toLocaleString()}</span>,
+                                ])} />
+                            </Card>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+/** Format an ISO string for <input type="datetime-local"> (which expects local-time YYYY-MM-DDTHH:mm). */
+function toLocalInput(iso: string): string {
+    const d = new Date(iso)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 // ── Window switcher ───────────────────────────────────────────────────────────
 
 function WindowSwitcher({ value, onChange, onRefresh }: { value: Window; onChange: (v: Window) => void; onRefresh: () => void }) {
@@ -1209,6 +1475,7 @@ export default function SpltpnlPage() {
             case 'season':   return <SeasonTab />
             case 'users':    return <UsersTab />
             case 'prizes':   return <PrizesTab />
+            case 'quests':   return <QuestsTab />
             case 'health':   return <HealthTab />
         }
     }, [tab])

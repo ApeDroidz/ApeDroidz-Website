@@ -219,7 +219,17 @@ export async function POST(req: NextRequest) {
                     // TX rejected by the node before broadcast — safe to roll back
                     await supabaseAdmin.rpc('credit_flight_balance', { p_wallet: wallet, p_amount: safeAmount })
                     await supabaseAdmin.from('flight_transactions').update({ status: 'failed' }).eq('id', txId)
-                    return NextResponse.json({ error: 'Blockchain send failed — balance restored. Please try again.' }, { status: 500 })
+                    // Specific operator-facing reason. The user-friendly text on
+                    // the frontend translates this into "Withdrawal failed —
+                    // your balance was restored. Please try again."
+                    const reason =
+                        errMsg.includes('insufficient funds') ? 'vault_insufficient_funds' :
+                        errMsg.includes('nonce too low') || errMsg.includes('nonce has already been used') ? 'vault_nonce_conflict' :
+                        errMsg.includes('execution reverted') ? 'vault_reverted' : 'vault_hard_failure'
+                    return NextResponse.json({
+                        error: 'Blockchain send failed — balance restored. Please try again.',
+                        code: reason,
+                    }, { status: 500 })
                     // finally runs → mutex released automatically
                 }
 
