@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createHash } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
 
@@ -10,6 +11,21 @@ interface Alert {
     kind: string
     message: string
     detail?: any
+    /** Stable sha256 of the alert detail — used by the dismiss table. */
+    fingerprint?: string
+}
+
+/** Stable JSON stringify (sorted keys) so equivalent payloads hash the same. */
+function stableStringify(value: unknown): string {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value)
+    if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']'
+    const obj = value as Record<string, unknown>
+    const keys = Object.keys(obj).sort()
+    return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') + '}'
+}
+
+function fingerprintOf(detail: unknown): string {
+    return createHash('sha256').update(stableStringify(detail)).digest('hex')
 }
 
 /**
@@ -32,6 +48,7 @@ export async function GET(req: Request) {
             pendingInvest, errorsRecent, mergesFailed,
             stuckPending, dupHandles, vaultRow,
             highWinRate, multiAccountByX, recentRollbacks,
+            dismissalsRes,
         ] = await Promise.all([
             supabaseAdmin.from('flight_transactions')
                 .select('id, wallet_address, amount, created_at, tx_hash, type')
@@ -76,13 +93,31 @@ export async function GET(req: Request) {
             // NFT inventory rolled back in the last 24h (winner_wallet null but won_at recent)
             supabaseAdmin.from('nft_inventory').select('id, token_id, prize_type_id, status')
                 .eq('status', 'available').gte('won_at', since24h),
+
+            // Active alert dismissals — alerts whose fingerprint matches a row
+            // here are suppressed. If the fingerprint changes (e.g. new error
+            // arrives), the alert resurfaces automatically.
+            supabaseAdmin.from('health_alert_dismissals')
+                .select('kind, fingerprint'),
         ])
 
+        const dismissalMap: Record<string, string> = {}
+        for (const row of (dismissalsRes?.data ?? [])) {
+            if (row?.kind && row?.fingerprint) dismissalMap[String(row.kind)] = String(row.fingerprint)
+        }
+
         const alerts: Alert[] = []
+        function pushAlert(a: Alert): void {
+            const fp = fingerprintOf(a.detail ?? null)
+            // Suppress if a dismissal exists for this kind with the same fingerprint.
+            // A new error or a new wallet changes the fingerprint and resurfaces it.
+            if (dismissalMap[a.kind] === fp) return
+            alerts.push({ ...a, fingerprint: fp })
+        }
 
         // ── pending_investigation — manual review needed ────────────────────
         if ((pendingInvest.data ?? []).length > 0) {
-            alerts.push({
+            pushAlert({
                 severity: 'critical',
                 kind: 'flight_pending_investigation',
                 message: `${pendingInvest.data?.length} flight transaction(s) in pending_investigation`,
@@ -92,7 +127,7 @@ export async function GET(req: Request) {
 
         // ── stuck pending withdrawals ───────────────────────────────────────
         if ((stuckPending.data ?? []).length > 0) {
-            alerts.push({
+            pushAlert({
                 severity: 'critical',
                 kind: 'flight_stuck_withdrawals',
                 message: `${stuckPending.data?.length} withdrawal(s) stuck in 'pending' >1h`,
@@ -102,7 +137,7 @@ export async function GET(req: Request) {
 
         // ── recent errors spike ─────────────────────────────────────────────
         if ((errorsRecent.data ?? []).length > 0) {
-            alerts.push({
+            pushAlert({
                 severity: (errorsRecent.data?.length ?? 0) > 10 ? 'critical' : 'warning',
                 kind: 'cards_errors_recent',
                 message: `${errorsRecent.data?.length} Cards errors in last 24h`,
@@ -112,7 +147,7 @@ export async function GET(req: Request) {
 
         // ── failed merges ───────────────────────────────────────────────────
         if ((mergesFailed.data ?? []).length > 0) {
-            alerts.push({
+            pushAlert({
                 severity: 'warning',
                 kind: 'merge_failures',
                 message: `${mergesFailed.data?.length} failed merge attempt(s) in last 7d`,
@@ -132,7 +167,7 @@ export async function GET(req: Request) {
             .filter(([, set]) => set.size > 1)
             .map(([handle, set]) => ({ handle, wallets: [...set] }))
         if (dupes.length > 0) {
-            alerts.push({
+            pushAlert({
                 severity: 'warning',
                 kind: 'multi_account_x_handle',
                 message: `${dupes.length} X handle(s) used by multiple wallets`,
@@ -155,7 +190,7 @@ export async function GET(req: Request) {
             .filter(([, v]) => v.total >= 10 && v.nfts / v.total >= 0.9)
             .map(([w, v]) => ({ wallet: w, plays: v.total, nftRate: (v.nfts / v.total).toFixed(2) }))
         if (sus.length > 0) {
-            alerts.push({
+            pushAlert({
                 severity: 'warning',
                 kind: 'cards_suspicious_winrate',
                 message: `${sus.length} wallet(s) with >=90% NFT win rate over last 7d`,
@@ -165,7 +200,7 @@ export async function GET(req: Request) {
 
         // ── inventory rollbacks (NFT transfers that failed) ────────────────
         if ((recentRollbacks.data ?? []).length > 0) {
-            alerts.push({
+            pushAlert({
                 severity: 'info',
                 kind: 'inventory_rollbacks',
                 message: `${recentRollbacks.data?.length} inventory item(s) rolled back to available in last 24h`,

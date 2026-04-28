@@ -920,7 +920,7 @@ function HealthTab() {
                         <Card><p className="text-center text-emerald-400 py-8 text-sm">✓ No anomalies detected</p></Card>
                     ) : (
                         <div className="flex flex-col gap-3">
-                            {data.alerts.map((a: any, i: number) => <AlertCard key={i} alert={a} />)}
+                            {data.alerts.map((a: any, i: number) => <AlertCard key={a.kind ?? i} alert={a} onResolved={load} />)}
                         </div>
                     )}
                 </>
@@ -929,8 +929,9 @@ function HealthTab() {
     )
 }
 
-function AlertCard({ alert }: { alert: { severity: string; kind: string; message: string; detail?: any } }) {
+function AlertCard({ alert, onResolved }: { alert: { severity: string; kind: string; message: string; detail?: any; fingerprint?: string }; onResolved?: () => void }) {
     const [open, setOpen] = useState(false)
+    const [resolving, setResolving] = useState(false)
     const c: Record<string, string> = {
         critical: 'border-red-500/30 bg-red-500/5',
         warning: 'border-orange-500/30 bg-orange-500/5',
@@ -941,15 +942,44 @@ function AlertCard({ alert }: { alert: { severity: string; kind: string; message
         warning: 'text-orange-400',
         info: 'text-blue-400',
     }
+
+    const resolve = async () => {
+        if (!alert.fingerprint || resolving) return
+        setResolving(true)
+        try {
+            const res = await fetch('/api/admin/health/dismiss', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kind: alert.kind, fingerprint: alert.fingerprint }),
+            })
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+            onResolved?.()
+        } catch (e: any) {
+            window.alert(`Failed to resolve: ${e.message}`)
+            setResolving(false)
+        }
+    }
+
     return (
         <div className={`border rounded-2xl p-4 ${c[alert.severity] ?? ''}`}>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3 min-w-0">
                     <AlertTriangle size={16} className={txt[alert.severity] ?? ''} />
                     <span className={`text-[10px] uppercase font-black tracking-widest ${txt[alert.severity] ?? ''}`}>{alert.severity}</span>
                     <span className="text-[10px] font-mono text-white/30 truncate">{alert.kind}</span>
                 </div>
-                {alert.detail && <button onClick={() => setOpen(o => !o)} className="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white">{open ? 'Hide' : 'Detail'}</button>}
+                <div className="flex items-center gap-3 shrink-0">
+                    {alert.detail && <button onClick={() => setOpen(o => !o)} className="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white">{open ? 'Hide' : 'Detail'}</button>}
+                    {alert.fingerprint && (
+                        <button
+                            onClick={resolve}
+                            disabled={resolving}
+                            className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/70 hover:text-emerald-300 disabled:opacity-40"
+                        >
+                            {resolving ? '…' : 'Resolve'}
+                        </button>
+                    )}
+                </div>
             </div>
             <p className="text-sm text-white mt-1">{alert.message}</p>
             {open && alert.detail && (

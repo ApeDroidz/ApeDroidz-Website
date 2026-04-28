@@ -142,26 +142,46 @@ export function MultiplierOverlay({
 }
 
 // ─── Round history pills ──────────────────────────────────────────────────────
-// We render abstract status pills (won / lost / didn't play) rather than
-// crash multipliers — keeps the cap mechanism out of public view.
-function pillForResult(result: 'won' | 'lost' | null | undefined): { cls: string; label: string } {
-    if (result === 'won')  return { cls: 'bg-[#00FF94]/10 border-[#00FF94]/40 text-[#00FF94]', label: 'W' }
-    if (result === 'lost') return { cls: 'bg-red-500/10 border-red-500/40 text-red-400', label: 'L' }
-    return                       { cls: 'bg-white/[0.03] border-white/10 text-white/30', label: '·' }
+// Crash-bucket pills (no exact multiplier shown — keeps the cap mechanism
+// out of public view). The player still gets a visual rhythm (low/mid/high
+// streaks) without leaking the cap.
+//
+// Bet rounds get a slightly stronger outline so the player can spot which
+// rounds were theirs. Wins are filled green, losses faded red.
+function bucketCls(crash: number): string {
+    if (crash < 1.5) return 'bg-red-500/15 border-red-500/30'
+    if (crash < 3)   return 'bg-yellow-300/15 border-yellow-300/30'
+    if (crash < 7)   return 'bg-orange-400/15 border-orange-400/30'
+    return                  'bg-[#00FF94]/15 border-[#00FF94]/40'
 }
 
 export function RoundHistoryPills({ history }: { history: RoundResult[] }) {
     return (
         <div className="flex gap-1.5 items-center overflow-hidden flex-nowrap flex-1 min-w-0">
             {history.slice(0, 20).map((r, i) => {
-                const p = pillForResult(r.userResult)
+                const won  = r.userResult === 'won'
+                const lost = r.userResult === 'lost'
+                // Bet rounds — strong outline + W/L letter.
+                if (won || lost) {
+                    const cls = won
+                        ? 'bg-[#00FF94]/20 border-[#00FF94]/60 text-[#00FF94]'
+                        : 'bg-red-500/20 border-red-500/60 text-red-300'
+                    return (
+                        <span
+                            key={i}
+                            className={`min-w-[24px] px-2 py-0.5 rounded text-[10px] font-mono font-black border shrink-0 text-center ${cls}`}
+                        >
+                            {won ? 'W' : 'L'}
+                        </span>
+                    )
+                }
+                // Non-bet rounds — coloured by crash bucket, no number.
                 return (
                     <span
                         key={i}
-                        className={`min-w-[24px] px-2 py-0.5 rounded text-[11px] font-mono font-black border shrink-0 text-center ${p.cls}`}
-                    >
-                        {p.label}
-                    </span>
+                        className={`min-w-[18px] h-[18px] px-1 rounded border shrink-0 ${bucketCls(r.crashPoint ?? 1)}`}
+                        aria-hidden
+                    />
                 )
             })}
         </div>
