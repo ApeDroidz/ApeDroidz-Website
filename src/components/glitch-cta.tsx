@@ -1,33 +1,81 @@
 "use client"
 
-import { useEffect, useState, memo } from "react"
+import { useEffect, useRef, useState, memo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 // ─── Config ────────────────────────────────────────────────────────────────────
-// Flight first, then Cards. Each clip plays for SLOT_MS, then we crossfade
-// to the next one. Mounting the <img> with a fresh `key` forces the GIF to
-// restart from frame 0 every cycle — this mimics the "snappy preview" feel
-// the videos on /glitch_games have (where they restart on each hover).
-const SLOT_MS = 4500
+// Flight first, then Cards. Each clip plays through ONE full cycle (we parse
+// the GIF binary to get its real duration) before crossfading to the next.
+// `key` on the <img> remounts it so the GIF restarts from frame 0 each cycle —
+// mirrors the "fresh on each hover" feel of the videos on /glitch_games.
 const SLOTS = [
     { src: "/glitch_flight.gif", alt: "Glitch Flight preview" },
     { src: "/glitch_cards.gif",  alt: "Glitch Cards preview"  },
 ]
 
+const DEFAULT_MS = 5000   // fallback if duration parsing fails
+const MIN_MS = 1500        // sanity-clamp: never swap faster than this
+
+/**
+ * Parse a GIF's total animation duration (ms) by walking its frame headers.
+ *
+ * GIF structure: every animated frame is preceded by a Graphic Control
+ * Extension block: 0x21 0xF9 0x04 [packed] [delay_lo] [delay_hi] [tcid] 0x00.
+ * Delay is in centiseconds (1/100 s). Many encoders write 0 (= "no delay"
+ * which most browsers treat as ~100ms) so we floor it.
+ */
+async function getGifDurationMs(url: string): Promise<number> {
+    try {
+        const res = await fetch(url, { cache: "force-cache" })
+        if (!res.ok) return DEFAULT_MS
+        const buf = new Uint8Array(await res.arrayBuffer())
+        let total = 0
+        for (let i = 0; i + 7 < buf.length; i++) {
+            if (buf[i] === 0x21 && buf[i + 1] === 0xF9 && buf[i + 2] === 0x04) {
+                const delay = (buf[i + 4] | (buf[i + 5] << 8)) || 10  // floor 0→10cs (~100ms)
+                total += delay * 10
+                i += 7
+            }
+        }
+        if (total < MIN_MS) return Math.max(total || DEFAULT_MS, MIN_MS)
+        return total
+    } catch {
+        return DEFAULT_MS
+    }
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 function GlitchCTAComponent() {
     const [slot, setSlot] = useState(0)
-    const [cycle, setCycle] = useState(0)   // bumped each tick so React remounts <img>
+    const [cycle, setCycle] = useState(0)
+    // Per-slot duration in ms. Parsed from each GIF on mount.
+    const [durations, setDurations] = useState<number[]>(() => SLOTS.map(() => DEFAULT_MS))
+    const slotRef = useRef(0)
+    const timerRef = useRef<number | null>(null)
 
+    // Parse durations once.
     useEffect(() => {
-        const id = window.setInterval(() => {
-            setSlot(s => (s + 1) % SLOTS.length)
-            setCycle(c => c + 1)
-        }, SLOT_MS)
-        return () => window.clearInterval(id)
+        let alive = true
+        Promise.all(SLOTS.map(s => getGifDurationMs(s.src))).then(ds => {
+            if (!alive) return
+            setDurations(ds)
+        })
+        return () => { alive = false }
     }, [])
+
+    // Drive the swap loop, re-scheduling whenever the slot or its duration changes.
+    useEffect(() => {
+        const ms = durations[slotRef.current] ?? DEFAULT_MS
+        if (timerRef.current) window.clearTimeout(timerRef.current)
+        timerRef.current = window.setTimeout(() => {
+            slotRef.current = (slotRef.current + 1) % SLOTS.length
+            setSlot(slotRef.current)
+            setCycle(c => c + 1)
+        }, ms)
+        return () => { if (timerRef.current) window.clearTimeout(timerRef.current) }
+    }, [slot, durations])
 
     const current = SLOTS[slot]
 
@@ -36,7 +84,7 @@ function GlitchCTAComponent() {
             initial={{ opacity: 0, x: -50, y: 50 }}
             animate={{ opacity: 1, x: 0, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 1 }}
-            className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 w-[145px] sm:w-[180px] md:w-[280px]"
+            className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 w-[180px] sm:w-[230px] md:w-[340px]"
             style={{ isolation: "isolate", willChange: "transform" }}
         >
             <Link
@@ -51,16 +99,11 @@ function GlitchCTAComponent() {
                     </p>
                 </div>
 
-                {/* ── Preview window: alternating Flight / Cards GIFs ──────── */}
+                {/* ── Preview window: alternating Flight / Cards GIFs (16:9) ── */}
                 <div className="relative px-1.5 sm:px-1">
-                    <div className="relative w-full aspect-square rounded-xl overflow-hidden border border-white/5 bg-[#090909]">
+                    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/5 bg-[#090909]">
                         <AnimatePresence mode="sync">
                             <motion.img
-                                /*
-                                 * `key` ties the element to the current cycle so React
-                                 * unmounts/remounts the <img>; that restarts the GIF
-                                 * from frame 0 instead of letting it loop indefinitely.
-                                 */
                                 key={`${slot}-${cycle}`}
                                 src={current.src}
                                 alt={current.alt}
@@ -71,18 +114,18 @@ function GlitchCTAComponent() {
                                 transition={{ duration: 0.35, ease: "easeOut" }}
                                 className="absolute inset-0 w-full h-full object-cover"
                                 onError={(e) => {
-                                    // Hide if asset missing (e.g. user hasn't uploaded the second gif yet)
                                     ;(e.currentTarget as HTMLImageElement).style.display = "none"
                                 }}
                             />
                         </AnimatePresence>
 
-                        {/* Subtle inner vignette so the gif blends with the dark UI */}
-                        <div className="absolute inset-0 pointer-events-none rounded-xl"
-                             style={{ boxShadow: "inset 0 0 18px rgba(0,0,0,0.55)" }}
+                        {/* Subtle inner vignette */}
+                        <div
+                            className="absolute inset-0 pointer-events-none rounded-xl"
+                            style={{ boxShadow: "inset 0 0 18px rgba(0,0,0,0.55)" }}
                         />
 
-                        {/* Slot indicator dots — tiny, top-right */}
+                        {/* Slot indicator dots */}
                         <div className="absolute top-1.5 right-1.5 flex gap-1">
                             {SLOTS.map((_, i) => (
                                 <span
@@ -99,12 +142,12 @@ function GlitchCTAComponent() {
                 {/* ── Text & CTA ────────────────────────────────────────────── */}
                 <div className="flex flex-col gap-1.5 px-2 pb-2 pt-1.5 sm:gap-2 sm:px-3 sm:pb-3 sm:pt-2">
                     <h3 className="text-[15px] sm:text-[19px] md:text-[22px] font-black text-white leading-[0.92] tracking-tight uppercase">
-                        Play, Win<br />
+                        Try Your Luck<br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white md:hidden">
-                            &amp; Earn XP
+                            &amp; Win Rewards
                         </span>
                         <span className="hidden md:inline text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white">
-                            And Earn XP
+                            And Win Rewards
                         </span>
                     </h3>
 
