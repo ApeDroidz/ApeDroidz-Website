@@ -25,11 +25,11 @@ export async function GET(req: NextRequest) {
             const bal = await balanceOf({ contract: droidContract, owner: wallet })
             isHolder = bal > BigInt(0)
         } catch {
-            // Fallback to DB
+            // Fallback to DB. ilike — case-insensitive, safe (wallet regex-validated).
             const { data } = await supabaseAdmin
                 .from('users')
                 .select('droids_count')
-                .eq('wallet_address', wallet.toLowerCase())
+                .ilike('wallet_address', wallet)
                 .maybeSingle()
             isHolder = (data?.droids_count ?? 0) > 0
         }

@@ -136,7 +136,7 @@ export async function POST(req: Request) {
             const { data: s1User } = await supabaseAdmin
                 .from('glitch_season_1')
                 .select('season_xp, games_played')
-                .eq('wallet_address', wallet)
+                .ilike('wallet_address', wallet)
                 .maybeSingle();
             await supabaseAdmin.from('glitch_season_1').upsert({
                 wallet_address: wallet,
@@ -184,7 +184,7 @@ export async function POST(req: Request) {
                 await supabaseAdmin.from('nft_inventory').update({ status: 'claimed', tx_hash: txHash, won_at: new Date().toISOString() }).eq('id', inventoryItem.id);
             }
             if (finalPrize.type === 'shard') {
-                await supabaseAdmin.from('users').update({ shards_balance: (user.shards_balance || 0) + shardsGained }).eq('wallet_address', wallet);
+                await supabaseAdmin.from('users').update({ shards_balance: (user.shards_balance || 0) + shardsGained }).ilike('wallet_address', wallet);
             }
 
         } catch (transferErr: any) {

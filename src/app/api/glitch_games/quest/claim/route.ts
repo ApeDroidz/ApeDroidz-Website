@@ -23,7 +23,7 @@ async function checkIsHolder(wallet: string): Promise<boolean> {
             const { data } = await supabaseAdmin
                 .from('users')
                 .select('droids_count')
-                .eq('wallet_address', wallet)
+                .ilike('wallet_address', wallet)
                 .maybeSingle()
             return (data?.droids_count ?? 0) > 0
         } catch {

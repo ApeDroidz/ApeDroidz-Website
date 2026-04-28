@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
         const { data: player } = await supabaseAdmin
             .from('glitch_season_2')
             .select('season_xp')
-            .eq('wallet_address', wallet.toLowerCase())
+            .ilike('wallet_address', wallet)
             .maybeSingle()
 
         if (player) {

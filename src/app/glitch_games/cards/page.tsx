@@ -54,10 +54,11 @@ export default function GlitchCardsPage() {
                     const bal = await balanceOf({ contract: droidContract, owner: wallet })
                     return bal > BigInt(0)
                 } catch {
+                    // ilike — case-insensitive (handles legacy mixed-case rows)
                     const { data } = await supabase
                         .from("users")
                         .select("droids_count")
-                        .eq("wallet_address", wallet)
+                        .ilike("wallet_address", wallet)
                         .maybeSingle()
                     return (data?.droids_count ?? 0) > 0
                 }

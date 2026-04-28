@@ -79,7 +79,7 @@ export async function POST(req: Request) {
         const { data: existingClaim } = await supabaseAdmin
             .from('daily_claims_log')
             .select('id')
-            .eq('wallet_address', wallet)
+            .ilike('wallet_address', wallet)
             .eq('task_config_id', taskConfig.id)
             .maybeSingle();
         if (existingClaim) {
@@ -148,7 +148,7 @@ export async function POST(req: Request) {
             const { data: s1User } = await supabaseAdmin
                 .from('glitch_season_1')
                 .select('season_xp, quests_finished')
-                .eq('wallet_address', wallet)
+                .ilike('wallet_address', wallet)
                 .maybeSingle();
             await supabaseAdmin
                 .from('glitch_season_1')

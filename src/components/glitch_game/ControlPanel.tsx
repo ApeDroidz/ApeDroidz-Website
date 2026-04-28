@@ -923,14 +923,14 @@ export function ControlPanel({
                                                     onMouseEnter={(e) => setTooltip({ text: log.prizeName, x: e.clientX, y: e.clientY })}
                                                     onMouseMove={(e) => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
                                                     onMouseLeave={() => setTooltip(null)}
-                                                    className="block w-9 h-9 rounded-lg overflow-hidden border border-white/10 hover:border-white/40 transition-all hover:scale-110 flex-shrink-0 bg-white/5"
+                                                    className="block w-9 h-9 rounded-lg overflow-hidden border border-white/10 hover:border-white/40 transition-all hover:scale-110 flex-shrink-0 bg-black/40"
                                                 >
                                                     <img src={log.imageUrl} alt={log.prizeName} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                                                 </a>
                                             ) : (
                                                 <div
                                                     key={i}
-                                                    className="w-9 h-9 rounded-lg overflow-hidden border border-white/10 flex-shrink-0 bg-white/5"
+                                                    className="w-9 h-9 rounded-lg overflow-hidden border border-white/10 flex-shrink-0 bg-black/40"
                                                     onMouseEnter={(e) => setTooltip({ text: log.prizeName, x: e.clientX, y: e.clientY })}
                                                     onMouseMove={(e) => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
                                                     onMouseLeave={() => setTooltip(null)}
@@ -988,7 +988,7 @@ export function ControlPanel({
                                             >
                                                 {/* NFT thumbnail (if it's an NFT prize) */}
                                                 {log.prizeType === 'nft' && log.imageUrl && (
-                                                    <div className="flex-shrink-0 w-8 h-8 rounded-md overflow-hidden border border-white/10 bg-white/5">
+                                                    <div className="flex-shrink-0 w-8 h-8 rounded-md overflow-hidden border border-white/10 bg-black/40">
                                                         <img src={log.imageUrl} alt={log.prizeName} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                                                     </div>
                                                 )}

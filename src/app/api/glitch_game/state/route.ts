@@ -39,10 +39,11 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Check if this wallet already claimed THIS specific task
+    //    (ilike — case-insensitive, safe because wallet is regex-validated)
     const { data: existingClaim } = await supabaseAdmin
         .from("daily_claims_log")
         .select("claimed_at")
-        .eq("wallet_address", wallet.toLowerCase())
+        .ilike("wallet_address", wallet)
         .eq("task_config_id", task.id)
         .maybeSingle()
 

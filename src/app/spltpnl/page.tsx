@@ -2,17 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertTriangle, BarChart3, BoxSelect, Coins, Gamepad2, Loader2, LogOut, Package, Plane, Plus, RefreshCcw, ShieldAlert, Sparkles, Trophy } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, BoxSelect, Coins, Gamepad2, Loader2, LogOut, Package, Plane, Plus, RefreshCcw, Search, ShieldAlert, Sparkles, Trophy, Users } from 'lucide-react'
 
 // ── Types (loose — coming from server JSON) ───────────────────────────────────
 
-type Window = '24h' | '7d' | '30d'
+type Window = '24h' | '7d' | '30d' | 'all'
 
 const TABS = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'cards', label: 'Cards', icon: Gamepad2 },
     { id: 'flight', label: 'Flight', icon: Plane },
     { id: 'season', label: 'Season 2', icon: Trophy },
+    { id: 'users', label: 'Users', icon: Users },
     { id: 'prizes', label: 'Prizes', icon: Package },
     { id: 'health', label: 'Health', icon: ShieldAlert },
 ] as const
@@ -78,6 +79,63 @@ function Bar({ label, value, max, accent = '#3b82f6' }: { label: string; value: 
     )
 }
 
+/**
+ * Pure SVG sparkline — no chart library. Accepts an array of numbers and
+ * renders a smooth line + faint area fill. Works at any size.
+ */
+function Sparkline({ data, height = 50, accent = '#3b82f6', label }: { data: number[]; height?: number; accent?: string; label?: string }) {
+    if (!data || data.length < 2) {
+        return <div className="text-[10px] text-white/20 italic">No data</div>
+    }
+    const max = Math.max(...data, 1)
+    const min = Math.min(...data, 0)
+    const range = Math.max(1, max - min)
+    const w = 100   // viewBox width — scales via CSS
+    const stepX = w / (data.length - 1)
+    const pts = data.map((v, i) => {
+        const x = i * stepX
+        const y = height - ((v - min) / range) * (height - 4) - 2
+        return [x, y] as const
+    })
+    const linePath = pts.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(' ')
+    const areaPath = `${linePath} L${pts[pts.length - 1][0]},${height} L0,${height} Z`
+    return (
+        <div className="flex flex-col gap-1">
+            {label && <div className="flex items-center justify-between text-[9px] uppercase tracking-widest text-white/30 font-bold"><span>{label}</span><span className="font-mono">{data[data.length - 1]}</span></div>}
+            <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" className="w-full h-12">
+                <defs>
+                    <linearGradient id={`sg-${accent}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={accent} stopOpacity="0.3" />
+                        <stop offset="100%" stopColor={accent} stopOpacity="0" />
+                    </linearGradient>
+                </defs>
+                <path d={areaPath} fill={`url(#sg-${accent})`} />
+                <path d={linePath} fill="none" stroke={accent} strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+            </svg>
+        </div>
+    )
+}
+
+/** Vertical-bar histogram — reads array of {label, value}. */
+function Histogram({ data, accent = '#3b82f6', height = 80, formatVal }: { data: { label: string; value: number }[]; accent?: string; height?: number; formatVal?: (v: number) => string }) {
+    if (!data || data.length === 0) return <p className="text-xs text-white/30">No data</p>
+    const max = Math.max(...data.map(d => d.value), 1)
+    return (
+        <div className="flex items-end gap-1" style={{ height }}>
+            {data.map((d, i) => {
+                const h = max > 0 ? (d.value / max) * (height - 18) : 0
+                return (
+                    <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1 group cursor-default">
+                        <span className="text-[8px] text-white/50 font-mono opacity-0 group-hover:opacity-100 transition-opacity">{formatVal ? formatVal(d.value) : d.value}</span>
+                        <div className="w-full rounded-t transition-colors" style={{ height: `${Math.max(2, h)}px`, background: accent, opacity: 0.6 + (d.value / max) * 0.4 }} title={`${d.label}: ${d.value}`} />
+                        <span className="text-[8px] text-white/30 font-mono truncate w-full text-center">{d.label}</span>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
 function Loading() {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-white/30" /></div>
 }
@@ -103,6 +161,21 @@ function OverviewTab() {
     if (err) return <ErrorBox msg={err} />
     if (!data) return null
 
+    const lt = data.lifetime ?? {}
+    const liab = data.liability ?? null
+    const trends = data.trends ?? { dau: [], signups: [] }
+    const dauSeries = (trends.dau ?? []).map((d: any) => Number(d.cards_dau) + Number(d.flight_dau))
+    const cardsDauSeries = (trends.dau ?? []).map((d: any) => Number(d.cards_dau))
+    const flightDauSeries = (trends.dau ?? []).map((d: any) => Number(d.flight_dau))
+    const revSeries = (trends.dau ?? []).map((d: any) => Number(d.ape_revenue))
+    const depSeries = (trends.dau ?? []).map((d: any) => Number(d.ape_deposits))
+    const wdSeries = (trends.dau ?? []).map((d: any) => Number(d.ape_withdrawals))
+    const signupsSeries = (trends.signups ?? []).map((d: any) => Number(d.signups))
+    const cumulativeUsers = (trends.signups ?? []).map((d: any) => Number(d.cumulative))
+    const today = (trends.signups ?? []).slice(-1)[0]
+    const last7Signups = (trends.signups ?? []).slice(-7).reduce((s: number, d: any) => s + Number(d.signups), 0)
+    const last30Signups = (trends.signups ?? []).reduce((s: number, d: any) => s + Number(d.signups), 0)
+
     return (
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
@@ -125,56 +198,142 @@ function OverviewTab() {
                 </div>
             </Card>
 
-            {/* 4-up stat row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Card><Stat label="Cards plays 24h" value={fmt(data.cards.playsToday)} hint={`${fmt(data.cards.plays7d)} in 7d`} /></Card>
-                <Card><Stat label="Flight bets 24h" value={fmt(data.flight.betsToday)} hint={`${fmt(data.flight.bets7d)} in 7d`} accent="blue" /></Card>
-                <Card><Stat label="Cards revenue 24h" value={`${fmt(data.cards.revenueApeToday, 2)} APE`} hint={`${fmt(data.cards.ticketsBoughtToday)} purchases`} accent="green" /></Card>
-                <Card>
-                    <Stat
-                        label="Flight net 24h"
-                        value={`${data.flight.netToday >= 0 ? '+' : ''}${fmt(data.flight.netToday, 2)} APE`}
-                        hint={`Net 7d: ${data.flight.net7d >= 0 ? '+' : ''}${fmt(data.flight.net7d, 2)}`}
-                        accent={data.flight.netToday >= 0 ? 'green' : 'red'}
-                    />
+            {/* SQL migration not applied banner */}
+            {data.migrationNeeded && data.migrationNeeded.length > 0 && (
+                <Card className="border-red-500/40 bg-red-500/10">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                            <h3 className="text-sm font-black uppercase tracking-wider text-red-400 mb-1">SQL migration not applied</h3>
+                            <p className="text-xs text-white/70">
+                                The analytics RPCs are missing. Lifetime totals, sparklines, and Users tab will show empty until you run{' '}
+                                <code className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded">supabase/migrations/20260428_admin_analytics.sql</code>{' '}
+                                in Supabase SQL Editor.
+                            </p>
+                            <p className="text-[10px] text-white/40 font-mono mt-2">Missing: {data.migrationNeeded.join(', ')}</p>
+                        </div>
+                    </div>
                 </Card>
+            )}
+
+            {/* ── 24h snapshot row ─────────────────────────────────────────── */}
+            <div>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">Last 24 hours</h3>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <Card><Stat label="Cards plays" value={fmt(data.cards.playsToday)} hint={`${fmt(data.cards.plays7d)} in 7d`} /></Card>
+                    <Card><Stat label="Flight bets" value={fmt(data.flight.betsToday)} hint={`${fmt(data.flight.bets7d)} in 7d`} accent="blue" /></Card>
+                    <Card><Stat label="Cards revenue" value={`${fmt(data.cards.revenueApeToday, 2)} APE`} hint={`${fmt(data.cards.ticketsBoughtToday)} purchases`} accent="green" /></Card>
+                    <Card>
+                        <Stat
+                            label="Flight net"
+                            value={`${data.flight.netToday >= 0 ? '+' : ''}${fmt(data.flight.netToday, 2)} APE`}
+                            hint={`Deposits ${fmt(data.flight.depositsApeToday, 2)} · Withdrawals ${fmt(data.flight.withdrawalsApeToday, 2)}`}
+                            accent={data.flight.netToday >= 0 ? 'green' : 'red'}
+                        />
+                    </Card>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                <Card title="Money flow 24h">
-                    <div className="flex flex-col gap-3 mt-2">
-                        <div className="flex items-center justify-between text-sm"><span className="text-white/50">Deposits</span><span className="font-mono text-emerald-400">+{fmt(data.flight.depositsApeToday, 2)} APE</span></div>
-                        <div className="flex items-center justify-between text-sm"><span className="text-white/50">Withdrawals</span><span className="font-mono text-red-400">−{fmt(data.flight.withdrawalsApeToday, 2)} APE</span></div>
-                        <div className="border-t border-white/10 pt-3 flex items-center justify-between text-sm"><span className="text-white font-bold">Net</span><span className={`font-mono font-black ${data.flight.netToday >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{data.flight.netToday >= 0 ? '+' : ''}{fmt(data.flight.netToday, 2)}</span></div>
+            {/* ── Lifetime totals row ──────────────────────────────────────── */}
+            {lt && (
+                <div>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">Lifetime totals</h3>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <Card><Stat label="Cards plays" value={fmt(lt.total_card_plays)} hint={`${fmt(lt.total_card_errors)} errors`} /></Card>
+                        <Card><Stat label="Cards revenue" value={`${fmt(lt.total_card_revenue, 2)} APE`} hint={`${fmt(lt.total_card_purchases)} purchases`} accent="green" /></Card>
+                        <Card>
+                            <Stat
+                                label="Flight house edge"
+                                value={`${fmt(data.derived?.lifetimeFlightHouseEdge ?? 0, 2)} APE`}
+                                hint={`Volume ${fmt(lt.total_flight_volume, 2)} APE`}
+                                accent={(data.derived?.lifetimeFlightHouseEdge ?? 0) >= 0 ? 'green' : 'red'}
+                            />
+                        </Card>
+                        <Card><Stat label="Total NFTs claimed" value={fmt(lt.total_nfts_claimed)} hint={`${fmt(lt.total_rounds)} rounds played`} accent="orange" /></Card>
                     </div>
-                </Card>
+                </div>
+            )}
 
-                <Card title="Users">
-                    <div className="flex flex-col gap-3 mt-2">
-                        <Stat label="Total wallets" value={fmt(data.users.total)} />
-                        <Stat label="Glitch users" value={fmt(data.users.glitchUsers)} hint="Have ticket balance / X handle" />
+            {/* ── Vault liability ──────────────────────────────────────────── */}
+            {liab && (
+                <Card title="Vault liability — APE owed to players right now" className="border-yellow-500/20 bg-yellow-500/5">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                        <Stat label="Total liability" value={`${fmt(liab.total_balance, 4)} APE`} accent="orange" hint="If everyone withdraws now" />
+                        <Stat label="Players w/ balance" value={fmt(liab.players)} hint="Active flight wallets" />
+                        <Stat label="Largest balance" value={`${fmt(liab.max_balance, 4)} APE`} hint="Single biggest holder" />
+                        <Stat label="Mean balance" value={`${fmt(liab.mean_balance, 4)} APE`} />
                     </div>
                 </Card>
+            )}
 
-                <Card title="Health" className={(data.health.pendingInvestigation > 0 || data.health.errorsToday > 5) ? 'border-red-500/30' : ''}>
-                    <div className="flex flex-col gap-3 mt-2">
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-white/50">Pending investigation</span>
-                            <span className={`font-mono font-bold ${data.health.pendingInvestigation > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{fmt(data.health.pendingInvestigation)}</span>
+            {/* ── 30-day trend charts ──────────────────────────────────────── */}
+            {dauSeries.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <Card title="DAU 30 days (cards + flight combined)">
+                        <Sparkline data={dauSeries} accent="#3b82f6" />
+                        <div className="text-[10px] text-white/30 font-mono mt-2">
+                            Latest: {dauSeries.slice(-1)[0]} · Peak: {Math.max(...dauSeries)}
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-white/50">Cards errors 24h</span>
-                            <span className={`font-mono font-bold ${data.health.errorsToday > 5 ? 'text-orange-400' : 'text-white/60'}`}>{fmt(data.health.errorsToday)}</span>
+                    </Card>
+                    <Card title="Cards revenue 30d (APE)">
+                        <Sparkline data={revSeries} accent="#10b981" />
+                        <div className="text-[10px] text-white/30 font-mono mt-2">
+                            7d total: {fmt(revSeries.slice(-7).reduce((s: number, n: number) => s + n, 0), 2)} APE
                         </div>
-                        {data.season2.topWallet && (
-                            <div className="border-t border-white/10 pt-3 flex flex-col gap-1">
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-white/30">S2 leader</span>
-                                <span className="font-mono text-xs text-white">{shortWallet(data.season2.topWallet)} · {fmt(data.season2.topXp)} XP</span>
-                            </div>
-                        )}
-                    </div>
-                </Card>
-            </div>
+                    </Card>
+                    <Card title="Flight money flow 30d">
+                        <div className="flex flex-col gap-1">
+                            <Sparkline data={depSeries} accent="#10b981" label="Deposits" />
+                            <Sparkline data={wdSeries} accent="#ef4444" label="Withdrawals" />
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            {/* ── Cards vs Flight DAU split ───────────────────────────────── */}
+            {cardsDauSeries.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <Card title="Cards DAU 30d">
+                        <Sparkline data={cardsDauSeries} accent="#3b82f6" />
+                        <div className="text-[10px] text-white/30 font-mono mt-2">Latest {cardsDauSeries.slice(-1)[0]} · Peak {Math.max(...cardsDauSeries)}</div>
+                    </Card>
+                    <Card title="Flight DAU 30d">
+                        <Sparkline data={flightDauSeries} accent="#f97316" />
+                        <div className="text-[10px] text-white/30 font-mono mt-2">Latest {flightDauSeries.slice(-1)[0]} · Peak {Math.max(...flightDauSeries)}</div>
+                    </Card>
+                </div>
+            )}
+
+            {/* ── Signups & cumulative users ───────────────────────────────── */}
+            {signupsSeries.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <Card title="Signups 30 days">
+                        <Sparkline data={signupsSeries} accent="#a855f7" />
+                        <div className="grid grid-cols-3 gap-2 mt-3 text-[10px]">
+                            <div><div className="text-white/30 font-bold uppercase tracking-widest">Today</div><div className="font-mono text-white">{today?.signups ?? 0}</div></div>
+                            <div><div className="text-white/30 font-bold uppercase tracking-widest">7d</div><div className="font-mono text-white">{last7Signups}</div></div>
+                            <div><div className="text-white/30 font-bold uppercase tracking-widest">30d</div><div className="font-mono text-white">{last30Signups}</div></div>
+                        </div>
+                    </Card>
+                    <Card title="Cumulative users (30d)">
+                        <Sparkline data={cumulativeUsers} accent="#a855f7" />
+                        <div className="text-[10px] text-white/30 font-mono mt-2">Now: {cumulativeUsers.slice(-1)[0]} total</div>
+                    </Card>
+
+                    <Card title="Health" className={(data.health.pendingInvestigation > 0 || data.health.errorsToday > 5) ? 'border-red-500/30' : ''}>
+                        <div className="flex flex-col gap-3 mt-2">
+                            <div className="flex items-center justify-between text-sm"><span className="text-white/50">Pending investigation</span><span className={`font-mono font-bold ${data.health.pendingInvestigation > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{fmt(data.health.pendingInvestigation)}</span></div>
+                            <div className="flex items-center justify-between text-sm"><span className="text-white/50">Cards errors 24h</span><span className={`font-mono font-bold ${data.health.errorsToday > 5 ? 'text-orange-400' : 'text-white/60'}`}>{fmt(data.health.errorsToday)}</span></div>
+                            {data.season2.topWallet && (
+                                <div className="border-t border-white/10 pt-3 flex flex-col gap-1">
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-white/30">S2 leader</span>
+                                    <span className="font-mono text-xs text-white">{shortWallet(data.season2.topWallet)} · {fmt(data.season2.topXp)} XP</span>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+            )}
         </div>
     )
 }
@@ -203,15 +362,15 @@ function CardsTab() {
                         <Card><Stat label="Plays" value={fmt(data.playsTotal)} /></Card>
                         <Card><Stat label="Unique players" value={fmt(data.uniquePlayers)} accent="blue" /></Card>
                         <Card><Stat label="Tickets bought" value={fmt(data.ticketsBought)} hint={`${fmt(data.apeRevenue, 2)} APE`} accent="green" /></Card>
-                        <Card><Stat label="Errors" value={fmt(data.errorsCount)} accent={data.errorsCount > 5 ? 'red' : 'white'} /></Card>
+                        <Card><Stat label="XP distributed" value={fmt(data.xpDistributed)} hint={`${fmt(data.errorsCount)} errors`} accent={data.errorsCount > 5 ? 'red' : 'white'} /></Card>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        <Card title="Prize distribution">
+                        <Card title="Prize drop count">
                             <div className="flex flex-col gap-2 mt-2">
-                                {data.prizeDistribution.length === 0 && <p className="text-xs text-white/30">No data</p>}
-                                {data.prizeDistribution.slice(0, 12).map((row: any) => (
-                                    <Bar key={row.prize} label={row.prize} value={row.count} max={data.prizeDistribution[0]?.count ?? 1} />
+                                {(!data.prizeDistribution || data.prizeDistribution.length === 0) && <p className="text-xs text-white/30">No data</p>}
+                                {(data.prizeDistribution ?? []).slice(0, 12).map((row: any) => (
+                                    <Bar key={row.prize_type_id} label={row.prize_type_id} value={Number(row.drops)} max={Number(data.prizeDistribution[0]?.drops ?? 1)} />
                                 ))}
                             </div>
                         </Card>
@@ -226,12 +385,62 @@ function CardsTab() {
                                             <div className="text-white font-bold truncate">{w.name || 'NFT'}</div>
                                             <div className="text-white/40 font-mono text-[10px]">{shortWallet(w.winner_wallet)} · #{w.token_id}</div>
                                         </div>
-                                        <span className="text-white/30 font-mono text-[10px]">{new Date(w.won_at).toLocaleDateString()}</span>
+                                        <span className="text-white/30 font-mono text-[10px]">{w.won_at && new Date(w.won_at).toLocaleDateString()}</span>
                                     </div>
                                 ))}
                             </div>
                         </Card>
                     </div>
+
+                    {/* ── Drop-rate fairness — actual vs configured ─────── */}
+                    {data.fairness && data.fairness.length > 0 && (
+                        <Card title="Drop-rate fairness — observed % vs configured %" className="border-purple-500/20">
+                            <div className="overflow-x-auto -mx-2 px-2">
+                                <table className="w-full text-[11px]">
+                                    <thead>
+                                        <tr className="text-left">
+                                            <th className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 pb-2 px-2">Prize</th>
+                                            <th className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 pb-2 px-2 text-right">Drops</th>
+                                            <th className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 pb-2 px-2 text-right">Configured</th>
+                                            <th className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 pb-2 px-2 text-right">Observed</th>
+                                            <th className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 pb-2 px-2 text-right">Δ</th>
+                                            <th className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 pb-2 px-2">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {data.fairness.map((p: any) => {
+                                            const absDelta = Math.abs(p.delta)
+                                            const ok = !p.isActive ? 'inactive' : absDelta < 1 ? 'good' : absDelta < 3 ? 'fair' : 'check'
+                                            const color = ok === 'good' ? 'text-emerald-400' : ok === 'fair' ? 'text-yellow-400' : ok === 'check' ? 'text-red-400' : 'text-white/30'
+                                            return (
+                                                <tr key={p.id} className="border-t border-white/5">
+                                                    <td className="px-2 py-2 align-middle"><div className="font-mono text-xs">{p.id}</div><div className="text-[10px] text-white/40">{p.name}</div></td>
+                                                    <td className="px-2 py-2 align-middle text-right font-mono">{fmt(p.observedDrops)}</td>
+                                                    <td className="px-2 py-2 align-middle text-right font-mono text-white/60">{p.configuredPct.toFixed(2)}%</td>
+                                                    <td className="px-2 py-2 align-middle text-right font-mono">{p.observedPct.toFixed(2)}%</td>
+                                                    <td className={`px-2 py-2 align-middle text-right font-mono ${p.delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{p.delta >= 0 ? '+' : ''}{p.delta.toFixed(2)}</td>
+                                                    <td className={`px-2 py-2 align-middle text-[9px] font-black uppercase tracking-widest ${color}`}>{ok}</td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p className="text-[9px] text-white/30 mt-3 font-mono">good = within 1pp · fair = within 3pp · check = larger drift (small samples skew this — trust 'all' window with 1000+ drops)</p>
+                        </Card>
+                    )}
+
+                    {/* ── Hourly distribution (last 7d) ─────────────────── */}
+                    {data.hourlyDistribution && data.hourlyDistribution.length > 0 && (
+                        <Card title="Hourly play distribution (last 7d, UTC)">
+                            <Histogram
+                                data={data.hourlyDistribution.map((h: any) => ({ label: String(h.hour_utc).padStart(2, '0'), value: Number(h.cards_plays) }))}
+                                accent="#3b82f6"
+                                height={100}
+                            />
+                            <p className="text-[9px] text-white/30 mt-2 font-mono">Hover bars for exact counts. UTC. Cards plays only.</p>
+                        </Card>
+                    )}
 
                     <Card title="Recent activity">
                         <Table headers={['Wallet', 'Prize', 'Status', 'When']} rows={data.recentActivity.slice(0, 30).map((r: any) => [
@@ -269,17 +478,30 @@ function FlightTab() {
                 <>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         <Card><Stat label="Rounds" value={fmt(data.rounds)} /></Card>
-                        <Card><Stat label="Bets" value={fmt(data.betsCount)} hint={`${fmt(data.uniquePlayers)} players`} accent="blue" /></Card>
+                        <Card><Stat label="Bets" value={fmt(data.betsCount)} hint={`${fmt(data.uniquePlayers)} players · avg ${fmt(data.volume.avgBet, 2)}`} accent="blue" /></Card>
                         <Card><Stat label="Volume" value={`${fmt(data.volume.totalBets, 2)} APE`} hint={`Payout ${fmt(data.volume.totalPayout, 2)}`} /></Card>
                         <Card>
                             <Stat
                                 label="House edge realised"
                                 value={`${fmt(data.volume.houseEdgeRealised, 2)} APE`}
-                                hint={`${data.volume.edgePct.toFixed(2)}% of volume`}
+                                hint={`${data.volume.edgePct.toFixed(2)}% of volume · win rate ${data.outcome.winRate?.toFixed(1)}%`}
                                 accent={data.volume.houseEdgeRealised >= 0 ? 'green' : 'red'}
                             />
                         </Card>
                     </div>
+
+                    {/* ── Vault liability ─────────────────────────────── */}
+                    {data.liability && (
+                        <Card title="Vault liability (snapshot — independent of window)" className="border-yellow-500/20 bg-yellow-500/5">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                                <Stat label="Total APE owed" value={`${fmt(data.liability.total_balance, 4)} APE`} accent="orange" />
+                                <Stat label="Players holding APE" value={fmt(data.liability.players)} />
+                                <Stat label="Largest single balance" value={`${fmt(data.liability.max_balance, 4)} APE`} />
+                                <Stat label="Mean balance" value={`${fmt(data.liability.mean_balance, 4)} APE`} />
+                            </div>
+                            <p className="text-[9px] text-white/30 mt-3 font-mono">Compare with vault wallet's actual balance on-chain to verify solvency.</p>
+                        </Card>
+                    )}
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                         <Card title="Outcome">
@@ -319,10 +541,23 @@ function FlightTab() {
                         </Card>
                     </div>
 
+                    {/* ── Crash histogram ─────────────────────────────── */}
+                    {data.crashHistogram && data.crashHistogram.length > 0 && (
+                        <Card title="Crash-point distribution (provably fair audit)">
+                            <Histogram
+                                data={data.crashHistogram.map((b: any) => ({ label: b.bucket.replace('x', ''), value: Number(b.cnt) }))}
+                                accent="#f97316"
+                                height={120}
+                            />
+                            <p className="text-[9px] text-white/30 mt-3 font-mono">Buckets: 1.00-1.09x · 1.10-1.49x · 1.50-1.99x · 2.00-2.99x · 3-5x · 5-10x · 10-20x · 20+x</p>
+                        </Card>
+                    )}
+
                     {data.queue.pendingInvestigation.length > 0 && (
                         <Card title="🚨 Pending investigation — review needed" className="border-red-500/30">
-                            <Table headers={['Wallet', 'Amount', 'TX', 'Created']} rows={data.queue.pendingInvestigation.map((r: any) => [
+                            <Table headers={['Wallet', 'Type', 'Amount', 'TX', 'Created']} rows={data.queue.pendingInvestigation.map((r: any) => [
                                 shortWallet(r.wallet_address),
+                                <span key="ty" className="text-[10px] uppercase tracking-widest text-white/50">{r.type}</span>,
                                 <span key="a" className="font-mono">{fmt(r.amount, 4)}</span>,
                                 r.tx_hash ? <a key="t" href={`https://apescan.io/tx/${r.tx_hash}`} target="_blank" rel="noreferrer" className="font-mono text-[#3b82f6] hover:underline">{r.tx_hash.slice(0, 12)}…</a> : <span key="t" className="text-white/30">—</span>,
                                 new Date(r.created_at).toLocaleString(),
@@ -383,12 +618,36 @@ function SeasonTab() {
                         </Card>
                     </div>
 
+                    {/* ── XP tier distribution + 7d XP trend ───────────────── */}
+                    {(data.xpTiers && data.xpTiers.length > 0) && (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                            <Card title="XP tier distribution (all-time)">
+                                <Histogram
+                                    data={data.xpTiers.map((t: any) => ({ label: t.tier, value: Number(t.cnt) }))}
+                                    accent="#3b82f6"
+                                    height={120}
+                                />
+                                <p className="text-[9px] text-white/30 mt-3 font-mono">Each bar = users at that XP range. Wider top tiers = strong engagement.</p>
+                            </Card>
+
+                            <Card title="XP distributed via quests (last 7d)">
+                                {data.xpDistributedTrend7d && data.xpDistributedTrend7d.length > 0 ? (
+                                    <>
+                                        <Sparkline data={data.xpDistributedTrend7d.map((d: any) => Number(d.xp))} accent="#10b981" />
+                                        <div className="text-[10px] text-white/30 font-mono mt-2">7d total: {fmt(data.xpDistributedTrend7d.reduce((s: number, d: any) => s + Number(d.xp), 0))} XP</div>
+                                    </>
+                                ) : <p className="text-xs text-white/30">No data</p>}
+                            </Card>
+                        </div>
+                    )}
+
                     <Card title="Top 50 leaderboard">
-                        <Table headers={['#', 'Wallet', 'XP', 'Plays']} rows={data.top50.map((r: any, i: number) => [
+                        <Table headers={['#', 'Wallet', 'XP', 'Plays', 'Last seen']} rows={data.top50.map((r: any, i: number) => [
                             <span key="r" className="font-mono text-white/40">{i + 1}</span>,
                             <span key="w" className="font-mono text-white">{shortWallet(r.wallet_address)}</span>,
                             <span key="x" className="font-mono text-[#3b82f6] font-bold">{fmt(r.season_xp)}</span>,
                             <span key="p" className="font-mono text-white/40">{fmt(r.games_played)}</span>,
+                            <span key="t" className="font-mono text-[10px] text-white/30">{r.updated_at ? new Date(r.updated_at).toLocaleDateString() : '—'}</span>,
                         ])} />
                     </Card>
                 </>
@@ -699,14 +958,207 @@ function AlertCard({ alert }: { alert: { severity: string; kind: string; message
     )
 }
 
+// ── Tab: Users ────────────────────────────────────────────────────────────────
+
+function UsersTab() {
+    const [data, setData] = useState<any>(null)
+    const [err, setErr] = useState('')
+    const [loading, setLoading] = useState(true)
+    const [view, setView] = useState<'top' | 'profits' | 'losers' | 'recent'>('top')
+
+    // Drill-down state
+    const [search, setSearch] = useState('')
+    const [drillDown, setDrillDown] = useState<any>(null)
+    const [drillLoading, setDrillLoading] = useState(false)
+    const [drillError, setDrillError] = useState('')
+
+    const load = useCallback(async () => {
+        setLoading(true); setErr('')
+        try { setData(await jsonFetch('/api/admin/stats/users')) }
+        catch (e: any) { setErr(e.message) }
+        finally { setLoading(false) }
+    }, [])
+    useEffect(() => { load() }, [load])
+
+    const performSearch = useCallback(async (wallet: string) => {
+        const w = wallet.trim().toLowerCase()
+        if (!/^0x[0-9a-f]{40}$/.test(w)) {
+            setDrillError('Invalid wallet (need 0x… 40 hex)')
+            return
+        }
+        setDrillLoading(true); setDrillError('')
+        try {
+            setDrillDown(await jsonFetch(`/api/admin/stats/users?wallet=${w}`))
+        } catch (e: any) { setDrillError(e.message); setDrillDown(null) }
+        finally { setDrillLoading(false) }
+    }, [])
+
+    return (
+        <div className="flex flex-col gap-4">
+            {/* ── Wallet search ──────────────────────────────────────────── */}
+            <Card title="Wallet drill-down">
+                <div className="flex items-center gap-2">
+                    <input
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && performSearch(search)}
+                        placeholder="0x… (paste wallet, press Enter)"
+                        className="flex-1 bg-black/40 border border-white/10 rounded-xl h-10 px-3 text-sm font-mono focus:outline-none focus:border-[#3b82f6] placeholder:text-white/20"
+                    />
+                    <button onClick={() => performSearch(search)} disabled={drillLoading} className="h-10 px-4 bg-[#3b82f6] hover:bg-[#2c63c4] disabled:opacity-50 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                        {drillLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />} Search
+                    </button>
+                    {drillDown && <button onClick={() => { setDrillDown(null); setSearch('') }} className="h-10 px-3 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white">Clear</button>}
+                </div>
+                {drillError && <p className="text-xs text-red-400 mt-2">{drillError}</p>}
+            </Card>
+
+            {drillDown ? <WalletDrillDown data={drillDown} /> : (
+                <>
+                    <div className="flex items-center justify-between">
+                        <div className="flex bg-white/5 rounded-xl border border-white/10 p-0.5">
+                            {([['top', 'Top spenders'], ['profits', 'Top profits'], ['losers', 'Worst losers'], ['recent', 'Recent signups']] as const).map(([id, label]) => (
+                                <button key={id} onClick={() => setView(id as any)} className={`px-3 h-7 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${view === id ? 'bg-[#3b82f6] text-white' : 'text-white/40 hover:text-white'}`}>{label}</button>
+                            ))}
+                        </div>
+                        <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/40 hover:text-white"><RefreshCcw size={12} /> Refresh</button>
+                    </div>
+
+                    {loading && !data ? <Loading /> : err ? <ErrorBox msg={err} /> : data && (
+                        <>
+                            {view === 'top' && (
+                                <Card title="Top 50 Cards spenders (all-time)">
+                                    <Table headers={['#', 'Wallet', 'APE spent', 'Purchases', 'Last']} rows={(data.topSpenders ?? []).map((u: any, i: number) => [
+                                        <span key="r" className="font-mono text-white/40">{i + 1}</span>,
+                                        <button key="w" onClick={() => { setSearch(u.wallet_address); performSearch(u.wallet_address) }} className="font-mono text-[#3b82f6] hover:underline">{shortWallet(u.wallet_address)}</button>,
+                                        <span key="a" className="font-mono text-emerald-400 font-bold">{fmt(u.total_ape, 2)} APE</span>,
+                                        <span key="c" className="font-mono text-white/60">{fmt(u.purchases)}</span>,
+                                        <span key="l" className="font-mono text-[10px] text-white/30">{u.last_purchase && new Date(u.last_purchase).toLocaleDateString()}</span>,
+                                    ])} />
+                                </Card>
+                            )}
+
+                            {view === 'profits' && (
+                                <Card title="Top 50 Flight profits (all-time)">
+                                    <Table headers={['#', 'Wallet', 'Profit', 'Volume', 'Wins/Losses']} rows={(data.topProfits ?? []).map((u: any, i: number) => [
+                                        <span key="r" className="font-mono text-white/40">{i + 1}</span>,
+                                        <button key="w" onClick={() => { setSearch(u.wallet_address); performSearch(u.wallet_address) }} className="font-mono text-[#3b82f6] hover:underline">{shortWallet(u.wallet_address)}</button>,
+                                        <span key="p" className={`font-mono font-bold ${Number(u.total_profit) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{Number(u.total_profit) >= 0 ? '+' : ''}{fmt(u.total_profit, 4)}</span>,
+                                        <span key="v" className="font-mono text-white/60">{fmt(u.total_volume, 2)}</span>,
+                                        <span key="wl" className="font-mono text-[10px]"><span className="text-emerald-400">{u.wins}W</span>/<span className="text-red-400">{u.losses}L</span></span>,
+                                    ])} />
+                                </Card>
+                            )}
+
+                            {view === 'losers' && (
+                                <Card title="Top 50 Flight losses (all-time)">
+                                    <Table headers={['#', 'Wallet', 'Total lost', 'Volume', 'Plays']} rows={(data.worstLosers ?? []).map((u: any, i: number) => [
+                                        <span key="r" className="font-mono text-white/40">{i + 1}</span>,
+                                        <button key="w" onClick={() => { setSearch(u.wallet_address); performSearch(u.wallet_address) }} className="font-mono text-[#3b82f6] hover:underline">{shortWallet(u.wallet_address)}</button>,
+                                        <span key="l" className="font-mono text-red-400 font-bold">−{fmt(u.total_loss, 4)}</span>,
+                                        <span key="v" className="font-mono text-white/60">{fmt(u.total_volume, 2)}</span>,
+                                        <span key="p" className="font-mono text-white/40">{u.plays}</span>,
+                                    ])} />
+                                </Card>
+                            )}
+
+                            {view === 'recent' && (
+                                <Card title="Recent signups (last 50, ordered by first activity)">
+                                    <Table headers={['Wallet', 'First seen', 'Source']} rows={(data.recentSignups ?? []).map((u: any) => [
+                                        <button key="w" onClick={() => { setSearch(u.wallet_address); performSearch(u.wallet_address) }} className="font-mono text-[#3b82f6] hover:underline">{shortWallet(u.wallet_address)}</button>,
+                                        <span key="t" className="font-mono text-[10px] text-white/60">{new Date(u.first_seen).toLocaleString()}</span>,
+                                        <span key="s" className="text-[10px] uppercase tracking-widest text-white/40">{u.sources}</span>,
+                                    ])} />
+                                </Card>
+                            )}
+                        </>
+                    )}
+                </>
+            )}
+        </div>
+    )
+}
+
+function WalletDrillDown({ data }: { data: any }) {
+    const s = data.summary
+    if (!s) return <Card>No data for this wallet — they may have never played.</Card>
+
+    return (
+        <div className="flex flex-col gap-4">
+            <Card title="Wallet summary" className="border-[#3b82f6]/30 bg-[#3b82f6]/5">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                    <Stat label="Wallet" value={<span className="font-mono text-xs">{shortWallet(s.wallet_address)}</span>} hint={s.x_handle ?? 'no X handle'} />
+                    <Stat label="First seen" value={<span className="text-sm font-mono">{s.first_seen ? new Date(s.first_seen).toLocaleDateString() : '—'}</span>} />
+                    <Stat label="Droids owned" value={fmt(s.droids_count)} hint="On-chain (DB snapshot)" />
+                    <Stat label="Tickets balance" value={fmt(s.games_balance)} hint={`Flight: ${fmt(s.flight_balance, 4)} APE`} accent="green" />
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/10">
+                    <Stat label="Cards plays" value={fmt(s.cards_plays)} hint={`${fmt(s.cards_nfts_won)} NFTs won`} />
+                    <Stat label="Cards spent" value={`${fmt(s.cards_ape_spent, 2)} APE`} accent="green" />
+                    <Stat label="Flight bets" value={fmt(s.flight_bets)} hint={`Profit ${fmt(s.flight_total_profit, 4)} APE`} accent={Number(s.flight_total_profit) >= 0 ? 'green' : 'red'} />
+                    <Stat label="Flight in/out" value={`+${fmt(s.flight_deposits, 2)}/−${fmt(s.flight_withdrawals, 2)}`} accent="blue" />
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/10">
+                    <Stat label="Season 2 XP" value={fmt(s.season2_xp)} accent="blue" />
+                    <Stat label="NFT XP (lifetime)" value={fmt(s.nft_xp)} />
+                </div>
+            </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <Card title="Recent Cards plays (last 30)">
+                    <Table headers={['Prize', 'Status', 'XP', 'When']} rows={(data.recentCards ?? []).slice(0, 15).map((r: any) => [
+                        <span key="p" className="font-mono text-xs">{r.prize_type_id || '—'}</span>,
+                        <span key="s" className={r.status === 'error' ? 'text-red-400' : r.status === 'success' ? 'text-emerald-400' : 'text-white/40'}>{r.status}</span>,
+                        <span key="x" className="font-mono text-[#3b82f6]">{r.xp_awarded || 0}</span>,
+                        <span key="t" className="font-mono text-[10px] text-white/40">{new Date(r.created_at).toLocaleString()}</span>,
+                    ])} />
+                </Card>
+
+                <Card title="Recent Flight bets (last 30)">
+                    <Table headers={['Bet', 'Mult', 'Profit', 'When']} rows={(data.recentFlight ?? []).slice(0, 15).map((r: any) => [
+                        <span key="b" className="font-mono">{fmt(r.bet_amount, 2)}</span>,
+                        <span key="m" className="font-mono text-white/60">{r.cashout_at ? `${Number(r.cashout_at).toFixed(2)}x` : '✗ lost'}</span>,
+                        <span key="p" className={`font-mono ${Number(r.profit) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.profit != null ? (Number(r.profit) >= 0 ? '+' : '') + fmt(r.profit, 4) : '—'}</span>,
+                        <span key="t" className="font-mono text-[10px] text-white/40">{new Date(r.created_at).toLocaleString()}</span>,
+                    ])} />
+                </Card>
+            </div>
+
+            <Card title={`NFTs won (${(data.nftsWon ?? []).length})`}>
+                {(!data.nftsWon || data.nftsWon.length === 0) ? <p className="text-xs text-white/30">No NFTs won</p> : (
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {data.nftsWon.map((n: any, i: number) => (
+                            <div key={i} className="flex flex-col gap-1 bg-white/5 border border-white/10 rounded-lg p-2">
+                                {n.image_url && <img src={n.image_url} alt="" className="w-full aspect-square rounded object-cover" />}
+                                <div className="text-[9px] text-white/60 truncate">{n.name}</div>
+                                <div className="text-[8px] font-mono text-white/30">#{n.token_id}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </Card>
+
+            <Card title="Recent transactions">
+                <Table headers={['Type', 'Amount', 'Status', 'TX', 'When']} rows={(data.recentTransactions ?? []).map((r: any) => [
+                    <span key="t" className="text-[10px] uppercase tracking-widest text-white/50">{r.type}</span>,
+                    <span key="a" className="font-mono">{fmt(r.amount, 4)}</span>,
+                    <span key="s" className={r.status === 'confirmed' ? 'text-emerald-400' : r.status === 'pending_investigation' ? 'text-red-400' : 'text-white/40'}>{r.status}</span>,
+                    r.tx_hash ? <a key="x" href={`https://apescan.io/tx/${r.tx_hash}`} target="_blank" rel="noreferrer" className="font-mono text-[10px] text-[#3b82f6] hover:underline">{r.tx_hash.slice(0, 12)}…</a> : <span key="x" className="text-white/30">—</span>,
+                    <span key="w" className="font-mono text-[10px] text-white/40">{new Date(r.created_at).toLocaleString()}</span>,
+                ])} />
+            </Card>
+        </div>
+    )
+}
+
 // ── Window switcher ───────────────────────────────────────────────────────────
 
 function WindowSwitcher({ value, onChange, onRefresh }: { value: Window; onChange: (v: Window) => void; onRefresh: () => void }) {
     return (
         <div className="flex items-center gap-2 justify-end">
             <div className="flex bg-white/5 rounded-xl border border-white/10 p-0.5">
-                {(['24h', '7d', '30d'] as Window[]).map(w => (
-                    <button key={w} onClick={() => onChange(w)} className={`px-3 h-7 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${value === w ? 'bg-[#3b82f6] text-white' : 'text-white/40 hover:text-white'}`}>{w}</button>
+                {(['24h', '7d', '30d', 'all'] as Window[]).map(w => (
+                    <button key={w} onClick={() => onChange(w)} className={`px-3 h-7 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${value === w ? 'bg-[#3b82f6] text-white' : 'text-white/40 hover:text-white'}`}>{w === 'all' ? 'All-time' : w}</button>
                 ))}
             </div>
             <button onClick={onRefresh} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/40 hover:text-white"><RefreshCcw size={12} /> Refresh</button>
@@ -755,6 +1207,7 @@ export default function SpltpnlPage() {
             case 'cards':    return <CardsTab />
             case 'flight':   return <FlightTab />
             case 'season':   return <SeasonTab />
+            case 'users':    return <UsersTab />
             case 'prizes':   return <PrizesTab />
             case 'health':   return <HealthTab />
         }

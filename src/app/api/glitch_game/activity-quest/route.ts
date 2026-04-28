@@ -61,7 +61,7 @@ async function countStreakDays(wallet: string, monday: string): Promise<number> 
     const { data } = await supabaseAdmin
         .from('daily_activity_claims')
         .select('claim_date')
-        .eq('wallet_address', wallet)
+        .ilike('wallet_address', wallet)   // case-insensitive (legacy mixed-case rows)
         .in('quest_type', STREAK_QUEST_TYPES)
         .gte('claim_date', monday)
         .lte('claim_date', utcToday())
@@ -110,33 +110,33 @@ export async function GET(req: NextRequest) {
     const [cardsDay, flightDay, cardsWeek, flightWeek, claims, streakRes, streakClaimsRes] =
         await Promise.all([
             supabaseAdmin.from('game_logs').select('id', { count: 'exact', head: true })
-                .eq('wallet_address', w).eq('status', 'success')
+                .ilike('wallet_address', w).eq('status', 'success')
                 .gte('created_at', dayRange.start).lte('created_at', dayRange.end),
 
             supabaseAdmin.from('flight_game_logs').select('id', { count: 'exact', head: true })
-                .eq('wallet_address', w)
+                .ilike('wallet_address', w)
                 .gte('created_at', dayRange.start).lte('created_at', dayRange.end),
 
             supabaseAdmin.from('game_logs').select('id', { count: 'exact', head: true })
-                .eq('wallet_address', w).eq('status', 'success')
+                .ilike('wallet_address', w).eq('status', 'success')
                 .gte('created_at', wkRange.start).lte('created_at', wkRange.end),
 
             supabaseAdmin.from('flight_game_logs').select('id', { count: 'exact', head: true })
-                .eq('wallet_address', w)
+                .ilike('wallet_address', w)
                 .gte('created_at', wkRange.start).lte('created_at', wkRange.end),
 
             supabaseAdmin.from('daily_activity_claims').select('quest_type, claim_date')
-                .eq('wallet_address', w)
+                .ilike('wallet_address', w)
                 .in('claim_date', [today, monday]),
 
             supabaseAdmin.from('daily_activity_claims').select('claim_date')
-                .eq('wallet_address', w)
+                .ilike('wallet_address', w)
                 .in('quest_type', STREAK_QUEST_TYPES)
                 .gte('claim_date', monday)
                 .lte('claim_date', today),
 
             supabaseAdmin.from('weekly_streak_claims').select('streak_day')
-                .eq('wallet_address', w)
+                .ilike('wallet_address', w)
                 .eq('week_monday', monday),
         ])
 
@@ -198,7 +198,7 @@ export async function POST(req: Request) {
 
             const { data: existing } = await supabaseAdmin
                 .from('weekly_streak_claims').select('id')
-                .eq('wallet_address', wallet).eq('week_monday', monday).eq('streak_day', day)
+                .ilike('wallet_address', wallet).eq('week_monday', monday).eq('streak_day', day)
                 .maybeSingle()
             if (existing) return NextResponse.json({ error: 'Already claimed' }, { status: 429 })
 
@@ -235,14 +235,14 @@ export async function POST(req: Request) {
 
         const { data: existing } = await supabaseAdmin
             .from('daily_activity_claims').select('id')
-            .eq('wallet_address', wallet)
+            .ilike('wallet_address', wallet)
             .eq('quest_type', questType).eq('claim_date', claimDate)
             .maybeSingle()
         if (existing) return NextResponse.json({ error: 'Already claimed' }, { status: 429 })
 
         const table = cfg.game === 'cards' ? 'game_logs' : 'flight_game_logs'
         let query = supabaseAdmin.from(table).select('id', { count: 'exact', head: true })
-            .eq('wallet_address', wallet).gte('created_at', start).lte('created_at', end)
+            .ilike('wallet_address', wallet).gte('created_at', start).lte('created_at', end)
         if (cfg.game === 'cards') query = query.eq('status', 'success')
 
         const { count } = await query

@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         const { data: refs } = await supabaseAdmin
             .from('referrals')
             .select('invitee_wallet, invitee_cards_played, invitee_flights_played, xp_reward_paid, ticket_reward_paid, created_at')
-            .eq('inviter_wallet', w)
+            .ilike('inviter_wallet', w)
             .order('created_at', { ascending: false })
 
         const totalReferrals = refs?.length ?? 0

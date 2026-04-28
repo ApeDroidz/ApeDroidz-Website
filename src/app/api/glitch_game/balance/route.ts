@@ -21,10 +21,13 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ games_balance: 0, x_handle: null });
     }
 
+    // ilike (after regex validation above): wallet is guaranteed to be hex-only,
+    // so ilike behaves like a case-insensitive eq. This handles legacy rows
+    // stored with mixed case (e.g. checksummed `0xAbC…`).
     const { data, error } = await supabaseAdmin
         .from('glitch_users')
         .select('games_balance, x_handle')
-        .eq('wallet_address', wallet.toLowerCase())
+        .ilike('wallet_address', wallet)
         .maybeSingle();
 
     if (error) {
