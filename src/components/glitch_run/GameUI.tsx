@@ -142,46 +142,45 @@ export function MultiplierOverlay({
 }
 
 // ─── Round history pills ──────────────────────────────────────────────────────
-// Crash-bucket pills (no exact multiplier shown — keeps the cap mechanism
-// out of public view). The player still gets a visual rhythm (low/mid/high
-// streaks) without leaking the cap.
+// Each pill shows the round's actual crash multiplier (e.g. "2.34x") with
+// colour banded by tier so a streak of low/high crashes is immediately
+// visible. Rounds the player bet on get a stronger outline + W/L tinting
+// so you can spot your own rounds in the strip.
 //
-// Bet rounds get a slightly stronger outline so the player can spot which
-// rounds were theirs. Wins are filled green, losses faded red.
-function bucketCls(crash: number): string {
-    if (crash < 1.5) return 'bg-red-500/15 border-red-500/30'
-    if (crash < 3)   return 'bg-yellow-300/15 border-yellow-300/30'
-    if (crash < 7)   return 'bg-orange-400/15 border-orange-400/30'
-    return                  'bg-[#00FF94]/15 border-[#00FF94]/40'
+// Tiers (chosen to feel intuitive in a crash game):
+//   red    : < 1.5x   — instant / near-instant
+//   yellow : 1.5–3x   — small win territory
+//   orange : 3–7x     — solid round
+//   green  : ≥ 7x     — big run
+function tierCls(crash: number): { text: string; border: string } {
+    if (crash < 1.5) return { text: 'text-red-400',     border: 'border-red-500/30' }
+    if (crash < 3)   return { text: 'text-yellow-300',  border: 'border-yellow-300/30' }
+    if (crash < 7)   return { text: 'text-orange-400',  border: 'border-orange-400/30' }
+    return                  { text: 'text-[#00FF94]',   border: 'border-[#00FF94]/40' }
 }
 
 export function RoundHistoryPills({ history }: { history: RoundResult[] }) {
     return (
         <div className="flex gap-1.5 items-center overflow-hidden flex-nowrap flex-1 min-w-0">
             {history.slice(0, 20).map((r, i) => {
+                const x    = r.crashPoint ?? 1
+                const tier = tierCls(x)
                 const won  = r.userResult === 'won'
                 const lost = r.userResult === 'lost'
-                // Bet rounds — strong outline + W/L letter.
-                if (won || lost) {
-                    const cls = won
-                        ? 'bg-[#00FF94]/20 border-[#00FF94]/60 text-[#00FF94]'
-                        : 'bg-red-500/20 border-red-500/60 text-red-300'
-                    return (
-                        <span
-                            key={i}
-                            className={`min-w-[24px] px-2 py-0.5 rounded text-[10px] font-mono font-black border shrink-0 text-center ${cls}`}
-                        >
-                            {won ? 'W' : 'L'}
-                        </span>
-                    )
-                }
-                // Non-bet rounds — coloured by crash bucket, no number.
+                // Bet rounds — emphasise outline + a tiny W/L badge before the multiplier.
+                const outline = won
+                    ? 'bg-[#00FF94]/10 border-[#00FF94]/60'
+                    : lost
+                    ? 'bg-red-500/10 border-red-500/60'
+                    : `bg-white/[0.02] ${tier.border}`
                 return (
                     <span
                         key={i}
-                        className={`min-w-[18px] h-[18px] px-1 rounded border shrink-0 ${bucketCls(r.crashPoint ?? 1)}`}
-                        aria-hidden
-                    />
+                        className={`min-w-[36px] px-1.5 py-0.5 rounded text-[10px] font-mono font-black border shrink-0 text-center ${outline} ${tier.text}`}
+                        title={won ? 'You won' : lost ? 'You lost' : undefined}
+                    >
+                        {x.toFixed(2)}x
+                    </span>
                 )
             })}
         </div>
@@ -192,24 +191,27 @@ export function RoundHistoryPills({ history }: { history: RoundResult[] }) {
 function RoundHistoryList({ history }: { history: RoundResult[] }) {
     return (
         <div className="flex flex-col divide-y divide-white/5">
-            {history.slice(0, 20).map((r, i) => (
-                <div key={i} className="px-5 py-2.5 flex items-center justify-between">
-                    <span className="text-white/30 text-[11px] font-mono">Round #{history.length - i}</span>
-                    <span
-                        className={`text-[10px] font-mono font-black uppercase tracking-widest ${
-                            r.userResult === 'won'
-                                ? 'text-[#00FF94]'
-                                : r.userResult === 'lost'
-                                ? 'text-red-400'
-                                : 'text-white/30'
-                        }`}
-                    >
-                        {r.userResult === 'won' ? 'Won'
-                            : r.userResult === 'lost' ? 'Lost'
-                            : '—'}
-                    </span>
-                </div>
-            ))}
+            {history.slice(0, 20).map((r, i) => {
+                const x    = r.crashPoint ?? 1
+                const tier = tierCls(x)
+                const won  = r.userResult === 'won'
+                const lost = r.userResult === 'lost'
+                return (
+                    <div key={i} className="px-5 py-2.5 flex items-center justify-between">
+                        <span className="text-white/30 text-[11px] font-mono">Round #{history.length - i}</span>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-[11px] font-mono font-black ${tier.text}`}>
+                                {x.toFixed(2)}x
+                            </span>
+                            {(won || lost) && (
+                                <span className={`text-[9px] font-mono font-black uppercase tracking-widest ${won ? 'text-[#00FF94]' : 'text-red-400'}`}>
+                                    {won ? 'Won' : 'Lost'}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )
+            })}
         </div>
     )
 }
@@ -1341,13 +1343,22 @@ export function RunControlPanel({
                                 />
 
                                 {/* Quick picks — generated dynamically from the current
-                                    server-set min/max so they always make sense. We pick
-                                    four anchor points: minBet, ⅓, ⅔, max. Duplicates are
-                                    deduped (e.g. when min == ⅓), so when the window is
-                                    narrow we get 2-3 distinct buttons. */}
+                                    server-set min/max so they always make sense. Anchor
+                                    points: minBet, ⅓, ⅔, max. Duplicates deduped so a
+                                    narrow window gets 2-3 distinct buttons. If the dynamic
+                                    cap drops below minBet (vault temporarily too small),
+                                    render an inline notice instead of an empty grid. */}
                                 {(() => {
                                     const m = Math.floor(maxBet)
                                     const lo = minBet
+                                    if (m < lo) {
+                                        return (
+                                            <div className="text-[10px] font-mono text-yellow-400/70 bg-yellow-400/5 border border-yellow-400/20 rounded-lg px-3 py-2 leading-snug">
+                                                Bets paused for this round — vault is below the per-round liability ceiling.
+                                                Wait for the next round.
+                                            </div>
+                                        )
+                                    }
                                     const raw = [
                                         lo,
                                         Math.max(lo, Math.floor(m / 3)),

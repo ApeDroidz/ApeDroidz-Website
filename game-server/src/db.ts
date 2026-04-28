@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { JsonRpcProvider, formatEther } from 'ethers'
 
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
@@ -9,6 +10,16 @@ export const db = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { persistSession: false } }
 )
+
+// ── On-chain provider for vault liquidity (read-only) ─────────────────────────
+// We use the on-chain APE balance of the vault wallet as the source of truth
+// for liquidity. This avoids drift between the DB ledger
+// (flight_transactions sum) and the actual wallet — including the case where
+// the operator seeds the vault by sending APE directly, which never lands in
+// the DB ledger and would otherwise leave `get_vault_net_balance` at 0.
+const APECHAIN_RPC = process.env.APECHAIN_RPC_URL ?? 'https://rpc.apechain.com/http'
+const VAULT_ADDRESS = (process.env.VAULT_WALLET_ADDRESS ?? '').trim()
+const apeProvider = new JsonRpcProvider(APECHAIN_RPC)
 
 // ── Balance operations ─────────────────────────────────────────────────────────
 
@@ -128,14 +139,27 @@ export async function updateBetLost(logId: string, xpGained: number): Promise<vo
 // ── Vault liquidity (used by placeBet to bound max bet) ──────────────────────
 
 /**
- * Returns the vault's logical APE balance (sum of confirmed deposits minus
- * confirmed withdrawals). Used by the gameLoop to dynamically size the max
+ * Returns the vault's APE liquidity used by the gameLoop to size the max
  * allowed bet so a single big-multiplier win can't drain the bank.
  *
- * Returns 0 on RPC failure (fail-closed → all bets rejected if we can't
- * verify liquidity).
+ * Source-of-truth strategy:
+ *   1. If `VAULT_WALLET_ADDRESS` is set → read the on-chain APE balance of
+ *      that wallet. This handles operator seed-deposits sent directly to
+ *      the vault (which never appear in the DB ledger).
+ *   2. Otherwise fall back to the legacy DB sum via `get_vault_net_balance`.
+ *
+ * Returns 0 if both paths fail (fail-closed: no liquidity → no bets).
  */
 export async function getVaultLiquidity(): Promise<number> {
+    if (VAULT_ADDRESS && /^0x[0-9a-fA-F]{40}$/.test(VAULT_ADDRESS)) {
+        try {
+            const wei = await apeProvider.getBalance(VAULT_ADDRESS)
+            const ape = parseFloat(formatEther(wei))
+            if (Number.isFinite(ape) && ape >= 0) return ape
+        } catch (e: any) {
+            console.warn('[vault] on-chain balance read failed, falling back to RPC:', e?.message ?? e)
+        }
+    }
     try {
         const { data, error } = await db.rpc('get_vault_net_balance')
         if (error || data == null) return 0
