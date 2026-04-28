@@ -26,11 +26,24 @@ const MAX_ROUND_LIABILITY_PCT  = parseFloat(process.env.MAX_ROUND_LIABILITY_PCT 
 const MAX_TOTAL_LIABILITY_PCT  = parseFloat(process.env.MAX_TOTAL_LIABILITY_PCT ?? '0.10')
 const CRASH_CAP_MAX            = parseFloat(process.env.CRASH_CAP_MAX ?? '65.51')
 
-/** Single-bet ceiling = min(hard cap, dynamic-by-liquidity). 0 if vault empty. */
-function computeMaxBet(vaultBalance: number): number {
+/**
+ * Per-bet ceiling that accounts for BOTH liability caps:
+ *   • per-bet cap   — `(vault × ROUND_PCT) / CAP_MAX`
+ *   • remaining-of-total-round-pool cap — `(vault × TOTAL_PCT − currentLiability) / CAP_MAX`
+ *
+ * Without the second clamp the displayed `maxBet` overstates the real ceiling
+ * — a player sees "Max 20 APE" but server rejects with "round pool full"
+ * because `bet × CAP_MAX` blows the round-total budget.
+ *
+ * Returns 0 when the vault has no liquidity or the round pool is exhausted.
+ */
+function computeMaxBet(vaultBalance: number, currentLiability = 0): number {
     if (vaultBalance <= 0) return 0
-    const dynamic = (vaultBalance * MAX_ROUND_LIABILITY_PCT) / CRASH_CAP_MAX
-    return Math.max(0, Math.min(MAX_BET, dynamic))
+    const perBetCap   = (vaultBalance * MAX_ROUND_LIABILITY_PCT) / CRASH_CAP_MAX
+    const totalBudget = vaultBalance * MAX_TOTAL_LIABILITY_PCT
+    const remaining   = Math.max(0, totalBudget - currentLiability)
+    const totalCap    = remaining / CRASH_CAP_MAX
+    return Math.max(0, Math.min(MAX_BET, perBetCap, totalCap))
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -319,10 +332,29 @@ export class GameLoop {
         // Track total potential payout liability for this round so we can
         // reject further bets if the pool is full.
         this.state.currentLiability += amount * CRASH_CAP_MAX
+
+        // Recompute the per-bet ceiling now that the round pool has shrunk
+        // and broadcast the updated value so every connected client sees the
+        // new max. Otherwise a second player still sees the original cap and
+        // gets a confusing "round pool full" rejection.
+        const newMaxBet = computeMaxBet(this.state.vaultBalance, this.state.currentLiability)
+        if (newMaxBet !== this.state.maxBet) {
+            this.state.maxBet = newMaxBet
+            this.broadcast({
+                type: 'waiting',
+                round: this.state.round,
+                serverSeedHash: this.state.serverSeedHash,
+                countdown: this.state.countdown,
+                maxBet: newMaxBet,
+                minBet: MIN_BET,
+            })
+        }
+
         logger.info('bet_placed', {
             wallet: w.slice(0, 10), amount, round: this.state.round,
             newBalance: deduct.newBalance,
             roundLiability: this.state.currentLiability.toFixed(2),
+            updatedMaxBet: newMaxBet.toFixed(2),
         })
 
         return { ok: true, newBalance: deduct.newBalance }

@@ -779,7 +779,7 @@ export function ControlPanel({
                                                     <ExternalLink className="w-2 h-2 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </a>
                                                 {winner.total_ape > 0 && (
-                                                    <span className="font-black text-[11px] text-white/50 ml-auto">
+                                                    <span className="font-black text-[11px] text-[#3b82f6] ml-auto">
                                                         {winner.total_ape} APE
                                                     </span>
                                                 )}
@@ -1007,7 +1007,15 @@ export function ControlPanel({
                                                                 <ExternalLink className="w-2.5 h-2.5 flex-shrink-0 opacity-0 group-hover/nft:opacity-100 transition-opacity" />
                                                             </a>
                                                         ) : (
-                                                            <span className="font-bold text-white/60 truncate">{log.prizeName}</span>
+                                                            <span
+                                                                className={`font-bold truncate ${
+                                                                    log.prizeType === 'token'
+                                                                        ? 'text-[#3b82f6]'
+                                                                        : 'text-white/60'
+                                                                }`}
+                                                            >
+                                                                {log.prizeName}
+                                                            </span>
                                                         )}
                                                     </div>
                                                 </div>
