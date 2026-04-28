@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
@@ -8,7 +8,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap, Gamepad2 } from "lucide-react";
+import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap, Gamepad2, Wrench, ChevronDown } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -50,8 +50,11 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
   const account = useActiveAccount();
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isToolsOpen, setIsToolsOpen] = useState(false);          // desktop dropdown
+  const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
 
-  // Determine if we're on game, grid, or merge page
+  // Page-context flags
   const isGamePage = pathname === '/glitch_game' || pathname === '/glitch_games/cards' || pathname === '/glitch_games/flight' || pathname === '/glitch_flight';
   const isGlitchGamesPage = pathname === '/glitch_games';
   const isGridPage = pathname === '/grid';
@@ -59,7 +62,59 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
   const isMintPage = pathname === '/batteries_mint';
   const showDashboardNav = isGamePage || isGlitchGamesPage || isGridPage || isMergePage;
 
+  // Tools = the three "utility" pages (mint / merge / grid)
+  const isAnyToolsPage = isMintPage || isMergePage || isGridPage;
+
   const closeMenu = () => setIsMenuOpen(false);
+
+  // Close desktop dropdown on outside-click + ESC + route change.
+  useEffect(() => {
+    if (!isToolsOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) {
+        setIsToolsOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsToolsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [isToolsOpen]);
+
+  // Auto-close on route change (useful for both desktop dropdown + mobile drawer).
+  useEffect(() => {
+    setIsToolsOpen(false);
+    setIsMobileToolsOpen(false);
+    setIsMenuOpen(false);
+  }, [pathname]);
+
+  // Tool entries — single source of truth so desktop dropdown + mobile section
+  // stay in sync.
+  const TOOLS: Array<{ href: string; label: string; icon: React.ReactNode; active: boolean }> = [
+    {
+      href: "/batteries_mint",
+      label: "Mint Batteries",
+      icon: <Battery size={18} className="-rotate-90 text-[#A1A1AA] group-hover:text-white transition-colors" />,
+      active: isMintPage,
+    },
+    {
+      href: "/merge_mechanism",
+      label: "Merge Mechanism",
+      icon: <Zap size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />,
+      active: isMergePage,
+    },
+    {
+      href: "/grid",
+      label: "Grid Maker",
+      icon: <Grid2X2 size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />,
+      active: isGridPage,
+    },
+  ];
 
   return (
     <>
@@ -80,18 +135,17 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
           </Link>
         </motion.div>
 
-        {/* DESKTOP Navigation - hidden on mobile */}
+        {/* DESKTOP Navigation */}
         <motion.div
           className="hidden lg:flex items-center gap-2"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
         >
+          {/* Profile */}
           {account && onOpenProfile && (
             <UserLevelBadge onClick={onOpenProfile} />
           )}
-
-
 
           {/* Glitch Games hub */}
           {!isGlitchGamesPage && (
@@ -109,76 +163,66 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             </Link>
           )}
 
-          {/* Mint Batteries */}
-          {!isMintPage && (
-            <Link href="/batteries_mint">
-              <motion.div
-                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Battery size={20} className="-rotate-90 text-[#A1A1AA] group-hover:text-white transition-colors" />
-                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
-                  Mint Batteries
-                </div>
-              </motion.div>
-            </Link>
-          )}
+          {/* Tools dropdown — collapses Mint / Merge / Grid into one button */}
+          <div ref={toolsRef} className="relative">
+            <motion.button
+              onClick={() => setIsToolsOpen(o => !o)}
+              className={`flex items-center justify-center gap-1.5 h-[48px] px-3 bg-black border rounded-xl transition-all duration-300 shadow-lg group cursor-pointer relative ${
+                isAnyToolsPage || isToolsOpen
+                  ? 'border-white/30 bg-white/5'
+                  : 'border-white/15 hover:bg-white/10 hover:border-white/30'
+              }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              aria-haspopup="menu"
+              aria-expanded={isToolsOpen}
+            >
+              <Wrench size={18} className={`transition-colors ${isAnyToolsPage || isToolsOpen ? 'text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
+              <span className={`text-sm font-bold transition-colors ${isAnyToolsPage || isToolsOpen ? 'text-white' : 'text-[#A1A1AA] group-hover:text-white'}`}>Tools</span>
+              <ChevronDown size={14} className={`transition-transform ${isToolsOpen ? 'rotate-180 text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
+            </motion.button>
 
-          {/* Merge */}
-          {!isMergePage && (
-            <Link href="/merge_mechanism">
-              <motion.div
-                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Zap size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
-                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
-                  Merge Mechanism
-                </div>
-              </motion.div>
-            </Link>
-          )}
+            <AnimatePresence>
+              {isToolsOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute right-0 top-[56px] min-w-[220px] bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-2 z-50"
+                  role="menu"
+                >
+                  {TOOLS.map((tool) => (
+                    <Link
+                      key={tool.href}
+                      href={tool.href}
+                      onClick={() => setIsToolsOpen(false)}
+                      className={`group flex items-center gap-3 w-full h-[44px] px-3 rounded-xl transition-colors ${
+                        tool.active
+                          ? 'bg-[#3b82f6]/10 text-white border border-[#3b82f6]/30'
+                          : 'text-white/80 hover:bg-white/5 hover:text-white border border-transparent'
+                      }`}
+                      role="menuitem"
+                    >
+                      {tool.icon}
+                      <span className="text-sm font-medium">{tool.label}</span>
+                      {tool.active && <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-[#3b82f6]">Active</span>}
+                    </Link>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-          {/* Grid */}
-          {!isGridPage && (
-            <Link href="/grid">
-              <motion.div
-                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Grid2X2 size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
-                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none">
-                  Grid Maker
-                </div>
-              </motion.div>
-            </Link>
-          )}
-
-
-
-          {!isDashboard && !showDashboardNav && (
+          {/* Dashboard / Back to Menu */}
+          {!isDashboard ? (
             <Link
               href="/dashboard"
               className="flex items-center justify-center h-[48px] px-6 bg-transparent border border-white/15 text-white text-sm font-bold rounded-xl hover:bg-white/10 hover:border-white/50 transition-all duration-300"
             >
               Go to Dashboard
             </Link>
-          )}
-
-          {/* Grid/Merge pages - always show Go to Dashboard */}
-          {showDashboardNav && (
-            <Link
-              href="/dashboard"
-              className="flex items-center justify-center h-[48px] px-6 bg-transparent border border-white/15 text-white text-sm font-bold rounded-xl hover:bg-white/10 hover:border-white/50 transition-all duration-300"
-            >
-              Go to Dashboard
-            </Link>
-          )}
-
-          {isDashboard && (
+          ) : (
             <Link
               href="/"
               className="flex items-center justify-center h-[48px] px-6 bg-transparent border border-white/15 text-white text-sm font-bold rounded-xl hover:bg-white/10 hover:border-white/50 transition-all duration-300"
@@ -196,7 +240,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               connectButton={{
                 label: "Connect Wallet",
                 className: `
-                  !bg-white !text-black !font-bold !rounded-xl  
+                  !bg-white !text-black !font-bold !rounded-xl
                   !h-[48px] !px-8 !text-base
                   !border !border-transparent !transition-all !duration-300
                   hover:!bg-[#0069FF] hover:!text-white hover:!border-transparent
@@ -239,7 +283,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
 
             {/* Drawer */}
             <motion.div
-              className="fixed top-0 right-0 bottom-0 w-[280px] bg-[#0a0a0a] border-l border-white/10 z-[300] lg:hidden flex flex-col shadow-2xl"
+              className="fixed top-0 right-0 bottom-0 w-[300px] bg-[#0a0a0a] border-l border-white/10 z-[300] lg:hidden flex flex-col shadow-2xl overflow-y-auto"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -256,8 +300,8 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               </div>
 
               {/* Menu Content */}
-              <div className="flex-1 flex flex-col gap-3 px-4 pb-4">
-                {/* 1. Connect Wallet / Wallet Info */}
+              <div className="flex-1 flex flex-col gap-3 px-4 pb-6">
+                {/* 1. Profile / Connect */}
                 {account && onOpenProfile && (
                   <button
                     onClick={() => { onOpenProfile(); closeMenu(); }}
@@ -277,7 +321,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                       connectButton={{
                         label: "Connect Wallet",
                         className: `
-                          !w-full !bg-white/5 !text-white !font-medium !rounded-xl  
+                          !w-full !bg-white/5 !text-white !font-medium !rounded-xl
                           !h-[52px] !text-sm !justify-start !pl-11 !pr-4
                           !border !border-white/10 hover:!bg-white/10
                         `,
@@ -291,9 +335,8 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   </div>
                 )}
 
-
-                {/* 3. Dashboard / Back */}
-                {!isDashboard && !showDashboardNav && (
+                {/* 2. Dashboard / Back */}
+                {!isDashboard ? (
                   <Link
                     href="/dashboard"
                     onClick={closeMenu}
@@ -302,19 +345,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     <LayoutDashboard size={18} className="text-[#A1A1AA]" />
                     Go to Dashboard
                   </Link>
-                )}
-                {/* Grid/Merge pages - show Go to Dashboard */}
-                {showDashboardNav && (
-                  <Link
-                    href="/dashboard"
-                    onClick={closeMenu}
-                    className="flex items-center justify-start gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 text-white font-medium text-sm rounded-xl hover:bg-white/10 transition-colors"
-                  >
-                    <LayoutDashboard size={18} className="text-[#A1A1AA]" />
-                    Go to Dashboard
-                  </Link>
-                )}
-                {isDashboard && (
+                ) : (
                   <Link
                     href="/"
                     onClick={closeMenu}
@@ -325,10 +356,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   </Link>
                 )}
 
-                {/* Divider */}
-                <div className="h-px bg-white/10 mt-4 mb-2" />
-
-                {/* 4. Glitch Games hub */}
+                {/* 3. Glitch Games hub */}
                 {!isGlitchGamesPage && (
                   <Link
                     href="/glitch_games"
@@ -340,46 +368,58 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   </Link>
                 )}
 
-                {/* 4b. Mint Batteries */}
-                {!isMintPage && (
-                  <Link
-                    href="/batteries_mint"
-                    onClick={closeMenu}
-                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+                {/* 4. Tools — accordion section */}
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <button
+                    onClick={() => setIsMobileToolsOpen(o => !o)}
+                    className={`flex items-center gap-3 w-full h-[52px] px-4 border rounded-xl transition-colors ${
+                      isAnyToolsPage || isMobileToolsOpen
+                        ? 'bg-white/10 border-white/20'
+                        : 'bg-white/5 border-white/10 hover:bg-white/10'
+                    }`}
+                    aria-expanded={isMobileToolsOpen}
                   >
-                    <Battery size={18} className="-rotate-90 text-[#A1A1AA]" />
-                    <span className="text-white font-medium text-sm">Mint Batteries</span>
-                  </Link>
-                )}
+                    <Wrench size={18} className="text-[#A1A1AA]" />
+                    <span className="text-white font-medium text-sm flex-1 text-left">Tools</span>
+                    <ChevronDown size={16} className={`text-white/60 transition-transform ${isMobileToolsOpen ? 'rotate-180' : ''}`} />
+                  </button>
 
-                {/* 5. Merge Mechanism */}
-                {!isMergePage && (
-                  <Link
-                    href="/merge_mechanism"
-                    onClick={closeMenu}
-                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
-                  >
-                    <Zap size={18} className="text-[#A1A1AA]" />
-                    <span className="text-white font-medium text-sm">Merge Mechanism</span>
-                  </Link>
-                )}
-
-                {/* 6. Grid Maker */}
-                {!isGridPage && (
-                  <Link
-                    href="/grid"
-                    onClick={closeMenu}
-                    className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
-                  >
-                    <Grid2X2 size={18} className="text-[#A1A1AA]" />
-                    <span className="text-white font-medium text-sm">Grid Maker</span>
-                  </Link>
-                )}
+                  <AnimatePresence initial={false}>
+                    {isMobileToolsOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <div className="flex flex-col gap-1.5 pl-3 pt-1">
+                          {TOOLS.map(tool => (
+                            <Link
+                              key={tool.href}
+                              href={tool.href}
+                              onClick={closeMenu}
+                              className={`flex items-center gap-3 w-full h-[44px] px-3 rounded-xl transition-colors border ${
+                                tool.active
+                                  ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-white'
+                                  : 'bg-white/[0.025] border-white/5 hover:bg-white/10 text-white/80'
+                              }`}
+                            >
+                              {tool.icon}
+                              <span className="text-sm font-medium">{tool.label}</span>
+                              {tool.active && <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-[#3b82f6]">Active</span>}
+                            </Link>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 {/* Divider */}
                 <div className="h-px bg-white/10 mt-4 mb-2" />
 
-                {/* Social Links - directly after buttons */}
+                {/* Social Links */}
                 <div className="flex items-center justify-center gap-3">
                   {SOCIALS.map((social) => (
                     <Link
