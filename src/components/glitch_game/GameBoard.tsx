@@ -323,7 +323,10 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
         // Optimistically update balance
         onPlayComplete(balance - 1)
 
-        // Start API call in background
+        // Start API call in background.
+        // Surface server-provided `details` if present so a generic
+        // "Internal Server Error" doesn't hide the real cause (vault PK
+        // missing, RPC error, on-chain transfer failure, etc).
         preRollPromiseRef.current = fetch("/api/glitch_game/play", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -331,9 +334,13 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
             body: JSON.stringify({ wallet }),
         }).then(async res => {
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || "Play failed")
+            if (!res.ok) {
+                const msg = data?.details
+                    ? `${data.error || 'Play failed'} — ${data.details}`
+                    : (data?.error || `Play failed (HTTP ${res.status})`)
+                throw new Error(msg)
+            }
             if (data.newBalance !== undefined) {
-                // Apply the verified backend balance exactly as the DB states
                 onPlayComplete(data.newBalance)
             }
             return data

@@ -16,6 +16,34 @@ import { AlertModal } from "@/components/alert-modal"
 
 const DROID_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
 
+// ── Shared leaderboard atoms (mirrors S2LeaderboardPanel) ────────────────────
+
+function RankBadge({ rank }: { rank: number }) {
+    if (rank === 1) return <span className="font-black text-yellow-400 text-lg w-10 shrink-0">#{rank}</span>
+    if (rank === 2) return <span className="font-black text-slate-300 text-lg w-10 shrink-0">#{rank}</span>
+    if (rank === 3) return (
+        <span className="font-black text-lg w-10 shrink-0"
+            style={{ background: 'linear-gradient(135deg,#D9A051,#9F602D)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            #{rank}
+        </span>
+    )
+    return <span className="font-black text-white/40 text-lg w-10 shrink-0">#{rank}</span>
+}
+
+function RankXp({ rank, value }: { rank: number; value: number }) {
+    const cls = rank === 1 ? 'text-yellow-400'
+        : rank === 2 ? 'text-slate-300'
+            : rank === 3 ? '' : 'text-white/40'
+    const style: React.CSSProperties | undefined = rank === 3
+        ? { background: 'linear-gradient(135deg,#D9A051,#9F602D)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
+        : undefined
+    return (
+        <div className={`text-base font-black ${cls}`} style={style}>
+            {new Intl.NumberFormat('en-US').format(value)}
+        </div>
+    )
+}
+
 export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOpen: boolean; onClose: () => void; initialTab?: 'profile' | 'leaderboard' }) {
     const account = useActiveAccount()
     const wallet = useActiveWallet()
@@ -27,14 +55,14 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const normalizedAddress = account?.address
 
     const [activeTab, setActiveTab] = useState<'profile' | 'leaderboard'>('profile')
-    const [leaderboardSeason, setLeaderboardSeason] = useState<'global' | 's1' | 's2'>('global')
+    // Two leaderboards now: Season 2 (default) and Global (combined NFT+S1+S2 XP).
+    // S1 was removed — most users have minimal data there.
+    const [leaderboardSeason, setLeaderboardSeason] = useState<'s2' | 'global'>('s2')
     const [leaderboardGlobal, setLeaderboardGlobal] = useState<any[]>([])
-    const [leaderboard, setLeaderboard] = useState<any[]>([])
     const [leaderboardS2, setLeaderboardS2] = useState<any[]>([])
     const [playerS2Rank, setPlayerS2Rank] = useState<number | null>(null)
     const [myGlobalRank, setMyGlobalRank] = useState<number | null>(null)
     const [loadingLeaderboardGlobal, setLoadingLeaderboardGlobal] = useState(false)
-    const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
     const [loadingLeaderboardS2, setLoadingLeaderboardS2] = useState(false)
     const [isEditingName, setIsEditingName] = useState(false)
     const [newName, setNewName] = useState("")
@@ -58,11 +86,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const shortAddress = normalizedAddress ? `${normalizedAddress.slice(0, 6)}...${normalizedAddress.slice(-4)}` : ""
 
     const handleDisconnect = () => { if (wallet) { disconnect(wallet); onClose(); } }
-    const myRank = useMemo(() => {
-        if (myGlobalRank) return myGlobalRank
-        const idx = leaderboard.findIndex(u => u.wallet_address.toLowerCase() === normalizedAddress?.toLowerCase())
-        return idx >= 0 ? idx + 1 : 0
-    }, [leaderboard, normalizedAddress, myGlobalRank])
+    const myRank = useMemo(() => myGlobalRank ?? 0, [myGlobalRank])
 
     // Set active tab when modal opens (not on every render)
     useEffect(() => {
@@ -74,7 +98,6 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                 refetch()
             }
             fetchLeaderboardGlobal()
-            fetchLeaderboard()
             fetchLeaderboardS2(normalizedAddress)
         }
         wasOpenRef.current = isOpen
@@ -144,20 +167,6 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
             setLeaderboardGlobal([])
         }
         setLoadingLeaderboardGlobal(false)
-    }
-
-    const fetchLeaderboard = async () => {
-        setLoadingLeaderboard(true)
-        try {
-            const res = await fetch('/api/leaderboard/season1?limit=50')
-            const json = await res.json()
-            const data = json.leaderboard ?? []
-            data.forEach((u: any) => { u.xp = u.season_xp })
-            setLeaderboard(data)
-        } catch {
-            setLeaderboard([])
-        }
-        setLoadingLeaderboard(false)
     }
 
     const fetchDroidsForPfp = async () => {
@@ -490,118 +499,28 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                 )}
                             </motion.div>
                         ) : (
-                            /* LEADERBOARD */
+                            /* LEADERBOARD — unified compact S2-style design, 2 tabs only */
                             <motion.div key="leaderboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
 
-                                {/* Season switcher — 3 tabs */}
+                                {/* Tab switcher — Season 2 first (default), Global second */}
                                 <div className="flex bg-white/5 p-1 rounded-2xl self-start mb-1">
+                                    <button
+                                        onClick={() => setLeaderboardSeason('s2')}
+                                        className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardSeason === 's2' ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/20' : 'text-white/40 hover:text-white/60'}`}
+                                    >
+                                        Season 2
+                                    </button>
                                     <button
                                         onClick={() => setLeaderboardSeason('global')}
                                         className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardSeason === 'global' ? 'bg-white text-black shadow-lg' : 'text-white/40 hover:text-white/60'}`}
                                     >
                                         Global
                                     </button>
-                                    <button
-                                        onClick={() => setLeaderboardSeason('s1')}
-                                        className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardSeason === 's1' ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/20' : 'text-white/40 hover:text-white/60'}`}
-                                    >
-                                        Season 1
-                                    </button>
-                                    <button
-                                        onClick={() => setLeaderboardSeason('s2')}
-                                        className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${leaderboardSeason === 's2' ? 'bg-[#00FF94] text-black shadow-lg shadow-[#00FF94]/20' : 'text-white/40 hover:text-white/60'}`}
-                                    >
-                                        Season 2
-                                    </button>
                                 </div>
 
                                 <AnimatePresence mode="wait">
-                                    {leaderboardSeason === 'global' ? (
-                                        <motion.div key="global" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
-                                            {myGlobalRank && normalizedAddress && (
-                                                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10">
-                                                    <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Your Position</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-black text-white/60 text-sm">#{myGlobalRank}</span>
-                                                        <span className="text-white/15 text-[9px]">·</span>
-                                                        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">NFT + S1 + S2</span>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {loadingLeaderboardGlobal ? (
-                                                Array.from({ length: 6 }).map((_, i) => (
-                                                    <div key={i} className="flex items-center p-5 rounded-[24px] border border-white/5 bg-white/[0.02] animate-pulse">
-                                                        <div className="w-12 h-6 bg-white/10 rounded" />
-                                                        <div className="flex-1 flex flex-col gap-2 pr-4">
-                                                            <div className="h-5 w-32 bg-white/10 rounded" />
-                                                            <div className="h-3 w-24 bg-white/5 rounded" />
-                                                        </div>
-                                                        <div className="h-6 w-16 bg-white/10 rounded" />
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                leaderboardGlobal.map((user, idx) => {
-                                                    const rc = rankColor(idx + 1)
-                                                    const isMe = user.wallet_address?.toLowerCase() === normalizedAddress?.toLowerCase()
-                                                    return (
-                                                        <div key={user.wallet_address} className={`flex items-center p-5 rounded-[24px] border transition-all ${isMe ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30' : 'bg-white/[0.025] border-transparent hover:border-white/10 hover:bg-white/[0.05]'}`}>
-                                                            <div className={`w-12 font-black text-xl ${rc.cls ?? ''}`} style={rc.style}>#{idx + 1}</div>
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className={`text-base font-black uppercase tracking-tight ${isMe ? 'text-[#3b82f6]' : 'text-white'}`}>{isMe ? (currentUsername || `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`) : (user.username || `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`)}</div>
-                                                                    {user.x_handle && (
-                                                                        <a href={`https://x.com/${user.x_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-white transition-colors" title={user.x_handle}>
-                                                                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-                                                                        </a>
-                                                                    )}
-                                                                </div>
-                                                                <div className="text-[10px] text-white/30 uppercase font-black tracking-widest">{user.rank_title || "Baby Droid"}</div>
-                                                            </div>
-                                                            <div className={`text-right text-xl font-black ${isMe ? 'text-[#3b82f6]' : 'text-white/70'}`}>{new Intl.NumberFormat('en-US').format(user.xp)}</div>
-                                                        </div>
-                                                    )
-                                                })
-                                            )}
-                                        </motion.div>
-                                    ) : leaderboardSeason === 's1' ? (
-                                        <motion.div key="s1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
-                                            {loadingLeaderboard ? (
-                                                Array.from({ length: 6 }).map((_, i) => (
-                                                    <div key={i} className="flex items-center p-5 rounded-[24px] border border-white/5 bg-white/[0.02] animate-pulse">
-                                                        <div className="w-12 h-6 bg-white/10 rounded" />
-                                                        <div className="flex-1 flex flex-col gap-2 pr-4">
-                                                            <div className="h-5 w-32 bg-white/10 rounded" />
-                                                            <div className="h-3 w-24 bg-white/5 rounded" />
-                                                        </div>
-                                                        <div className="h-6 w-16 bg-white/10 rounded" />
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                leaderboard.map((user, idx) => {
-                                                    const rc = rankColor(idx + 1)
-                                                    const isMe = user.wallet_address?.toLowerCase() === normalizedAddress?.toLowerCase()
-                                                    return (
-                                                        <div key={user.wallet_address} className={`flex items-center p-5 rounded-[24px] border transition-all ${isMe ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30' : 'bg-white/[0.025] border-transparent hover:border-white/10 hover:bg-white/[0.05]'}`}>
-                                                            <div className={`w-12 font-black text-xl ${rc.cls ?? ''}`} style={rc.style}>#{idx + 1}</div>
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className={`text-base font-black uppercase tracking-tight ${isMe ? 'text-[#3b82f6]' : 'text-white'}`}>{isMe ? (currentUsername || `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`) : (user.username || `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`)}</div>
-                                                                    {user.x_handle && (
-                                                                        <a href={`https://x.com/${user.x_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-white transition-colors" title={user.x_handle}>
-                                                                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-                                                                        </a>
-                                                                    )}
-                                                                </div>
-                                                                <div className="text-[10px] text-white/30 uppercase font-black tracking-widest">{user.rank_title || "Baby Droid"} · LVL {user.level || 1}</div>
-                                                            </div>
-                                                            <div className={`text-right text-xl font-black ${isMe ? 'text-[#3b82f6]' : 'text-white/70'}`}>{new Intl.NumberFormat('en-US').format(user.xp)}</div>
-                                                        </div>
-                                                    )
-                                                })
-                                            )}
-                                        </motion.div>
-                                    ) : (
-                                        <motion.div key="s2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
+                                    {leaderboardSeason === 's2' ? (
+                                        <motion.div key="s2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-2">
                                             {/* Player's own rank banner */}
                                             {normalizedAddress && playerS2Rank && (
                                                 <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10">
@@ -614,36 +533,106 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                 </div>
                                             )}
                                             {loadingLeaderboardS2 ? (
-                                                Array.from({ length: 6 }).map((_, i) => (
-                                                    <div key={i} className="flex items-center p-5 rounded-[24px] border border-white/5 bg-white/[0.02] animate-pulse">
-                                                        <div className="w-12 h-6 bg-white/10 rounded" />
-                                                        <div className="flex-1 flex flex-col gap-2 pr-4">
-                                                            <div className="h-5 w-32 bg-white/10 rounded" />
-                                                            <div className="h-3 w-20 bg-white/5 rounded" />
+                                                Array.from({ length: 8 }).map((_, i) => (
+                                                    <div key={i} className="flex items-center px-3 py-3 rounded-2xl border border-white/5 bg-white/[0.02] animate-pulse">
+                                                        <div className="w-10 h-5 bg-white/10 rounded mr-2 shrink-0" />
+                                                        <div className="flex-1 flex flex-col gap-1.5">
+                                                            <div className="h-4 w-28 bg-white/10 rounded" />
+                                                            <div className="h-2.5 w-20 bg-white/5 rounded" />
                                                         </div>
-                                                        <div className="h-6 w-16 bg-white/10 rounded" />
+                                                        <div className="h-5 w-14 bg-white/10 rounded" />
                                                     </div>
                                                 ))
+                                            ) : leaderboardS2.length === 0 ? (
+                                                <div className="py-12 text-center text-white/20 text-xs font-mono">No data yet</div>
                                             ) : (
                                                 leaderboardS2.map((user: any) => {
-                                                    const rc = rankColor(user.rank)
                                                     const isMe = user.wallet?.toLowerCase() === normalizedAddress?.toLowerCase()
+                                                    const displayName = isMe
+                                                        ? (currentUsername || `${user.wallet.slice(0, 6)}…${user.wallet.slice(-4)}`)
+                                                        : (user.username || `${user.wallet.slice(0, 6)}…${user.wallet.slice(-4)}`)
                                                     return (
-                                                        <div key={user.wallet} className={`flex items-center p-5 rounded-[24px] border transition-all ${isMe ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30' : 'bg-white/[0.025] border-transparent hover:border-white/10 hover:bg-white/[0.05]'}`}>
-                                                            <div className={`w-12 font-black text-xl ${rc.cls ?? ''}`} style={rc.style}>#{user.rank}</div>
-                                                            <div className="flex-1">
-                                                                <div className={`text-sm font-black uppercase tracking-tight ${isMe ? 'text-[#3b82f6]' : 'text-white'}`}>
-                                                                    {isMe
-                                                                        ? (currentUsername || `${user.wallet.slice(0, 6)}…${user.wallet.slice(-4)}`)
-                                                                        : (user.username || `${user.wallet.slice(0, 6)}…${user.wallet.slice(-4)}`)}
+                                                        <div key={user.wallet} className={`flex items-center px-3 py-2.5 rounded-2xl border transition-all ${isMe ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 shadow-[0_0_16px_rgba(59,130,246,0.12)]' : 'bg-white/[0.025] border-transparent hover:border-white/10 hover:bg-white/[0.05]'}`}>
+                                                            <RankBadge rank={user.rank} />
+                                                            <div className="flex-1 min-w-0 pr-2">
+                                                                <div className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 min-w-0 ${isMe ? 'text-[#3b82f6]' : 'text-white'}`}>
+                                                                    <span className="truncate">{isMe ? 'You' : displayName}</span>
+                                                                    {user.x_handle && (
+                                                                        <a href={`https://x.com/${user.x_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-white/30 hover:text-white/60 transition-colors flex-shrink-0" title={user.x_handle}>
+                                                                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                                                                        </a>
+                                                                    )}
                                                                 </div>
-                                                                <div className="text-[10px] text-white/30 font-mono">
-                                                                    {user.games_played}G · {user.flights_played}F
+                                                                <div className="text-[9px] text-white/30 uppercase font-black tracking-widest flex items-center gap-1.5 mt-0.5">
+                                                                    <span>{user.games_played} cards</span>
+                                                                    <span className="opacity-40">·</span>
+                                                                    <span>{user.flights_played} flights</span>
+                                                                    <span className="opacity-40">·</span>
+                                                                    <span>{user.quests_finished ?? 0} quests</span>
                                                                 </div>
                                                             </div>
-                                                            <div className={`text-right text-xl font-black ${isMe ? 'text-[#3b82f6]' : 'text-white/70'}`}>
-                                                                {new Intl.NumberFormat('en-US').format(user.season_xp)}
-                                                                <span className="text-[10px] text-white/30 font-mono ml-1">XP</span>
+                                                            <div className="text-right shrink-0">
+                                                                <RankXp rank={user.rank} value={user.season_xp} />
+                                                                <div className="text-[8px] font-black uppercase text-white/30 tracking-widest">XP</div>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })
+                                            )}
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div key="global" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-2">
+                                            {myGlobalRank && normalizedAddress && (
+                                                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10">
+                                                    <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">Your Position</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-black text-white/60 text-sm">#{myGlobalRank}</span>
+                                                        <span className="text-white/15 text-[9px]">·</span>
+                                                        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">NFT + S1 + S2</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {loadingLeaderboardGlobal ? (
+                                                Array.from({ length: 8 }).map((_, i) => (
+                                                    <div key={i} className="flex items-center px-3 py-3 rounded-2xl border border-white/5 bg-white/[0.02] animate-pulse">
+                                                        <div className="w-10 h-5 bg-white/10 rounded mr-2 shrink-0" />
+                                                        <div className="flex-1 flex flex-col gap-1.5">
+                                                            <div className="h-4 w-28 bg-white/10 rounded" />
+                                                            <div className="h-2.5 w-24 bg-white/5 rounded" />
+                                                        </div>
+                                                        <div className="h-5 w-14 bg-white/10 rounded" />
+                                                    </div>
+                                                ))
+                                            ) : leaderboardGlobal.length === 0 ? (
+                                                <div className="py-12 text-center text-white/20 text-xs font-mono">No data yet</div>
+                                            ) : (
+                                                leaderboardGlobal.map((user, idx) => {
+                                                    const rank = idx + 1
+                                                    const isMe = user.wallet_address?.toLowerCase() === normalizedAddress?.toLowerCase()
+                                                    const displayName = isMe
+                                                        ? (currentUsername || `${user.wallet_address.slice(0, 6)}…${user.wallet_address.slice(-4)}`)
+                                                        : (user.username || `${user.wallet_address.slice(0, 6)}…${user.wallet_address.slice(-4)}`)
+                                                    return (
+                                                        <div key={user.wallet_address} className={`flex items-center px-3 py-2.5 rounded-2xl border transition-all ${isMe ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 shadow-[0_0_16px_rgba(59,130,246,0.12)]' : 'bg-white/[0.025] border-transparent hover:border-white/10 hover:bg-white/[0.05]'}`}>
+                                                            <RankBadge rank={rank} />
+                                                            <div className="flex-1 min-w-0 pr-2">
+                                                                <div className={`text-sm font-black uppercase tracking-tight flex items-center gap-1.5 min-w-0 ${isMe ? 'text-[#3b82f6]' : 'text-white'}`}>
+                                                                    <span className="truncate">{isMe ? 'You' : displayName}</span>
+                                                                    {user.x_handle && (
+                                                                        <a href={`https://x.com/${user.x_handle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-white/30 hover:text-white/60 transition-colors flex-shrink-0" title={user.x_handle}>
+                                                                            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-[9px] text-white/30 uppercase font-black tracking-widest mt-0.5">
+                                                                    <span>{user.rank_title || 'Baby Droid'}</span>
+                                                                    <span className="opacity-40 mx-1.5">·</span>
+                                                                    <span>LVL {user.level || 1}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right shrink-0">
+                                                                <RankXp rank={rank} value={user.total_xp ?? user.xp ?? 0} />
+                                                                <div className="text-[8px] font-black uppercase text-white/30 tracking-widest">XP</div>
                                                             </div>
                                                         </div>
                                                     )

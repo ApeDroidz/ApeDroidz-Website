@@ -825,7 +825,7 @@ export function ControlPanel({
                                                                 onMouseMove={(e) => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
                                                                 onMouseLeave={() => setTooltip(null)}
                                                             >
-                                                                <div className="w-9 h-9 rounded-lg overflow-hidden border border-yellow-400/20 bg-white/5">
+                                                                <div className="w-9 h-9 rounded-lg overflow-hidden border border-yellow-400/20 bg-black/40">
                                                                     <img src={superBatteryPrizes[0].image_url} alt={superBatteryPrizes[0].name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                                                                 </div>
                                                                 {superBatteryPrizes.length > 1 && (
@@ -844,7 +844,7 @@ export function ControlPanel({
                                                                 onMouseMove={(e) => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
                                                                 onMouseLeave={() => setTooltip(null)}
                                                             >
-                                                                <div className="w-9 h-9 rounded-lg overflow-hidden border border-white/10 bg-white/5">
+                                                                <div className="w-9 h-9 rounded-lg overflow-hidden border border-white/10 bg-black/40">
                                                                     <img src={batteryPrizes[0].image_url} alt={batteryPrizes[0].name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                                                                 </div>
                                                                 {batteryPrizes.length > 1 && (
