@@ -19,11 +19,21 @@ import { ADMIN_COOKIE_NAME, isAdminTokenValid, isMaintenanceModeEnabled } from '
  */
 
 // ── Maintenance gate config ───────────────────────────────────────────────────
+// During MAINTENANCE_MODE only the public-facing site pages are gated. ALL
+// `/api/*` routes stay open because:
+//   • external indexers (OpenSea, Magic Eden) need /api/metadata to refresh
+//     NFT metadata — blocking it pins their cache to whatever they had at
+//     the moment maintenance flipped on
+//   • mutation endpoints already require their own auth (wallet signature
+//     or admin cookie); the maintenance gate isn't a substitute for that
+//   • read endpoints (leaderboard, balance, etc.) are public anyway
+//
+// If you ever need to harden a specific API path during maintenance, do it
+// at the route level (return 503 explicitly), not via this allow-list.
 
 const MAINTENANCE_ALWAYS_ALLOW: Array<string | RegExp> = [
     '/coming-soon',
-    /^\/api\/admin(\/|$)/,
-    '/api/sys/debug',
+    /^\/api(\/|$)/,
 ]
 
 function isAlwaysAllowed(pathname: string): boolean {
