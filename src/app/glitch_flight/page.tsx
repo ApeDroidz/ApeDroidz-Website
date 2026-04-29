@@ -14,6 +14,7 @@ import {
     RoundResult,
 } from '@/components/glitch_run/GameUI'
 import { GameScene } from '@/components/glitch_run/GameScene'
+import { FlightAudioToggles, isSfxMuted } from '@/components/glitch_run/FlightAudioToggles'
 import { staggerContainer } from '@/lib/animations'
 import { useFlightSocket } from '@/hooks/useFlightSocket'
 
@@ -121,7 +122,10 @@ export default function GlitchFlightPage() {
     const windAudioRef = useRef<HTMLAudioElement | null>(null)
 
     useEffect(() => {
+        // Wind & boom honour the global SFX-mute toggle. Wind is preloaded
+        // once and resumed; boom is single-shot so we just skip when muted.
         if (socket.phase === 'running') {
+            if (isSfxMuted()) return
             if (!windAudioRef.current) {
                 windAudioRef.current = new Audio('/flight/f_sounds/zvuk%20vetra.mp3')
                 windAudioRef.current.loop = true
@@ -131,6 +135,7 @@ export default function GlitchFlightPage() {
             windAudioRef.current.play().catch(() => {})
         } else if (socket.phase === 'crashed') {
             windAudioRef.current?.pause()
+            if (isSfxMuted()) return
             const boom = new Audio('/flight/f_sounds/boom.mp3')
             boom.volume = 0.6
             boom.play().catch(() => {})
@@ -266,6 +271,7 @@ export default function GlitchFlightPage() {
                                     lastXpGained={socket.lastXpGained}
                                 />
                             )}
+                            <FlightAudioToggles />
                         </motion.div>
 
                         <motion.div

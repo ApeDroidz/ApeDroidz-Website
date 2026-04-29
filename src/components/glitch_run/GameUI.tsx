@@ -12,7 +12,15 @@ const apeChain = defineChain(33139)
 const VAULT_WALLET = process.env.NEXT_PUBLIC_FLIGHT_VAULT_WALLET_ADDRESS!
 
 // ─── Sound helper ─────────────────────────────────────────────────────────────
+// Honours the global SFX-mute flag managed by FlightAudioToggles. We read
+// the localStorage key directly here to avoid pulling in the React module
+// just for a one-off check (this fires on every hover).
+function isSfxMuted(): boolean {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem('gf_sfx_on') === '0'
+}
 function playUiSound(type: 'hover' | 'click' | 'cashout' = 'click') {
+    if (isSfxMuted()) return
     const map = {
         hover:   ['/sounds/fx/ui_hover_buttons.mp3', 0.25],
         click:   ['/sounds/fx/crd_pick_sound.mp3',   0.45],
