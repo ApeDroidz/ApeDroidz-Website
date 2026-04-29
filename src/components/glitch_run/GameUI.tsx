@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useActiveAccount, useSendAndConfirmTransaction } from 'thirdweb/react'
 import { createThirdwebClient, defineChain, prepareTransaction, toWei } from 'thirdweb'
-import { X, Trophy, ExternalLink, Loader2, Share2 } from 'lucide-react'
+import { X, Trophy, ExternalLink, Loader2, Share2, RefreshCw } from 'lucide-react'
 
 const thirdwebClient = createThirdwebClient({ clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID! })
 const apeChain = defineChain(33139)
@@ -167,19 +167,16 @@ export function RoundHistoryPills({ history }: { history: RoundResult[] }) {
             {history.slice(0, 20).map((r, i) => {
                 const x    = r.crashPoint ?? 1
                 const tier = tierCls(x)
-                const won  = r.userResult === 'won'
-                const lost = r.userResult === 'lost'
-                // Bet rounds — emphasise outline + a tiny W/L badge before the multiplier.
-                const outline = won
-                    ? 'bg-[#00FF94]/10 border-[#00FF94]/60'
-                    : lost
-                    ? 'bg-red-500/10 border-red-500/60'
-                    : `bg-white/[0.02] ${tier.border}`
+                const played = r.userResult === 'won' || r.userResult === 'lost'
+                // Colour ALWAYS by the round's crash X — same scale as the live
+                // overlay so 1.8x reads green here exactly like in-game. Whether
+                // the player bet shows up only as a slight ring brightness so
+                // the colour signal isn't overridden.
                 return (
                     <span
                         key={i}
-                        className={`min-w-[36px] px-1.5 py-0.5 rounded text-[10px] font-mono font-black border shrink-0 text-center ${outline} ${tier.text}`}
-                        title={won ? 'You won' : lost ? 'You lost' : undefined}
+                        className={`min-w-[36px] px-1.5 py-0.5 rounded text-[10px] font-mono font-black border shrink-0 text-center bg-white/[0.02] ${tier.border} ${tier.text} ${played ? 'ring-1 ring-white/20' : ''}`}
+                        title={r.userResult === 'won' ? 'You won' : r.userResult === 'lost' ? 'You lost' : undefined}
                     >
                         {x.toFixed(2)}x
                     </span>
@@ -242,21 +239,30 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
     const [playerRank, setPlayerRank] = useState<number | null>(null)
     const [playerXp, setPlayerXp] = useState<number | null>(null)
     const [loading, setLoading] = useState(false)
+    const [refreshing, setRefreshing] = useState(false)
+
+    const fetchLb = useCallback(async (silent = false) => {
+        if (silent) setRefreshing(true); else setLoading(true)
+        try {
+            const param = wallet ? `&wallet=${wallet}` : ''
+            const res = await fetch(`/api/leaderboard/season2?limit=50${param}`, { cache: 'no-store' })
+            const d = await res.json()
+            setData(d.leaderboard ?? [])
+            if (d.player?.rank) setPlayerRank(d.player.rank)
+            if (d.player?.season_xp != null) setPlayerXp(d.player.season_xp)
+        } catch (e) {
+            console.error('S2 leaderboard fetch error', e)
+        } finally {
+            setLoading(false)
+            setRefreshing(false)
+        }
+    }, [wallet])
 
     useEffect(() => {
         if (!isOpen) return
-        setLoading(true)
         setData([])
-        const param = wallet ? `&wallet=${wallet}` : ''
-        fetch(`/api/leaderboard/season2?limit=50${param}`)
-            .then(r => r.json())
-            .then(d => {
-                setData(d.leaderboard ?? [])
-                if (d.player?.rank) setPlayerRank(d.player.rank)
-                if (d.player?.season_xp != null) setPlayerXp(d.player.season_xp)
-            })
-            .finally(() => setLoading(false))
-    }, [isOpen, wallet])
+        fetchLb(false)
+    }, [isOpen, fetchLb])
 
     if (!isOpen) return null
 
@@ -288,12 +294,22 @@ function S2LeaderboardModal({ isOpen, onClose, wallet }: { isOpen: boolean; onCl
                         </div>
                         <span className="text-[10px] sm:text-xs text-white/40 uppercase font-bold tracking-[0.2em] mt-1">Glitch Cards + Glitch Flight XP</span>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-3 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full transition-all"
-                    >
-                        <X size={20} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => fetchLb(true)}
+                            disabled={loading || refreshing}
+                            className="p-2.5 rounded-full bg-white/5 hover:bg-[#3b82f6]/20 border border-white/10 hover:border-[#3b82f6]/30 text-white/40 hover:text-[#3b82f6] transition-all disabled:opacity-30 cursor-pointer"
+                            title="Refresh leaderboard"
+                        >
+                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="p-3 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-full transition-all"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* List — compact rows that match S2LeaderboardPanel + ProfileModal */}

@@ -54,6 +54,7 @@ const STREAK_DAYS = [
     { day: 7, xp: 300, apes: 5 },
 ] as const
 
+
 const DROID_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
 
 interface ActiveTask {
@@ -126,6 +127,7 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
     const [claimedStreakDays, setClaimedStreakDays] = useState<Set<number>>(new Set())
     const [streakClaiming, setStreakClaiming] = useState<number | null>(null)
     const [freshStreakDays, setFreshStreakDays] = useState<Set<number>>(new Set())
+
 
     const countdown = useCountdown(activeTask?.active_to)
 
@@ -657,7 +659,7 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
                 </div>
 
                 <p className="text-[8px] text-white/20 font-mono leading-none px-0.5">
-                    Active days this week (Mon–Mon UTC)
+                    Active days this week (Wed–Wed UTC)
                 </p>
             </div>
 

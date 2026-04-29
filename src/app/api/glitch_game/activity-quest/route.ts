@@ -37,13 +37,16 @@ function utcToday(): string {
     return new Date().toISOString().slice(0, 10)
 }
 
-function utcWeekMonday(): string {
+// Week boundary — Wednesday 00:00 UTC. Pick the most recent Wed (today, if
+// today IS Wednesday). This is the single source of truth for the weekly
+// reset; the UI label ("Wed–Wed UTC") must mirror this.
+function utcWeekStart(): string {
     const d = new Date()
-    const day = d.getUTCDay()
-    const diff = day === 0 ? -6 : 1 - day
-    const monday = new Date(d)
-    monday.setUTCDate(d.getUTCDate() + diff)
-    return monday.toISOString().slice(0, 10)
+    const day = d.getUTCDay()        // 0=Sun … 3=Wed
+    const diff = (day - 3 + 7) % 7   // days since last Wed (0 if today is Wed)
+    const start = new Date(d)
+    start.setUTCDate(d.getUTCDate() - diff)
+    return start.toISOString().slice(0, 10)
 }
 
 function rangeFor(period: 'daily' | 'weekly') {
@@ -51,10 +54,10 @@ function rangeFor(period: 'daily' | 'weekly') {
         const today = utcToday()
         return { start: `${today}T00:00:00.000Z`, end: `${today}T23:59:59.999Z`, key: today }
     }
-    const monday = utcWeekMonday()
-    const next = new Date(monday)
+    const weekStart = utcWeekStart()
+    const next = new Date(weekStart)
     next.setUTCDate(next.getUTCDate() + 7)
-    return { start: `${monday}T00:00:00.000Z`, end: next.toISOString(), key: monday }
+    return { start: `${weekStart}T00:00:00.000Z`, end: next.toISOString(), key: weekStart }
 }
 
 async function countStreakDays(wallet: string, monday: string): Promise<number> {
@@ -103,7 +106,7 @@ export async function GET(req: NextRequest) {
     const w = wallet.toLowerCase()
 
     const today   = utcToday()
-    const monday  = utcWeekMonday()
+    const monday  = utcWeekStart()
     const dayRange = rangeFor('daily')
     const wkRange  = rangeFor('weekly')
 
@@ -194,7 +197,7 @@ export async function POST(req: Request) {
             const cfg = STREAK_CONFIG[day]
             if (!cfg) return NextResponse.json({ error: 'invalid streak day' }, { status: 400 })
 
-            const monday = utcWeekMonday()
+            const monday = utcWeekStart()
 
             const { data: existing } = await supabaseAdmin
                 .from('weekly_streak_claims').select('id')
