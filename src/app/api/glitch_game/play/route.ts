@@ -156,12 +156,17 @@ export async function POST(req: Request) {
                 console.warn('[Play] season_1 upsert failed:', e?.message);
             }
 
-            // Season 2 — atomic increment via RPC.
+            // Season 2 — atomic increment of XP + games_played counter via
+            // the play-aware RPC. The legacy increment_season2_xp does NOT
+            // touch games_played/flights_played, which is how the leaderboard
+            // counters drifted; increment_season2_play handles both.
             try {
-                const { error } = await supabaseAdmin.rpc('increment_season2_xp', { p_wallet: wallet, p_xp: xpGained });
-                if (error) console.warn('[Play] increment_season2_xp failed:', error.message);
+                const { error } = await supabaseAdmin.rpc('increment_season2_play', {
+                    p_wallet: wallet, p_xp: xpGained, p_game_type: 'cards',
+                });
+                if (error) console.warn('[Play] increment_season2_play failed:', error.message);
             } catch (e: any) {
-                console.warn('[Play] increment_season2_xp threw:', e?.message);
+                console.warn('[Play] increment_season2_play threw:', e?.message);
             }
         }
 

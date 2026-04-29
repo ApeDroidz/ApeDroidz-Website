@@ -12,12 +12,22 @@ const apeChain = defineChain(33139)
 const VAULT_WALLET = process.env.NEXT_PUBLIC_FLIGHT_VAULT_WALLET_ADDRESS!
 
 // ─── Sound helper ─────────────────────────────────────────────────────────────
-// Honours the global SFX-mute flag managed by FlightAudioToggles. We read
-// the localStorage key directly here to avoid pulling in the React module
-// just for a one-off check (this fires on every hover).
+// Honours the global SFX flags managed by FlightAudioToggles:
+//   gf_sfx_on      "0" → muted, anything else → play
+//   gf_sfx_volume  multiplier in [0..1] applied on top of each sound's
+//                  hardcoded base volume so the user-set volume has effect.
+// We read localStorage directly to keep this a tight, sync helper that's
+// cheap on every hover.
 function isSfxMuted(): boolean {
     if (typeof window === 'undefined') return false
     return window.localStorage.getItem('gf_sfx_on') === '0'
+}
+function sfxVolMultiplier(): number {
+    if (typeof window === 'undefined') return 1
+    const raw = window.localStorage.getItem('gf_sfx_volume')
+    if (raw == null) return 1
+    const v = parseFloat(raw)
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1
 }
 function playUiSound(type: 'hover' | 'click' | 'cashout' = 'click') {
     if (isSfxMuted()) return
@@ -26,9 +36,9 @@ function playUiSound(type: 'hover' | 'click' | 'cashout' = 'click') {
         click:   ['/sounds/fx/crd_pick_sound.mp3',   0.45],
         cashout: ['/sounds/fx/win(1).MP3',           0.5 ],
     } as const
-    const [file, vol] = map[type]
+    const [file, baseVol] = map[type]
     const a = new Audio(file as string)
-    a.volume = vol as number
+    a.volume = (baseVol as number) * sfxVolMultiplier()
     a.play().catch(() => {})
 }
 

@@ -174,11 +174,17 @@ export async function getVaultLiquidity(): Promise<number> {
 export async function awardXp(wallet: string, xpGained: number): Promise<void> {
     const w = wallet.toLowerCase()
 
-    // Atomic increment — avoids TOCTOU from concurrent read-then-write
+    // Global lifetime XP (atomic).
     await db.rpc('increment_user_xp', { p_wallet: w, p_xp: xpGained })
 
-    // Season 2 — upsert with atomic increment via stored proc (also updates s2_level)
-    await db.rpc('increment_season2_xp', { p_wallet: w, p_xp: xpGained })
+    // Season 2 — XP + flights_played counter in one RPC call. The legacy
+    // increment_season2_xp(p_wallet, p_xp) only bumps season_xp and never
+    // touched flights_played, which is why the leaderboard showed Cards
+    // numbers but always 0 flights regardless of how many rounds the
+    // player ran. increment_season2_play knows the game type.
+    await db.rpc('increment_season2_play', {
+        p_wallet: w, p_xp: xpGained, p_game_type: 'flight',
+    })
 }
 
 // ── Quest Progress ─────────────────────────────────────────────────────────────
