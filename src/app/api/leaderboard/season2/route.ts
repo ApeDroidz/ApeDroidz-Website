@@ -4,6 +4,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 export const dynamic = 'force-dynamic'
 export const revalidate = 30
 
+// Season 2 officially starts when Glitch Flight landed (commit 1599687,
+// 2026-04-09). Anything claimed before this date is pre-S2 test data and
+// must NOT be counted toward the S2 leaderboard's quest tally.
+const S2_START_ISO = '2026-04-09T00:00:00.000Z'
+const S2_START_DATE = '2026-04-09'   // for date columns (no time component)
+
 /**
  * GET /api/leaderboard/season2?limit=50&wallet=0x...
  *
@@ -35,11 +41,24 @@ export async function GET(req: NextRequest) {
         const wallets = rows.map((r: any) => r.wallet_address)
         const orFilter = wallets.map((w: string) => `wallet_address.ilike.${w}`).join(',')
 
-        const [usersRes, glitchRes, activityRes, dailyRes] = await Promise.all([
+        // Quest tally = activity-quest claims + X-task daily claims + streak
+        // milestone claims, all filtered to S2 only:
+        //   • daily_activity_claims  — column `claim_date` (date, S2_START_DATE)
+        //   • daily_claims_log       — column `claimed_at` (timestamp, S2_START_ISO)
+        //   • weekly_streak_claims   — column `week_monday` (date, S2_START_DATE).
+        //     Streak rows have no created_at, but `week_monday` is the start
+        //     of the week the claim covers. Any week starting on or after
+        //     2026-04-09 is S2.
+        // Pre-S2 test data is silently excluded.
+        const [usersRes, glitchRes, activityRes, dailyRes, streakRes] = await Promise.all([
             supabaseAdmin.from('users').select('wallet_address, username').or(orFilter),
             supabaseAdmin.from('glitch_users').select('wallet_address, x_handle').or(orFilter),
-            supabaseAdmin.from('daily_activity_claims').select('wallet_address').or(orFilter),
-            supabaseAdmin.from('daily_claims_log').select('wallet_address').or(orFilter),
+            supabaseAdmin.from('daily_activity_claims').select('wallet_address').or(orFilter)
+                .gte('claim_date', S2_START_DATE),
+            supabaseAdmin.from('daily_claims_log').select('wallet_address').or(orFilter)
+                .gte('claimed_at', S2_START_ISO),
+            supabaseAdmin.from('weekly_streak_claims').select('wallet_address').or(orFilter)
+                .gte('week_monday', S2_START_DATE),
         ])
 
         for (const u of usersRes.data ?? []) {
@@ -48,7 +67,11 @@ export async function GET(req: NextRequest) {
         for (const g of glitchRes.data ?? []) {
             xHandles[g.wallet_address.toLowerCase()] = g.x_handle || null
         }
-        for (const r of [...(activityRes.data ?? []), ...(dailyRes.data ?? [])]) {
+        for (const r of [
+            ...(activityRes.data ?? []),
+            ...(dailyRes.data ?? []),
+            ...(streakRes.data ?? []),
+        ]) {
             const k = r.wallet_address.toLowerCase()
             questCounts[k] = (questCounts[k] ?? 0) + 1
         }

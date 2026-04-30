@@ -17,12 +17,16 @@ import { Music, Volume2, VolumeX } from "lucide-react"
  * boom read both.
  */
 
-const LS_MUSIC      = 'gf_music_on'
-const LS_MUSIC_VOL  = 'gf_music_volume'
-const LS_SFX        = 'gf_sfx_on'
-const LS_SFX_VOL    = 'gf_sfx_volume'
+// localStorage keys are versioned (_v2) so the default rollout below wins
+// over any leftover values from beta testing where Music was toggled OFF.
+// Bump again if defaults need to reset across the player base.
+const LS_MUSIC      = 'gf_music_on_v2'
+const LS_MUSIC_VOL  = 'gf_music_volume_v2'
+const LS_SFX        = 'gf_sfx_on_v2'
+const LS_SFX_VOL    = 'gf_sfx_volume_v2'
 const BG_FILE       = '/sounds/fx/bg_sound.wav'
 const DEFAULT_MUSIC_VOLUME = 0.35
+const DEFAULT_SFX_VOLUME   = 1.0
 
 // ── Public helpers used by SFX-playing modules. SSR-safe. ───────────────────
 export function isSfxMuted(): boolean {
@@ -47,9 +51,22 @@ export function FlightAudioToggles() {
     const [musicOn,    setMusicOn]    = useState<boolean>(true)
     const [musicVol,   setMusicVol]   = useState<number>(DEFAULT_MUSIC_VOLUME)
     const [sfxOn,      setSfxOn]      = useState<boolean>(true)
-    const [sfxVol,     setSfxVol]     = useState<number>(1.0)
+    const [sfxVol,     setSfxVol]     = useState<number>(DEFAULT_SFX_VOLUME)
     const [openPanel,  setOpenPanel]  = useState<'music' | 'sfx' | null>(null)
+    const [hoverCapable, setHoverCapable] = useState<boolean>(false)
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Detect once whether this device has hover (desktop / mouse) vs touch.
+    // The volume popover is desktop-only — on touch devices the icon is just
+    // a hard on/off toggle and the slider would be fiddly to reach anyway.
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.matchMedia) return
+        const mq = window.matchMedia('(hover: hover) and (pointer: fine)')
+        const apply = () => setHoverCapable(mq.matches)
+        apply()
+        mq.addEventListener?.('change', apply)
+        return () => mq.removeEventListener?.('change', apply)
+    }, [])
 
     // Hydrate persisted state.
     useEffect(() => {
@@ -143,20 +160,25 @@ export function FlightAudioToggles() {
         <div className="absolute top-3 right-3 z-30 flex items-start gap-2 select-none">
             <audio ref={audioRef} src={BG_FILE} loop preload="auto" />
 
-            {/* MUSIC — icon + hover-popover slider */}
+            {/* MUSIC */}
             <div
                 className="relative flex flex-col items-end"
-                onMouseEnter={() => open('music')}
-                onMouseLeave={scheduleClose}
+                onMouseEnter={hoverCapable ? () => open('music') : undefined}
+                onMouseLeave={hoverCapable ? scheduleClose : undefined}
             >
                 <button
-                    onClick={() => { toggleMusic(); open('music') }}
+                    onClick={() => {
+                        toggleMusic()
+                        if (hoverCapable) open('music')
+                    }}
                     className={cls(musicOn)}
-                    title={musicOn ? 'Music — tap to mute · hover for volume' : 'Music — off'}
+                    title={hoverCapable
+                        ? (musicOn ? 'Music — tap to mute · hover for volume' : 'Music — off')
+                        : (musicOn ? 'Music — tap to mute' : 'Music — off')}
                 >
                     <Music size={14} />
                 </button>
-                {openPanel === 'music' && (
+                {hoverCapable && openPanel === 'music' && (
                     <div
                         className="absolute top-full mt-1.5 right-0 px-3 py-2 rounded-xl bg-black/80 backdrop-blur-md border border-white/15 flex items-center gap-2"
                         onMouseEnter={() => open('music')}
@@ -177,20 +199,25 @@ export function FlightAudioToggles() {
                 )}
             </div>
 
-            {/* SFX — icon + hover-popover slider */}
+            {/* SFX */}
             <div
                 className="relative flex flex-col items-end"
-                onMouseEnter={() => open('sfx')}
-                onMouseLeave={scheduleClose}
+                onMouseEnter={hoverCapable ? () => open('sfx') : undefined}
+                onMouseLeave={hoverCapable ? scheduleClose : undefined}
             >
                 <button
-                    onClick={() => { toggleSfx(); open('sfx') }}
+                    onClick={() => {
+                        toggleSfx()
+                        if (hoverCapable) open('sfx')
+                    }}
                     className={cls(sfxOn)}
-                    title={sfxOn ? 'SFX — tap to mute · hover for volume' : 'SFX — off'}
+                    title={hoverCapable
+                        ? (sfxOn ? 'SFX — tap to mute · hover for volume' : 'SFX — off')
+                        : (sfxOn ? 'SFX — tap to mute' : 'SFX — off')}
                 >
                     {sfxOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
                 </button>
-                {openPanel === 'sfx' && (
+                {hoverCapable && openPanel === 'sfx' && (
                     <div
                         className="absolute top-full mt-1.5 right-0 px-3 py-2 rounded-xl bg-black/80 backdrop-blur-md border border-white/15 flex items-center gap-2"
                         onMouseEnter={() => open('sfx')}
