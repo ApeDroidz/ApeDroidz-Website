@@ -54,18 +54,23 @@ function ReferralRegistrar({ wallet }: { wallet: string }) {
 }
 
 // ── Shared card bottom info overlay ─────────────────────────────────────────
+// Mobile shows ONLY the title — no subtitle, no arrow button — to keep the
+// 2×2 grid clean at small widths. Desktop (≥lg) gets the full layout with
+// subtitle and arrow chip.
 function CardInfo({ title, subtitle, accentColor, white }: { title: string; subtitle: string; accentColor: string; white?: boolean }) {
     return (
         <>
-            <div className="absolute inset-x-0 bottom-0 h-[40%] pointer-events-none"
+            <div className="absolute inset-x-0 bottom-0 h-[55%] sm:h-[40%] pointer-events-none"
                 style={{ background: "linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.7) 50%, transparent 100%)" }}
             />
-            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 px-4 pb-4 pt-3">
-                <div>
-                    <h3 className="text-lg font-black text-white uppercase tracking-tight leading-none">{title}</h3>
-                    <p className={`text-[10px] font-medium mt-1 ${white ? 'text-white/50' : 'text-white/40'}`}>{subtitle}</p>
+            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 px-3 pb-3 pt-3 sm:px-4 sm:pb-4">
+                <div className="min-w-0">
+                    <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-tight leading-tight truncate">{title}</h3>
+                    {/* Subtitle hidden on mobile — title alone reads cleaner on small cards. */}
+                    <p className={`hidden lg:block text-[10px] font-medium mt-1 ${white ? 'text-white/50' : 'text-white/40'}`}>{subtitle}</p>
                 </div>
-                <div className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center border transition-all duration-300 group-hover:scale-110 ${
+                {/* Arrow chip hidden on mobile — tap-target is the whole card. */}
+                <div className={`hidden lg:flex flex-shrink-0 w-8 h-8 rounded-xl items-center justify-center border transition-all duration-300 group-hover:scale-110 ${
                     white
                         ? 'border-white/30 bg-white/10 group-hover:bg-white/20'
                         : ''
@@ -288,95 +293,92 @@ export default function GlitchGamesPage() {
     }, [account?.address, fetchStats])
 
     return (
-        <main className="relative h-[100dvh] w-full bg-black font-sans overflow-hidden text-white selection:bg-white/20">
+        // Mobile: page scrolls naturally (`min-h-[100dvh]`). Desktop ≥lg:
+        // locked to a single viewport with internal panel scrolling. The
+        // mistake before was using `h-[100dvh] overflow-hidden` for both
+        // breakpoints, which clipped the right-side quests/leaderboard
+        // panel out of view on mobile.
+        <main className="relative min-h-[100dvh] w-full bg-black font-sans text-white selection:bg-white/20 lg:h-[100dvh] lg:overflow-hidden">
             <div className="fixed inset-0 z-0 opacity-20 pointer-events-none mix-blend-lighten">
                 <DigitalBackground />
             </div>
 
-            <div className="relative z-10 h-full flex flex-col">
+            <div className="relative z-10 flex flex-col lg:h-full">
                 <Header
                     onOpenProfile={() => { setProfileInitialTab("profile"); setIsProfileOpen(true) }}
                     onOpenLeaderboard={() => { setProfileInitialTab("leaderboard"); setIsProfileOpen(true) }}
                 />
 
                 <motion.div
-                    className="flex-1 flex flex-col overflow-hidden pt-[72px] lg:pt-[80px]"
+                    className="flex-1 flex flex-col pt-[64px] sm:pt-[72px] lg:pt-[80px] lg:overflow-hidden"
                     variants={staggerContainer}
                     initial="hidden"
                     animate="show"
                 >
                     {/* ── Body ──────────────────────────────────────────────── */}
-                    <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="flex-1 flex flex-col lg:overflow-hidden">
 
-                        {/* Row 1: Title (left 70%) + Stats (right 30%) */}
-                        <div className="flex-shrink-0 flex flex-col lg:flex-row lg:items-center px-5 sm:px-8 pt-4 lg:pr-5 gap-3 lg:gap-0">
+                        {/* Row 1: Title + Stats */}
+                        <div className="flex-shrink-0 flex flex-col lg:flex-row lg:items-center px-4 sm:px-8 pt-3 sm:pt-4 lg:pr-5 gap-3 lg:gap-0">
                             <motion.h1
                                 variants={fadeUp}
-                                className="lg:w-[70%] flex-shrink-0 text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white uppercase italic leading-none text-center"
+                                className="lg:w-[70%] flex-shrink-0 text-2xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white uppercase italic leading-none text-center"
                             >
                                 <span className="drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">Glitch Games</span>{' '}
                                 <span className="text-[#3b82f6]">Season 2</span>
                             </motion.h1>
 
-                            {/* Stats — inline with title on desktop.
-                                Order: Tickets → APE Flight → S2 Rank (with mini
-                                "leaderboard" link to ProfileModal, mirroring
-                                the Cards/Flight in-game UIs). */}
+                            {/* Stats — compact 3-column row, identical structure mobile + desktop. */}
                             <div className="lg:flex-1 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center lg:pl-6">
-                                {/* 1. Tickets */}
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-0.5 sm:gap-1 items-center lg:items-start">
                                     {statsLoading ? (
-                                        <div className="h-[22px] w-8 bg-white/10 rounded animate-pulse mb-1" />
+                                        <div className="h-[18px] sm:h-[22px] w-8 bg-white/10 rounded animate-pulse mb-1" />
                                     ) : (
-                                        <span className="font-mono text-[20px] font-extrabold text-white leading-none tracking-tight">
+                                        <span className="font-mono text-[16px] sm:text-[20px] font-extrabold text-white leading-none tracking-tight">
                                             {tickets != null ? tickets : '--'}
                                         </span>
                                     )}
-                                    <div className="flex items-center gap-1.5 leading-none">
-                                        <span className="text-[9px] font-bold tracking-widest text-white/40 uppercase leading-none">Tickets</span>
-                                        <Link href="/glitch_games/cards" className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors underline decoration-white/30 hover:decoration-white underline-offset-2">
+                                    <div className="flex items-center gap-1 sm:gap-1.5 leading-none">
+                                        <span className="text-[8px] sm:text-[9px] font-bold tracking-widest text-white/40 uppercase leading-none">Tickets</span>
+                                        <Link href="/glitch_games/cards" className="text-[7px] sm:text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors underline decoration-white/30 hover:decoration-white underline-offset-2">
                                             Get
                                         </Link>
                                     </div>
                                 </div>
 
-                                <div className="w-px h-8 bg-white/10 mx-3" />
+                                <div className="w-px h-7 sm:h-8 bg-white/10 mx-2 sm:mx-3" />
 
-                                {/* 2. APE Flight */}
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-0.5 sm:gap-1 items-center lg:items-start">
                                     {statsLoading ? (
-                                        <div className="h-[22px] w-14 bg-white/10 rounded animate-pulse mb-1" />
+                                        <div className="h-[18px] sm:h-[22px] w-14 bg-white/10 rounded animate-pulse mb-1" />
                                     ) : (
-                                        <span className="font-mono text-[20px] font-extrabold text-white leading-none tracking-tight">
+                                        <span className="font-mono text-[16px] sm:text-[20px] font-extrabold text-white leading-none tracking-tight">
                                             {flightApe != null ? flightApe.toFixed(flightApe % 1 === 0 ? 0 : 2) : '--'}
                                         </span>
                                     )}
-                                    <div className="flex items-center gap-1.5 leading-none">
-                                        <span className="text-[9px] font-bold tracking-widest text-white/40 uppercase leading-none">APE Flight</span>
-                                        <Link href="/glitch_games/flight" className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors underline decoration-white/30 hover:decoration-white underline-offset-2">
+                                    <div className="flex items-center gap-1 sm:gap-1.5 leading-none">
+                                        <span className="text-[8px] sm:text-[9px] font-bold tracking-widest text-white/40 uppercase leading-none">APE Flight</span>
+                                        <Link href="/glitch_games/flight" className="text-[7px] sm:text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors underline decoration-white/30 hover:decoration-white underline-offset-2">
                                             Add
                                         </Link>
                                     </div>
                                 </div>
 
-                                <div className="w-px h-8 bg-white/10 mx-3" />
+                                <div className="w-px h-7 sm:h-8 bg-white/10 mx-2 sm:mx-3" />
 
-                                {/* 3. S2 Rank — clickable opens ProfileModal on Leaderboard tab.
-                                    Mirrors the small "leaderboard" link present in /glitch_games/cards
-                                    and /glitch_games/flight game UIs. */}
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-0.5 sm:gap-1 items-center lg:items-start">
                                     {statsLoading ? (
-                                        <div className="h-[22px] w-10 bg-white/10 rounded animate-pulse mb-1" />
+                                        <div className="h-[18px] sm:h-[22px] w-10 bg-white/10 rounded animate-pulse mb-1" />
                                     ) : (
-                                        <span className="font-mono text-[20px] font-extrabold text-white leading-none tracking-tight">
+                                        <span className="font-mono text-[16px] sm:text-[20px] font-extrabold text-white leading-none tracking-tight">
                                             {s2Rank != null ? `#${s2Rank}` : '--'}
                                         </span>
                                     )}
-                                    <div className="flex items-center gap-1.5 leading-none">
-                                        <span className="text-[9px] font-bold tracking-widest text-white/40 uppercase leading-none">S2 Rank</span>
+                                    <div className="flex items-center gap-1 sm:gap-1.5 leading-none">
+                                        <span className="text-[8px] sm:text-[9px] font-bold tracking-widest text-white/40 uppercase leading-none">S2 Rank</span>
                                         <button
                                             onClick={() => { setProfileInitialTab('leaderboard'); setIsProfileOpen(true) }}
-                                            className="text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors underline decoration-white/30 hover:decoration-white underline-offset-2"
+                                            className="text-[7px] sm:text-[8px] text-white/30 hover:text-white uppercase font-bold tracking-widest transition-colors underline decoration-white/30 hover:decoration-white underline-offset-2"
                                         >
                                             Leaderboard
                                         </button>
@@ -385,13 +387,16 @@ export default function GlitchGamesPage() {
                             </div>
                         </div>
 
-                        {/* Row 2: Games (left 70%) + Card (right 30%) — equal height */}
-                        <div className="flex-1 flex flex-col lg:flex-row pt-5 pb-4 min-h-0">
+                        {/* Row 2: Games (left 70%) + Tabs card (right 30%). Mobile
+                            stacks them; cards get a fixed 4:3 aspect so the grid
+                            keeps a sensible height regardless of viewport. */}
+                        <div className="flex-1 flex flex-col lg:flex-row pt-4 sm:pt-5 pb-4 lg:min-h-0">
 
                             {/* LEFT: Games grid */}
-                            <div className="w-full lg:w-[70%] flex-shrink-0 flex flex-col px-5 sm:px-8 pb-0 min-h-0">
+                            <div className="w-full lg:w-[70%] flex-shrink-0 flex flex-col px-4 sm:px-8 pb-0 lg:min-h-0">
                                 <motion.div
-                                    className="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4 flex-1 min-h-0"
+                                    className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:flex-1 lg:min-h-0
+                                               [&>*]:aspect-[4/3] lg:[&>*]:aspect-auto"
                                     variants={{
                                         hidden: {},
                                         show: { transition: { staggerChildren: 0.12, delayChildren: 0.2 } },
@@ -412,64 +417,68 @@ export default function GlitchGamesPage() {
                                 </motion.div>
                             </div>
 
-                            {/* RIGHT: Tabs card — same height as grid */}
-                            <div className="w-full lg:flex-1 flex-shrink-0 flex flex-col overflow-hidden p-4 sm:p-5 lg:pl-0 lg:pt-0 lg:pr-5 lg:pb-0 min-h-0">
+                            {/* RIGHT: Tabs card. Mobile gets a fixed natural
+                                height with internal scroll inside the panel
+                                components themselves. Desktop fills column. */}
+                            <div className="w-full lg:flex-1 flex-shrink-0 flex flex-col px-4 pt-4 pb-2 sm:px-8 sm:pt-5 lg:px-0 lg:pl-0 lg:pt-0 lg:pr-5 lg:pb-0 lg:min-h-0">
+                                <div className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.02]
+                                                h-[68vh] sm:h-[60vh] lg:h-auto lg:flex-1 lg:overflow-hidden lg:min-h-0">
 
-                            <div className="flex-1 flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] min-h-0">
+                                    {/* Tab bar */}
+                                    <div className="flex-shrink-0 flex border-b border-white/10">
+                                        {(['quests', 'leaderboard'] as const).map(tab => (
+                                            <button
+                                                key={tab}
+                                                onClick={() => setRightTab(tab)}
+                                                className={`flex-1 py-2.5 flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                    rightTab === tab
+                                                        ? 'bg-white/5 text-white shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.2)]'
+                                                        : 'text-white/40 hover:text-white/60'
+                                                }`}
+                                            >
+                                                {tab === 'quests' ? 'Quests' : 'Leaderboard'}
+                                            </button>
+                                        ))}
+                                    </div>
 
-                                {/* Flat border-b tab bar */}
-                                <div className="flex-shrink-0 flex border-b border-white/10">
-                                    {(['quests', 'leaderboard'] as const).map(tab => (
-                                        <button
-                                            key={tab}
-                                            onClick={() => setRightTab(tab)}
-                                            className={`flex-1 py-2.5 flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-all ${
-                                                rightTab === tab
-                                                    ? 'bg-white/5 text-white shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.2)]'
-                                                    : 'text-white/40 hover:text-white/60'
-                                            }`}
-                                        >
-                                            {tab === 'quests' ? 'Quests' : 'Leaderboard'}
-                                        </button>
-                                    ))}
+                                    {/* Tab content — `flex-1 min-h-0 overflow-y-auto`
+                                        guarantees the inner panel scrolls inside
+                                        the card on every breakpoint, fixing the
+                                        "leaderboard/quests don't scroll" bug. */}
+                                    <AnimatePresence mode="wait">
+                                        {rightTab === 'quests' ? (
+                                            <motion.div
+                                                key="quests"
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: 10 }}
+                                                transition={{ duration: 0.15 }}
+                                                className="flex-1 min-h-0 overflow-y-auto custom-scrollbar-panel px-4 sm:px-5 pt-4 pb-4"
+                                            >
+                                                <QuestsPanel onQuestClaimed={() => { fetchStats(account?.address ?? ''); setLbRefreshKey(k => k + 1) }} />
+                                            </motion.div>
+                                        ) : (
+                                            <motion.div
+                                                key="leaderboard"
+                                                initial={{ opacity: 0, x: 10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: -10 }}
+                                                transition={{ duration: 0.15 }}
+                                                className="flex-1 min-h-0 overflow-y-auto custom-scrollbar-panel px-4 sm:px-5 pt-5 pb-4"
+                                            >
+                                                <S2LeaderboardPanel
+                                                    wallet={account?.address}
+                                                    hidePlayerBanner
+                                                    refreshTrigger={lbRefreshKey}
+                                                    onRefresh={() => { if (account?.address) fetchStats(account.address); setLbRefreshKey(k => k + 1) }}
+                                                />
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
-
-                                {/* Tab content */}
-                                <AnimatePresence mode="wait">
-                                    {rightTab === 'quests' ? (
-                                        <motion.div
-                                            key="quests"
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: 10 }}
-                                            transition={{ duration: 0.15 }}
-                                            className="flex-1 flex flex-col overflow-hidden min-h-0 px-5 pt-4 pb-4"
-                                        >
-                                            <QuestsPanel onQuestClaimed={() => { fetchStats(account?.address ?? ''); setLbRefreshKey(k => k + 1) }} />
-                                        </motion.div>
-                                    ) : (
-                                        <motion.div
-                                            key="leaderboard"
-                                            initial={{ opacity: 0, x: 10 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -10 }}
-                                            transition={{ duration: 0.15 }}
-                                            className="flex-1 flex flex-col overflow-hidden min-h-0 px-5 pt-5 pb-4"
-                                        >
-                                            <S2LeaderboardPanel
-                                                wallet={account?.address}
-                                                hidePlayerBanner
-                                                refreshTrigger={lbRefreshKey}
-                                                onRefresh={() => { if (account?.address) fetchStats(account.address); setLbRefreshKey(k => k + 1) }}
-                                            />
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-
                             </div>
-                        </div>
 
-                    </div>
+                        </div>
 
                     </div>{/* /Body */}
                 </motion.div>
