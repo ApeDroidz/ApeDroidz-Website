@@ -464,6 +464,10 @@ function FlightTab() {
     const [data, setData] = useState<any>(null)
     const [err, setErr] = useState('')
     const [loading, setLoading] = useState(true)
+    const [drillWallet, setDrillWallet] = useState<string | null>(null)
+    const [drillData, setDrillData]     = useState<any>(null)
+    const [drillLoading, setDrillLoading] = useState(false)
+
     const load = useCallback(async () => {
         setLoading(true); setErr('')
         try { setData(await jsonFetch(`/api/admin/stats/flight?window=${win}`)) }
@@ -471,6 +475,30 @@ function FlightTab() {
         finally { setLoading(false) }
     }, [win])
     useEffect(() => { load() }, [load])
+
+    // Open the per-wallet drill-down modal. Reuses the same /admin/stats/users
+    // endpoint that powers UsersTab's WalletDrillDown so we don't duplicate
+    // the rendering logic.
+    const openDrill = useCallback(async (wallet: string) => {
+        setDrillWallet(wallet)
+        setDrillData(null)
+        setDrillLoading(true)
+        try { setDrillData(await jsonFetch(`/api/admin/stats/users?wallet=${wallet}`)) }
+        catch (e: any) { setDrillData({ error: e.message }) }
+        finally { setDrillLoading(false) }
+    }, [])
+    const closeDrill = () => { setDrillWallet(null); setDrillData(null) }
+
+    // Helper: wallet button used in every flight table for drill-down.
+    const walletLink = (w: string) => (
+        <button
+            onClick={() => openDrill(w)}
+            className="font-mono text-[#3b82f6] hover:underline cursor-pointer"
+            title="Open wallet detail"
+        >
+            {shortWallet(w)}
+        </button>
+    )
 
     return (
         <div className="flex flex-col gap-4">
@@ -527,20 +555,52 @@ function FlightTab() {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        <Card title="Top profits">
-                            <Table headers={['Wallet', 'Profit', 'Mult']} rows={data.topProfits.slice(0, 10).map((r: any) => [
-                                shortWallet(r.wallet_address),
-                                <span key="p" className="font-mono text-emerald-400">+{fmt(r.profit, 4)}</span>,
-                                <span key="m" className="font-mono text-white/60">{r.cashout_at?.toFixed(2)}x</span>,
-                            ])} />
+                        {/* The RPC admin_top_flight_profits returns aggregated
+                            rows (total_profit/wins/losses/plays/total_volume),
+                            not per-bet data — the original UI was reading
+                            r.profit / r.cashout_at and silently rendering
+                            blank cells. */}
+                        <Card title="Top profits (aggregated, window)">
+                            <Table
+                                headers={['Wallet', 'Profit', 'W/L', 'Volume']}
+                                rows={(data.topProfits ?? []).slice(0, 15).map((r: any) => [
+                                    walletLink(r.wallet_address),
+                                    <span key="p" className={`font-mono ${Number(r.total_profit) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {Number(r.total_profit) >= 0 ? '+' : ''}{fmt(r.total_profit, 2)}
+                                    </span>,
+                                    <span key="wl" className="font-mono text-[10px] text-white/50">{r.wins}/{r.losses}</span>,
+                                    <span key="v" className="font-mono text-white/50">{fmt(r.total_volume, 2)}</span>,
+                                ])}
+                            />
                         </Card>
-                        <Card title="Biggest losses">
-                            <Table headers={['Wallet', 'Bet']} rows={data.biggestLosses.slice(0, 10).map((r: any) => [
-                                shortWallet(r.wallet_address),
+                        <Card title="Biggest single losses">
+                            <Table headers={['Wallet', 'Bet']} rows={(data.biggestLosses ?? []).slice(0, 15).map((r: any) => [
+                                walletLink(r.wallet_address),
                                 <span key="b" className="font-mono text-red-400">−{fmt(r.bet_amount, 2)}</span>,
                             ])} />
                         </Card>
                     </div>
+
+                    {/* ── Recent / live bets ─────────────────────────────── */}
+                    <Card title={`Recent bets (last ${(data.recentActivity ?? []).length})`}>
+                        <Table
+                            headers={['Wallet', 'Bet', 'Cashout', 'Profit', 'When']}
+                            rows={(data.recentActivity ?? []).slice(0, 30).map((r: any) => {
+                                const won = r.cashout_at != null
+                                return [
+                                    walletLink(r.wallet_address),
+                                    <span key="b" className="font-mono">{fmt(r.bet_amount, 2)}</span>,
+                                    won
+                                        ? <span key="c" className="font-mono text-[#00FF94]">{Number(r.cashout_at).toFixed(2)}x</span>
+                                        : <span key="c" className="font-mono text-red-400/70">crashed</span>,
+                                    won
+                                        ? <span key="p" className="font-mono text-emerald-400">+{fmt(r.profit, 4)}</span>
+                                        : <span key="p" className="font-mono text-red-400">−{fmt(r.bet_amount, 2)}</span>,
+                                    <span key="t" className="text-white/40 text-[10px]">{new Date(r.created_at).toLocaleTimeString()}</span>,
+                                ]
+                            })}
+                        />
+                    </Card>
 
                     {/* ── Crash histogram ─────────────────────────────── */}
                     {data.crashHistogram && data.crashHistogram.length > 0 && (
@@ -557,7 +617,7 @@ function FlightTab() {
                     {data.queue.pendingInvestigation.length > 0 && (
                         <Card title="🚨 Pending investigation — review needed" className="border-red-500/30">
                             <Table headers={['Wallet', 'Type', 'Amount', 'TX', 'Created']} rows={data.queue.pendingInvestigation.map((r: any) => [
-                                shortWallet(r.wallet_address),
+                                walletLink(r.wallet_address),
                                 <span key="ty" className="text-[10px] uppercase tracking-widest text-white/50">{r.type}</span>,
                                 <span key="a" className="font-mono">{fmt(r.amount, 4)}</span>,
                                 r.tx_hash ? <a key="t" href={`https://apescan.io/tx/${r.tx_hash}`} target="_blank" rel="noreferrer" className="font-mono text-[#3b82f6] hover:underline">{r.tx_hash.slice(0, 12)}…</a> : <span key="t" className="text-white/30">—</span>,
@@ -566,6 +626,29 @@ function FlightTab() {
                         </Card>
                     )}
                 </>
+            )}
+
+            {/* Drill-down modal — opened by clicking any wallet in the tab */}
+            {drillWallet && (
+                <div className="fixed inset-0 z-[9000] flex items-start justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={closeDrill}>
+                    <div className="relative w-full max-w-5xl mt-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] uppercase font-black tracking-widest text-white/50">
+                                Wallet detail · {shortWallet(drillWallet)}
+                            </span>
+                            <button onClick={closeDrill} className="px-3 h-8 text-[10px] uppercase tracking-widest font-bold text-white/60 hover:text-white border border-white/15 rounded-lg">
+                                Close
+                            </button>
+                        </div>
+                        {drillLoading
+                            ? <Card><div className="py-8 text-center text-white/40 text-xs font-mono">Loading…</div></Card>
+                            : drillData?.error
+                                ? <ErrorBox msg={drillData.error} />
+                                : drillData
+                                    ? <WalletDrillDown data={drillData} />
+                                    : <Card>No data.</Card>}
+                    </div>
+                </div>
             )}
         </div>
     )
