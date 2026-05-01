@@ -76,8 +76,11 @@ export async function POST(req: Request) {
 
         // ── 3. Pre-check (this wallet) — duplicate against UNIQUE constraint
         //      below would also catch it, but a friendly response is nicer.
+        //      Reads/writes target the S2-only table; pre-S2 X-task history
+        //      lives in `daily_claims_log` and is intentionally invisible
+        //      here so a returning S1 player can claim S2 tasks fresh.
         const { data: existingClaim } = await supabaseAdmin
-            .from('daily_claims_log')
+            .from('daily_claims_log_s2')
             .select('id')
             .ilike('wallet_address', wallet)
             .eq('task_config_id', taskConfig.id)
@@ -89,7 +92,7 @@ export async function POST(req: Request) {
         // ── 3b. Anti-multi-wallet abuse via X handle ────────────────────────
         if (cleanedXHandle) {
             const { data: xClaim } = await supabaseAdmin
-                .from('daily_claims_log')
+                .from('daily_claims_log_s2')
                 .select('id')
                 .ilike('x_handle', cleanedXHandle)
                 .eq('task_config_id', taskConfig.id)
@@ -103,7 +106,7 @@ export async function POST(req: Request) {
 
         // ── 4. Insert claim row FIRST (UNIQUE constraint serialises concurrent reqs).
         const { error: logErr } = await supabaseAdmin
-            .from('daily_claims_log')
+            .from('daily_claims_log_s2')
             .insert({
                 wallet_address: wallet,
                 task_config_id: taskConfig.id,

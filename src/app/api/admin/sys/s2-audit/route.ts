@@ -59,10 +59,11 @@ export async function GET(req: NextRequest) {
             .gte('claim_date', S2_START_DATE)
             .order('claim_date', { ascending: false }),
 
-        supabaseAdmin.from('daily_claims_log')
+        // S2 X-task claims live in the dedicated daily_claims_log_s2 table —
+        // no date filter needed, every row in there is by definition S2.
+        supabaseAdmin.from('daily_claims_log_s2')
             .select('claimed_at, x_handle')
             .ilike('wallet_address', w)
-            .gte('claimed_at', S2_START_ISO)
             .order('claimed_at', { ascending: false }),
 
         supabaseAdmin.from('weekly_streak_claims')
@@ -71,13 +72,15 @@ export async function GET(req: NextRequest) {
             .gte('week_monday', S2_START_DATE)
             .order('week_monday', { ascending: false }),
 
+        // Pre-S2 noise still lives in the legacy game_logs and daily_claims_log
+        // tables — count it from there so the operator can see how much
+        // historic data is being correctly excluded from the S2 view.
         supabaseAdmin.from('game_logs').select('id', { count: 'exact', head: true })
             .ilike('wallet_address', w).eq('status', 'success')
             .lt('created_at', S2_START_ISO),
 
         supabaseAdmin.from('daily_claims_log').select('id', { count: 'exact', head: true })
-            .ilike('wallet_address', w)
-            .lt('claimed_at', S2_START_ISO),
+            .ilike('wallet_address', w),
     ])
 
     const truth = {

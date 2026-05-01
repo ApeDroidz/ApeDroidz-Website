@@ -72,8 +72,10 @@ export async function GET(req: Request) {
                 .lt('created_at', new Date(now - 60 * 60_000).toISOString())
                 .order('created_at', { ascending: true }).limit(20),
 
-            // Same X handle on multiple wallets in the daily claims log
-            supabaseAdmin.from('daily_claims_log')
+            // Same X handle on multiple wallets in the daily claims log.
+            // Reads the S2-isolated table — pre-S2 history isn't operationally
+            // relevant for live multi-account detection.
+            supabaseAdmin.from('daily_claims_log_s2')
                 .select('x_handle, wallet_address, claimed_at')
                 .not('x_handle', 'is', null).gte('claimed_at', since7d),
 

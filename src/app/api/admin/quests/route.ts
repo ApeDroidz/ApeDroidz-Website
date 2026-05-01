@@ -28,10 +28,12 @@ export async function GET(req: Request) {
             return NextResponse.json({ quests: [] }, { headers: { 'cache-control': 'no-store' } })
         }
 
-        // 2. Fetch claim counts in one batch (group by task_config_id)
+        // 2. Fetch claim counts in one batch (group by task_config_id).
+        // S2 admin view reads the S2-isolated table; legacy daily_claims_log
+        // is preserved for historic auditing but isn't reflected here.
         const ids = quests.map((q: any) => q.id)
         const { data: claims } = await supabaseAdmin
-            .from('daily_claims_log')
+            .from('daily_claims_log_s2')
             .select('task_config_id, claimed_at')
             .in('task_config_id', ids)
 

@@ -38,10 +38,11 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ activeTask: null, claimed: false, claimedAt: null })
     }
 
-    // 2. Check if this wallet already claimed THIS specific task
-    //    (ilike — case-insensitive, safe because wallet is regex-validated)
+    // 2. Check if this wallet already claimed THIS specific task. We only
+    //    look at the S2 table — pre-S2 history (in legacy daily_claims_log)
+    //    must NOT block a returning S1 player from claiming a fresh S2 task.
     const { data: existingClaim } = await supabaseAdmin
-        .from("daily_claims_log")
+        .from("daily_claims_log_s2")
         .select("claimed_at")
         .ilike("wallet_address", wallet)
         .eq("task_config_id", task.id)

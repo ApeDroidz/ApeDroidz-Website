@@ -42,21 +42,18 @@ export async function GET(req: NextRequest) {
         const orFilter = wallets.map((w: string) => `wallet_address.ilike.${w}`).join(',')
 
         // Quest tally = activity-quest claims + X-task daily claims + streak
-        // milestone claims, all filtered to S2 only:
-        //   • daily_activity_claims  — column `claim_date` (date, S2_START_DATE)
-        //   • daily_claims_log       — column `claimed_at` (timestamp, S2_START_ISO)
-        //   • weekly_streak_claims   — column `week_monday` (date, S2_START_DATE).
-        //     Streak rows have no created_at, but `week_monday` is the start
-        //     of the week the claim covers. Any week starting on or after
-        //     2026-04-09 is S2.
-        // Pre-S2 test data is silently excluded.
+        // milestone claims. Tables are mostly S2-isolated — exceptions get
+        // a date filter:
+        //   • daily_activity_claims   — date filter on claim_date (legacy
+        //     table, but pre-S2 rows in this one are negligible)
+        //   • daily_claims_log_s2     — S2-only by construction, no filter
+        //   • weekly_streak_claims    — date filter on week_monday
         const [usersRes, glitchRes, activityRes, dailyRes, streakRes] = await Promise.all([
             supabaseAdmin.from('users').select('wallet_address, username').or(orFilter),
             supabaseAdmin.from('glitch_users').select('wallet_address, x_handle').or(orFilter),
             supabaseAdmin.from('daily_activity_claims').select('wallet_address').or(orFilter)
                 .gte('claim_date', S2_START_DATE),
-            supabaseAdmin.from('daily_claims_log').select('wallet_address').or(orFilter)
-                .gte('claimed_at', S2_START_ISO),
+            supabaseAdmin.from('daily_claims_log_s2').select('wallet_address').or(orFilter),
             supabaseAdmin.from('weekly_streak_claims').select('wallet_address').or(orFilter)
                 .gte('week_monday', S2_START_DATE),
         ])

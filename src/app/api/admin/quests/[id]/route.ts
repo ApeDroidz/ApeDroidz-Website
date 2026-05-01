@@ -115,9 +115,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     if (id == null) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
     try {
+        // Per-task stats reflect Season 2 only — pre-S2 history sits in the
+        // legacy daily_claims_log and isn't shown here.
         const [questRes, claimsRes] = await Promise.all([
             supabaseAdmin.from('daily_task_config').select('*').eq('id', id).maybeSingle(),
-            supabaseAdmin.from('daily_claims_log')
+            supabaseAdmin.from('daily_claims_log_s2')
                 .select('wallet_address, x_handle, proof_link, claimed_at')
                 .eq('task_config_id', id)
                 .order('claimed_at', { ascending: false })
