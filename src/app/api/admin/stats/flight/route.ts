@@ -39,9 +39,10 @@ export async function GET(req: NextRequest) {
             since
                 ? supabaseAdmin.from('flight_game_logs')
                     .select('wallet_address, bet_amount, cashout_at, profit, xp_gained, created_at')
-                    .gte('created_at', since)
+                    .gte('created_at', since).limit(10000)
                 : supabaseAdmin.from('flight_game_logs')
-                    .select('wallet_address, bet_amount, cashout_at, profit, xp_gained, created_at'),
+                    .select('wallet_address, bet_amount, cashout_at, profit, xp_gained, created_at')
+                    .limit(10000),
 
             since
                 ? supabaseAdmin.from('flight_transactions').select('amount, created_at')
@@ -119,6 +120,49 @@ export async function GET(req: NextRequest) {
 
         const liabilityRow = Array.isArray(liability.data) ? liability.data[0] : liability.data
 
+        // ── Per-player P/L aggregation ─────────────────────────────────────
+        // Combines wins and losses into one row per wallet so the admin can
+        // see the complete picture (gross_profit / gross_loss / net) instead
+        // of two separate "top winners" and "biggest losses" tables that
+        // never agreed with each other.
+        type PnlRow = {
+            wallet_address: string
+            plays: number
+            wins: number
+            losses: number
+            volume: number
+            gross_profit: number   // sum of profit on winning bets (≥0)
+            gross_loss: number     // sum of bet_amount on losing bets (≥0)
+            net: number            // gross_profit − gross_loss (signed)
+        }
+        const byWallet = new Map<string, PnlRow>()
+        for (const r of betsArr) {
+            const w = String(r.wallet_address || '').toLowerCase()
+            if (!w) continue
+            let row = byWallet.get(w)
+            if (!row) {
+                row = { wallet_address: w, plays: 0, wins: 0, losses: 0, volume: 0, gross_profit: 0, gross_loss: 0, net: 0 }
+                byWallet.set(w, row)
+            }
+            const bet = Number(r.bet_amount || 0)
+            row.plays++
+            row.volume += bet
+            if (r.cashout_at != null) {
+                row.wins++
+                row.gross_profit += Number(r.profit || 0)
+            } else {
+                row.losses++
+                row.gross_loss += bet
+            }
+        }
+        for (const r of byWallet.values()) {
+            r.net = +(r.gross_profit - r.gross_loss).toFixed(4)
+            r.gross_profit = +r.gross_profit.toFixed(4)
+            r.gross_loss = +r.gross_loss.toFixed(4)
+            r.volume = +r.volume.toFixed(4)
+        }
+        const playerPnl: PnlRow[] = [...byWallet.values()].sort((a, b) => b.net - a.net)
+
         return NextResponse.json({
             window: win,
             rounds: roundsAgg.count ?? 0,
@@ -131,8 +175,9 @@ export async function GET(req: NextRequest) {
             outcome: { winners, losers, winRate: betsArr.length > 0 ? (winners / betsArr.length) * 100 : 0 },
             money: { deposits: sumDeposits, withdrawals: sumWithdrawals, net: sumDeposits - sumWithdrawals },
             queue: { pendingWithdrawals: pendingWds.data ?? [], pendingInvestigation: pendingInvest.data ?? [] },
-            topProfits: topProfits.data ?? [],
-            biggestLosses: biggestLosses.data ?? [],
+            playerPnl,                                 // unified per-player P/L view
+            topProfits: topProfits.data ?? [],         // legacy — gross-profit-only RPC
+            biggestLosses: biggestLosses.data ?? [],   // legacy — biggest single bet lost
             recentActivity: recentLog.data ?? [],
             crashHistogram: crashBuckets.data ?? [],
             liability: liabilityRow ?? null,

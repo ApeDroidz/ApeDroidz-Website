@@ -554,32 +554,28 @@ function FlightTab() {
                         </Card>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        {/* The RPC admin_top_flight_profits returns aggregated
-                            rows (total_profit/wins/losses/plays/total_volume),
-                            not per-bet data — the original UI was reading
-                            r.profit / r.cashout_at and silently rendering
-                            blank cells. */}
-                        <Card title="Top profits (aggregated, window)">
-                            <Table
-                                headers={['Wallet', 'Profit', 'W/L', 'Volume']}
-                                rows={(data.topProfits ?? []).slice(0, 15).map((r: any) => [
-                                    walletLink(r.wallet_address),
-                                    <span key="p" className={`font-mono ${Number(r.total_profit) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                        {Number(r.total_profit) >= 0 ? '+' : ''}{fmt(r.total_profit, 2)}
-                                    </span>,
-                                    <span key="wl" className="font-mono text-[10px] text-white/50">{r.wins}/{r.losses}</span>,
-                                    <span key="v" className="font-mono text-white/50">{fmt(r.total_volume, 2)}</span>,
-                                ])}
-                            />
-                        </Card>
-                        <Card title="Biggest single losses">
-                            <Table headers={['Wallet', 'Bet']} rows={(data.biggestLosses ?? []).slice(0, 15).map((r: any) => [
+                    {/* Unified per-player P/L — gross profit + gross loss +
+                        net in one row, sorted by net desc. Click wallet to
+                        drill into their full Flight history. */}
+                    <Card title={`Player P/L (${(data.playerPnl ?? []).length} players, window)`}>
+                        <Table
+                            headers={['Wallet', 'Plays', 'W/L', 'Volume', 'Won', 'Lost', 'Net']}
+                            rows={(data.playerPnl ?? []).slice(0, 30).map((r: any) => [
                                 walletLink(r.wallet_address),
-                                <span key="b" className="font-mono text-red-400">−{fmt(r.bet_amount, 2)}</span>,
-                            ])} />
-                        </Card>
-                    </div>
+                                <span key="n" className="font-mono text-white/60">{fmt(r.plays)}</span>,
+                                <span key="wl" className="font-mono text-[10px] text-white/50">{r.wins}/{r.losses}</span>,
+                                <span key="v" className="font-mono text-white/50">{fmt(r.volume, 2)}</span>,
+                                <span key="g" className="font-mono text-emerald-400/80">+{fmt(r.gross_profit, 2)}</span>,
+                                <span key="l" className="font-mono text-red-400/80">−{fmt(r.gross_loss, 2)}</span>,
+                                <span key="net" className={`font-mono font-bold ${Number(r.net) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {Number(r.net) >= 0 ? '+' : ''}{fmt(r.net, 2)}
+                                </span>,
+                            ])}
+                        />
+                        <p className="text-[9px] text-white/30 mt-3 font-mono">
+                            Won = sum of profit on winning rounds. Lost = sum of bet on losing rounds. Net = Won − Lost. Sorted by net descending.
+                        </p>
+                    </Card>
 
                     {/* ── Recent / live bets ─────────────────────────────── */}
                     <Card title={`Recent bets (last ${(data.recentActivity ?? []).length})`}>
