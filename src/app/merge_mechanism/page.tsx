@@ -278,6 +278,26 @@ function MergeMechanismContent() {
         setMergeError(null)
 
         try {
+            // ── Preflight: verify the vault has enough batteries BEFORE asking
+            // the user to sign the on-chain shard transfer. Without this gate
+            // a vault stockout meant the user lost their shards (multiple
+            // historical cases on 2026-03-21 and 2026-05-05). The server now
+            // also auto-refunds, but blocking here saves a round trip and a
+            // confusing UX.
+            try {
+                const pf = await fetch(`/api/merge/preflight?shardCount=${shardCount}`, { cache: 'no-store' })
+                const pfData = await pf.json()
+                if (!pf.ok) throw new Error(pfData.error || 'Preflight check failed')
+                if (!pfData.ok) {
+                    throw new Error(
+                        `Vault is short ${pfData.shortfall} batter${pfData.shortfall === 1 ? 'y' : 'ies'} ` +
+                        `(${pfData.available}/${pfData.needed} ready). Try again later or pick fewer shards.`
+                    )
+                }
+            } catch (e: any) {
+                throw new Error(e?.message || 'Preflight check failed')
+            }
+
             const transferResult = await transferShards(shardCount)
             if (!transferResult || !transferResult.transactionHash) throw new Error("Transaction failed or was rejected")
 
@@ -293,6 +313,18 @@ function MergeMechanismContent() {
 
             const data = await response.json()
             if (!response.ok) throw new Error(data.error || "Server error processing shard merge")
+
+            // Server may have auto-refunded part of the order — surface that
+            // to the user so they understand why fewer batteries arrived.
+            if (data.partial && data.shardsRefunded) {
+                setMergeError(
+                    `Got ${data.batteriesReceived}/${data.needed} batteries — ${data.shardsRefunded} shards refunded automatically.`
+                )
+            } else if (data.refunded) {
+                // Stockout: full refund. Treat as a soft error, not success.
+                setMergeError(`Vault was empty — ${data.refunded} shards refunded automatically. Try again shortly.`)
+                return
+            }
 
             setMergeSuccess(true)
             fetchShards()

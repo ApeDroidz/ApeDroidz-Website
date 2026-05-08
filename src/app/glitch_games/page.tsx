@@ -410,6 +410,11 @@ export default function GlitchGamesPage() {
                                         show: { transition: { staggerChildren: 0.12, delayChildren: 0.2 } },
                                     }}
                                 >
+                                    {/* Desktop split: 60 % active, 40 % coming-soon
+                                        — flex-[3] / flex-[2] resolves to 60/40
+                                        of the column height. Mobile aspect
+                                        ratios (4/3 vs 16/8) already land near
+                                        the same 60/40 visual weight. */}
                                     <div className="grid grid-cols-2 gap-2.5 sm:gap-4
                                                     [&>*]:aspect-[4/3] lg:[&>*]:aspect-auto
                                                     lg:flex-[3] lg:min-h-0">
@@ -426,7 +431,7 @@ export default function GlitchGamesPage() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-2.5 sm:gap-4
                                                     [&>*]:aspect-[16/8] lg:[&>*]:aspect-auto
-                                                    lg:flex-[1] lg:min-h-0">
+                                                    lg:flex-[2] lg:min-h-0">
                                         <ComingSoonCard accentColor="#8b5cf6" />
                                         <ComingSoonCard accentColor="#10b981" />
                                     </div>
