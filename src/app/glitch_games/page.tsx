@@ -392,28 +392,44 @@ export default function GlitchGamesPage() {
                             keeps a sensible height regardless of viewport. */}
                         <div className="flex-1 flex flex-col lg:flex-row pt-4 sm:pt-5 pb-4 lg:min-h-0">
 
-                            {/* LEFT: Games grid */}
+                            {/* LEFT: Games grid — active games dominate, Coming
+                                Soon slots are visually demoted.
+                                  • Mobile: active games on top in a 2×1 row
+                                    with 4:3 aspect (large), Coming Soon
+                                    placeholders below in a 2×1 row with a
+                                    much wider/shorter aspect (16:8) so they
+                                    read as a thin "next up" strip.
+                                  • Desktop: same vertical split, weighted
+                                    flex-[3] / flex-[1] so active games take
+                                    ~75 % of the column height. */}
                             <div className="w-full lg:w-[70%] flex-shrink-0 flex flex-col px-4 sm:px-8 pb-0 lg:min-h-0">
                                 <motion.div
-                                    className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:flex-1 lg:min-h-0
-                                               [&>*]:aspect-[4/3] lg:[&>*]:aspect-auto"
+                                    className="flex flex-col gap-2.5 sm:gap-4 lg:flex-1 lg:min-h-0"
                                     variants={{
                                         hidden: {},
                                         show: { transition: { staggerChildren: 0.12, delayChildren: 0.2 } },
                                     }}
                                 >
-                                    <CardsCard
-                                        title="Glitch Cards"
-                                        subtitle="Reveal prizes, earn XP"
-                                        href="/glitch_games/cards"
-                                    />
-                                    <FlightCard
-                                        title="Glitch Flight"
-                                        subtitle="Fly higher, earn XP"
-                                        href="/glitch_games/flight"
-                                    />
-                                    <ComingSoonCard accentColor="#8b5cf6" />
-                                    <ComingSoonCard accentColor="#10b981" />
+                                    <div className="grid grid-cols-2 gap-2.5 sm:gap-4
+                                                    [&>*]:aspect-[4/3] lg:[&>*]:aspect-auto
+                                                    lg:flex-[3] lg:min-h-0">
+                                        <CardsCard
+                                            title="Glitch Cards"
+                                            subtitle="Reveal prizes, earn XP"
+                                            href="/glitch_games/cards"
+                                        />
+                                        <FlightCard
+                                            title="Glitch Flight"
+                                            subtitle="Fly higher, earn XP"
+                                            href="/glitch_games/flight"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2.5 sm:gap-4
+                                                    [&>*]:aspect-[16/8] lg:[&>*]:aspect-auto
+                                                    lg:flex-[1] lg:min-h-0">
+                                        <ComingSoonCard accentColor="#8b5cf6" />
+                                        <ComingSoonCard accentColor="#10b981" />
+                                    </div>
                                 </motion.div>
                             </div>
 
