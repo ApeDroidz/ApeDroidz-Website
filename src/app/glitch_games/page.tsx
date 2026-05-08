@@ -403,21 +403,24 @@ export default function GlitchGamesPage() {
                                     flex-[3] / flex-[1] so active games take
                                     ~75 % of the column height. */}
                             <div className="w-full lg:w-[70%] flex-shrink-0 flex flex-col px-4 sm:px-8 pb-0 lg:min-h-0">
+                                {/* Desktop: 60/40 split via CSS Grid rows
+                                      `[3fr_2fr]` — more reliable than
+                                      `flex-[3]/flex-[2]` when Tailwind JIT
+                                      sometimes mis-parses arbitrary flex
+                                      values. Mobile remains a vertical stack
+                                      with auto rows; aspect ratios on the
+                                      cards control their height. */}
                                 <motion.div
-                                    className="flex flex-col gap-2.5 sm:gap-4 lg:flex-1 lg:min-h-0"
+                                    className="flex flex-col gap-2.5 sm:gap-4
+                                               lg:grid lg:grid-rows-[3fr_2fr] lg:flex-1 lg:min-h-0"
                                     variants={{
                                         hidden: {},
                                         show: { transition: { staggerChildren: 0.12, delayChildren: 0.2 } },
                                     }}
                                 >
-                                    {/* Desktop split: 60 % active, 40 % coming-soon
-                                        — flex-[3] / flex-[2] resolves to 60/40
-                                        of the column height. Mobile aspect
-                                        ratios (4/3 vs 16/8) already land near
-                                        the same 60/40 visual weight. */}
                                     <div className="grid grid-cols-2 gap-2.5 sm:gap-4
                                                     [&>*]:aspect-[4/3] lg:[&>*]:aspect-auto
-                                                    lg:flex-[3] lg:min-h-0">
+                                                    lg:min-h-0">
                                         <CardsCard
                                             title="Glitch Cards"
                                             subtitle="Reveal prizes, earn XP"
@@ -431,7 +434,7 @@ export default function GlitchGamesPage() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-2.5 sm:gap-4
                                                     [&>*]:aspect-[16/8] lg:[&>*]:aspect-auto
-                                                    lg:flex-[2] lg:min-h-0">
+                                                    lg:min-h-0">
                                         <ComingSoonCard accentColor="#8b5cf6" />
                                         <ComingSoonCard accentColor="#10b981" />
                                     </div>
