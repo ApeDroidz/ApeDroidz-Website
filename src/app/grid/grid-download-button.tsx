@@ -55,14 +55,44 @@ const calculateGridDimensions = (count: number): { cols: number; rows: number } 
     return { cols, rows }
 }
 
-const loadImage = (src: string): Promise<HTMLImageElement> => {
+const loadImage = (src: string, timeoutMs = 20000): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
         const img = new Image()
         img.crossOrigin = 'anonymous'
-        img.onload = () => resolve(img)
-        img.onerror = reject
+        const timer = setTimeout(() => {
+            img.src = ''
+            reject(new Error(`Image load timeout: ${src}`))
+        }, timeoutMs)
+        img.onload = () => {
+            clearTimeout(timer)
+            resolve(img)
+        }
+        img.onerror = () => {
+            clearTimeout(timer)
+            reject(new Error(`Image load failed: ${src}`))
+        }
         img.src = src
     })
+}
+
+// Draws a fallback cell so a single broken image doesn't sink the whole grid.
+const drawPlaceholderCell = (
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    label: string
+) => {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'
+    ctx.fillRect(x, y, size, size)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'
+    ctx.lineWidth = Math.max(2, size * 0.01)
+    ctx.strokeRect(x, y, size, size)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)'
+    ctx.font = `bold ${Math.floor(size * 0.12)}px sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(label, x + size / 2, y + size / 2)
 }
 
 const fetchSafeBlobUrl = async (url: string): Promise<string> => {
@@ -169,6 +199,7 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
 
             type DroidFrames = { frames: (HTMLCanvasElement | HTMLImageElement)[]; delays: number[] }
             const droidFramesMap = new Map<string, DroidFrames>()
+            const failedDroidIds = new Set<string>()
 
             for (let i = 0; i < orderedDroids.length; i++) {
                 const droid = orderedDroids[i]
@@ -178,6 +209,7 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
 
                 const animUrl = getAnimatedUrl(droid)
                 if (animUrl) {
+                    let resolved = false
                     try {
                         const safeUrl = await fetchSafeBlobUrl(animUrl)
                         const framesData = await gifFrames({
@@ -195,15 +227,32 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
                             delays.push(FRAME_DELAY)
                         }
 
-                        droidFramesMap.set(droid.id, { frames, delays })
-                        URL.revokeObjectURL(safeUrl)
-                    } catch {
-                        const img = await loadImage(resolveImageUrl(droid.image))
-                        droidFramesMap.set(droid.id, { frames: [img], delays: [FRAME_DELAY] })
+                        if (frames.length > 0) {
+                            droidFramesMap.set(droid.id, { frames, delays })
+                            resolved = true
+                        }
+                        if (safeUrl.startsWith('blob:')) URL.revokeObjectURL(safeUrl)
+                    } catch (err) {
+                        console.warn(`[grid] gif extraction failed for ${droid.id}:`, err)
+                    }
+
+                    if (!resolved) {
+                        try {
+                            const img = await loadImage(resolveImageUrl(droid.image))
+                            droidFramesMap.set(droid.id, { frames: [img], delays: [FRAME_DELAY] })
+                        } catch (err) {
+                            console.warn(`[grid] static fallback failed for ${droid.id}:`, err)
+                            failedDroidIds.add(droid.id)
+                        }
                     }
                 } else {
-                    const img = await loadImage(resolveImageUrl(droid.image))
-                    droidFramesMap.set(droid.id, { frames: [img], delays: [FRAME_DELAY] })
+                    try {
+                        const img = await loadImage(resolveImageUrl(droid.image))
+                        droidFramesMap.set(droid.id, { frames: [img], delays: [FRAME_DELAY] })
+                    } catch (err) {
+                        console.warn(`[grid] image load failed for ${droid.id}:`, err)
+                        failedDroidIds.add(droid.id)
+                    }
                 }
             }
 
@@ -228,10 +277,17 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
                     const droid = orderedDroids[i]
                     if (droid) {
                         const droidData = droidFramesMap.get(droid.id)
-                        if (droidData) {
+                        if (droidData && droidData.frames.length > 0) {
                             const frame = droidData.frames[frameIndex % droidData.frames.length]
                             ctx.imageSmoothingEnabled = false
-                            ctx.drawImage(frame, x, y, cellSize, cellSize)
+                            try {
+                                ctx.drawImage(frame, x, y, cellSize, cellSize)
+                            } catch (err) {
+                                console.warn(`[grid] drawImage failed for ${droid.id}:`, err)
+                                drawPlaceholderCell(ctx, x, y, cellSize, `#${droid.tokenId || droid.id}`)
+                            }
+                        } else {
+                            drawPlaceholderCell(ctx, x, y, cellSize, `#${droid.tokenId || droid.id}`)
                         }
                     }
                 }
@@ -300,18 +356,39 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
                 setStatusText("Encoding...")
                 setProgress(95)
 
-                const blobUrl = await new Promise<string>((resolve) => {
+                const blobUrl = await new Promise<string>((resolve, reject) => {
+                    const timer = setTimeout(() => {
+                        try { gif.abort?.() } catch {}
+                        reject(new Error('GIF encoding timed out after 90s'))
+                    }, 90000)
                     gif.on('finished', (blob: Blob) => {
+                        clearTimeout(timer)
+                        if (!blob || blob.size === 0) {
+                            reject(new Error('GIF encoder produced an empty blob'))
+                            return
+                        }
                         resolve(URL.createObjectURL(blob))
                     })
-                    gif.render()
+                    gif.on('abort', () => {
+                        clearTimeout(timer)
+                        reject(new Error('GIF encoding was aborted'))
+                    })
+                    gif.on('progress', (p: number) => {
+                        setProgress(95 + Math.round(p * 4))
+                    })
+                    try {
+                        gif.render()
+                    } catch (err) {
+                        clearTimeout(timer)
+                        reject(err instanceof Error ? err : new Error(String(err)))
+                    }
                 })
 
                 const a = document.createElement('a')
                 a.href = blobUrl
                 a.download = `ApeDroidz_Grid_${cols}x${rows}.gif`
                 a.click()
-                URL.revokeObjectURL(blobUrl)
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
 
                 // Open Twitter share after download
                 setTimeout(() => openTwitterShare(true), 500)
@@ -320,7 +397,15 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
                 setProgress(80)
 
                 const canvas = await renderFrame(0)
-                const dataUrl = canvas.toDataURL('image/png')
+                let dataUrl: string
+                try {
+                    dataUrl = canvas.toDataURL('image/png')
+                } catch (err) {
+                    throw new Error(
+                        'Canvas export blocked (likely a cross-origin image without CORS). ' +
+                        (err instanceof Error ? err.message : String(err))
+                    )
+                }
 
                 const a = document.createElement('a')
                 a.href = dataUrl
@@ -336,13 +421,14 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
 
         } catch (error) {
             console.error("Grid generation error:", error)
-            setStatusText("Error")
+            const msg = error instanceof Error ? error.message : String(error)
+            setStatusText(`Error: ${msg.slice(0, 60)}`)
         } finally {
             setTimeout(() => {
                 setIsGenerating(false)
                 setProgress(0)
                 setStatusText("")
-            }, 1000)
+            }, 2500)
         }
     }, [droids, gridOrder, cols, rows, bgColor])
 
