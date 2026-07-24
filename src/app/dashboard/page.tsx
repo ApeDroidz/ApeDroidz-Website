@@ -159,7 +159,7 @@ export default function DashboardPage() {
   const handleSaveDefault = async () => {
     if (!selectedDroid || isSaving) return
     if (needsUpgradeForCurrent) {
-      router.push('/upgrade_module')
+      router.push(`/upgrade_module?select=${selectedDroid.tokenId}`)
       return
     }
     setIsSaving(true)
@@ -178,7 +178,7 @@ export default function DashboardPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok) {
         if (data?.needsUpgrade) {
-          router.push('/upgrade_module')
+          router.push(`/upgrade_module?select=${selectedDroid.tokenId}`)
           return
         }
         throw new Error(data?.error || 'Failed to save')
@@ -237,8 +237,9 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Превьюер — без карточки-рамки */}
-            <div className="flex-1 w-full min-h-[300px] lg:min-h-0 relative rounded-xl overflow-hidden bg-black">
+            {/* Превьюер — без карточки-рамки, лёгкое скругление (только визуально;
+                сам файл картинки при открытии/скачивании без скруглений) */}
+            <div className="flex-1 w-full min-h-[300px] lg:min-h-0 relative rounded-2xl overflow-hidden bg-black">
               {selectedDroid ? (
                 <iframe
                   ref={iframeRef}

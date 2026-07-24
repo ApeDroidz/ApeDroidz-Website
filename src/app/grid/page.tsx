@@ -80,14 +80,16 @@ export default function GridPage() {
                 getOwnedNFTs({ contract: honoraryContract, owner: account.address }).catch(() => [])
             ])
 
-            // Load honorary droids — image from Supabase by tokenId (webp or png, card handles onError)
+            // Load honorary droids — assets live in Supabase as .png (there is no
+            // .webp for honorary), so point straight at .png: no 400→fallback
+            // round-trip, and the GIF canvas path loads them reliably.
             const loadedHonorary = honoraryNfts.map((nft) => {
                 const tokenId = nft.id.toString()
                 return {
                     id: `honorary-${tokenId}`,
                     tokenId: tokenId,
                     name: (nft.metadata as any)?.name || `Honorary #${tokenId}`,
-                    image: `${SUPABASE_ASSETS}/honorary/${tokenId}.webp`,
+                    image: `${SUPABASE_ASSETS}/honorary/${tokenId}.png`,
                     type: 'droid' as const,
                     level: 1,
                     metadata: nft.metadata || {},

@@ -122,11 +122,12 @@ export async function GET(
     pointer-events: none;
   }
 
-  /* View switch — top-left, minimal */
+  /* View switch — bottom-center, minimal */
   #switch {
     position: absolute;
-    top: 14px;
-    left: 14px;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     gap: 4px;
     padding: 4px;
@@ -175,10 +176,10 @@ export async function GET(
     -webkit-backdrop-filter: blur(10px);
     border-radius: 10px;
   }
-  #token-badge { bottom: 14px; left: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #token-badge { top: 14px; right: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   #level-badge {
     top: 14px;
-    right: 14px;
+    left: 14px;
     text-transform: uppercase;
     color: ${isSuper ? '#fb923c' : '#60a5fa'};
     border-color: ${isSuper ? 'rgba(251,146,60,0.35)' : 'rgba(96,165,250,0.35)'};
@@ -205,8 +206,38 @@ export async function GET(
     -webkit-user-drag: none;
   }
   #art.visible { opacity: 1; }
+  /* Animated preview on a not-yet-upgraded droid: greyed teaser. */
+  #art.locked { filter: grayscale(1) brightness(0.5) contrast(0.95); }
 
-  /* Loader — droid logo fills white left-to-right while loading */
+  /* Lock overlay — shown over the greyed animated teaser (level < 2) */
+  #lock-overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 45;
+    pointer-events: none;
+  }
+  #lock-overlay .lock-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 22px;
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 14px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  #lock-overlay svg { width: 26px; height: 26px; color: #fff; }
+  #lock-overlay span {
+    font-size: 12px; font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(255,255,255,0.92);
+  }
+
+  /* Loader — droid logo fills white left-to-right showing REAL load progress */
   #loader {
     position: absolute;
     inset: 0;
@@ -220,14 +251,10 @@ export async function GET(
   #loader.done { opacity: 0; pointer-events: none; }
   #loader-logo { position: relative; width: 130px; height: 97px; }
   #loader-logo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  #logo-dim path { fill: rgba(255,255,255,0.18); }
-  #logo-fill { clip-path: inset(0 100% 0 0); animation: logofill 1.4s ease-in-out infinite; }
+  #logo-dim path { fill: rgba(255,255,255,0.16); }
+  /* clip-path is driven by JS from 100% (hidden) to 0% (full) as bytes arrive */
+  #logo-fill { clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0); transition: clip-path .15s linear, -webkit-clip-path .15s linear; }
   #logo-fill path { fill: #fff; }
-  @keyframes logofill {
-    0%   { clip-path: inset(0 100% 0 0); }
-    55%  { clip-path: inset(0 0% 0 0); }
-    100% { clip-path: inset(0 0% 0 0); opacity: 0.35; }
-  }
 
   #error-box {
     position: absolute;
@@ -257,11 +284,11 @@ export async function GET(
   }
 
   @media (max-width: 480px) {
-    #switch { top: 10px; left: 10px; padding: 3px; }
+    #switch { bottom: 10px; top: auto; left: 50%; padding: 3px; }
     .sw-btn { font-size: 9px; padding: 6px 8px; }
     .badge { font-size: 10px; padding: 5px 9px; }
-    #token-badge { bottom: 10px; left: 10px; }
-    #level-badge { top: 10px; right: 10px; }
+    #token-badge { top: 10px; right: 10px; }
+    #level-badge { top: 10px; left: 10px; }
   }
 </style>
 </head>
@@ -273,6 +300,13 @@ export async function GET(
 
   <div id="art-wrap">
     <img id="art" alt="ApeDroid #${tokenId}" draggable="false" />
+  </div>
+
+  <div id="lock-overlay">
+    <div class="lock-inner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>Upgrade to unlock</span>
+    </div>
   </div>
 
   <div id="loader">
@@ -315,8 +349,26 @@ export async function GET(
     }
   }
 
+  var loadSeq = 0;
+
   function showLoader(show) {
     document.getElementById('loader').classList.toggle('done', !show);
+  }
+
+  // Drive the logo fill from real bytes: 0 => transparent (nothing), 1 => full.
+  function setProgress(p) {
+    var pct = Math.max(0, Math.min(1, p || 0));
+    var inset = 'inset(0 ' + ((1 - pct) * 100) + '% 0 0)';
+    var fill = document.getElementById('logo-fill');
+    fill.style.clipPath = inset;
+    fill.style.webkitClipPath = inset;
+  }
+
+  // Grey + lock overlay when previewing the animated view on a level-1 droid.
+  function applyLock(view) {
+    var levelLocked = (view === 'animated' && CFG.level < 2);
+    document.getElementById('art').classList.toggle('locked', levelLocked);
+    document.getElementById('lock-overlay').style.display = levelLocked ? 'flex' : 'none';
   }
 
   function showError(show) {
@@ -345,30 +397,70 @@ export async function GET(
     }
     currentView = view;
     setActiveButton(view);
+    applyLock(view);
     showError(false);
     loadArt(view);
     notifyParent(view);
   }
 
-  function loadArt(view) {
+  // Stream the asset so the logo fill reflects real download progress. Falls
+  // back to a plain <img> load (with webp->png retry) if streaming/CORS fails.
+  async function loadArt(view) {
     var art = document.getElementById('art');
     var src = CFG.assets[view];
     if (!src) { showError(true); return; }
+    var reqId = ++loadSeq;
     art.classList.remove('visible');
     showLoader(true);
+    setProgress(0);
+
+    try {
+      var resp = await fetch(src, { cache: 'default' });
+      if (!resp.ok || !resp.body) throw new Error('no-stream');
+      var total = parseInt(resp.headers.get('Content-Length') || '0', 10);
+      var reader = resp.body.getReader();
+      var chunks = [], received = 0;
+      while (true) {
+        var r = await reader.read();
+        if (reqId !== loadSeq) { try { reader.cancel(); } catch (e) {} return; }
+        if (r.done) break;
+        chunks.push(r.value);
+        received += r.value.length;
+        if (total > 0) setProgress(received / total);
+      }
+      setProgress(1);
+      if (reqId !== loadSeq) return;
+      var url = URL.createObjectURL(new Blob(chunks));
+      art.onload = function () {
+        if (reqId !== loadSeq) { URL.revokeObjectURL(url); return; }
+        showLoader(false);
+        requestAnimationFrame(function () { art.classList.add('visible'); });
+        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      };
+      art.onerror = function () { fallbackLoad(view, src, reqId); };
+      art.src = url;
+    } catch (e) {
+      fallbackLoad(view, src, reqId);
+    }
+  }
+
+  function fallbackLoad(view, src, reqId) {
+    if (reqId !== loadSeq) return;
+    var art = document.getElementById('art');
+    setProgress(1);
     var probe = new Image();
     probe.onload = function () {
-      if (currentView !== view) return;
+      if (reqId !== loadSeq) return;
       art.src = src;
       showLoader(false);
       requestAnimationFrame(function () { art.classList.add('visible'); });
     };
     probe.onerror = function () {
-      if (currentView !== view) return;
-      // storage fallback: some assets exist with the other extension
+      if (reqId !== loadSeq) return;
       if (src.indexOf('.webp') !== -1) {
-        CFG.assets[view] = src.replace('.webp', '.png');
-        loadArt(view);
+        var png = src.replace('.webp', '.png');
+        CFG.assets[view] = png;
+        fallbackLoad(view, png, reqId);
         return;
       }
       showError(true);

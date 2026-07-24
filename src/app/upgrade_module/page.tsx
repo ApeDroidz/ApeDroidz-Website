@@ -222,6 +222,21 @@ export default function UpgradeModulePage() {
     return () => clearTimeout(timer)
   }, [fetchMyNFTs])
 
+  // Pre-select a droid passed from the dashboard ("Upgrade to unlock animated"),
+  // so it lands straight in the machine — no re-picking. Runs once, once loaded.
+  const preselectDone = useRef(false)
+  useEffect(() => {
+    if (preselectDone.current || droids.length === 0) return
+    let target: string | null = null
+    try { target = new URLSearchParams(window.location.search).get('select') } catch { target = null }
+    if (!target) { preselectDone.current = true; return }
+    const match = droids.find(d => String(d.tokenId) === String(target))
+    if (match && getDroidLevel(match) < 2) {
+      setSelectedDroid(match)
+    }
+    preselectDone.current = true
+  }, [droids])
+
 
 
   // === АПГРЕЙД ===

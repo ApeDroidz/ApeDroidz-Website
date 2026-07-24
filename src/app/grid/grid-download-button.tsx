@@ -75,14 +75,18 @@ const loadImage = (src: string, timeoutMs = 20000): Promise<HTMLImageElement> =>
     })
 }
 
-// Honorary assets exist as .png in storage while the app builds .webp URLs
-// (the DOM previews recover via onError — the canvas path needs the same retry).
+// Storage stores some art as .png and some as .webp (honorary = png only).
+// Try the given URL, then the other extension, so a single naming mismatch
+// never drops a cell from the canvas/GIF.
 const loadImageWithFallback = async (src: string, timeoutMs = 20000): Promise<HTMLImageElement> => {
     try {
         return await loadImage(src, timeoutMs)
     } catch (err) {
         if (src.includes('.webp')) {
             return await loadImage(src.replace('.webp', '.png'), timeoutMs)
+        }
+        if (src.includes('.png')) {
+            return await loadImage(src.replace('.png', '.webp'), timeoutMs)
         }
         throw err
     }
