@@ -1,56 +1,33 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
-import { useActiveAccount, useSendTransaction } from "thirdweb/react"
+import { useActiveAccount } from "thirdweb/react"
 import { getContract } from "thirdweb/contract"
 import { client, apeChain } from "@/lib/thirdweb"
-import { burn, getOwnedNFTs } from "thirdweb/extensions/erc721"
+import { getOwnedNFTs } from "thirdweb/extensions/erc721"
 import { Header } from "@/components/header"
 import { DigitalBackground } from "@/components/digital-background"
-import { UpgradeMachine } from "./upgrade-machine"
-import { Inventory } from "./inventory"
-import { NFTDetailModal } from "./nft-detail-modal"
+import { Inventory } from "@/app/upgrade_module/inventory"
+import { NFTItem } from "@/app/upgrade_module/page"
 import { AlertModal } from "@/components/alert-modal"
-import { ShareModal } from "@/components/share-modal"
 import { ProfileModal } from "@/components/profile-modal"
 import { resolveImageUrl } from "@/lib/utils"
-import { useUserProgress } from "@/hooks/useUserProgress"
 import { useGlitchSession } from "@/hooks/useGlitchSession"
-import { supabase } from "@/lib/supabase"
-import { Share, ExternalLink, Zap } from "lucide-react"
-
-// === ТИПЫ ДАННЫХ ===
-export type NFTItem = {
-  id: string
-  name: string
-  image: string
-  type: 'droid' | 'battery'
-  level?: number
-  tokenId?: string
-  batteryType?: 'Standard' | 'Super'
-  metadata?: any
-  isHonorary?: boolean
-}
-
-// Contract addresses from env
-const BATTERY_CONTRACT = process.env.NEXT_PUBLIC_BATTERY_CONTRACT_ADDRESS || ""
+import { Check, ChevronsUp, Loader2, Save } from "lucide-react"
 
 const APEDROIDZ_CONTRACT = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
 
-// === ХЕЛПЕР: ГЛУБОКАЯ ПРОВЕРКА УРОВНЯ (Как в UpgradeMachine) ===
+type ViewKey = 'pixel' | 'animated' | 'pfp3d' | 'fullbody'
+
 const getDroidLevel = (item: NFTItem | null): number => {
   if (!item) return 1;
   if (typeof item.level === 'number' && item.level > 0) return item.level;
-
-  // @ts-ignore
   const attributes = item.metadata?.attributes || item.metadata?.traits || [];
   if (Array.isArray(attributes)) {
     const lvlAttr = attributes.find((a: any) =>
-      a.trait_type === "Level" ||
-      a.trait_type === "Rank Value" ||
-      a.trait_type === "Upgrade Level"
+      a.trait_type === "Level" || a.trait_type === "Rank Value" || a.trait_type === "Upgrade Level"
     );
     if (lvlAttr) {
       const val = parseInt(String(lvlAttr.value).replace(/\D/g, ''));
@@ -62,53 +39,36 @@ const getDroidLevel = (item: NFTItem | null): number => {
 
 export default function DashboardPage() {
   const account = useActiveAccount()
-  const { mutateAsync: sendTx } = useSendTransaction()
   const router = useRouter()
-  const { refetch: refetchProgress } = useUserProgress()
   const { ensureLogin } = useGlitchSession()
 
-  // --- STATES ---
-  const batteryCache = useRef<Record<string, any>>({})
-  const [selectedDroid, setSelectedDroid] = useState<NFTItem | null>(null)
-  const [selectedBattery, setSelectedBattery] = useState<NFTItem | null>(null)
-  const [isUpgrading, setIsUpgrading] = useState(false)
-
-  // newUpgradedDroid - только для анимации успеха в Машине
-  const [newUpgradedDroid, setNewUpgradedDroid] = useState<NFTItem | null>(null)
-
-  // shareItem - отдельный стейт для модалки шеринга (чтобы не триггерить машину)
-  const [shareItem, setShareItem] = useState<NFTItem | null>(null)
-
   const [droids, setDroids] = useState<NFTItem[]>([])
-  const [batteries, setBatteries] = useState<NFTItem[]>([])
   const [isInventoryLoading, setIsInventoryLoading] = useState(true)
+  const [selectedDroid, setSelectedDroid] = useState<NFTItem | null>(null)
 
-  // Modals
-  const [detailModalItem, setDetailModalItem] = useState<NFTItem | null>(null)
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  // View currently shown inside the embedded previewer (synced via postMessage)
+  const [currentView, setCurrentView] = useState<ViewKey>('pixel')
+  const [savedView, setSavedView] = useState<ViewKey | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
+
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'leaderboard'>('profile')
-  const [alertState, setAlertState] = useState<{ isOpen: boolean, item: NFTItem | null, type?: 'max_level' }>({ isOpen: false, item: null })
   const [toastState, setToastState] = useState<{ isOpen: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ isOpen: false, type: 'info', title: '', message: '' })
-  const [confirmUpgradeOpen, setConfirmUpgradeOpen] = useState(false)
 
-  // === ЗАГРУЗКА NFT ===
-  const fetchMyNFTs = useCallback(async (isBackground: boolean = false) => {
-    // Если это фоновое обновление - не стираем данные и не показываем скелетоны
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  // === ЗАГРУЗКА ДРОИДОВ ===
+  const fetchMyDroids = useCallback(async (isBackground: boolean = false) => {
     if (!isBackground) {
       setIsInventoryLoading(true)
-      setBatteries([])
       setDroids([])
     }
-
     if (!account?.address) {
       setIsInventoryLoading(false)
       return
     }
-
     try {
-      // Load Droids
       const droidContract = getContract({ client, chain: apeChain, address: APEDROIDZ_CONTRACT })
       const droidNfts = await getOwnedNFTs({ contract: droidContract, owner: account.address })
 
@@ -117,278 +77,114 @@ export default function DashboardPage() {
           const tokenId = nft.id.toString()
           try {
             const res = await fetch(`/api/metadata/droidz/${tokenId}`)
-            let metadata = res.ok ? await res.json() : (nft.metadata || {})
-
-            // Используем ту же логику парсинга, что и в helper
-            const lvlHelperObj = { level: 0, metadata };
-            const currentLevel = getDroidLevel(lvlHelperObj as any);
-
-            let imgUrl = resolveImageUrl((metadata as any).image)
+            const metadata = res.ok ? await res.json() : (nft.metadata || {})
+            const currentLevel = getDroidLevel({ level: 0, metadata } as any)
+            let imgUrl = resolveImageUrl((metadata as any).image_pixel || (metadata as any).image)
             if (!imgUrl) imgUrl = resolveImageUrl(nft.metadata?.image)
-
             return {
               id: tokenId,
-              tokenId: tokenId,
+              tokenId,
               name: (metadata as any).name || `ApeDroid #${tokenId}`,
               image: imgUrl,
               type: 'droid' as const,
               level: currentLevel,
-              metadata: metadata,
+              metadata,
             }
-          } catch (err) {
+          } catch {
             return {
               id: tokenId,
-              tokenId: tokenId,
+              tokenId,
               name: `ApeDroid #${tokenId}`,
               image: resolveImageUrl(nft.metadata?.image),
               type: 'droid' as const,
               level: 1,
-              metadata: nft.metadata || {}
+              metadata: nft.metadata || {},
             }
           }
         })
       )
       setDroids(loadedDroids)
-
-      // Load Batteries from battery contract
-      if (BATTERY_CONTRACT) {
-        try {
-          const batteryContractInstance = getContract({ client, chain: apeChain, address: BATTERY_CONTRACT })
-          const batteryNfts = await getOwnedNFTs({ contract: batteryContractInstance, owner: account.address })
-
-          const loadedBatteries = await Promise.all(
-            batteryNfts.map(async (nft) => {
-              const tokenId = nft.id.toString()
-              try {
-                let metadata;
-                // Check Cache (Promise or Data)
-                if (batteryCache.current[tokenId]) {
-                  metadata = await batteryCache.current[tokenId];
-                } else {
-                  // Create Promise immediately
-                  const fetchPromise = fetch(`/api/metadata/battery/${tokenId}`)
-                    .then(res => res.ok ? res.json() : {})
-                    .catch((err) => { console.error(err); return {}; });
-
-                  // Store Promise in cache
-                  batteryCache.current[tokenId] = fetchPromise;
-
-                  // Await it
-                  metadata = await fetchPromise;
-
-                  // Optimize: Replace Promise with Value (optional, but saves micro-overhead)
-                  batteryCache.current[tokenId] = metadata;
-                }
-
-                // Determine battery type from metadata attributes
-                let batteryType: 'Standard' | 'Super' = 'Standard'
-                if (metadata.attributes) {
-                  const typeAttr = metadata.attributes.find((a: any) => a.trait_type === 'Type')
-                  if (typeAttr?.value === 'Super') {
-                    batteryType = 'Super'
-                  }
-                }
-
-                return {
-                  id: `battery-${tokenId}`,
-                  tokenId: tokenId,
-                  name: metadata.name || `Energy Battery #${tokenId}`,
-                  image: resolveImageUrl(metadata.image) || 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp',
-                  type: 'battery' as const,
-                  batteryType: batteryType,
-                  metadata: metadata,
-                }
-              } catch (err) {
-                return {
-                  id: `battery-${tokenId}`,
-                  tokenId: tokenId,
-                  name: `Energy Battery #${tokenId}`,
-                  image: 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp',
-                  type: 'battery' as const,
-                  batteryType: 'Standard' as const,
-                  metadata: {}
-                }
-              }
-            })
-          )
-
-          // Filter out burned batteries by checking Supabase
-          const tokenIds = loadedBatteries.map(b => parseInt(b.tokenId))
-          const { data: burnedData } = await supabase
-            .from('batteries')
-            .select('token_id')
-            .in('token_id', tokenIds)
-            .eq('is_burned', true)
-
-          const burnedTokenIds = new Set((burnedData || []).map((b: { token_id: number }) => String(b.token_id)))
-          const activeBatteries = loadedBatteries.filter(b => !burnedTokenIds.has(b.tokenId))
-
-          setBatteries(activeBatteries)
-        } catch (batteryError) {
-          console.error("Error loading batteries:", batteryError)
-        }
-      }
     } catch (error) {
-      console.error("Error loading NFTs:", error)
+      console.error("Error loading droids:", error)
     } finally {
-      if (!isBackground) {
-        setIsInventoryLoading(false)
-      }
+      if (!isBackground) setIsInventoryLoading(false)
     }
   }, [account?.address])
 
   useEffect(() => {
-    fetchMyNFTs()
-
-    // Polling for recent mints (retry once after 2s)
-    const timer = setTimeout(fetchMyNFTs, 2000)
+    fetchMyDroids()
+    const timer = setTimeout(() => fetchMyDroids(true), 2000)
     return () => clearTimeout(timer)
-  }, [fetchMyNFTs])
+  }, [fetchMyDroids])
 
+  // === СИНХРОНИЗАЦИЯ С ПРЕВЬЮЕРОМ (postMessage из iframe) ===
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      const d = e?.data
+      if (d?.type === 'apedroidz:viewChanged' && String(d.tokenId) === String(selectedDroid?.tokenId)) {
+        setCurrentView(d.view as ViewKey)
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [selectedDroid?.tokenId])
 
+  const handleSelectDroid = (item: NFTItem | null) => {
+    setSelectedDroid(item)
+    setJustSaved(false)
+    if (item) {
+      const dv = item.metadata?.display_view
+      const initial: ViewKey = dv === 'animated' ? 'animated' : dv === 'pixel' ? 'pixel'
+        : getDroidLevel(item) >= 2 ? 'animated' : 'pixel'
+      setCurrentView(initial)
+      setSavedView(initial)
+    }
+  }
 
-  // === АПГРЕЙД ===
-  const handleUpgrade = async () => {
-    if (!selectedDroid || !selectedBattery) return
-    setIsUpgrading(true)
+  const selectedLevel = getDroidLevel(selectedDroid)
+  const needsUpgradeForCurrent = currentView === 'animated' && selectedLevel < 2
+  const isCurrentSaved = savedView === currentView && !needsUpgradeForCurrent
 
+  // === SAVE AS DEFAULT ===
+  const handleSaveDefault = async () => {
+    if (!selectedDroid || isSaving) return
+    if (needsUpgradeForCurrent) {
+      router.push('/upgrade_module')
+      return
+    }
+    setIsSaving(true)
     try {
-      // 0. AUTH — required before any burn so we never lose a battery to a 401.
       const ok = await ensureLogin()
       if (!ok) {
-        setToastState({ isOpen: true, type: 'error', title: 'Sign-in required', message: 'Please sign the login message to upgrade.' })
-        setIsUpgrading(false)
+        setToastState({ isOpen: true, type: 'error', title: 'Sign-in required', message: 'Please sign the login message to save your default view.' })
         return
       }
-
-      // 1. PRECHECK — validate ownership, droid level, battery type BEFORE burn.
-      //    If anything is wrong, abort cleanly. Battery is NOT touched.
-      const precheckRes = await fetch('/api/upgrade', {
+      const res = await fetch('/api/display-pref', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          tokenId: selectedDroid.tokenId,
-          batteryId: selectedBattery.tokenId,
-          phase: 'precheck',
-        }),
+        body: JSON.stringify({ tokenId: selectedDroid.tokenId, view: currentView }),
       })
-      const precheck = await precheckRes.json().catch(() => ({}))
-      if (!precheckRes.ok || !precheck?.ok) {
-        setToastState({
-          isOpen: true,
-          type: 'error',
-          title: 'Cannot upgrade',
-          message: precheck?.error || 'Pre-check failed. Battery NOT burned.',
-        })
-        setIsUpgrading(false)
-        return
-      }
-
-      // 2. BURN BATTERY ON-CHAIN — only after precheck passed.
-      if (BATTERY_CONTRACT) {
-        const batteryContractInstance = getContract({ client, chain: apeChain, address: BATTERY_CONTRACT })
-        const transaction = burn({
-          contract: batteryContractInstance,
-          tokenId: BigInt(selectedBattery.tokenId || 0)
-        })
-
-        try {
-          await sendTx(transaction);
-        } catch (txError: any) {
-          console.error("Transaction rejected/failed:", txError);
-          const errMsg = txError?.message || "";
-
-          if (errMsg.includes("rejected") || errMsg.includes("denied")) {
-            setToastState({ isOpen: true, type: 'error', title: 'Transaction Cancelled', message: 'You must confirm the burn transaction to proceed.' });
-          } else if (errMsg.includes("owner") || errMsg.includes("reverted") || errMsg.includes("execution reverted")) {
-            setToastState({ isOpen: true, type: 'error', title: 'Burn Failed', message: 'Error: Battery might already be used or invalid. Please refresh the page.' });
-          } else {
-            setToastState({ isOpen: true, type: 'error', title: 'Burn Error', message: 'Something went wrong with the burn transaction.' });
-          }
-
-          setIsUpgrading(false);
-          return;
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        if (data?.needsUpgrade) {
+          router.push('/upgrade_module')
+          return
         }
+        throw new Error(data?.error || 'Failed to save')
       }
-
-      // 3. COMMIT — server now verifies on-chain that the battery is burned,
-      //    upserts the batteries row (auto-recovers missing rows from merges),
-      //    and runs the upgrade RPC. Idempotent — safe to retry on flake.
-      const [response, _] = await Promise.all([
-        fetch('/api/upgrade', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            tokenId: selectedDroid.tokenId,
-            batteryId: selectedBattery.tokenId,
-            phase: 'commit',
-          }),
-        }),
-        new Promise(resolve => setTimeout(resolve, 2000))
-      ])
-
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Upgrade failed')
-
-      const updatedDroidData = data.updatedDroid
-      if (!updatedDroidData) throw new Error("No data returned")
-
-      const newImageUrl = resolveImageUrl(updatedDroidData.image_url)
-
-      const upgradedItem: NFTItem = {
-        ...selectedDroid,
-        level: updatedDroidData.level,
-        image: newImageUrl,
-        metadata: {
-          ...selectedDroid.metadata,
-          attributes: updatedDroidData.traits || []
-        }
-      }
-
-      // 1. Показываем успех в машине
-      setNewUpgradedDroid(upgradedItem)
-
-      // 2. Готовим этот же предмет для шеринга (но не открываем модалку сразу, это делает кнопка в машине)
-      setShareItem(upgradedItem)
-
-      await fetchMyNFTs()
-      if (refetchProgress) refetchProgress()
-
+      setSavedView(currentView)
+      setJustSaved(true)
+      setToastState({
+        isOpen: true, type: 'success', title: 'Default saved',
+        message: `Droid #${selectedDroid.tokenId} now shows the ${currentView === 'animated' ? 'Animated' : 'Pixel'} version on marketplaces. Refresh metadata on OpenSea to see it live.`,
+      })
+      setTimeout(() => setJustSaved(false), 2500)
     } catch (error: any) {
-      console.error(error)
-      setToastState({ isOpen: true, type: 'error', title: 'Fusion Error', message: error.message })
+      setToastState({ isOpen: true, type: 'error', title: 'Save failed', message: error.message })
     } finally {
-      setIsUpgrading(false)
+      setIsSaving(false)
     }
-  }
-
-  const handleReset = () => {
-    setNewUpgradedDroid(null)
-    setSelectedDroid(null)
-    setSelectedBattery(null)
-  }
-
-  // === ВЫБОР ДРОИДА (БЛОКИРОВКА 2 ЛВЛ) ===
-  const handleSelectDroid = (item: NFTItem | null) => {
-    // Если на экране успеха (после апгрейда) -> сбрасываем успех и батарейку, имитируя "Close & Continue"
-    if (newUpgradedDroid) {
-      setNewUpgradedDroid(null)
-      setSelectedBattery(null)
-    }
-
-    if (item) {
-      const level = getDroidLevel(item);
-
-      // ЕСЛИ УРОВЕНЬ 2+ -> НЕ ВЫБИРАЕМ, А ПОКАЗЫВАЕМ МЕНЮ
-      if (level >= 2) {
-        setAlertState({ isOpen: true, item, type: 'max_level' });
-        return;
-      }
-    }
-    // Если уровень 1 -> выбираем в слот машины
-    setSelectedDroid(item);
   }
 
   return (
@@ -403,137 +199,128 @@ export default function DashboardPage() {
         />
 
         <motion.div
-          className="pt-24 pb-6 px-4 sm:px-6 flex-1 grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 lg:h-full lg:overflow-hidden"
+          className="pt-24 pb-6 px-4 sm:px-6 flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 lg:h-full lg:overflow-hidden"
           initial="hidden"
           animate="show"
           variants={{
             hidden: { opacity: 0 },
-            show: {
-              opacity: 1,
-              transition: {
-                staggerChildren: 0.15,
-                delayChildren: 0.1,
-              },
-            },
+            show: { opacity: 1, transition: { staggerChildren: 0.15, delayChildren: 0.1 } },
           }}
         >
+          {/* ЛЕВАЯ ЧАСТЬ — PFP PREVIEWER */}
           <motion.div
-            className="flex flex-col min-h-[400px] lg:h-full lg:min-h-0 relative order-1 lg:order-none lg:col-span-3"
+            className="flex flex-col lg:h-full lg:min-h-0 order-1 lg:order-none"
             variants={{
               hidden: { opacity: 0, y: 30 },
-              show: {
-                opacity: 1,
-                y: 0,
-                transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-              },
+              show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent rounded-full blur-3xl pointer-events-none transform scale-75" />
-            <UpgradeMachine
-              selectedDroid={selectedDroid}
-              selectedBattery={selectedBattery}
-              onUpgrade={() => setConfirmUpgradeOpen(true)}
-              onReset={handleReset}
-              isUpgrading={isUpgrading}
-              newDroid={newUpgradedDroid}
-              onShare={() => setIsShareModalOpen(true)} // Открывает модалку с shareItem
-              isSuperBattery={selectedBattery?.batteryType === 'Super'}
-              onRefreshInventory={fetchMyNFTs}
-            />
+            <div className="relative flex flex-col h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-5 lg:p-6 shadow-2xl shadow-black/50 overflow-hidden">
+              <div className="absolute top-[-20%] left-[-20%] w-[50%] h-[50%] bg-blue-600/10 blur-[80px] pointer-events-none" />
+
+              {/* Заголовок */}
+              <div className="flex items-start justify-between flex-shrink-0 mb-4 relative">
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white">Choose your PFP</h1>
+                  <p className="text-xs text-white/40 mt-1 max-w-md leading-relaxed">
+                    Every E-Droid comes in multiple renders. Pick the version that represents your droid — it&apos;s what OpenSea and other marketplaces will display.
+                  </p>
+                </div>
+                {selectedDroid && (
+                  <span className="flex-shrink-0 ml-3 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs font-mono text-white font-bold border border-white/10">
+                    #{selectedDroid.tokenId}
+                  </span>
+                )}
+              </div>
+
+              {/* Превьюер */}
+              <div className="flex-1 min-h-[320px] lg:min-h-0 relative rounded-xl border border-white/10 bg-black overflow-hidden">
+                {selectedDroid ? (
+                  <iframe
+                    ref={iframeRef}
+                    key={selectedDroid.tokenId}
+                    src={`/api/viewer/${selectedDroid.tokenId}?embed=1`}
+                    title={`ApeDroid #${selectedDroid.tokenId} previewer`}
+                    className="absolute inset-0 w-full h-full border-0"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
+                    <img src="/icon_logo.svg" alt="" className="w-16 h-auto opacity-20" />
+                    <p className="text-sm font-bold uppercase tracking-widest text-white/30">Select an E-Droid</p>
+                    <p className="text-xs text-white/20 max-w-[240px]">Pick a droid from the panel to preview and set its default look.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* SAVE AS DEFAULT */}
+              <div className="flex-shrink-0 mt-4 relative">
+                <AnimatePresence mode="wait">
+                  {needsUpgradeForCurrent ? (
+                    <motion.button
+                      key="upgrade"
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                      onClick={handleSaveDefault}
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-[#3b82f6] text-white font-black uppercase tracking-wider rounded-xl hover:bg-[#0069FF] transition-all text-sm shadow-lg cursor-pointer"
+                    >
+                      <ChevronsUp size={18} />
+                      Upgrade to unlock Animated
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      key="save"
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                      onClick={handleSaveDefault}
+                      disabled={!selectedDroid || isSaving || isCurrentSaved}
+                      className={`w-full h-12 flex items-center justify-center gap-2 font-black uppercase tracking-wider rounded-xl transition-all text-sm shadow-lg ${
+                        !selectedDroid
+                          ? 'bg-white/5 text-white/25 cursor-not-allowed border border-white/10'
+                          : isCurrentSaved
+                            ? 'bg-white/10 text-white/60 border border-white/15 cursor-default'
+                            : 'bg-white text-black hover:bg-[#0069FF] hover:text-white cursor-pointer'
+                      }`}
+                    >
+                      {isSaving ? (
+                        <><Loader2 size={18} className="animate-spin" /> Saving…</>
+                      ) : justSaved || isCurrentSaved ? (
+                        <><Check size={18} /> {justSaved ? 'Saved as default' : 'Current default'}</>
+                      ) : (
+                        <><Save size={18} /> Save as default</>
+                      )}
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+                {selectedDroid && (
+                  <p className="text-[10px] text-white/25 text-center mt-2">
+                    Saved view becomes the default on OpenSea after a metadata refresh.
+                  </p>
+                )}
+              </div>
+            </div>
           </motion.div>
 
+          {/* ПРАВАЯ ЧАСТЬ — СПИСОК ДРОИДОВ */}
           <motion.div
-            className="flex flex-col gap-4 lg:h-full lg:min-h-0 lg:overflow-hidden pr-0 order-2 lg:order-none lg:col-span-2"
+            className="flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden order-2 lg:order-none"
             variants={{
               hidden: { opacity: 0, y: 30 },
-              show: {
-                opacity: 1,
-                y: 0,
-                transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-              },
+              show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
             }}
           >
-            <div className="flex-shrink-0 h-auto lg:h-[180px] shadow-2xl shadow-black/50 rounded-2xl">
-              <Inventory
-                title="1.Select Energy Battery"
-                items={batteries}
-                selectedId={selectedBattery?.id}
-                onSelect={setSelectedBattery}
-                onDetailClick={(item) => { setDetailModalItem(item); setIsDetailModalOpen(true); }}
-                type="battery"
-                singleRow={false}
-                isLoading={isInventoryLoading}
-                onRefresh={fetchMyNFTs}
-              />
-            </div>
             <div className="flex-1 lg:min-h-0 shadow-2xl shadow-black/50 rounded-2xl">
               <Inventory
-                key={`droids-${droids.length}-${newUpgradedDroid ? 'upgraded' : ''}`}
-                title="2. Select Droid"
+                title="E-Droids"
                 items={droids}
                 selectedId={selectedDroid?.id}
-                onSelect={handleSelectDroid} // <--- Сюда подключена новая логика
-                onDetailClick={(item) => { setDetailModalItem(item); setIsDetailModalOpen(true); }}
+                onSelect={handleSelectDroid}
                 type="droid"
                 isLoading={isInventoryLoading}
-                onRefresh={fetchMyNFTs}
+                onRefresh={fetchMyDroids}
+                showDetails={false}
               />
             </div>
           </motion.div>
         </motion.div>
       </div>
-
-      {/* --- MODALS --- */}
-
-      <NFTDetailModal
-        item={detailModalItem}
-        isOpen={isDetailModalOpen}
-        onClose={() => { setIsDetailModalOpen(false); setDetailModalItem(null); }}
-        onUpgrade={() => {
-          // Логика кнопки "Upgrade" внутри деталей
-          if (detailModalItem?.type === 'droid') {
-            const lvl = getDroidLevel(detailModalItem);
-            if (lvl >= 2) {
-              setIsDetailModalOpen(false);
-              setAlertState({ isOpen: true, item: detailModalItem, type: 'max_level' });
-              return;
-            }
-            setSelectedDroid(detailModalItem);
-          } else {
-            setSelectedBattery(detailModalItem);
-          }
-          setIsDetailModalOpen(false);
-        }}
-        type={detailModalItem?.type || 'droid'}
-      />
-
-      {/* ALERT MODAL (MAX LEVEL MENU) */}
-      <AlertModal
-        isOpen={alertState.isOpen}
-        // Используем тип 'upgraded_droid' для показа кнопок Share/Details
-        type="upgraded_droid"
-        title="Maximum Power Reached"
-        message={`Droid #${alertState.item?.tokenId} is already at Level ${getDroidLevel(alertState.item)}. It cannot be upgraded further.`}
-        onClose={() => setAlertState({ isOpen: false, item: null })}
-
-        // КНОПКА DETAILS
-        onViewDetails={() => {
-          setDetailModalItem(alertState.item);
-          setAlertState({ isOpen: false, item: null });
-          setIsDetailModalOpen(true);
-        }}
-
-        // КНОПКА SHARE (Самое важное!)
-        onShare={() => {
-          setShareItem(alertState.item); // Устанавливаем дроида для шеринга
-          setAlertState({ isOpen: false, item: null });
-          setIsShareModalOpen(true); // Открываем ShareModal
-        }}
-
-        isSuper={alertState.item?.metadata?.attributes?.some((a: any) =>
-          a.value?.toString().toLowerCase().includes("super")
-        )}
-      />
 
       <AlertModal
         isOpen={toastState.isOpen}
@@ -541,27 +328,7 @@ export default function DashboardPage() {
         title={toastState.title}
         message={toastState.message}
         onClose={() => setToastState(prev => ({ ...prev, isOpen: false }))}
-        autoClose={3000}
-      />
-
-      <AlertModal
-        isOpen={confirmUpgradeOpen}
-        type="warning"
-        title="Confirm Upgrade"
-        message={`Battery "${selectedBattery?.name}" will be burned to upgrade Droid #${selectedDroid?.tokenId}.`}
-        onClose={() => setConfirmUpgradeOpen(false)}
-        buttons={[
-          { label: 'Cancel', onClick: () => setConfirmUpgradeOpen(false), variant: 'secondary' },
-          { label: 'Start Upgrade', onClick: () => { setConfirmUpgradeOpen(false); handleUpgrade(); }, variant: 'primary', color: 'blue' }
-        ]}
-      />
-
-      {/* SHARE MODAL (Использует shareItem - универсально для новых и старых) */}
-      <ShareModal
-        item={shareItem || newUpgradedDroid} // Берем или выбранного для шера, или только что созданного
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        onShowToast={(type, title, message) => setToastState({ isOpen: true, type, title, message })}
+        autoClose={3500}
       />
 
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} initialTab={profileInitialTab} />

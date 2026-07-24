@@ -1,6 +1,6 @@
 "use client"
 
-import { NFTItem } from "@/app/dashboard/page"
+import { NFTItem } from "@/app/upgrade_module/page"
 import { motion, AnimatePresence } from "framer-motion"
 import React, { useState, useEffect } from "react"
 import { ArrowRight, Share, Zap, X, RefreshCcw, ExternalLink } from "lucide-react"
@@ -107,6 +107,12 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Preload the success-screen art so it swaps in instantly after an upgrade
+  useEffect(() => {
+    const img = new Image()
+    img.src = '/Upgrader_Finish.webp'
   }, [])
 
   // === 1. ГЛУБОКИЙ СКАН УРОВНЯ (ЧТОБЫ ЛОВИТЬ ДРОИДОВ 2 ЛВЛ) ===
@@ -253,7 +259,7 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
             >
               <GlitchContainer intensity={glitchIntensity}>
                 <div className="relative w-full h-full flex items-center justify-center">
-                  <img src="/Upgrader.jpg" alt="Upgrade Device" className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(0,0,0,0.8)] rounded-xl relative z-10" style={{ pointerEvents: 'none' }} />
+                  <img src="/Upgrader.webp" alt="Upgrade Device" fetchPriority="high" className="w-full h-full object-contain drop-shadow-[0_0_40px_rgba(0,0,0,0.8)] rounded-xl relative z-10" style={{ pointerEvents: 'none' }} />
                   {/* Battery Screen - mobile: adjusted, desktop: original */}
                   <div className="absolute z-20 flex items-center justify-center 
                     top-[30%] left-[24%] w-[18%] h-[24%]
@@ -274,7 +280,7 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
           ) : (
             <motion.div key="success-machine" initial={{ opacity: 0, scale: 1.1, filter: "blur(20px)" }} animate={{ opacity: 1, scale: 1, filter: "blur(0px)", y: [-10, 10, -10] }} className="relative w-[85%] aspect-video flex items-center justify-center z-10" >
               <div className="absolute top-[32%] left-[49%] w-0 h-0 z-50 flex items-center justify-center"><PixelConfetti isSuper={isSuperBattery} /></div>
-              <img src="/Upgrader_Finish.jpg" alt="Upgrade Complete" className="w-full h-full object-contain rounded-xl" style={{ pointerEvents: 'none' }} />
+              <img src="/Upgrader_Finish.webp" alt="Upgrade Complete" className="w-full h-full object-contain rounded-xl" style={{ pointerEvents: 'none' }} />
               <div className="absolute z-20 flex items-center justify-center overflow-hidden" style={{ top: '16%', left: '36%', width: '26%', height: '33%', transform: 'perspective(1600px) rotateY(-7deg) rotateX(0deg) rotateZ(-2deg) skewX(-2deg) skewY(1.4deg)', clipPath: 'inset(0 round 14px)' }}>
                 <ScreenContent item={newDroid} showName={true} isAnimated={true} opacity={1} rounded={true} />
               </div>

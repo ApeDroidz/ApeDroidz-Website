@@ -8,7 +8,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap, Gamepad2, Wrench, ChevronDown } from "lucide-react";
+import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap, Gamepad2, Wrench, ChevronDown, ChevronsUp } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -56,14 +56,15 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
 
   // Page-context flags
   const isGamePage = pathname === '/glitch_game' || pathname === '/glitch_games/cards' || pathname === '/glitch_games/flight' || pathname === '/glitch_flight';
-  const isGlitchGamesPage = pathname === '/glitch_games';
+  const isGlitchGamesPage = pathname === '/glitch_games/cards';
   const isGridPage = pathname === '/grid';
   const isMergePage = pathname === '/merge_mechanism';
   const isMintPage = pathname === '/batteries_mint';
+  const isUpgradePage = pathname === '/upgrade_module';
   const showDashboardNav = isGamePage || isGlitchGamesPage || isGridPage || isMergePage;
 
-  // Tools = the three "utility" pages (mint / merge / grid)
-  const isAnyToolsPage = isMintPage || isMergePage || isGridPage;
+  // Tools = the "utility" pages (upgrade / mint / merge / grid)
+  const isAnyToolsPage = isUpgradePage || isMintPage || isMergePage || isGridPage;
 
   const closeMenu = () => setIsMenuOpen(false);
 
@@ -96,6 +97,12 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
   // Tool entries — single source of truth so desktop dropdown + mobile section
   // stay in sync.
   const TOOLS: Array<{ href: string; label: string; icon: React.ReactNode; active: boolean }> = [
+    {
+      href: "/upgrade_module",
+      label: "Upgrade Module",
+      icon: <ChevronsUp size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />,
+      active: isUpgradePage,
+    },
     {
       href: "/batteries_mint",
       label: "Mint Batteries",
@@ -147,16 +154,18 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             <UserLevelBadge onClick={onOpenProfile} />
           )}
 
-          {/* Glitch Games hub — accent button with label, draws the eye */}
+          {/* Glitch Games — icon-only button, straight to the cards game */}
           {!isGlitchGamesPage && (
-            <Link href="/glitch_games">
+            <Link href="/glitch_games/cards">
               <motion.div
-                className="flex items-center gap-2 h-[48px] px-4 bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer"
+                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Gamepad2 size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
-                <span className="text-sm font-bold text-[#A1A1AA] group-hover:text-white transition-colors">Games</span>
+                <Gamepad2 size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
+                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
+                  Games
+                </div>
               </motion.div>
             </Link>
           )}
@@ -215,18 +224,16 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             </AnimatePresence>
           </div>
 
-          {/* Dashboard — icon-only with tooltip; on dashboard page it's "Back to Menu" home icon */}
+          {/* Dashboard — primary white button with label; on dashboard page it's "Back to Menu" home icon */}
           {!isDashboard ? (
             <Link href="/dashboard">
               <motion.div
-                className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
+                className="flex items-center gap-2 h-[48px] px-4 bg-white border border-transparent rounded-xl hover:bg-[#0069FF] transition-all duration-300 shadow-lg group cursor-pointer"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <LayoutDashboard size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
-                <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
-                  Dashboard
-                </div>
+                <LayoutDashboard size={18} className="text-black group-hover:text-white transition-colors" />
+                <span className="text-sm font-bold text-black group-hover:text-white transition-colors">Dashboard</span>
               </motion.div>
             </Link>
           ) : (
@@ -372,7 +379,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                 {/* 3. Glitch Games hub */}
                 {!isGlitchGamesPage && (
                   <Link
-                    href="/glitch_games"
+                    href="/glitch_games/cards"
                     onClick={closeMenu}
                     className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
                   >

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useRef, useEffect } from "react"
-import { NFTItem } from "@/app/dashboard/page"
+import { NFTItem } from "@/app/upgrade_module/page"
 import { resolveImageUrl } from "@/lib/utils"
 import { Lock, ChevronDown, Check, RefreshCcw } from "lucide-react"
 
@@ -15,6 +15,7 @@ interface InventoryProps {
   type: 'droid' | 'battery'
   singleRow?: boolean
   isLoading?: boolean
+  showDetails?: boolean
 }
 
 type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER' | 'LVL 3'
@@ -55,13 +56,15 @@ const InventoryCard = ({
   isSelected,
   onSelect,
   onDetailClick,
-  type
+  type,
+  showDetails = true
 }: {
   item: NFTItem
   isSelected: boolean
   type: 'droid' | 'battery'
   onSelect: (item: NFTItem | null) => void
   onDetailClick?: (item: NFTItem) => void
+  showDetails?: boolean
 }) => {
   const tokenNumber = item.name.match(/#(\d+)/)?.[1] || item.id.replace(/[^0-9]/g, '') || item.id
   const displayId = `#${tokenNumber}`
@@ -106,7 +109,7 @@ const InventoryCard = ({
       </div>
 
       {/* КНОПКА ДЕТАЛЕЙ - VISIBLE ON SELECTION OR HOVER */}
-      <button
+      {showDetails && <button
         onClick={(e) => {
           e.stopPropagation()
           if (onDetailClick) onDetailClick(item)
@@ -120,7 +123,7 @@ const InventoryCard = ({
                    cursor-pointer`}
       >
         Details
-      </button>
+      </button>}
     </div>
   )
 }
@@ -200,7 +203,7 @@ const FilterDropdown = ({ options, activeFilter, onSelect }: { options: any[], a
   )
 }
 
-export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false }: InventoryProps) {
+export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false, showDetails = true }: InventoryProps) {
   const [activeDroidFilter, setActiveDroidFilter] = useState<DroidFilter>('ALL')
   const [activeBatteryFilter, setActiveBatteryFilter] = useState<BatteryFilter>('ALL')
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -286,7 +289,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
 
   return (
     <div className="flex flex-col h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-4 relative">
-      <div className="flex flex-col gap-2 mb-4 flex-shrink-0 relative z-30 lg:flex-row lg:justify-between lg:items-center">
+      <div className="flex flex-col gap-2 mb-4 flex-shrink-0 relative z-40 lg:flex-row lg:justify-between lg:items-center">
 
         {/* MOBILE FILTER (Above Title) */}
         <div className="lg:hidden self-start mb-1">
@@ -316,7 +319,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
         </div>
 
         {/* DESKTOP FILTER */}
-        <div className="relative z-30 self-end lg:self-auto hidden lg:block">
+        <div className="relative z-40 self-end lg:self-auto hidden lg:block">
           {type === 'droid' ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />) : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />)}
         </div>
       </div>
@@ -360,6 +363,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
                 type={type}
                 onSelect={onSelect}
                 onDetailClick={onDetailClick}
+                showDetails={showDetails}
               />
             ))
           )}

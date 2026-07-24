@@ -52,7 +52,7 @@ function GlitchCTAComponent() {
             style={{ isolation: "isolate", willChange: "transform" }}
         >
             <Link
-                href="/glitch_games"
+                href="/glitch_games/cards"
                 className="group block relative overflow-hidden rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-[0_0_40px_rgba(0,0,0,0.6)] hover:border-white/20 transition-colors duration-300"
             >
                 {/* ── Title ────────────────────────────────────────────────── */}

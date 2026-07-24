@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { NFTItem } from "@/app/dashboard/page"
+import { NFTItem } from "@/app/upgrade_module/page"
 import { resolveImageUrl } from "@/lib/utils"
 import { GridFooter } from "./grid-footer"
 

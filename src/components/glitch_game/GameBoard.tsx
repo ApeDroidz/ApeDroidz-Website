@@ -679,7 +679,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
             <div className="w-full flex items-center mb-4 sm:mb-6 lg:mb-8">
                 {/* Back button */}
                 <Link
-                    href="/glitch_games"
+                    href="/glitch_games/cards"
                     className="flex items-center gap-1.5 text-white/30 hover:text-white/70 transition-colors text-[10px] font-black uppercase tracking-widest flex-shrink-0 mr-4"
                 >
                     <ArrowLeft className="w-3.5 h-3.5" />

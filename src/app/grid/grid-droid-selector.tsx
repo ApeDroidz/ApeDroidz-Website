@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
-import { NFTItem } from "@/app/dashboard/page"
+import { NFTItem } from "@/app/upgrade_module/page"
 import { resolveImageUrl } from "@/lib/utils"
 import { RefreshCcw, Check, ChevronDown, Lock } from "lucide-react"
 

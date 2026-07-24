@@ -106,7 +106,7 @@ export default function GridPage() {
                         const lvlHelperObj = { level: 0, metadata }
                         const currentLevel = getDroidLevel(lvlHelperObj as any)
 
-                        let imgUrl = resolveImageUrl((metadata as any).image)
+                        let imgUrl = resolveImageUrl((metadata as any).image_pixel || (metadata as any).image)
                         if (!imgUrl) imgUrl = resolveImageUrl(nft.metadata?.image)
 
                         return {

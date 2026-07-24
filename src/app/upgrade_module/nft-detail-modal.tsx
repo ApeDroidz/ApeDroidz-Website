@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { NFTItem } from "@/app/dashboard/page"
+import { NFTItem } from "@/app/upgrade_module/page"
 import { X, Lock, Zap, Check, Download } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { NFTImageSkeleton } from "@/components/nft-image-skeleton"

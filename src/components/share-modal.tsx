@@ -1,6 +1,6 @@
 "use client"
 
-import { NFTItem } from "@/app/dashboard/page"
+import { NFTItem } from "@/app/upgrade_module/page"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Loader2 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"

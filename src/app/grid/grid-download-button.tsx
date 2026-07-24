@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
-import { NFTItem } from "@/app/dashboard/page"
+import { NFTItem } from "@/app/upgrade_module/page"
 import { resolveImageUrl } from "@/lib/utils"
 import { Loader2, Download, Share2 } from "lucide-react"
 
@@ -73,6 +73,19 @@ const loadImage = (src: string, timeoutMs = 20000): Promise<HTMLImageElement> =>
         }
         img.src = src
     })
+}
+
+// Honorary assets exist as .png in storage while the app builds .webp URLs
+// (the DOM previews recover via onError — the canvas path needs the same retry).
+const loadImageWithFallback = async (src: string, timeoutMs = 20000): Promise<HTMLImageElement> => {
+    try {
+        return await loadImage(src, timeoutMs)
+    } catch (err) {
+        if (src.includes('.webp')) {
+            return await loadImage(src.replace('.webp', '.png'), timeoutMs)
+        }
+        throw err
+    }
 }
 
 // Draws a fallback cell so a single broken image doesn't sink the whole grid.
@@ -238,7 +251,7 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
 
                     if (!resolved) {
                         try {
-                            const img = await loadImage(resolveImageUrl(droid.image))
+                            const img = await loadImageWithFallback(resolveImageUrl(droid.image))
                             droidFramesMap.set(droid.id, { frames: [img], delays: [FRAME_DELAY] })
                         } catch (err) {
                             console.warn(`[grid] static fallback failed for ${droid.id}:`, err)
@@ -247,7 +260,7 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
                     }
                 } else {
                     try {
-                        const img = await loadImage(resolveImageUrl(droid.image))
+                        const img = await loadImageWithFallback(resolveImageUrl(droid.image))
                         droidFramesMap.set(droid.id, { frames: [img], delays: [FRAME_DELAY] })
                     } catch (err) {
                         console.warn(`[grid] image load failed for ${droid.id}:`, err)
