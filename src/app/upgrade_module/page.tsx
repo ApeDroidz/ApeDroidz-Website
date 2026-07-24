@@ -108,47 +108,24 @@ export default function UpgradeModulePage() {
     }
 
     try {
-      // Load Droids
-      const droidContract = getContract({ client, chain: apeChain, address: APEDROIDZ_CONTRACT })
-      const droidNfts = await getOwnedNFTs({ contract: droidContract, owner: account.address })
-
-      const loadedDroids = await Promise.all(
-        droidNfts.map(async (nft) => {
-          const tokenId = nft.id.toString()
-          try {
-            const res = await fetch(`/api/metadata/droidz/${tokenId}`)
-            let metadata = res.ok ? await res.json() : (nft.metadata || {})
-
-            // Используем ту же логику парсинга, что и в helper
-            const lvlHelperObj = { level: 0, metadata };
-            const currentLevel = getDroidLevel(lvlHelperObj as any);
-
-            let imgUrl = resolveImageUrl((metadata as any).image_pixel || (metadata as any).image)
-            if (!imgUrl) imgUrl = resolveImageUrl(nft.metadata?.image)
-
-            return {
-              id: tokenId,
-              tokenId: tokenId,
-              name: (metadata as any).name || `ApeDroid #${tokenId}`,
-              image: imgUrl,
-              type: 'droid' as const,
-              level: currentLevel,
-              metadata: metadata,
-            }
-          } catch (err) {
-            return {
-              id: tokenId,
-              tokenId: tokenId,
-              name: `ApeDroid #${tokenId}`,
-              image: resolveImageUrl(nft.metadata?.image),
-              type: 'droid' as const,
-              level: 1,
-              metadata: nft.metadata || {}
-            }
-          }
-        })
-      )
-      setDroids(loadedDroids)
+      // Load Droids — RPC-free via our indexer+DB route (/api/owned-droids)
+      // instead of on-chain getOwnedNFTs, which spent thirdweb RPC per token.
+      try {
+        const res = await fetch(`/api/owned-droids?owner=${account.address}`, { cache: 'no-store' })
+        const json = await res.json().catch(() => ({}))
+        const loadedDroids = (json?.droids || []).map((d: any) => ({
+          id: d.id,
+          tokenId: d.tokenId,
+          name: d.name,
+          image: resolveImageUrl(d.image_pixel || d.image),
+          type: 'droid' as const,
+          level: d.level ?? 1,
+          metadata: { attributes: d.attributes, display_view: d.display_view, is_super: d.is_super },
+        }))
+        setDroids(loadedDroids)
+      } catch (droidErr) {
+        console.error('Error loading droids:', droidErr)
+      }
 
       // Load Batteries from battery contract
       if (BATTERY_CONTRACT) {
@@ -352,6 +329,11 @@ export default function UpgradeModulePage() {
 
       // 2. Готовим этот же предмет для шеринга (но не открываем модалку сразу, это делает кнопка в машине)
       setShareItem(upgradedItem)
+
+      // Инвалидируем кэш дроидов, чтобы дашборд сразу показал новый уровень.
+      try {
+        if (account?.address) sessionStorage.removeItem(`apedroidz:droids:${account.address.toLowerCase()}`)
+      } catch { /* ignore */ }
 
       await fetchMyNFTs()
       if (refetchProgress) refetchProgress()

@@ -16,6 +16,8 @@ interface InventoryProps {
   singleRow?: boolean
   isLoading?: boolean
   showDetails?: boolean
+  /** Override the droid grid columns (e.g. dashboard wants denser 5-col layout). */
+  droidGridClassName?: string
 }
 
 type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER'
@@ -203,7 +205,7 @@ const FilterDropdown = ({ options, activeFilter, onSelect }: { options: any[], a
   )
 }
 
-export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false, showDetails = true }: InventoryProps) {
+export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false, showDetails = true, droidGridClassName }: InventoryProps) {
   const [activeDroidFilter, setActiveDroidFilter] = useState<DroidFilter>('ALL')
   const [activeBatteryFilter, setActiveBatteryFilter] = useState<BatteryFilter>('ALL')
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -324,7 +326,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
       </div>
 
       <div className={`flex-1 overflow-y-auto custom-scrollbar pr-1 ${singleRow ? 'min-h-0' : ''}`}>
-        <div className={`grid gap-3 pb-2 ${singleRow ? 'grid-cols-4 md:grid-cols-6' : type === 'battery' ? 'grid-cols-3 md:grid-cols-6' : 'grid-cols-2 md:grid-cols-4'}`}>
+        <div className={`grid gap-3 pb-2 ${singleRow ? 'grid-cols-4 md:grid-cols-6' : type === 'battery' ? 'grid-cols-3 md:grid-cols-6' : (droidGridClassName || 'grid-cols-2 md:grid-cols-4')}`}>
 
           {/* SPECIAL CARDS AT START */}
           {type === 'battery' ? (

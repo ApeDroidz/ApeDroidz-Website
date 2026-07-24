@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { buildDroidDisplay } from '@/lib/droidDisplay'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-
-const ASSETS_BASE = 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,12 +14,10 @@ const corsHeaders = {
  * POST /api/metadata/batch
  *
  * Resolve display data for many droids in ONE DB round-trip instead of N calls
- * to /api/metadata/droidz/{id}. Used by the site inventory panels so the wallet
- * sync is fast even for holders with dozens of droids.
+ * to /api/metadata/droidz/{id}.
  *
  * Body:  { ids: (number|string)[] }
- * Reply: { droids: { [tokenId]: { name, image, image_pixel, image_animated,
- *          level, is_super, display_view, attributes } } }
+ * Reply: { droids: { [tokenId]: DroidDisplay } }
  */
 export async function POST(request: NextRequest) {
   let body: any
@@ -41,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   const { data: rows, error } = await supabaseAdmin!
     .from('droidz')
-    .select('token_id, level, is_super, traits, description, image_url, animation_url, display_pref')
+    .select('token_id, level, is_super, traits, display_pref')
     .in('token_id', ids)
 
   if (error) {
@@ -50,43 +47,8 @@ export async function POST(request: NextRequest) {
   }
 
   const droids: Record<string, any> = {}
-  for (const droid of rows || []) {
-    const tokenId = droid.token_id
-    const isSuper = !!droid.is_super
-    const level = droid.level || 1
-
-    let levelString = String(level)
-    if (level >= 2) levelString = isSuper ? '2 SUPER' : '2'
-
-    const cleanAttributes = (droid.traits || []).filter((attr: any) => {
-      const tType = attr.trait_type?.toLowerCase() || ''
-      return !['level', 'upgraded', 'upgrade level', 'upgraded level', 'rank', 'rank value'].includes(tType)
-    })
-
-    const displayPref = ['pixel', 'animated'].includes(droid.display_pref) ? droid.display_pref : null
-    const effectiveView: 'pixel' | 'animated' =
-      displayPref === 'animated' && level >= 2 ? 'animated'
-        : displayPref === 'pixel' ? 'pixel'
-          : level >= 2 ? 'animated' : 'pixel'
-
-    const pixelUrl = level >= 2
-      ? `${ASSETS_BASE}/${isSuper ? 'super' : 'level2'}/${tokenId}.webp`
-      : `${ASSETS_BASE}/level1/${tokenId}.png`
-    const animatedUrl = `${ASSETS_BASE}/${isSuper ? 'super-gif' : 'level2-gif'}/${tokenId}.gif`
-
-    const bustVersion = `${level}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}`
-    const bust = (url: string) => `${url}?v=${bustVersion}`
-
-    droids[String(tokenId)] = {
-      name: `ApeDroid #${tokenId}`,
-      image: bust(effectiveView === 'animated' ? animatedUrl : pixelUrl),
-      image_pixel: bust(pixelUrl),
-      image_animated: bust(animatedUrl),
-      level,
-      is_super: isSuper,
-      display_view: effectiveView,
-      attributes: [...cleanAttributes, { trait_type: 'Level', value: levelString }],
-    }
+  for (const row of rows || []) {
+    droids[String(row.token_id)] = buildDroidDisplay(row)
   }
 
   return NextResponse.json({ droids }, { headers: corsHeaders })

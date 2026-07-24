@@ -4,9 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useActiveAccount } from "thirdweb/react"
-import { getContract } from "thirdweb/contract"
-import { client, apeChain } from "@/lib/thirdweb"
-import { getOwnedNFTs } from "thirdweb/extensions/erc721"
 import { Header } from "@/components/header"
 import { DigitalBackground } from "@/components/digital-background"
 import { Inventory } from "@/app/upgrade_module/inventory"
@@ -17,9 +14,11 @@ import { resolveImageUrl } from "@/lib/utils"
 import { useGlitchSession } from "@/hooks/useGlitchSession"
 import { Check, ChevronsUp, Loader2, Save } from "lucide-react"
 
-const APEDROIDZ_CONTRACT = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
-
 type ViewKey = 'pixel' | 'animated' | 'pfp3d' | 'fullbody'
+
+// Per-wallet droid cache TTL — avoids re-hitting the indexer on every
+// remount / navigation between pages within a session.
+const DROIDS_CACHE_TTL = 120_000
 
 const getDroidLevel = (item: NFTItem | null): number => {
   if (!item) return 1;
@@ -58,70 +57,75 @@ export default function DashboardPage() {
 
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // === ЗАГРУЗКА ДРОИДОВ (быстрая: 1 on-chain enum + 1 батч-запрос метадаты) ===
-  const fetchMyDroids = useCallback(async (isBackground: boolean = false) => {
+  // === ЗАГРУЗКА ДРОИДОВ (0 thirdweb RPC: Insight-индексер + БД через наш сервер) ===
+  // Браузер делает ОДИН same-origin запрос к /api/owned-droids; thirdweb он не
+  // трогает вообще (ни RPC-квоты, ни домен-allowlist). Кэш на сессию гасит
+  // повторные сканы при навигации/ремаунтах.
+  const fetchMyDroids = useCallback(async (opts?: { force?: boolean; isBackground?: boolean }): Promise<number> => {
+    const force = opts?.force ?? false
+    const isBackground = opts?.isBackground ?? false
+    if (!account?.address) {
+      setIsInventoryLoading(false)
+      return 0
+    }
+    const owner = account.address
+    const cacheKey = `apedroidz:droids:${owner.toLowerCase()}`
+
+    if (!force && typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(cacheKey)
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (Date.now() - parsed.ts < DROIDS_CACHE_TTL && Array.isArray(parsed.droids)) {
+            setDroids(parsed.droids)
+            setIsInventoryLoading(false)
+            return parsed.droids.length
+          }
+        }
+      } catch { /* ignore cache errors */ }
+    }
+
     if (!isBackground) {
       setIsInventoryLoading(true)
       setDroids([])
     }
-    if (!account?.address) {
-      setIsInventoryLoading(false)
-      return
-    }
     try {
-      const droidContract = getContract({ client, chain: apeChain, address: APEDROIDZ_CONTRACT })
-      const droidNfts = await getOwnedNFTs({ contract: droidContract, owner: account.address })
-
-      const ids = droidNfts.map((nft) => nft.id.toString())
-      if (ids.length === 0) {
-        setDroids([])
-        return
-      }
-
-      // Keep on-chain metadata as a fallback image source.
-      const chainMeta: Record<string, any> = {}
-      droidNfts.forEach((nft) => { chainMeta[nft.id.toString()] = nft.metadata })
-
-      // ONE batch call for all owned droids instead of N per-token fetches.
-      let metaMap: Record<string, any> = {}
-      try {
-        const res = await fetch('/api/metadata/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids }),
-        })
-        if (res.ok) metaMap = (await res.json())?.droids || {}
-      } catch (e) {
-        console.error('[dashboard] batch metadata failed, using on-chain fallback:', e)
-      }
-
-      const loadedDroids: NFTItem[] = ids.map((tokenId) => {
-        const m = metaMap[tokenId]
-        const img = resolveImageUrl(m?.image_pixel || m?.image) || resolveImageUrl(chainMeta[tokenId]?.image)
-        return {
-          id: tokenId,
-          tokenId,
-          name: m?.name || `ApeDroid #${tokenId}`,
-          image: img,
-          type: 'droid' as const,
-          level: m?.level ?? 1,
-          metadata: m || chainMeta[tokenId] || {},
-        }
-      })
+      const res = await fetch(`/api/owned-droids?owner=${owner}`, { cache: 'no-store' })
+      const json = await res.json().catch(() => ({}))
+      const loadedDroids: NFTItem[] = (json?.droids || []).map((d: any) => ({
+        id: d.id,
+        tokenId: d.tokenId,
+        name: d.name,
+        image: resolveImageUrl(d.image_pixel || d.image),
+        type: 'droid' as const,
+        level: d.level ?? 1,
+        metadata: { attributes: d.attributes, display_view: d.display_view, is_super: d.is_super },
+      }))
       setDroids(loadedDroids)
+      if (typeof window !== 'undefined') {
+        try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), droids: loadedDroids })) } catch { /* quota */ }
+      }
+      return loadedDroids.length
     } catch (error) {
       console.error("Error loading droids:", error)
+      return 0
     } finally {
       if (!isBackground) setIsInventoryLoading(false)
     }
   }, [account?.address])
 
   useEffect(() => {
-    fetchMyDroids()
-    // Retry once after a couple seconds to catch indexing lag on fresh mints/transfers.
-    const timer = setTimeout(() => fetchMyDroids(true), 2000)
-    return () => clearTimeout(timer)
-  }, [fetchMyDroids])
+    let cancelled = false
+    ;(async () => {
+      const n = await fetchMyDroids()
+      // Индексер может отставать на блок-другой после свежего минта/трансфера —
+      // повторяем РОВНО один раз и только если пусто.
+      if (!cancelled && n === 0 && account?.address) {
+        setTimeout(() => { if (!cancelled) fetchMyDroids({ force: true, isBackground: true }) }, 3000)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [fetchMyDroids, account?.address])
 
   // === СИНХРОНИЗАЦИЯ С ПРЕВЬЮЕРОМ (postMessage из iframe) ===
   useEffect(() => {
@@ -205,7 +209,7 @@ export default function DashboardPage() {
         />
 
         <motion.div
-          className="pt-24 pb-6 px-4 sm:px-6 flex-1 grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 lg:h-full lg:overflow-hidden"
+          className="pt-24 pb-6 px-4 sm:px-6 flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 lg:h-full lg:overflow-hidden"
           initial="hidden"
           animate="show"
           variants={{
@@ -213,9 +217,9 @@ export default function DashboardPage() {
             show: { opacity: 1, transition: { staggerChildren: 0.15, delayChildren: 0.1 } },
           }}
         >
-          {/* ЛЕВАЯ ЧАСТЬ — PFP PREVIEWER (без рамки, как машина в апгрейд-модуле) */}
+          {/* ЛЕВАЯ ЧАСТЬ — PFP PREVIEWER (без рамки, центрировано, как машина в апгрейд-модуле) */}
           <motion.div
-            className="flex flex-col min-h-[420px] lg:h-full lg:min-h-0 relative order-1 lg:order-none lg:col-span-3"
+            className="flex flex-col items-center min-h-[420px] lg:h-full lg:min-h-0 relative order-1 lg:order-none"
             variants={{
               hidden: { opacity: 0, y: 30 },
               show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
@@ -223,23 +227,18 @@ export default function DashboardPage() {
           >
             <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent rounded-full blur-3xl pointer-events-none transform scale-75" />
 
-            {/* Header row — совпадает по верстке с шапкой инвентаря */}
-            <div className="flex items-start justify-between gap-3 mb-4 flex-shrink-0 relative">
-              <div>
-                <h1 className="text-base font-bold tracking-wider text-white/90 uppercase">Choose your PFP</h1>
-                <p className="text-xs text-white/40 mt-1 max-w-md leading-relaxed">
-                  Pick the render that represents your droid — it&apos;s what OpenSea and other marketplaces will display.
-                </p>
-              </div>
-              {selectedDroid && (
-                <span className="flex-shrink-0 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded text-[10px] font-mono text-white font-bold border border-white/10">
-                  #{selectedDroid.tokenId}
-                </span>
-              )}
+            {/* Header — размеры и верстка как в апгрейд-модуле (по центру) */}
+            <div className="w-full max-w-[1200px] px-4 mb-4 md:mb-6 z-20 text-center flex-shrink-0">
+              <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] mb-2">
+                Choose Your PFP
+              </h1>
+              <p className="text-gray-400 text-xs md:text-sm font-mono leading-relaxed max-w-2xl mx-auto px-4">
+                Pick the render that represents your droid — it&apos;s what OpenSea and other marketplaces will display.
+              </p>
             </div>
 
             {/* Превьюер — без карточки-рамки */}
-            <div className="flex-1 min-h-[300px] lg:min-h-0 relative rounded-xl overflow-hidden bg-black">
+            <div className="flex-1 w-full min-h-[300px] lg:min-h-0 relative rounded-xl overflow-hidden bg-black">
               {selectedDroid ? (
                 <iframe
                   ref={iframeRef}
@@ -258,7 +257,7 @@ export default function DashboardPage() {
             </div>
 
             {/* SAVE YOUR PFP */}
-            <div className="flex-shrink-0 mt-4 relative">
+            <div className="flex-shrink-0 mt-4 relative w-full max-w-[520px] mx-auto">
               <AnimatePresence mode="wait">
                 {needsUpgradeForCurrent ? (
                   <motion.button
@@ -302,9 +301,9 @@ export default function DashboardPage() {
             </div>
           </motion.div>
 
-          {/* ПРАВАЯ ЧАСТЬ — СПИСОК ДРОИДОВ */}
+          {/* ПРАВАЯ ЧАСТЬ — СПИСОК ДРОИДОВ (50% ширины, плотная сетка до 5 карточек) */}
           <motion.div
-            className="flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden order-2 lg:order-none lg:col-span-2"
+            className="flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden order-2 lg:order-none"
             variants={{
               hidden: { opacity: 0, y: 30 },
               show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
@@ -318,8 +317,9 @@ export default function DashboardPage() {
                 onSelect={handleSelectDroid}
                 type="droid"
                 isLoading={isInventoryLoading}
-                onRefresh={fetchMyDroids}
+                onRefresh={async () => { await fetchMyDroids({ force: true }) }}
                 showDetails={false}
+                droidGridClassName="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6"
               />
             </div>
           </motion.div>
