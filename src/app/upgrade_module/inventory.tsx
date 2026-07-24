@@ -18,7 +18,7 @@ interface InventoryProps {
   showDetails?: boolean
 }
 
-type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER' | 'LVL 3'
+type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER'
 type BatteryFilter = 'ALL' | 'STANDARD' | 'SUPER'
 
 // ... (GET MORE CARD ОСТАВЛЯЕМ КАК БЫЛ) ...
@@ -242,7 +242,6 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
         if (activeDroidFilter === 'LVL 1') return level === 1;
         if (activeDroidFilter === 'LVL 2') return level === 2 && !isSuper;
         if (activeDroidFilter === 'LVL 2 SUPER') return level === 2 && isSuper;
-        if (activeDroidFilter === 'LVL 3') return level === 3;
       }
       if (type === 'battery') {
         if (activeBatteryFilter === 'ALL') return true
@@ -283,7 +282,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
 
   const hasHiddenItems = filteredItems.length > initialDisplayCount && !singleRow;
 
-  const droidOptions = [{ label: 'All Droidz', value: 'ALL' }, { label: 'Level 1', value: 'LVL 1' }, { label: 'Level 2', value: 'LVL 2' }, { label: 'Level 2 Super', value: 'LVL 2 SUPER', color: 'orange' }, { label: 'Level 3', value: 'LVL 3', locked: true }];
+  const droidOptions = [{ label: 'All Droidz', value: 'ALL' }, { label: 'Level 1', value: 'LVL 1' }, { label: 'Level 2', value: 'LVL 2' }, { label: 'Level 2 Super', value: 'LVL 2 SUPER', color: 'orange' }];
   const batteryOptions = [{ label: 'All Batteriez', value: 'ALL' }, { label: 'Standard', value: 'STANDARD' }, { label: 'Super', value: 'SUPER', color: 'orange' }];
   const loadingSkeletons = Array.from({ length: singleRow ? 4 : 8 })
 

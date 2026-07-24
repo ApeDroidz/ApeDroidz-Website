@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { NFTItem } from "@/app/upgrade_module/page"
-import { X, Lock, Zap, Check, Download } from "lucide-react"
+import { X, Zap, Check, Download } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { NFTImageSkeleton } from "@/components/nft-image-skeleton"
 import { resolveImageUrl } from "@/lib/utils"
@@ -165,14 +165,6 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
                       icon={level >= 2 ? <Zap size={14} fill="currentColor" /> : null}
                       themeColors={themeColors}
                     />
-                    <ProgressSegment
-                      isActive={level >= 3}
-                      isNext={false}
-                      isLocked={true}
-                      label="LVL 3"
-                      icon={<Lock size={14} className="opacity-60" />}
-                      themeColors={themeColors}
-                    />
                   </div>
                 )}
               </div>
@@ -308,12 +300,9 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
                     <span className="text-[#3b82f6] font-bold uppercase">LVL 2</span>
                     <span className="text-white/60">Animated ApeDroid</span>
                   </div>
-                  <div className="flex flex-col gap-1 text-[10px] pt-1 border-t border-white/5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#3b82f6] font-bold uppercase">LVL 3</span>
-                      <Lock size={10} className="text-white/40" />
-                    </div>
-                    <span className="text-white/60">Fully 3D ApeDroid<br />(Ready to Otherside)</span>
+                  <div className="flex flex-col gap-1 text-[10px]">
+                    <span className="text-[#fb923c] font-bold uppercase">LVL 2 Super</span>
+                    <span className="text-white/60">Animated ApeDroid · orange background &amp; kicks</span>
                   </div>
                 </div>
               </motion.div>

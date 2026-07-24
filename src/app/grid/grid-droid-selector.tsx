@@ -5,7 +5,7 @@ import { NFTItem } from "@/app/upgrade_module/page"
 import { resolveImageUrl } from "@/lib/utils"
 import { RefreshCcw, Check, ChevronDown, Lock } from "lucide-react"
 
-type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER' | 'LVL 3'
+type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER'
 
 interface GridDroidSelectorProps {
     droids: NFTItem[]
@@ -154,7 +154,6 @@ export function GridDroidSelector({
             if (activeFilter === 'LVL 1') return level === 1
             if (activeFilter === 'LVL 2') return level === 2 && !isSuper
             if (activeFilter === 'LVL 2 SUPER') return level === 2 && isSuper
-            if (activeFilter === 'LVL 3') return level === 3
             return true
         })
     }, [droids, activeFilter])
@@ -164,7 +163,6 @@ export function GridDroidSelector({
         { label: 'Level 1', value: 'LVL 1' },
         { label: 'Level 2', value: 'LVL 2' },
         { label: 'Level 2 Super', value: 'LVL 2 SUPER', color: 'orange' },
-        { label: 'Level 3', value: 'LVL 3', locked: true }
     ]
 
     const loadingSkeletons = Array.from({ length: 8 })

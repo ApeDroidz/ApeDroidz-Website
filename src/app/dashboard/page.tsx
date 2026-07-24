@@ -58,7 +58,7 @@ export default function DashboardPage() {
 
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // === ЗАГРУЗКА ДРОИДОВ ===
+  // === ЗАГРУЗКА ДРОИДОВ (быстрая: 1 on-chain enum + 1 батч-запрос метадаты) ===
   const fetchMyDroids = useCallback(async (isBackground: boolean = false) => {
     if (!isBackground) {
       setIsInventoryLoading(true)
@@ -72,37 +72,42 @@ export default function DashboardPage() {
       const droidContract = getContract({ client, chain: apeChain, address: APEDROIDZ_CONTRACT })
       const droidNfts = await getOwnedNFTs({ contract: droidContract, owner: account.address })
 
-      const loadedDroids = await Promise.all(
-        droidNfts.map(async (nft) => {
-          const tokenId = nft.id.toString()
-          try {
-            const res = await fetch(`/api/metadata/droidz/${tokenId}`)
-            const metadata = res.ok ? await res.json() : (nft.metadata || {})
-            const currentLevel = getDroidLevel({ level: 0, metadata } as any)
-            let imgUrl = resolveImageUrl((metadata as any).image_pixel || (metadata as any).image)
-            if (!imgUrl) imgUrl = resolveImageUrl(nft.metadata?.image)
-            return {
-              id: tokenId,
-              tokenId,
-              name: (metadata as any).name || `ApeDroid #${tokenId}`,
-              image: imgUrl,
-              type: 'droid' as const,
-              level: currentLevel,
-              metadata,
-            }
-          } catch {
-            return {
-              id: tokenId,
-              tokenId,
-              name: `ApeDroid #${tokenId}`,
-              image: resolveImageUrl(nft.metadata?.image),
-              type: 'droid' as const,
-              level: 1,
-              metadata: nft.metadata || {},
-            }
-          }
+      const ids = droidNfts.map((nft) => nft.id.toString())
+      if (ids.length === 0) {
+        setDroids([])
+        return
+      }
+
+      // Keep on-chain metadata as a fallback image source.
+      const chainMeta: Record<string, any> = {}
+      droidNfts.forEach((nft) => { chainMeta[nft.id.toString()] = nft.metadata })
+
+      // ONE batch call for all owned droids instead of N per-token fetches.
+      let metaMap: Record<string, any> = {}
+      try {
+        const res = await fetch('/api/metadata/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
         })
-      )
+        if (res.ok) metaMap = (await res.json())?.droids || {}
+      } catch (e) {
+        console.error('[dashboard] batch metadata failed, using on-chain fallback:', e)
+      }
+
+      const loadedDroids: NFTItem[] = ids.map((tokenId) => {
+        const m = metaMap[tokenId]
+        const img = resolveImageUrl(m?.image_pixel || m?.image) || resolveImageUrl(chainMeta[tokenId]?.image)
+        return {
+          id: tokenId,
+          tokenId,
+          name: m?.name || `ApeDroid #${tokenId}`,
+          image: img,
+          type: 'droid' as const,
+          level: m?.level ?? 1,
+          metadata: m || chainMeta[tokenId] || {},
+        }
+      })
       setDroids(loadedDroids)
     } catch (error) {
       console.error("Error loading droids:", error)
@@ -113,6 +118,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchMyDroids()
+    // Retry once after a couple seconds to catch indexing lag on fresh mints/transfers.
     const timer = setTimeout(() => fetchMyDroids(true), 2000)
     return () => clearTimeout(timer)
   }, [fetchMyDroids])
@@ -145,7 +151,7 @@ export default function DashboardPage() {
   const needsUpgradeForCurrent = currentView === 'animated' && selectedLevel < 2
   const isCurrentSaved = savedView === currentView && !needsUpgradeForCurrent
 
-  // === SAVE AS DEFAULT ===
+  // === SAVE YOUR PFP ===
   const handleSaveDefault = async () => {
     if (!selectedDroid || isSaving) return
     if (needsUpgradeForCurrent) {
@@ -156,7 +162,7 @@ export default function DashboardPage() {
     try {
       const ok = await ensureLogin()
       if (!ok) {
-        setToastState({ isOpen: true, type: 'error', title: 'Sign-in required', message: 'Please sign the login message to save your default view.' })
+        setToastState({ isOpen: true, type: 'error', title: 'Sign-in required', message: 'Please sign the login message to save your PFP.' })
         return
       }
       const res = await fetch('/api/display-pref', {
@@ -176,7 +182,7 @@ export default function DashboardPage() {
       setSavedView(currentView)
       setJustSaved(true)
       setToastState({
-        isOpen: true, type: 'success', title: 'Default saved',
+        isOpen: true, type: 'success', title: 'PFP saved',
         message: `Droid #${selectedDroid.tokenId} now shows the ${currentView === 'animated' ? 'Animated' : 'Pixel'} version on marketplaces. Refresh metadata on OpenSea to see it live.`,
       })
       setTimeout(() => setJustSaved(false), 2500)
@@ -199,7 +205,7 @@ export default function DashboardPage() {
         />
 
         <motion.div
-          className="pt-24 pb-6 px-4 sm:px-6 flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 lg:h-full lg:overflow-hidden"
+          className="pt-24 pb-6 px-4 sm:px-6 flex-1 grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 lg:h-full lg:overflow-hidden"
           initial="hidden"
           animate="show"
           variants={{
@@ -207,100 +213,98 @@ export default function DashboardPage() {
             show: { opacity: 1, transition: { staggerChildren: 0.15, delayChildren: 0.1 } },
           }}
         >
-          {/* ЛЕВАЯ ЧАСТЬ — PFP PREVIEWER */}
+          {/* ЛЕВАЯ ЧАСТЬ — PFP PREVIEWER (без рамки, как машина в апгрейд-модуле) */}
           <motion.div
-            className="flex flex-col lg:h-full lg:min-h-0 order-1 lg:order-none"
+            className="flex flex-col min-h-[420px] lg:h-full lg:min-h-0 relative order-1 lg:order-none lg:col-span-3"
             variants={{
               hidden: { opacity: 0, y: 30 },
               show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
             }}
           >
-            <div className="relative flex flex-col h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-5 lg:p-6 shadow-2xl shadow-black/50 overflow-hidden">
-              <div className="absolute top-[-20%] left-[-20%] w-[50%] h-[50%] bg-blue-600/10 blur-[80px] pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent rounded-full blur-3xl pointer-events-none transform scale-75" />
 
-              {/* Заголовок */}
-              <div className="flex items-start justify-between flex-shrink-0 mb-4 relative">
-                <div>
-                  <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white">Choose your PFP</h1>
-                  <p className="text-xs text-white/40 mt-1 max-w-md leading-relaxed">
-                    Every E-Droid comes in multiple renders. Pick the version that represents your droid — it&apos;s what OpenSea and other marketplaces will display.
-                  </p>
+            {/* Header row — совпадает по верстке с шапкой инвентаря */}
+            <div className="flex items-start justify-between gap-3 mb-4 flex-shrink-0 relative">
+              <div>
+                <h1 className="text-base font-bold tracking-wider text-white/90 uppercase">Choose your PFP</h1>
+                <p className="text-xs text-white/40 mt-1 max-w-md leading-relaxed">
+                  Pick the render that represents your droid — it&apos;s what OpenSea and other marketplaces will display.
+                </p>
+              </div>
+              {selectedDroid && (
+                <span className="flex-shrink-0 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded text-[10px] font-mono text-white font-bold border border-white/10">
+                  #{selectedDroid.tokenId}
+                </span>
+              )}
+            </div>
+
+            {/* Превьюер — без карточки-рамки */}
+            <div className="flex-1 min-h-[300px] lg:min-h-0 relative rounded-xl overflow-hidden bg-black">
+              {selectedDroid ? (
+                <iframe
+                  ref={iframeRef}
+                  key={selectedDroid.tokenId}
+                  src={`/api/viewer/${selectedDroid.tokenId}?embed=1`}
+                  title={`ApeDroid #${selectedDroid.tokenId} previewer`}
+                  className="absolute inset-0 w-full h-full border-0"
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
+                  <img src="/icon_logo.svg" alt="" className="w-16 h-auto opacity-20" />
+                  <p className="text-sm font-bold uppercase tracking-widest text-white/30">Select a Droid</p>
+                  <p className="text-xs text-white/20 max-w-[240px]">Pick a droid from the list to preview and set its PFP.</p>
                 </div>
-                {selectedDroid && (
-                  <span className="flex-shrink-0 ml-3 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs font-mono text-white font-bold border border-white/10">
-                    #{selectedDroid.tokenId}
-                  </span>
-                )}
-              </div>
+              )}
+            </div>
 
-              {/* Превьюер */}
-              <div className="flex-1 min-h-[320px] lg:min-h-0 relative rounded-xl border border-white/10 bg-black overflow-hidden">
-                {selectedDroid ? (
-                  <iframe
-                    ref={iframeRef}
-                    key={selectedDroid.tokenId}
-                    src={`/api/viewer/${selectedDroid.tokenId}?embed=1`}
-                    title={`ApeDroid #${selectedDroid.tokenId} previewer`}
-                    className="absolute inset-0 w-full h-full border-0"
-                  />
+            {/* SAVE YOUR PFP */}
+            <div className="flex-shrink-0 mt-4 relative">
+              <AnimatePresence mode="wait">
+                {needsUpgradeForCurrent ? (
+                  <motion.button
+                    key="upgrade"
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                    onClick={handleSaveDefault}
+                    className="w-full h-12 flex items-center justify-center gap-2 bg-[#3b82f6] text-white font-black uppercase tracking-wider rounded-xl hover:bg-[#0069FF] transition-all text-sm shadow-lg cursor-pointer"
+                  >
+                    <ChevronsUp size={18} />
+                    Upgrade to unlock Animated
+                  </motion.button>
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
-                    <img src="/icon_logo.svg" alt="" className="w-16 h-auto opacity-20" />
-                    <p className="text-sm font-bold uppercase tracking-widest text-white/30">Select an E-Droid</p>
-                    <p className="text-xs text-white/20 max-w-[240px]">Pick a droid from the panel to preview and set its default look.</p>
-                  </div>
+                  <motion.button
+                    key="save"
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                    onClick={handleSaveDefault}
+                    disabled={!selectedDroid || isSaving || isCurrentSaved}
+                    className={`w-full h-12 flex items-center justify-center gap-2 font-black uppercase tracking-wider rounded-xl transition-all text-sm shadow-lg ${
+                      !selectedDroid
+                        ? 'bg-white/5 text-white/25 cursor-not-allowed border border-white/10'
+                        : isCurrentSaved
+                          ? 'bg-white/10 text-white/60 border border-white/15 cursor-default'
+                          : 'bg-white text-black hover:bg-[#0069FF] hover:text-white cursor-pointer'
+                    }`}
+                  >
+                    {isSaving ? (
+                      <><Loader2 size={18} className="animate-spin" /> Saving…</>
+                    ) : justSaved || isCurrentSaved ? (
+                      <><Check size={18} /> {justSaved ? 'Saved' : 'Current PFP'}</>
+                    ) : (
+                      <><Save size={18} /> Save your PFP</>
+                    )}
+                  </motion.button>
                 )}
-              </div>
-
-              {/* SAVE AS DEFAULT */}
-              <div className="flex-shrink-0 mt-4 relative">
-                <AnimatePresence mode="wait">
-                  {needsUpgradeForCurrent ? (
-                    <motion.button
-                      key="upgrade"
-                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                      onClick={handleSaveDefault}
-                      className="w-full h-12 flex items-center justify-center gap-2 bg-[#3b82f6] text-white font-black uppercase tracking-wider rounded-xl hover:bg-[#0069FF] transition-all text-sm shadow-lg cursor-pointer"
-                    >
-                      <ChevronsUp size={18} />
-                      Upgrade to unlock Animated
-                    </motion.button>
-                  ) : (
-                    <motion.button
-                      key="save"
-                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                      onClick={handleSaveDefault}
-                      disabled={!selectedDroid || isSaving || isCurrentSaved}
-                      className={`w-full h-12 flex items-center justify-center gap-2 font-black uppercase tracking-wider rounded-xl transition-all text-sm shadow-lg ${
-                        !selectedDroid
-                          ? 'bg-white/5 text-white/25 cursor-not-allowed border border-white/10'
-                          : isCurrentSaved
-                            ? 'bg-white/10 text-white/60 border border-white/15 cursor-default'
-                            : 'bg-white text-black hover:bg-[#0069FF] hover:text-white cursor-pointer'
-                      }`}
-                    >
-                      {isSaving ? (
-                        <><Loader2 size={18} className="animate-spin" /> Saving…</>
-                      ) : justSaved || isCurrentSaved ? (
-                        <><Check size={18} /> {justSaved ? 'Saved as default' : 'Current default'}</>
-                      ) : (
-                        <><Save size={18} /> Save as default</>
-                      )}
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-                {selectedDroid && (
-                  <p className="text-[10px] text-white/25 text-center mt-2">
-                    Saved view becomes the default on OpenSea after a metadata refresh.
-                  </p>
-                )}
-              </div>
+              </AnimatePresence>
+              {selectedDroid && (
+                <p className="text-[10px] text-white/25 text-center mt-2">
+                  Saved PFP becomes the default on OpenSea after a metadata refresh.
+                </p>
+              )}
             </div>
           </motion.div>
 
           {/* ПРАВАЯ ЧАСТЬ — СПИСОК ДРОИДОВ */}
           <motion.div
-            className="flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden order-2 lg:order-none"
+            className="flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden order-2 lg:order-none lg:col-span-2"
             variants={{
               hidden: { opacity: 0, y: 30 },
               show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
@@ -308,7 +312,7 @@ export default function DashboardPage() {
           >
             <div className="flex-1 lg:min-h-0 shadow-2xl shadow-black/50 rounded-2xl">
               <Inventory
-                title="E-Droids"
+                title="Your Droidz"
                 items={droids}
                 selectedId={selectedDroid?.id}
                 onSelect={handleSelectDroid}

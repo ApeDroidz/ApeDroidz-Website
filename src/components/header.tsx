@@ -61,6 +61,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
   const isMergePage = pathname === '/merge_mechanism';
   const isMintPage = pathname === '/batteries_mint';
   const isUpgradePage = pathname === '/upgrade_module';
+  const isHomePage = pathname === '/';
   const showDashboardNav = isGamePage || isGlitchGamesPage || isGridPage || isMergePage;
 
   // Tools = the "utility" pages (upgrade / mint / merge / grid)
@@ -224,20 +225,25 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             </AnimatePresence>
           </div>
 
-          {/* Dashboard — primary white button with label; on dashboard page it's "Back to Menu" home icon */}
+          {/* Dashboard — primary white button on the home page, dark elsewhere;
+              on the dashboard page itself it's the "Back to Menu" home icon */}
           {!isDashboard ? (
-            <Link href="/dashboard">
+            <Link href="/dashboard" className="outline-none focus:outline-none focus-visible:outline-none rounded-xl" draggable={false}>
               <motion.div
-                className="flex items-center gap-2 h-[48px] px-4 bg-white border border-transparent rounded-xl hover:bg-[#0069FF] transition-all duration-300 shadow-lg group cursor-pointer"
+                className={`flex items-center gap-2 h-[48px] px-4 rounded-xl transition-all duration-300 shadow-lg group cursor-pointer ${
+                  isHomePage
+                    ? 'bg-white border border-transparent hover:bg-[#0069FF]'
+                    : 'bg-black border border-white/15 hover:bg-white/10 hover:border-white/30'
+                }`}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <LayoutDashboard size={18} className="text-black group-hover:text-white transition-colors" />
-                <span className="text-sm font-bold text-black group-hover:text-white transition-colors">Dashboard</span>
+                <LayoutDashboard size={18} className={`transition-colors ${isHomePage ? 'text-black group-hover:text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
+                <span className={`text-sm font-bold transition-colors ${isHomePage ? 'text-black group-hover:text-white' : 'text-[#A1A1AA] group-hover:text-white'}`}>Dashboard</span>
               </motion.div>
             </Link>
           ) : (
-            <Link href="/">
+            <Link href="/" className="outline-none focus:outline-none focus-visible:outline-none rounded-xl" draggable={false}>
               <motion.div
                 className="flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/15 rounded-xl hover:bg-white/10 hover:border-white/30 transition-all duration-300 shadow-lg group cursor-pointer relative"
                 whileHover={{ scale: 1.05 }}
