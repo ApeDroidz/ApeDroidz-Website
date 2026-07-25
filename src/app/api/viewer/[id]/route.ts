@@ -55,8 +55,10 @@ export async function GET(
 
   // Asset map. Level 1 droids can still PREVIEW the animated version (upgrade
   // teaser — standard level-2 art), they just can't save it as default.
+  // Pixel = STATIC png. Upgraded → level2-super/<id>.png (static for standard &
+  // super); the .webp in level2//super is ANIMATED so it can't back "pixel".
   const pixelUrl = level >= 2
-    ? `${ASSETS_BASE}/${isSuper ? 'super' : 'level2'}/${tokenId}.webp`
+    ? `${ASSETS_BASE}/level2-super/${tokenId}.png`
     : `${ASSETS_BASE}/level1/${tokenId}.png`
   const animatedUrl = `${ASSETS_BASE}/${isSuper ? 'super-gif' : 'level2-gif'}/${tokenId}.gif`
 
@@ -122,10 +124,10 @@ export async function GET(
     pointer-events: none;
   }
 
-  /* View switch — bottom-center, minimal */
+  /* View switch — top-center, minimal */
   #switch {
     position: absolute;
-    bottom: 14px;
+    top: 14px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
@@ -176,9 +178,9 @@ export async function GET(
     -webkit-backdrop-filter: blur(10px);
     border-radius: 10px;
   }
-  #token-badge { top: 14px; right: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #token-badge { bottom: 14px; right: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   #level-badge {
-    top: 14px;
+    bottom: 14px;
     left: 14px;
     text-transform: uppercase;
     color: ${isSuper ? '#fb923c' : '#60a5fa'};
@@ -284,11 +286,11 @@ export async function GET(
   }
 
   @media (max-width: 480px) {
-    #switch { bottom: 10px; top: auto; left: 50%; padding: 3px; }
+    #switch { top: 10px; bottom: auto; left: 50%; padding: 3px; }
     .sw-btn { font-size: 9px; padding: 6px 8px; }
     .badge { font-size: 10px; padding: 5px 9px; }
-    #token-badge { top: 10px; right: 10px; }
-    #level-badge { top: 10px; left: 10px; }
+    #token-badge { bottom: 10px; right: 10px; }
+    #level-badge { bottom: 10px; left: 10px; }
   }
 </style>
 </head>

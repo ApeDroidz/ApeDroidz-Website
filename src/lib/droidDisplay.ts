@@ -51,8 +51,10 @@ export function buildDroidDisplay(row: Partial<DroidRow> & { token_id: number })
       : displayPref === 'pixel' ? 'pixel'
         : level >= 2 ? 'animated' : 'pixel'
 
+  // Pixel = STATIC art. Upgraded droids: level2-super/<id>.png (static png for
+  // both standard & super — the .webp in level2//super is ANIMATED). L1: level1 png.
   const pixelUrl = level >= 2
-    ? `${ASSETS_BASE}/${isSuper ? 'super' : 'level2'}/${tokenId}.webp`
+    ? `${ASSETS_BASE}/level2-super/${tokenId}.png`
     : `${ASSETS_BASE}/level1/${tokenId}.png`
   const animatedUrl = `${ASSETS_BASE}/${isSuper ? 'super-gif' : 'level2-gif'}/${tokenId}.gif`
 

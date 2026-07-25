@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useActiveAccount, useSendTransaction } from "thirdweb/react"
 import { getContract } from "thirdweb/contract"
 import { client, apeChain } from "@/lib/thirdweb"
-import { burn, getOwnedNFTs } from "thirdweb/extensions/erc721"
+import { burn } from "thirdweb/extensions/erc721"
 import { Header } from "@/components/header"
 import { DigitalBackground } from "@/components/digital-background"
 import { UpgradeMachine } from "./upgrade-machine"
@@ -18,7 +18,6 @@ import { ProfileModal } from "@/components/profile-modal"
 import { resolveImageUrl } from "@/lib/utils"
 import { useUserProgress } from "@/hooks/useUserProgress"
 import { useGlitchSession } from "@/hooks/useGlitchSession"
-import { supabase } from "@/lib/supabase"
 import { Share, ExternalLink, Zap } from "lucide-react"
 
 // === ТИПЫ ДАННЫХ ===
@@ -34,10 +33,8 @@ export type NFTItem = {
   isHonorary?: boolean
 }
 
-// Contract addresses from env
+// Contract address from env — still needed on-chain for the battery burn tx.
 const BATTERY_CONTRACT = process.env.NEXT_PUBLIC_BATTERY_CONTRACT_ADDRESS || ""
-
-const APEDROIDZ_CONTRACT = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
 
 // === ХЕЛПЕР: ГЛУБОКАЯ ПРОВЕРКА УРОВНЯ (Как в UpgradeMachine) ===
 const getDroidLevel = (item: NFTItem | null): number => {
@@ -68,7 +65,6 @@ export default function UpgradeModulePage() {
   const { ensureLogin } = useGlitchSession()
 
   // --- STATES ---
-  const batteryCache = useRef<Record<string, any>>({})
   const [selectedDroid, setSelectedDroid] = useState<NFTItem | null>(null)
   const [selectedBattery, setSelectedBattery] = useState<NFTItem | null>(null)
   const [isUpgrading, setIsUpgrading] = useState(false)
@@ -93,134 +89,96 @@ export default function UpgradeModulePage() {
   const [toastState, setToastState] = useState<{ isOpen: boolean, type: 'success' | 'error' | 'info', title: string, message: string }>({ isOpen: false, type: 'info', title: '', message: '' })
   const [confirmUpgradeOpen, setConfirmUpgradeOpen] = useState(false)
 
-  // === ЗАГРУЗКА NFT ===
-  const fetchMyNFTs = useCallback(async (isBackground: boolean = false) => {
-    // Если это фоновое обновление - не стираем данные и не показываем скелетоны
+  // === ЗАГРУЗКА NFT (0 thirdweb RPC: Insight-индексер + БД, как в дашборде) ===
+  // И дроиды, и батарейки грузятся через наши серверные роуты — браузер thirdweb
+  // не трогает. Кэш на сессию + умный retry гасят лишние запросы.
+  const emptyLoadRef = useRef(false)
+  const fetchMyNFTs = useCallback(async (opts?: { force?: boolean; isBackground?: boolean } | boolean) => {
+    // `true` is the legacy "background refresh" call from UpgradeMachine after a
+    // successful upgrade — it must bypass the cache, which still holds the old level.
+    const isBackground = opts === true || (typeof opts === 'object' && !!opts?.isBackground)
+    const force = opts === true || (typeof opts === 'object' && !!opts?.force)
+
+    if (!account?.address) {
+      setIsInventoryLoading(false)
+      return
+    }
+    const owner = account.address
+    const cacheKey = `apedroidz:nfts:${owner.toLowerCase()}`
+
+    if (!force && typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(cacheKey)
+        if (cached) {
+          const p = JSON.parse(cached)
+          if (Date.now() - p.ts < 60_000 && Array.isArray(p.droids) && Array.isArray(p.batteries)) {
+            setDroids(p.droids)
+            setBatteries(p.batteries)
+            setIsInventoryLoading(false)
+            emptyLoadRef.current = p.droids.length === 0 && p.batteries.length === 0
+            return
+          }
+        }
+      } catch { /* ignore cache errors */ }
+    }
+
     if (!isBackground) {
       setIsInventoryLoading(true)
       setBatteries([])
       setDroids([])
     }
 
-    if (!account?.address) {
-      setIsInventoryLoading(false)
-      return
-    }
-
+    let loadedDroids: NFTItem[] = []
+    let loadedBatteries: NFTItem[] = []
     try {
-      // Load Droids — RPC-free via our indexer+DB route (/api/owned-droids)
-      // instead of on-chain getOwnedNFTs, which spent thirdweb RPC per token.
-      try {
-        const res = await fetch(`/api/owned-droids?owner=${account.address}`, { cache: 'no-store' })
-        const json = await res.json().catch(() => ({}))
-        const loadedDroids = (json?.droids || []).map((d: any) => ({
-          id: d.id,
-          tokenId: d.tokenId,
-          name: d.name,
-          image: resolveImageUrl(d.image_pixel || d.image),
-          type: 'droid' as const,
-          level: d.level ?? 1,
-          metadata: { attributes: d.attributes, display_view: d.display_view, is_super: d.is_super },
-        }))
-        setDroids(loadedDroids)
-      } catch (droidErr) {
-        console.error('Error loading droids:', droidErr)
-      }
+      const [droidRes, batteryRes] = await Promise.all([
+        fetch(`/api/owned-droids?owner=${owner}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : {}).catch(() => ({})) as Promise<any>,
+        fetch(`/api/owned-batteries?owner=${owner}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : {}).catch(() => ({})) as Promise<any>,
+      ])
 
-      // Load Batteries from battery contract
-      if (BATTERY_CONTRACT) {
-        try {
-          const batteryContractInstance = getContract({ client, chain: apeChain, address: BATTERY_CONTRACT })
-          const batteryNfts = await getOwnedNFTs({ contract: batteryContractInstance, owner: account.address })
+      loadedDroids = (droidRes?.droids || []).map((d: any) => ({
+        id: d.id,
+        tokenId: d.tokenId,
+        name: d.name,
+        image: resolveImageUrl(d.image_pixel || d.image),
+        type: 'droid' as const,
+        level: d.level ?? 1,
+        metadata: { attributes: d.attributes, display_view: d.display_view, is_super: d.is_super },
+      }))
+      loadedBatteries = (batteryRes?.batteries || []).map((b: any) => ({
+        id: b.id,
+        tokenId: b.tokenId,
+        name: b.name,
+        image: b.image,
+        type: 'battery' as const,
+        batteryType: b.batteryType,
+        metadata: b.metadata || {},
+      }))
 
-          const loadedBatteries = await Promise.all(
-            batteryNfts.map(async (nft) => {
-              const tokenId = nft.id.toString()
-              try {
-                let metadata;
-                // Check Cache (Promise or Data)
-                if (batteryCache.current[tokenId]) {
-                  metadata = await batteryCache.current[tokenId];
-                } else {
-                  // Create Promise immediately
-                  const fetchPromise = fetch(`/api/metadata/battery/${tokenId}`)
-                    .then(res => res.ok ? res.json() : {})
-                    .catch((err) => { console.error(err); return {}; });
-
-                  // Store Promise in cache
-                  batteryCache.current[tokenId] = fetchPromise;
-
-                  // Await it
-                  metadata = await fetchPromise;
-
-                  // Optimize: Replace Promise with Value (optional, but saves micro-overhead)
-                  batteryCache.current[tokenId] = metadata;
-                }
-
-                // Determine battery type from metadata attributes
-                let batteryType: 'Standard' | 'Super' = 'Standard'
-                if (metadata.attributes) {
-                  const typeAttr = metadata.attributes.find((a: any) => a.trait_type === 'Type')
-                  if (typeAttr?.value === 'Super') {
-                    batteryType = 'Super'
-                  }
-                }
-
-                return {
-                  id: `battery-${tokenId}`,
-                  tokenId: tokenId,
-                  name: metadata.name || `Energy Battery #${tokenId}`,
-                  image: resolveImageUrl(metadata.image) || 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp',
-                  type: 'battery' as const,
-                  batteryType: batteryType,
-                  metadata: metadata,
-                }
-              } catch (err) {
-                return {
-                  id: `battery-${tokenId}`,
-                  tokenId: tokenId,
-                  name: `Energy Battery #${tokenId}`,
-                  image: 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp',
-                  type: 'battery' as const,
-                  batteryType: 'Standard' as const,
-                  metadata: {}
-                }
-              }
-            })
-          )
-
-          // Filter out burned batteries by checking Supabase
-          const tokenIds = loadedBatteries.map(b => parseInt(b.tokenId))
-          const { data: burnedData } = await supabase
-            .from('batteries')
-            .select('token_id')
-            .in('token_id', tokenIds)
-            .eq('is_burned', true)
-
-          const burnedTokenIds = new Set((burnedData || []).map((b: { token_id: number }) => String(b.token_id)))
-          const activeBatteries = loadedBatteries.filter(b => !burnedTokenIds.has(b.tokenId))
-
-          setBatteries(activeBatteries)
-        } catch (batteryError) {
-          console.error("Error loading batteries:", batteryError)
-        }
+      setDroids(loadedDroids)
+      setBatteries(loadedBatteries)
+      if (typeof window !== 'undefined') {
+        try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), droids: loadedDroids, batteries: loadedBatteries })) } catch { /* quota */ }
       }
     } catch (error) {
       console.error("Error loading NFTs:", error)
     } finally {
-      if (!isBackground) {
-        setIsInventoryLoading(false)
-      }
+      emptyLoadRef.current = loadedDroids.length === 0 && loadedBatteries.length === 0
+      if (!isBackground) setIsInventoryLoading(false)
     }
   }, [account?.address])
 
   useEffect(() => {
-    fetchMyNFTs()
-
-    // Polling for recent mints (retry once after 2s)
-    const timer = setTimeout(fetchMyNFTs, 2000)
-    return () => clearTimeout(timer)
-  }, [fetchMyNFTs])
+    let cancelled = false
+    ;(async () => {
+      await fetchMyNFTs()
+      // Индексер может отставать после свежего минта — повторяем один раз, если пусто.
+      if (!cancelled && emptyLoadRef.current && account?.address) {
+        setTimeout(() => { if (!cancelled) fetchMyNFTs({ force: true, isBackground: true }) }, 3000)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [fetchMyNFTs, account?.address])
 
   // Pre-select a droid passed from the dashboard ("Upgrade to unlock animated"),
   // so it lands straight in the machine — no re-picking. Runs once, once loaded.
@@ -345,12 +303,16 @@ export default function UpgradeModulePage() {
       // 2. Готовим этот же предмет для шеринга (но не открываем модалку сразу, это делает кнопка в машине)
       setShareItem(upgradedItem)
 
-      // Инвалидируем кэш дроидов, чтобы дашборд сразу показал новый уровень.
+      // Инвалидируем кэши (свой и дашборда), чтобы новый уровень был виден сразу.
       try {
-        if (account?.address) sessionStorage.removeItem(`apedroidz:droids:${account.address.toLowerCase()}`)
+        if (account?.address) {
+          const key = account.address.toLowerCase()
+          sessionStorage.removeItem(`apedroidz:droids:${key}`)
+          sessionStorage.removeItem(`apedroidz:nfts:${key}`)
+        }
       } catch { /* ignore */ }
 
-      await fetchMyNFTs()
+      await fetchMyNFTs({ force: true })
       if (refetchProgress) refetchProgress()
 
     } catch (error: any) {
@@ -459,7 +421,7 @@ export default function UpgradeModulePage() {
                 type="battery"
                 singleRow={false}
                 isLoading={isInventoryLoading}
-                onRefresh={fetchMyNFTs}
+                onRefresh={async () => { await fetchMyNFTs({ force: true }) }}
               />
             </div>
             <div className="flex-1 lg:min-h-0 shadow-2xl shadow-black/50 rounded-2xl">
@@ -471,7 +433,7 @@ export default function UpgradeModulePage() {
                 onDetailClick={(item) => { setDetailModalItem(item); setIsDetailModalOpen(true); }}
                 type="droid"
                 isLoading={isInventoryLoading}
-                onRefresh={fetchMyNFTs}
+                onRefresh={async () => { await fetchMyNFTs({ force: true }) }}
               />
             </div>
           </motion.div>

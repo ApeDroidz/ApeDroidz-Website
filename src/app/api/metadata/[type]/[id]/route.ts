@@ -110,8 +110,10 @@ export async function GET(
             : currentLevel >= 2 ? 'animated' : 'pixel';
 
       // Variant assets live in our Supabase storage, addressed by token id.
+      // Pixel = STATIC png (level2-super for upgraded, level1 for L1); the .webp
+      // in level2//super folders is ANIMATED, so it must NOT back the pixel view.
       const pixelUrl = currentLevel >= 2
-        ? `${ASSETS_BASE}/${isSuper ? 'super' : 'level2'}/${tokenId}.webp`
+        ? `${ASSETS_BASE}/level2-super/${tokenId}.png`
         : `${ASSETS_BASE}/level1/${tokenId}.png`;
       const animatedUrl = `${ASSETS_BASE}/${isSuper ? 'super-gif' : 'level2-gif'}/${tokenId}.gif`;
 
