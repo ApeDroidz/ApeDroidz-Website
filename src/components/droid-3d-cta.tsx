@@ -20,7 +20,7 @@ function Droid3DCTAComponent() {
             initial={{ opacity: 0, x: -50, y: 50 }}
             animate={{ opacity: 1, x: 0, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 1 }}
-            className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 w-[160px] sm:w-[200px] md:w-[290px]"
+            className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 w-[190px] sm:w-[240px] md:w-[340px]"
             style={{ isolation: "isolate", willChange: "transform" }}
         >
             <Link
@@ -35,35 +35,38 @@ function Droid3DCTAComponent() {
                     </p>
                 </div>
 
-                {/* ── Pixel → 3D ───────────────────────────────────────────── */}
+                {/* ── Pixel → 3D ─────────────────────────────────────────────
+                     Wide, frameless strip: the art sits directly on the panel
+                     with generous side padding so nothing looks cramped. */}
                 <div className="relative px-1.5 sm:px-1">
-                    <div className="relative w-full aspect-[5/3] rounded-xl overflow-hidden border border-white/5 bg-[#090909] flex items-center justify-center gap-1.5 sm:gap-2 px-2">
+                    <div className="relative w-full aspect-[16/7] rounded-xl overflow-hidden bg-[#090909] flex items-center justify-center gap-3 sm:gap-4 md:gap-5 px-4 sm:px-5 md:px-7">
                         {/* pixel version */}
-                        <div className="relative h-[78%] aspect-square rounded-lg overflow-hidden border border-white/10 bg-black flex-shrink-0">
-                            <img
-                                src={PIXEL_DROID}
-                                alt="Pixel droid"
-                                draggable={false}
-                                className="w-full h-full object-cover"
-                                style={{ imageRendering: "pixelated" }}
-                            />
-                        </div>
+                        <img
+                            src={PIXEL_DROID}
+                            alt="Pixel droid"
+                            draggable={false}
+                            className="h-[82%] aspect-square object-contain flex-shrink-0"
+                            style={{ imageRendering: "pixelated" }}
+                        />
 
                         <ArrowRight
-                            size={14}
+                            size={16}
                             className="text-white/40 flex-shrink-0 group-hover:text-[#3b82f6] group-hover:translate-x-0.5 transition-all"
                         />
 
                         {/* 3D version — placeholder until the renders land */}
-                        <div className="relative h-[78%] aspect-square rounded-lg overflow-hidden border border-white/10 bg-gradient-to-br from-[#12203a] to-[#0a0a0a] flex-shrink-0 flex items-center justify-center">
-                            {PLACEHOLDER_3D ? (
-                                <img src={PLACEHOLDER_3D} alt="3D droid" draggable={false} className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-[11px] sm:text-[13px] font-black uppercase tracking-widest text-[#3b82f6] drop-shadow-[0_0_10px_rgba(59,130,246,.5)]">
-                                    3D
-                                </span>
-                            )}
-                        </div>
+                        {PLACEHOLDER_3D ? (
+                            <img
+                                src={PLACEHOLDER_3D}
+                                alt="3D droid"
+                                draggable={false}
+                                className="h-[82%] aspect-square object-contain flex-shrink-0"
+                            />
+                        ) : (
+                            <span className="h-[82%] aspect-square flex items-center justify-center flex-shrink-0 text-[13px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-widest text-[#3b82f6] drop-shadow-[0_0_10px_rgba(59,130,246,.5)]">
+                                3D
+                            </span>
+                        )}
 
                         <div
                             className="absolute inset-0 pointer-events-none rounded-xl"

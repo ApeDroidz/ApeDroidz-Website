@@ -440,6 +440,12 @@ export async function GET(
   // route (no reload); from a marketplace iframe we open the site in a new tab,
   // landing on the upgrade module with this droid already selected.
   function goUpgrade() {
+    // Honorary's CTA is an external profile link — it must never be handled as
+    // an in-site route by the embedding dashboard.
+    if (CFG.cta.external) {
+      window.open(CFG.cta.url, '_blank', 'noopener');
+      return;
+    }
     if (CFG.embed && window.parent && window.parent !== window) {
       try {
         window.parent.postMessage({ type: 'apedroidz:upgradeRequested', tokenId: CFG.tokenId }, '*');
