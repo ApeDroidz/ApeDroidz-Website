@@ -14,10 +14,11 @@
 //   batteries/<name>.webp|.gif
 //   shards/shard_0N.webp
 //
-// NOTE: there is no standard-L2 STATIC set (blue png). `lvl_2_super_png` is the
-// orange super render for every token. Until a `lvl_2_png` folder exists, the
-// pixel view of a standard L2 droid falls back to the super static art — see
-// L2_STANDARD_STATIC_DIR below, which is the one line to change.
+// NOTE: there is no standard-L2 STATIC set (blue png) — `lvl_2_super_png` is the
+// orange SUPER render for every token. So a standard L2 droid's pixel view falls
+// back to its level-1 art: right background, just no upgrade kicks. Showing the
+// super render there would be plain wrong (orange bg on a blue droid).
+// When a `lvl_2_png` set is uploaded, use it in droidStaticUrl below.
 export const MEDIA_BASE = (
   process.env.NEXT_PUBLIC_MEDIA_URL || 'https://assets.apedroidz.com'
 ).replace(/\/+$/, '')
@@ -25,15 +26,11 @@ export const MEDIA_BASE = (
 const PIXEL_MEDIA = `${MEDIA_BASE}/apedroidz/pixel-media`
 const HONORARY = `${MEDIA_BASE}/apedroidz_honorary`
 
-// Swap to 'lvl_2_png' once the blue standard-L2 static set is uploaded.
-const L2_STANDARD_STATIC_DIR = 'lvl_2_super_png'
-
 /** Static ("pixel") art for a droid. */
 export const droidStaticUrl = (tokenId: string | number, level: number, isSuper: boolean): string => {
-  if (level >= 2) {
-    const dir = isSuper ? 'lvl_2_super_png' : L2_STANDARD_STATIC_DIR
-    return `${PIXEL_MEDIA}/${dir}/${tokenId}.png`
-  }
+  // Only SUPER droids have a dedicated static render. Everyone else — level 1
+  // and standard level 2 — uses the level-1 png (see note above).
+  if (level >= 2 && isSuper) return `${PIXEL_MEDIA}/lvl_2_super_png/${tokenId}.png`
   return `${PIXEL_MEDIA}/lvl_1_png/${tokenId}.png`
 }
 
