@@ -14,6 +14,7 @@ import { VisualGrid } from "./visual-grid"
 import { GridDownloadButton } from "./grid-download-button"
 import { ProfileModal } from "@/components/profile-modal"
 import { resolveImageUrl } from "@/lib/utils"
+import { honoraryStaticUrl } from "@/lib/media"
 
 // Type reuse
 export type NFTItem = {
@@ -30,7 +31,6 @@ export type NFTItem = {
 
 const APEDROIDZ_CONTRACT = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
 const HONORARY_CONTRACT = "0x427ff4b908c4ba7bc1d689bacac280a0435b2514"
-const SUPABASE_ASSETS = "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets"
 
 const getDroidLevel = (item: NFTItem | null): number => {
     if (!item) return 1
@@ -80,16 +80,14 @@ export default function GridPage() {
                 getOwnedNFTs({ contract: honoraryContract, owner: account.address }).catch(() => [])
             ])
 
-            // Load honorary droids — assets live in Supabase as .png (there is no
-            // .webp for honorary), so point straight at .png: no 400→fallback
-            // round-trip, and the GIF canvas path loads them reliably.
+            // Load honorary droids — art served from R2 (see lib/media).
             const loadedHonorary = honoraryNfts.map((nft) => {
                 const tokenId = nft.id.toString()
                 return {
                     id: `honorary-${tokenId}`,
                     tokenId: tokenId,
                     name: (nft.metadata as any)?.name || `Honorary #${tokenId}`,
-                    image: `${SUPABASE_ASSETS}/honorary/${tokenId}.png`,
+                    image: honoraryStaticUrl(tokenId),
                     type: 'droid' as const,
                     level: 1,
                     metadata: nft.metadata || {},

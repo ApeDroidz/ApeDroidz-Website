@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from "react"
 import { NFTItem } from "@/app/upgrade_module/page"
 import { resolveImageUrl } from "@/lib/utils"
+import { droidAnimatedUrl, honoraryStaticUrl } from "@/lib/media"
 import { Loader2, Download, Share2 } from "lucide-react"
 
 interface GridDownloadButtonProps {
@@ -10,7 +11,6 @@ interface GridDownloadButtonProps {
     gridOrder: string[]
 }
 
-const SUPABASE_PROJECT_URL = "https://jpbalgwwwalofynoaavv.supabase.co"
 const CANVAS_SIZE = 1200
 const FRAME_DELAY = 190
 const BLUE_BG = '#0247AF'
@@ -31,9 +31,9 @@ const getAnimatedUrl = (item: NFTItem): string | null => {
     const tokenId = item.tokenId || item.id
 
     if (isSuper(item)) {
-        return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/super-gif/${tokenId}.gif`
+        return droidAnimatedUrl(tokenId, true)
     }
-    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/level2-gif/${tokenId}.gif`
+    return droidAnimatedUrl(tokenId, false)
 }
 
 // Calculate optimal grid dimensions (minimum 2)

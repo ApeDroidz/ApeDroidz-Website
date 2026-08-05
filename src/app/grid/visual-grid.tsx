@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { NFTItem } from "@/app/upgrade_module/page"
+import { droidAnimatedUrl, honoraryStaticUrl } from "@/lib/media"
 import { resolveImageUrl } from "@/lib/utils"
 import { GridFooter } from "./grid-footer"
 
@@ -13,7 +14,6 @@ interface VisualGridProps {
     gridRef: React.RefObject<HTMLDivElement | null>
 }
 
-const SUPABASE_PROJECT_URL = "https://jpbalgwwwalofynoaavv.supabase.co"
 const BLUE_BG = '#0247AF'
 const ORANGE_BG = '#FF6C00'
 
@@ -32,9 +32,9 @@ const getAnimatedUrl = (item: NFTItem): string | null => {
     const tokenId = item.tokenId || item.id
 
     if (isSuper(item)) {
-        return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/super-gif/${tokenId}.gif`
+        return droidAnimatedUrl(tokenId, true)
     }
-    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/level2-gif/${tokenId}.gif`
+    return droidAnimatedUrl(tokenId, false)
 }
 
 // Calculate optimal grid dimensions for N items (minimum 2)

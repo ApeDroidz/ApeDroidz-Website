@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { droidStaticUrl, droidAnimatedUrl } from '@/lib/media'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-
-const ASSETS_BASE = 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets'
 
 const VIEWS = ['pixel', 'animated', 'pfp3d', 'fullbody'] as const
 type ViewKey = typeof VIEWS[number]
@@ -55,12 +54,9 @@ export async function GET(
 
   // Asset map. Level 1 droids can still PREVIEW the animated version (upgrade
   // teaser — standard level-2 art), they just can't save it as default.
-  // Pixel = STATIC png. Upgraded → level2-super/<id>.png (static for standard &
-  // super); the .webp in level2//super is ANIMATED so it can't back "pixel".
-  const pixelUrl = level >= 2
-    ? `${ASSETS_BASE}/level2-super/${tokenId}.png`
-    : `${ASSETS_BASE}/level1/${tokenId}.png`
-  const animatedUrl = `${ASSETS_BASE}/${isSuper ? 'super-gif' : 'level2-gif'}/${tokenId}.gif`
+  // Pixel = STATIC png, animated = GIF (paths from lib/media → R2).
+  const pixelUrl = droidStaticUrl(tokenId, level, isSuper)
+  const animatedUrl = droidAnimatedUrl(tokenId, isSuper)
 
   // Default view: saved preference first, then level-based fallback.
   const fallbackView: ViewKey = level >= 2 ? 'animated' : 'pixel'

@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { batteryUrl, droidStaticUrl, droidAnimatedUrl } from "./media"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -20,9 +21,6 @@ export function timeAgo(dateParam: string | Date): string {
   return `${diffInDays}d ago`;
 }
 
-// === КОНФИГУРАЦИЯ SUPABASE STORAGE ===
-const SUPABASE_PROJECT_URL = "https://jpbalgwwwalofynoaavv.supabase.co";
-
 // Хеши IPFS для всех уровней
 const IPFS_CIDS = {
   // CID 1-го уровня (из твоей базы)
@@ -36,53 +34,46 @@ const IPFS_CIDS = {
   BATTERY_NEW: 'bafybeid4d4yfoljgoqkbwzv7lk6trdsivanfeuziq7w5m2ogsgmlra7aiy'
 }
 
+/** token id out of an ipfs://<cid>/<id>.<ext> URL */
+const tokenIdFromUrl = (url: string): string => {
+  const filename = url.split('/').pop() || '';
+  return filename.includes('.') ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+};
+
+/**
+ * Maps the ipfs:// URLs stored in the DB to the art actually served from
+ * Cloudflare R2 (assets.apedroidz.com). Anything unknown falls through to a
+ * public IPFS gateway, so third-party NFTs still resolve.
+ */
 export const resolveImageUrl = (url: string | undefined | null): string => {
   if (!url) return ''
 
-  // === 1. ГИБРИДНАЯ ПОДМЕНА (IPFS -> SUPABASE) ===
+  // === 1. ПОДМЕНА IPFS -> R2 ===
 
-  // Если это LEVEL 1 -> папка level1
-  // === BATTERIES (Fix for Dashboard) ===
-  // Move BEFORE Level checks because Battery New CID overlaps with Level 2 CID
+  // BATTERIES first: the new battery CID overlaps with the Level 2 CID space.
   const isBattery = url.includes(IPFS_CIDS.BATTERY_OLD) || url.includes(IPFS_CIDS.BATTERY_NEW);
   if (isBattery) {
     if (url.includes('standart_battery') || url.includes('standard_battery')) {
-      return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/batteries/standart_battery.webp`;
+      return batteryUrl(false);
     }
     if (url.includes('super_battery')) {
-      return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/batteries/super_battery.webp`;
+      return batteryUrl(true);
     }
   }
 
-  // === 1. ГИБРИДНАЯ ПОДМЕНА (IPFS -> SUPABASE) ===
-
-  // Если это LEVEL 1 -> папка level1
+  // LEVEL 1 -> static png
   if (url.includes(IPFS_CIDS.LEVEL1)) {
-    let filename = url.split('/').pop() || '';
-    // Если расширения нет -> добавляем .png, так как файлы в Supabase — это PNG
-    if (!filename.toLowerCase().endsWith('.png')) {
-      filename += '.png';
-    }
-    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/level1/${filename}`;
+    return droidStaticUrl(tokenIdFromUrl(url), 1, false);
   }
 
-  // Если это Standard Upgrade (Level 2) -> папка level2
+  // Upgraded droids: the DB still points at the old animated .webp CIDs, which
+  // on R2 are the GIF sets (standard = blue, super = orange).
   if (url.includes(IPFS_CIDS.LEVEL2)) {
-    const filename = url.split('/').pop() || '';
-    // Force .webp extension for Level 2 (always webp in DB)
-    const baseName = filename.includes('.') ? filename.substring(0, filename.lastIndexOf('.')) : filename;
-    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/level2/${baseName}.webp`;
+    return droidAnimatedUrl(tokenIdFromUrl(url), false);
   }
-
-  // Если это Super Upgrade -> папка super
   if (url.includes(IPFS_CIDS.SUPER)) {
-    const filename = url.split('/').pop() || '';
-    // Force .webp extension for Super (always webp in DB)
-    const baseName = filename.includes('.') ? filename.substring(0, filename.lastIndexOf('.')) : filename;
-    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/super/${baseName}.webp`;
+    return droidAnimatedUrl(tokenIdFromUrl(url), true);
   }
-
-
 
   // === 2. ФОЛБЕКИ ===
   if (url.startsWith('http')) return url;

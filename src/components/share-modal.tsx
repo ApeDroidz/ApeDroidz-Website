@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { X, Loader2 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { resolveImageUrl } from "@/lib/utils"
+import { droidStaticUrl, droidAnimatedUrl } from "@/lib/media"
 import { toPng } from 'html-to-image'
 
 interface ShareModalProps {
@@ -14,7 +15,6 @@ interface ShareModalProps {
   onShowToast?: (type: 'success' | 'error' | 'info', title: string, message: string) => void
 }
 
-const SUPABASE_PROJECT_URL = "https://jpbalgwwwalofynoaavv.supabase.co";
 const CANVAS_SIZE = 1200;
 
 export function ShareModal({ item, isOpen, onClose, onShowToast }: ShareModalProps) {
@@ -50,13 +50,10 @@ export function ShareModal({ item, isOpen, onClose, onShowToast }: ShareModalPro
 
   const getCorrectAssetUrl = () => {
     const tokenId = item.tokenId || item.id;
-    if (isSuper && (item.level || 1) > 1) {
-      return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/super-gif/${tokenId}.gif`;
-    }
-    if ((item.level || 1) === 2) {
-      return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/level2-gif/${tokenId}.gif`;
-    }
-    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/assets/level1/${tokenId}.png`;
+    const level = item.level || 1;
+    // Upgraded droids share the animated GIF; level 1 has only its static art.
+    if (level >= 2) return droidAnimatedUrl(tokenId, isSuper);
+    return droidStaticUrl(tokenId, 1, false);
   }
 
   const assetUrl = getCorrectAssetUrl();

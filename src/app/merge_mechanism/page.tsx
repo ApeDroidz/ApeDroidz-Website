@@ -16,6 +16,7 @@ import { AlertModal } from "@/components/alert-modal"
 import { useBatchTransfer } from "@/hooks/useBatchTransfer"
 import { useShardTransfer } from "@/hooks/useShardTransfer"
 import { resolveImageUrl } from "@/lib/utils"
+import { batteryUrl } from "@/lib/media"
 
 export type BatteryItem = {
     id: string
@@ -396,7 +397,7 @@ function MergeMechanismContent() {
                             mergeSuccess={mergeSuccess}
                             onStartMerge={handleStartMerge}
                             onReset={handleReset}
-                            targetImageUrl={mode === 'shards' ? 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp' : null}
+                            targetImageUrl={mode === 'shards' ? batteryUrl(false) : null}
                             isBulkMerge={isBulkMerge}
                         />
                     </div>

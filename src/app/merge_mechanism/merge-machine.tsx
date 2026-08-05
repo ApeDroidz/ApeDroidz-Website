@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion"
 import React, { useState, useEffect } from "react"
 import { Zap, ArrowRight, RefreshCcw } from "lucide-react"
+import { batteryUrl } from "@/lib/media"
 
 // === GLITCH + ANIMATION STYLES ===
 const MERGE_GLITCH_STYLES = `
@@ -295,8 +296,8 @@ export function MergeMachine({
                                         >
                                             <img
                                                 src={isShards
-                                                    ? (targetImageUrl || 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp')
-                                                    : 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp'
+                                                    ? (targetImageUrl || batteryUrl(true))
+                                                    : batteryUrl(true)
                                                 }
                                                 alt={isShards ? 'Standard Battery' : 'Super Battery'}
                                                 className="w-full h-full object-contain"
@@ -340,8 +341,8 @@ export function MergeMachine({
                                     }`}>
                                     <img
                                         src={isShards
-                                            ? (targetImageUrl || 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp')
-                                            : 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp'
+                                            ? (targetImageUrl || batteryUrl(false))
+                                            : batteryUrl(true)
                                         }
                                         alt={isShards ? 'Standard Battery' : 'Super Battery'}
                                         className="w-full h-full object-contain"

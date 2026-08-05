@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { NFTItem } from "@/app/upgrade_module/page"
 import { X, Zap, Check, Download } from "lucide-react"
+import { droidStaticUrl, droidAnimatedUrl } from "@/lib/media"
 import { motion, AnimatePresence } from "framer-motion"
 import { NFTImageSkeleton } from "@/components/nft-image-skeleton"
 import { resolveImageUrl } from "@/lib/utils"
@@ -186,15 +187,8 @@ export function NFTDetailModal({ item, isOpen, onClose, onUpgrade, type }: NFTDe
                   <div className="flex gap-4 w-full">
                     {(() => {
                       const tokenId = item.tokenId || item.id || "1";
-                      const baseUrl = "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets";
-
-                      const pngUrl = isSuper
-                        ? `${baseUrl}/level2-super/${tokenId}.png`
-                        : `${baseUrl}/level1/${tokenId}.png`;
-
-                      const gifUrl = isSuper
-                        ? `${baseUrl}/super-gif/${tokenId}.gif`
-                        : `${baseUrl}/level2-gif/${tokenId}.gif`;
+                      const pngUrl = droidStaticUrl(tokenId, level, isSuper);
+                      const gifUrl = droidAnimatedUrl(tokenId, isSuper);
 
                       const handleDownload = async (url: string, filename: string) => {
                         try {

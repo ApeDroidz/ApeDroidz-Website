@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local mirror of Cloudflare R2 assets (never commit — 100s of MB of art)
+/R2/

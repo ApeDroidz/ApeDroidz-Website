@@ -4,8 +4,9 @@ import { useState, useMemo, useEffect } from "react"
 import { BatteryItem } from "./page"
 import { resolveImageUrl } from "@/lib/utils"
 import { RefreshCcw, Check } from "lucide-react"
+import { shardUrl } from "@/lib/media"
 
-const SHARD_IMAGE = "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/cards/shard_01.webp"
+const SHARD_IMAGE = shardUrl(1)
 
 /* ─── Types ─── */
 interface BatterySelectorProps {

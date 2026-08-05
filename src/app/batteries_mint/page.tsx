@@ -18,6 +18,7 @@ import { SocialSidebar } from "@/components/social-sidebar"
 import { createWallet } from "thirdweb/wallets"
 import { formatEther, parseEther } from "viem"
 import holdersSnapshot from "./snapshot.json"
+import { batteryUrl } from "@/lib/media"
 
 const BATTERY_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BATTERY_CONTRACT_ADDRESS || ""
 
@@ -781,7 +782,7 @@ export default function MintPage() {
                     <div className="hidden lg:flex w-[40%] fixed left-1/2 -translate-x-[calc(50%+380px)] top-0 h-screen items-center justify-center p-8">
                         <div className="relative w-full max-w-[600px] aspect-square rounded-3xl overflow-hidden">
                             <img
-                                src="https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp"
+                                src={batteryUrl(false)}
                                 alt="Energy Battery"
                                 className="w-full h-full object-cover"
                             />
@@ -796,7 +797,7 @@ export default function MintPage() {
                             <div className="lg:hidden mb-6">
                                 <div className="relative w-full aspect-square rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
                                     <img
-                                        src="https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp"
+                                        src={batteryUrl(false)}
                                         alt="Energy Battery"
                                         className="w-full h-full object-cover"
                                     />

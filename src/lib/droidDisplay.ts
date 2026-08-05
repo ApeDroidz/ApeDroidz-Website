@@ -1,8 +1,7 @@
 // Shared display-resolution logic for droids, used by /api/metadata/batch and
 // /api/owned-droids so the image/level/view rules live in exactly one place.
 
-export const ASSETS_BASE =
-  'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets'
+import { droidStaticUrl, droidAnimatedUrl } from './media'
 
 export type DroidRow = {
   token_id: number
@@ -51,12 +50,9 @@ export function buildDroidDisplay(row: Partial<DroidRow> & { token_id: number })
       : displayPref === 'pixel' ? 'pixel'
         : level >= 2 ? 'animated' : 'pixel'
 
-  // Pixel = STATIC art. Upgraded droids: level2-super/<id>.png (static png for
-  // both standard & super — the .webp in level2//super is ANIMATED). L1: level1 png.
-  const pixelUrl = level >= 2
-    ? `${ASSETS_BASE}/level2-super/${tokenId}.png`
-    : `${ASSETS_BASE}/level1/${tokenId}.png`
-  const animatedUrl = `${ASSETS_BASE}/${isSuper ? 'super-gif' : 'level2-gif'}/${tokenId}.gif`
+  // Pixel = STATIC png, animated = GIF. Paths resolved by lib/media (R2).
+  const pixelUrl = droidStaticUrl(tokenId, level, isSuper)
+  const animatedUrl = droidAnimatedUrl(tokenId, isSuper)
 
   const bustVersion = `${level}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}`
   const bust = (url: string) => `${url}?v=${bustVersion}`

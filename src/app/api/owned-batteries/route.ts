@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { batteryUrl } from '@/lib/media'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -10,10 +11,9 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID || ''
 const SECRET_KEY = process.env.THIRDWEB_SECRET_KEY || ''
 const INSIGHT_BASE = 'https://insight.thirdweb.com/v1/nfts'
 
-const ASSETS = 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries'
 const BATTERY_IMG = {
-  Standard: `${ASSETS}/standart_battery.webp`,
-  Super: `${ASSETS}/super_battery.webp`,
+  Standard: batteryUrl(false),
+  Super: batteryUrl(true),
 }
 
 const headers = {

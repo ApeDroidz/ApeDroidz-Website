@@ -3,12 +3,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getContract } from 'thirdweb/contract'
 import { readContract } from 'thirdweb'
 import { client, apeChain } from '@/lib/thirdweb'
+import { droidStaticUrl, droidAnimatedUrl, batteryUrl } from '@/lib/media'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 const HONORARY_CONTRACT = '0x427ff4b908c4ba7bc1d689bacac280a0435b2514'
-const ASSETS_BASE = 'https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets'
 
 // `force-dynamic` only stops Next.js from caching the route output. Without
 // these headers any upstream CDN/edge (Vercel, Cloudflare) and consumers
@@ -109,13 +109,10 @@ export async function GET(
           : displayPref === 'pixel' ? 'pixel'
             : currentLevel >= 2 ? 'animated' : 'pixel';
 
-      // Variant assets live in our Supabase storage, addressed by token id.
-      // Pixel = STATIC png (level2-super for upgraded, level1 for L1); the .webp
-      // in level2//super folders is ANIMATED, so it must NOT back the pixel view.
-      const pixelUrl = currentLevel >= 2
-        ? `${ASSETS_BASE}/level2-super/${tokenId}.png`
-        : `${ASSETS_BASE}/level1/${tokenId}.png`;
-      const animatedUrl = `${ASSETS_BASE}/${isSuper ? 'super-gif' : 'level2-gif'}/${tokenId}.gif`;
+      // Variant assets live on Cloudflare R2 (assets.apedroidz.com), addressed
+      // by token id. Pixel = STATIC png, animated = GIF. See lib/media.
+      const pixelUrl = droidStaticUrl(tokenId, currentLevel, isSuper);
+      const animatedUrl = droidAnimatedUrl(tokenId, isSuper);
 
       // Cache-bust HTTP image URLs by level/super-state AND chosen view.
       // Marketplaces (OpenSea, Magic Eden) cache assets by absolute URL — the
@@ -169,8 +166,8 @@ export async function GET(
       };
 
       const HTTP_LINKS = {
-        standard: "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/standart_battery.webp",
-        super: "https://jpbalgwwwalofynoaavv.supabase.co/storage/v1/object/public/assets/batteries/super_battery.webp"
+        standard: batteryUrl(false),
+        super: batteryUrl(true)
       };
 
       // Fallback логика
