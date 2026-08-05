@@ -71,6 +71,10 @@ export async function GET(
     : savedView
   const isEmbed = request.nextUrl.searchParams.get('embed') === '1'
 
+  // Absolute so the CTA works from a marketplace iframe too, where a relative
+  // path would resolve against OpenSea rather than our site.
+  const upgradeUrl = `${new URL(request.url).origin}/upgrade_module?select=${tokenId}`
+
   const config = {
     tokenId,
     level,
@@ -80,6 +84,7 @@ export async function GET(
     locked: LOCKED_VIEWS,
     assets: { pixel: pixelUrl, animated: animatedUrl },
     embed: isEmbed,
+    upgradeUrl,
   }
 
   const html = `<!DOCTYPE html>
@@ -205,9 +210,11 @@ export async function GET(
   }
   #art.visible { opacity: 1; }
   /* Animated preview on a not-yet-upgraded droid: greyed teaser. */
-  #art.locked { filter: grayscale(1) brightness(0.5) contrast(0.95); }
+  /* Locked teaser: blurred + dimmed, so the animation still reads as motion
+     but none of the detail is legible until the droid is upgraded. */
+  #art.locked { filter: blur(11px) grayscale(0.55) brightness(0.65); }
 
-  /* Lock overlay — shown over the greyed animated teaser (level < 2) */
+  /* Lock overlay — sits over the blurred animated teaser (level < 2) */
   #lock-overlay {
     position: absolute;
     inset: 0;
@@ -215,25 +222,31 @@ export async function GET(
     align-items: center;
     justify-content: center;
     z-index: 45;
-    pointer-events: none;
+    pointer-events: none; /* only the CTA is clickable */
   }
-  #lock-overlay .lock-inner {
-    display: flex;
-    flex-direction: column;
+  #lock-cta {
+    pointer-events: auto;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 16px 22px;
-    background: rgba(0,0,0,0.6);
-    border: 1px solid rgba(255,255,255,0.16);
-    border-radius: 14px;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    gap: 8px;
+    appearance: none;
+    border: none;
+    cursor: pointer;
+    background: #fff;
+    color: #000;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    border-radius: 12px;
+    box-shadow: 0 10px 34px rgba(0,0,0,0.5);
+    transition: background .2s, color .2s, transform .2s;
   }
-  #lock-overlay svg { width: 26px; height: 26px; color: #fff; }
-  #lock-overlay span {
-    font-size: 12px; font-weight: 800; letter-spacing: 0.1em;
-    text-transform: uppercase; color: rgba(255,255,255,0.92);
-  }
+  #lock-cta:hover { background: #0069FF; color: #fff; transform: translateY(-1px); }
+  #lock-cta:active { transform: translateY(0); }
+  #lock-cta svg { width: 14px; height: 14px; flex: 0 0 auto; }
 
   /* Loader — droid logo fills white left-to-right showing REAL load progress */
   #loader {
@@ -301,10 +314,10 @@ export async function GET(
   </div>
 
   <div id="lock-overlay">
-    <div class="lock-inner">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <button id="lock-cta" type="button" onclick="goUpgrade()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       <span>Upgrade to unlock</span>
-    </div>
+    </button>
   </div>
 
   <div id="loader">
@@ -362,7 +375,20 @@ export async function GET(
     fill.style.webkitClipPath = inset;
   }
 
-  // Grey + lock overlay when previewing the animated view on a level-1 droid.
+  // "Upgrade to unlock" CTA. Embedded on our own dashboard we let the parent
+  // route (no reload); from a marketplace iframe we open the site in a new tab,
+  // landing on the upgrade module with this droid already selected.
+  function goUpgrade() {
+    if (CFG.embed && window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage({ type: 'apedroidz:upgradeRequested', tokenId: CFG.tokenId }, '*');
+        return;
+      } catch (e) { /* fall through to opening a tab */ }
+    }
+    window.open(CFG.upgradeUrl, '_blank', 'noopener');
+  }
+
+  // Blur + lock overlay when previewing the animated view on a level-1 droid.
   function applyLock(view) {
     var levelLocked = (view === 'animated' && CFG.level < 2);
     document.getElementById('art').classList.toggle('locked', levelLocked);

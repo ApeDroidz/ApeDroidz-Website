@@ -145,10 +145,14 @@ export default function DashboardPage() {
       if (d?.type === 'apedroidz:viewChanged' && String(d.tokenId) === String(selectedDroid?.tokenId)) {
         setCurrentView(d.view as ViewKey)
       }
+      // "Upgrade to unlock" pressed inside the previewer.
+      if (d?.type === 'apedroidz:upgradeRequested' && d.tokenId) {
+        router.push(`/upgrade_module?select=${d.tokenId}`)
+      }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [selectedDroid?.tokenId])
+  }, [selectedDroid?.tokenId, router])
 
   const handleSelectDroid = (item: NFTItem | null) => {
     setSelectedDroid(item)
