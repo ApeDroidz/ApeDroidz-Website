@@ -8,7 +8,7 @@ import { Header } from "@/components/header"
 import { MotionMenu } from "@/components/motionmenu"
 import { DigitalBackground } from "@/components/digital-background"
 import { ProfileModal } from "@/components/profile-modal"
-import { GlitchCTA } from "@/components/glitch-cta"
+import { Droid3DCTA } from "@/components/droid-3d-cta"
 import { SocialSidebar } from "@/components/social-sidebar"
 
 // Динамический импорт Scene с отключенным SSR
@@ -76,7 +76,7 @@ export default function Home() {
       />
 
       {/* Mint CTA */}
-      <GlitchCTA />
+      <Droid3DCTA />
 
       {/* Social Sidebar */}
       <SocialSidebar />

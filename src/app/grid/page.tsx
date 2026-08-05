@@ -4,9 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useActiveAccount } from "thirdweb/react"
-import { getContract } from "thirdweb/contract"
-import { client, apeChain } from "@/lib/thirdweb"
-import { getOwnedNFTs } from "thirdweb/extensions/erc721"
 import { Header } from "@/components/header"
 import { DigitalBackground } from "@/components/digital-background"
 import { GridDroidSelector } from "./grid-droid-selector"
@@ -14,10 +11,7 @@ import { VisualGrid } from "./visual-grid"
 import { GridDownloadButton } from "./grid-download-button"
 import { ProfileModal } from "@/components/profile-modal"
 import { resolveImageUrl } from "@/lib/utils"
-import { honoraryStaticUrl } from "@/lib/media"
 
-// Level can arrive as 'level' (current) or legacy 'Level'/'Rank Value'.
-const LEVEL_TRAIT_KEYS = ['level', 'rank value', 'upgrade level']
 
 // Type reuse
 export type NFTItem = {
@@ -32,24 +26,7 @@ export type NFTItem = {
     isHonorary?: boolean
 }
 
-const APEDROIDZ_CONTRACT = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
-const HONORARY_CONTRACT = "0x427ff4b908c4ba7bc1d689bacac280a0435b2514"
 
-const getDroidLevel = (item: NFTItem | null): number => {
-    if (!item) return 1
-    if (typeof item.level === 'number' && item.level > 0) return item.level
-    const attributes = item.metadata?.attributes || item.metadata?.traits || []
-    if (Array.isArray(attributes)) {
-        const lvlAttr = attributes.find((a: any) =>
-            LEVEL_TRAIT_KEYS.includes(String(a.trait_type || '').toLowerCase())
-        )
-        if (lvlAttr) {
-            const val = parseInt(String(lvlAttr.value).replace(/\D/g, ''))
-            if (!isNaN(val) && val > 0) return val
-        }
-    }
-    return 1
-}
 
 export default function GridPage() {
     const account = useActiveAccount()
@@ -64,6 +41,8 @@ export default function GridPage() {
     const [isProfileOpen, setIsProfileOpen] = useState(false)
     const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'leaderboard'>('profile')
 
+    // RPC-free: both collections come from our own indexer-backed endpoints.
+    // Honorary is ERC-1155, so it cannot go through the erc721 helpers at all.
     const fetchMyDroids = useCallback(async () => {
         setIsLoading(true)
 
@@ -73,65 +52,34 @@ export default function GridPage() {
         }
 
         try {
-            const droidContract = getContract({ client, chain: apeChain, address: APEDROIDZ_CONTRACT })
-            const honoraryContract = getContract({ client, chain: apeChain, address: HONORARY_CONTRACT })
-
-            const [droidNfts, honoraryNfts] = await Promise.all([
-                getOwnedNFTs({ contract: droidContract, owner: account.address }),
-                getOwnedNFTs({ contract: honoraryContract, owner: account.address }).catch(() => [])
+            const owner = account.address
+            const [droidRes, honoraryRes] = await Promise.all([
+                fetch(`/api/owned-droids?owner=${owner}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : {}).catch(() => ({})) as Promise<any>,
+                fetch(`/api/owned-honorary?owner=${owner}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : {}).catch(() => ({})) as Promise<any>,
             ])
 
-            // Load honorary droids — art served from R2 (see lib/media).
-            const loadedHonorary = honoraryNfts.map((nft) => {
-                const tokenId = nft.id.toString()
-                return {
-                    id: `honorary-${tokenId}`,
-                    tokenId: tokenId,
-                    name: (nft.metadata as any)?.name || `Honorary #${tokenId}`,
-                    image: honoraryStaticUrl(tokenId),
-                    type: 'droid' as const,
-                    level: 1,
-                    metadata: nft.metadata || {},
-                    isHonorary: true,
-                }
-            })
+            // Grids render the static art — GIF frames are extracted separately
+            // by the download button when it builds an animated grid.
+            const loadedDroids: NFTItem[] = (droidRes?.droids || []).map((d: any) => ({
+                id: d.id,
+                tokenId: d.tokenId,
+                name: d.name,
+                image: resolveImageUrl(d.image_pixel || d.image),
+                type: 'droid' as const,
+                level: d.level ?? 1,
+                metadata: { attributes: d.attributes, is_super: d.is_super },
+            }))
 
-            // Load regular droids
-            const loadedDroids = await Promise.all(
-                droidNfts.map(async (nft) => {
-                    const tokenId = nft.id.toString()
-                    try {
-                        const res = await fetch(`/api/metadata/droidz/${tokenId}`)
-                        let metadata = res.ok ? await res.json() : (nft.metadata || {})
-
-                        const lvlHelperObj = { level: 0, metadata }
-                        const currentLevel = getDroidLevel(lvlHelperObj as any)
-
-                        let imgUrl = resolveImageUrl((metadata as any).image_pixel || (metadata as any).image)
-                        if (!imgUrl) imgUrl = resolveImageUrl(nft.metadata?.image)
-
-                        return {
-                            id: tokenId,
-                            tokenId: tokenId,
-                            name: (metadata as any).name || `ApeDroid #${tokenId}`,
-                            image: imgUrl,
-                            type: 'droid' as const,
-                            level: currentLevel,
-                            metadata: metadata,
-                        }
-                    } catch {
-                        return {
-                            id: tokenId,
-                            tokenId: tokenId,
-                            name: `ApeDroid #${tokenId}`,
-                            image: resolveImageUrl(nft.metadata?.image),
-                            type: 'droid' as const,
-                            level: 1,
-                            metadata: nft.metadata || {}
-                        }
-                    }
-                })
-            )
+            const loadedHonorary: NFTItem[] = (honoraryRes?.droids || []).map((d: any) => ({
+                id: d.id,
+                tokenId: d.tokenId,
+                name: d.name,
+                image: resolveImageUrl(d.image_pixel || d.image),
+                type: 'droid' as const,
+                level: 1,
+                metadata: { attributes: d.attributes },
+                isHonorary: true,
+            }))
 
             // Honorary droids come first
             setDroids([...loadedHonorary, ...loadedDroids])

@@ -18,6 +18,10 @@ interface InventoryProps {
   showDetails?: boolean
   /** Override the droid grid columns (e.g. dashboard wants denser 5-col layout). */
   droidGridClassName?: string
+  /** Replaces the plain title with a collection switcher (dashboard). */
+  collectionSwitch?: { value: string; options: { key: string; label: string }[]; onChange: (key: string) => void }
+  /** Honorary has no levels, so the level filter is meaningless there. */
+  hideFilter?: boolean
 }
 
 type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER'
@@ -205,7 +209,7 @@ const FilterDropdown = ({ options, activeFilter, onSelect }: { options: any[], a
   )
 }
 
-export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false, showDetails = true, droidGridClassName }: InventoryProps) {
+export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false, showDetails = true, droidGridClassName, collectionSwitch, hideFilter = false }: InventoryProps) {
   const [activeDroidFilter, setActiveDroidFilter] = useState<DroidFilter>('ALL')
   const [activeBatteryFilter, setActiveBatteryFilter] = useState<BatteryFilter>('ALL')
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -293,12 +297,30 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
       <div className="flex flex-col gap-2 mb-4 flex-shrink-0 relative z-40 lg:flex-row lg:justify-between lg:items-center">
 
         {/* MOBILE FILTER (Above Title) */}
-        <div className="lg:hidden self-start mb-1">
+        <div className={`lg:hidden self-start mb-1 ${hideFilter ? 'hidden' : ''}`}>
           {type === 'droid' ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />) : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />)}
         </div>
 
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-bold tracking-wider text-white/90 uppercase">{title}</h3>
+          {collectionSwitch ? (
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-black/40 border border-white/10">
+              {collectionSwitch.options.map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => collectionSwitch.onChange(o.key)}
+                  className={`px-3 h-8 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    collectionSwitch.value === o.key
+                      ? 'bg-white text-black'
+                      : 'text-white/50 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <h3 className="text-base font-bold tracking-wider text-white/90 uppercase">{title}</h3>
+          )}
 
           {/* COUNT FIRST */}
           <span className="text-xs text-white/40 font-mono flex items-center">({filteredItems.length})</span>
@@ -320,7 +342,7 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
         </div>
 
         {/* DESKTOP FILTER */}
-        <div className="relative z-40 self-end lg:self-auto hidden lg:block">
+        <div className={`relative z-40 self-end lg:self-auto hidden ${hideFilter ? '' : 'lg:block'}`}>
           {type === 'droid' ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />) : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />)}
         </div>
       </div>

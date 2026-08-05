@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createThirdwebClient, defineChain, getContract } from 'thirdweb'
+import { createThirdwebClient, defineChain, getContract, readContract } from 'thirdweb'
 import { ownerOf } from 'thirdweb/extensions/erc721'
 import { requireWalletAuth } from '@/lib/walletAuth'
 import { refreshOpenseaNft } from '@/lib/openseaRefresh'
@@ -17,6 +17,7 @@ const thirdwebClient = createThirdwebClient({
 })
 
 const DROID_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ''
+const HONORARY_CONTRACT = '0x427ff4b908c4ba7bc1d689bacac280a0435b2514'
 
 const UNLOCKED_VIEWS = ['pixel', 'animated'] as const
 const LOCKED_VIEWS = ['pfp3d', 'fullbody'] as const
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
 
     const tokenId = parseInt(body?.tokenId)
     const view = String(body?.view || '')
+    const isHonorary = String(body?.collection || '') === 'honorary'
 
     if (isNaN(tokenId) || tokenId < 0) {
         return NextResponse.json({ error: 'Invalid tokenId' }, { status: 400 })
@@ -54,6 +56,62 @@ export async function POST(req: Request) {
     }
     if (!(UNLOCKED_VIEWS as readonly string[]).includes(view)) {
         return NextResponse.json({ error: 'Invalid view' }, { status: 400 })
+    }
+
+    // ── Honorary (ERC-1155) ─────────────────────────────────────────────────
+    // No levels here: 'animated' is only allowed for tokens that actually have
+    // a gif, and ownership is a balance check rather than ownerOf.
+    if (isHonorary) {
+        try {
+            const contract = getContract({ client: thirdwebClient, chain: apeChain, address: HONORARY_CONTRACT })
+            let balance = BigInt(0)
+            try {
+                balance = await readContract({
+                    contract,
+                    method: 'function balanceOf(address,uint256) view returns (uint256)',
+                    params: [wallet as `0x${string}`, BigInt(tokenId)],
+                })
+            } catch (e: any) {
+                console.error('[display-pref] honorary balanceOf failed:', e.message)
+                return NextResponse.json({ error: 'Ownership check failed, try again' }, { status: 502 })
+            }
+            if (balance <= BigInt(0)) {
+                return NextResponse.json({ error: 'You do not own this honorary droid' }, { status: 403 })
+            }
+
+            const { data: row, error: fetchError } = await supabase
+                .from('honorary_droidz')
+                .select('token_id, has_gif')
+                .eq('token_id', tokenId)
+                .maybeSingle()
+            if (fetchError || !row) {
+                return NextResponse.json({ error: 'Honorary droid not found' }, { status: 404 })
+            }
+            if (view === 'animated' && !row.has_gif) {
+                return NextResponse.json(
+                    { error: 'This honorary droid has no animated version yet', needsUnlock: true },
+                    { status: 403 },
+                )
+            }
+
+            const { error: updateError } = await supabase
+                .from('honorary_droidz')
+                .update({ display_pref: view, display_pref_updated_at: new Date().toISOString() })
+                .eq('token_id', tokenId)
+            if (updateError) {
+                console.error('[display-pref] honorary update failed:', updateError)
+                return NextResponse.json({ error: 'Database update failed' }, { status: 500 })
+            }
+
+            refreshOpenseaNft({ contract: HONORARY_CONTRACT, tokenId })
+                .catch((e) => console.error('[display-pref] opensea refresh failed:', e))
+
+            console.log(`✅ [display-pref] wallet=${wallet.slice(0, 8)} honorary=${tokenId} view=${view}`)
+            return NextResponse.json({ ok: true, tokenId, view, collection: 'honorary' })
+        } catch (err: any) {
+            console.error('[display-pref] honorary error:', err)
+            return NextResponse.json({ error: 'Server error' }, { status: 500 })
+        }
     }
 
     try {

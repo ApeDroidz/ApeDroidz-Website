@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { droidStaticUrl, droidAnimatedUrl } from '@/lib/media'
+import { droidStaticUrl, droidAnimatedUrl, honoraryStaticUrl, honoraryAnimatedUrl } from '@/lib/media'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-const VIEWS = ['pixel', 'animated', 'pfp3d', 'fullbody'] as const
+const VIEWS = ['pixel', 'animated', 'pfp3d', 'fullbody', 'model3d'] as const
 type ViewKey = typeof VIEWS[number]
 
 // 3D assets are not uploaded yet — keep the switches visible but locked.
-const LOCKED_VIEWS: ViewKey[] = ['pfp3d', 'fullbody']
+const LOCKED_VIEWS: ViewKey[] = ['pfp3d', 'fullbody', 'model3d']
+
+// Honorary is a separate ERC-1155 collection: no levels, no 3D renders, and the
+// animated version exists only for the tokens that have a gif.
+const HONORARY_X_URL = 'https://x.com/SPLITF0RM'
 
 const headers = {
   'Content-Type': 'text/html; charset=utf-8',
@@ -31,60 +35,96 @@ export async function GET(
     return NextResponse.json({ error: 'Invalid token id' }, { status: 400 })
   }
 
-  // Tolerate a missing display_pref column (pre-migration) — select * and read defensively.
+  const isHonorary = request.nextUrl.searchParams.get('collection') === 'honorary'
+  const origin = new URL(request.url).origin
+  const isEmbed = request.nextUrl.searchParams.get('embed') === '1'
+  const requestedView = request.nextUrl.searchParams.get('view')
+
   let level = 1
   let isSuper = false
+  let hasGif = false
   let displayPref: string | null = null
+
   try {
-    const { data: droid } = await supabaseAdmin!
-      .from('droidz')
-      .select('*')
-      .eq('token_id', tokenId)
-      .maybeSingle()
-    if (droid) {
-      level = droid.level || 1
-      isSuper = !!droid.is_super
-      displayPref = VIEWS.includes(droid.display_pref) ? droid.display_pref : null
+    if (isHonorary) {
+      const { data: row } = await supabaseAdmin!
+        .from('honorary_droidz')
+        .select('has_gif, display_pref')
+        .eq('token_id', tokenId)
+        .maybeSingle()
+      if (row) {
+        hasGif = !!row.has_gif
+        displayPref = ['pixel', 'animated'].includes(row.display_pref) ? row.display_pref : null
+      }
+    } else {
+      // Tolerate a missing display_pref column — select * and read defensively.
+      const { data: droid } = await supabaseAdmin!
+        .from('droidz')
+        .select('*')
+        .eq('token_id', tokenId)
+        .maybeSingle()
+      if (droid) {
+        level = droid.level || 1
+        isSuper = !!droid.is_super
+        displayPref = VIEWS.includes(droid.display_pref) ? droid.display_pref : null
+      }
     }
   } catch (e) {
-    console.error('[viewer] droid lookup failed:', e)
+    console.error('[viewer] lookup failed:', e)
   }
 
-  const levelLabel = level >= 2 ? (isSuper ? 'LVL 2 SUPER' : 'LVL 2') : 'LVL 1'
+  // Which switches to show, and which of them are dead ends for this token.
+  const viewDefs = isHonorary
+    ? [
+      { key: 'pixel', label: 'Pixel', locked: false },
+      { key: 'animated', label: 'Animated', locked: false },
+    ]
+    : [
+      { key: 'pixel', label: 'Pixel', locked: false },
+      { key: 'animated', label: 'Animated', locked: false },
+      { key: 'pfp3d', label: 'PFP', locked: true },
+      { key: 'fullbody', label: 'Full Body', locked: true },
+      { key: 'model3d', label: '3D', locked: true },
+    ]
 
-  // Asset map. Level 1 droids can still PREVIEW the animated version (upgrade
-  // teaser — standard level-2 art), they just can't save it as default.
-  // Pixel = STATIC png, animated = GIF (paths from lib/media → R2).
-  const pixelUrl = droidStaticUrl(tokenId, level, isSuper)
-  const animatedUrl = droidAnimatedUrl(tokenId, isSuper)
+  // Honorary tokens without a gif still get an Animated switch — it shows the
+  // static art as a locked teaser behind the "write SPLITFORM" CTA.
+  const pixelUrl = isHonorary ? honoraryStaticUrl(tokenId) : droidStaticUrl(tokenId, level, isSuper)
+  const animatedUrl = isHonorary
+    ? (hasGif ? honoraryAnimatedUrl(tokenId) : honoraryStaticUrl(tokenId))
+    : droidAnimatedUrl(tokenId, isSuper)
 
-  // Default view: saved preference first, then level-based fallback.
-  const fallbackView: ViewKey = level >= 2 ? 'animated' : 'pixel'
-  const savedView: ViewKey = (displayPref && !LOCKED_VIEWS.includes(displayPref as ViewKey))
-    ? displayPref as ViewKey
-    : fallbackView
+  // Animated is a locked teaser when the token cannot actually have it.
+  const animatedLocked = isHonorary ? !hasGif : level < 2
 
-  // Optional overrides for the on-site embed (?view=animated&embed=1)
-  const requestedView = request.nextUrl.searchParams.get('view')
-  const initialView: ViewKey = (requestedView && VIEWS.includes(requestedView as ViewKey) && !LOCKED_VIEWS.includes(requestedView as ViewKey))
+  const fallbackView: ViewKey = (isHonorary ? hasGif : level >= 2) ? 'animated' : 'pixel'
+  const openViews = viewDefs.filter(v => !v.locked).map(v => v.key)
+  const savedView: ViewKey = (displayPref && openViews.includes(displayPref)) ? displayPref as ViewKey : fallbackView
+  const initialView: ViewKey = (requestedView && openViews.includes(requestedView))
     ? requestedView as ViewKey
     : savedView
-  const isEmbed = request.nextUrl.searchParams.get('embed') === '1'
+
+  const badgeLeft = isHonorary
+    ? 'HONORARY'
+    : (level >= 2 ? (isSuper ? 'LVL 2 SUPER' : 'LVL 2') : 'LVL 1')
 
   // Absolute so the CTA works from a marketplace iframe too, where a relative
   // path would resolve against OpenSea rather than our site.
-  const upgradeUrl = `${new URL(request.url).origin}/upgrade_module?select=${tokenId}`
+  const cta = isHonorary
+    ? { label: 'Write SPLITFORM to unlock', url: HONORARY_X_URL, external: true }
+    : { label: 'Upgrade to unlock', url: `${origin}/upgrade_module?select=${tokenId}`, external: false }
 
   const config = {
     tokenId,
-    level,
-    isSuper,
-    levelLabel,
+    collection: isHonorary ? 'honorary' : 'droidz',
+    badgeLeft,
+    accent: isHonorary ? '#a78bfa' : (isSuper ? '#fb923c' : '#60a5fa'),
+    views: viewDefs,
     initialView,
-    locked: LOCKED_VIEWS,
+    animatedLocked,
     assets: { pixel: pixelUrl, animated: animatedUrl },
     embed: isEmbed,
-    upgradeUrl,
+    cta,
   }
 
   const html = `<!DOCTYPE html>
@@ -92,7 +132,7 @@ export async function GET(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>ApeDroid #${tokenId} — Interactive Viewer</title>
+<title>${isHonorary ? `Honorary DRD#${tokenId}` : `ApeDroid #${tokenId}`} — Interactive Viewer</title>
 <meta name="description" content="Interactive viewer for ApeDroidz. Switch between Pixel, Animated and 3D views of your droid.">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -184,8 +224,8 @@ export async function GET(
     bottom: 14px;
     left: 14px;
     text-transform: uppercase;
-    color: ${isSuper ? '#fb923c' : '#60a5fa'};
-    border-color: ${isSuper ? 'rgba(251,146,60,0.35)' : 'rgba(96,165,250,0.35)'};
+    color: ${config.accent};
+    border-color: ${config.accent}59;
   }
 
   /* Art */
@@ -320,18 +360,18 @@ export async function GET(
 <body>
 <div id="stage">
   <div id="switch"></div>
-  <div id="level-badge" class="badge">${levelLabel}</div>
+  <div id="level-badge" class="badge">${badgeLeft}</div>
   <div id="token-badge" class="badge">#${tokenId}</div>
 
   <div id="art-wrap">
-    <img id="art" alt="ApeDroid #${tokenId}" draggable="false" />
+    <img id="art" alt="${isHonorary ? `Honorary DRD#${tokenId}` : `ApeDroid #${tokenId}`}" draggable="false" />
     <canvas id="art-px" aria-hidden="true"></canvas>
   </div>
 
   <div id="lock-overlay">
     <button id="lock-cta" type="button" onclick="goUpgrade()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      <span>Upgrade to unlock</span>
+      <span id="cta-label">Upgrade to unlock</span>
     </button>
   </div>
 
@@ -350,20 +390,26 @@ export async function GET(
 
 <script>
   var CFG = ${JSON.stringify(config)};
-  var LABELS = { pixel: 'Pixel', animated: 'Animated', pfp3d: 'PFP', fullbody: 'Full Body' };
+
   var LOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
   var currentView = CFG.initialView;
 
+  function isOpenView(key) {
+    for (var i = 0; i < CFG.views.length; i++) {
+      if (CFG.views[i].key === key) return !CFG.views[i].locked;
+    }
+    return false;
+  }
+
   function buildSwitch() {
     var wrap = document.getElementById('switch');
-    ['pixel', 'animated', 'pfp3d', 'fullbody'].forEach(function (view) {
+    CFG.views.forEach(function (v) {
       var btn = document.createElement('button');
-      var locked = CFG.locked.indexOf(view) !== -1;
-      btn.className = 'sw-btn' + (locked ? ' locked' : '') + (view === currentView ? ' active' : '');
-      btn.dataset.view = view;
-      btn.innerHTML = (locked ? LOCK_SVG : '') + '<span>' + LABELS[view] + '</span>';
-      btn.title = locked ? 'Coming soon' : LABELS[view];
-      btn.addEventListener('click', function () { if (!locked) switchView(view); });
+      btn.className = 'sw-btn' + (v.locked ? ' locked' : '') + (v.key === currentView ? ' active' : '');
+      btn.dataset.view = v.key;
+      btn.innerHTML = (v.locked ? LOCK_SVG : '') + '<span>' + v.label + '</span>';
+      btn.title = v.locked ? 'Coming soon' : v.label;
+      btn.addEventListener('click', function () { if (!v.locked) switchView(v.key); });
       wrap.appendChild(btn);
     });
   }
@@ -400,7 +446,7 @@ export async function GET(
         return;
       } catch (e) { /* fall through to opening a tab */ }
     }
-    window.open(CFG.upgradeUrl, '_blank', 'noopener');
+    window.open(CFG.cta.url, '_blank', 'noopener');
   }
 
   // Pixelated teaser: sample the live <img> into a tiny canvas every frame, so
@@ -429,7 +475,7 @@ export async function GET(
 
   // Pixelate + lock overlay when previewing the animated view on a level-1 droid.
   function applyLock(view) {
-    var levelLocked = (view === 'animated' && CFG.level < 2);
+    var levelLocked = (view === 'animated' && CFG.animatedLocked);
     document.getElementById('art-wrap').classList.toggle('locked', levelLocked);
     document.getElementById('lock-overlay').style.display = levelLocked ? 'flex' : 'none';
     if (levelLocked) startPixelate(); else stopPixelate();
@@ -546,11 +592,12 @@ export async function GET(
   // The on-site dashboard can drive the viewer through postMessage.
   window.addEventListener('message', function (e) {
     var d = e && e.data;
-    if (d && d.type === 'apedroidz:setView' && CFG.assets[d.view] && CFG.locked.indexOf(d.view) === -1) {
+    if (d && d.type === 'apedroidz:setView' && CFG.assets[d.view] && isOpenView(d.view)) {
       switchView(d.view);
     }
   });
 
+  document.getElementById('cta-label').textContent = CFG.cta.label;
   buildSwitch();
   switchView(currentView, true);
 </script>

@@ -17,7 +17,8 @@ import { Check, Loader2, Lock, Save } from "lucide-react"
 // Level can arrive as 'level' (current) or legacy 'Level'/'Rank Value'.
 const LEVEL_TRAIT_KEYS = ['level', 'rank value', 'upgrade level']
 
-type ViewKey = 'pixel' | 'animated' | 'pfp3d' | 'fullbody'
+type ViewKey = 'pixel' | 'animated' | 'pfp3d' | 'fullbody' | 'model3d'
+type Collection = 'droidz' | 'honorary'
 
 // Per-wallet droid cache TTL — avoids re-hitting the indexer on every
 // remount / navigation between pages within a session.
@@ -44,6 +45,9 @@ export default function DashboardPage() {
   const router = useRouter()
   const { ensureLogin } = useGlitchSession()
 
+  // Which collection the panel is showing. Honorary is a separate ERC-1155
+  // contract with its own endpoint, art and unlock rules.
+  const [collection, setCollection] = useState<Collection>('droidz')
   const [droids, setDroids] = useState<NFTItem[]>([])
   const [isInventoryLoading, setIsInventoryLoading] = useState(true)
   const [selectedDroid, setSelectedDroid] = useState<NFTItem | null>(null)
@@ -72,7 +76,10 @@ export default function DashboardPage() {
       return 0
     }
     const owner = account.address
-    const cacheKey = `apedroidz:droids:${owner.toLowerCase()}`
+    const endpoint = collection === 'honorary' ? '/api/owned-honorary' : '/api/owned-droids'
+    const cacheKey = collection === 'honorary'
+      ? `apedroidz:honorary:${owner.toLowerCase()}`
+      : `apedroidz:droids:${owner.toLowerCase()}`
 
     if (!force && typeof window !== 'undefined') {
       try {
@@ -93,7 +100,7 @@ export default function DashboardPage() {
       setDroids([])
     }
     try {
-      const res = await fetch(`/api/owned-droids?owner=${owner}`, { cache: 'no-store' })
+      const res = await fetch(`${endpoint}?owner=${owner}`, { cache: 'no-store' })
       const json = await res.json().catch(() => ({}))
       const loadedDroids: NFTItem[] = (json?.droids || []).map((d: any) => ({
         id: d.id,
@@ -103,10 +110,12 @@ export default function DashboardPage() {
         image: resolveImageUrl(d.image || d.image_pixel),
         type: 'droid' as const,
         level: d.level ?? 1,
+        isHonorary: !!d.isHonorary,
         metadata: {
           attributes: d.attributes,
           display_view: d.display_view,
           is_super: d.is_super,
+          has_gif: d.has_gif,
           // Kept so saving a new default can repaint the card without a refetch.
           image_pixel: d.image_pixel,
           image_animated: d.image_animated,
@@ -123,7 +132,7 @@ export default function DashboardPage() {
     } finally {
       if (!isBackground) setIsInventoryLoading(false)
     }
-  }, [account?.address])
+  }, [account?.address, collection])
 
   useEffect(() => {
     let cancelled = false
@@ -154,6 +163,14 @@ export default function DashboardPage() {
     return () => window.removeEventListener('message', onMessage)
   }, [selectedDroid?.tokenId, router])
 
+  // Switching collections invalidates the current selection/previewer.
+  const handleSwitchCollection = (next: Collection) => {
+    if (next === collection) return
+    setCollection(next)
+    setSelectedDroid(null)
+    setJustSaved(false)
+  }
+
   const handleSelectDroid = (item: NFTItem | null) => {
     setSelectedDroid(item)
     setJustSaved(false)
@@ -167,7 +184,12 @@ export default function DashboardPage() {
   }
 
   const selectedLevel = getDroidLevel(selectedDroid)
-  const needsUpgradeForCurrent = currentView === 'animated' && selectedLevel < 2
+  const isHonorary = collection === 'honorary'
+  // Honorary: animated exists only when the token actually has a gif.
+  // Base collection: animated unlocks at level 2.
+  const needsUpgradeForCurrent = currentView === 'animated' && (
+    isHonorary ? !selectedDroid?.metadata?.has_gif : selectedLevel < 2
+  )
   const isCurrentSaved = savedView === currentView && !needsUpgradeForCurrent
 
   // === SAVE YOUR PFP ===
@@ -188,7 +210,7 @@ export default function DashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ tokenId: selectedDroid.tokenId, view: currentView }),
+        body: JSON.stringify({ tokenId: selectedDroid.tokenId, view: currentView, collection }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok) {
@@ -281,8 +303,8 @@ export default function DashboardPage() {
               {selectedDroid ? (
                 <iframe
                   ref={iframeRef}
-                  key={selectedDroid.tokenId}
-                  src={`/api/viewer/${selectedDroid.tokenId}?embed=1`}
+                  key={`${collection}-${selectedDroid.tokenId}`}
+                  src={`/api/viewer/${selectedDroid.tokenId}?embed=1${isHonorary ? '&collection=honorary' : ''}`}
                   title={`ApeDroid #${selectedDroid.tokenId} previewer`}
                   className="absolute inset-0 w-full h-full border-0"
                 />
@@ -308,7 +330,7 @@ export default function DashboardPage() {
                     className="w-full h-12 flex items-center justify-center gap-2 bg-white/5 text-white/30 border border-white/10 font-black uppercase tracking-wider rounded-xl text-sm cursor-not-allowed"
                   >
                     <Lock size={16} />
-                    Upgrade to save
+                    {isHonorary ? 'Write SPLITFORM to save' : 'Upgrade to save'}
                   </motion.button>
                 ) : (
                   <motion.button
@@ -353,6 +375,15 @@ export default function DashboardPage() {
             <div className="flex-1 lg:min-h-0 shadow-2xl shadow-black/50 rounded-2xl">
               <Inventory
                 title="Your Droidz"
+                collectionSwitch={{
+                  value: collection,
+                  options: [
+                    { key: 'droidz', label: 'ApeDroidz' },
+                    { key: 'honorary', label: 'Honorary' },
+                  ],
+                  onChange: (k) => handleSwitchCollection(k as Collection),
+                }}
+                hideFilter={isHonorary}
                 items={droids}
                 selectedId={selectedDroid?.id}
                 onSelect={handleSelectDroid}

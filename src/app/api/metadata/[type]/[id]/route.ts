@@ -4,6 +4,7 @@ import { getContract } from 'thirdweb/contract'
 import { readContract } from 'thirdweb'
 import { client, apeChain } from '@/lib/thirdweb'
 import { droidStaticUrl, droidAnimatedUrl, batteryUrl } from '@/lib/media'
+import { buildHonoraryDisplay } from '@/lib/droidDisplay'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -51,29 +52,35 @@ export async function GET(
       return NextResponse.json({ error: "Invalid ID" }, { status: 400, headers: corsHeaders });
     }
 
-    // === HONORARY DROIDZ — fetch tokenURI on-chain, proxy IPFS metadata server-side ===
+    // === HONORARY DROIDZ (ERC-1155) ===
+    // Served from our own mirror rather than the on-chain uri(): the collection
+    // is 1155 (there is no tokenURI), and the site owns two things the static
+    // IPFS JSON does not know about — which tokens actually have a gif, and the
+    // holder's saved default view.
     if (type === 'honorary') {
-      const contract = getContract({ client, chain: apeChain, address: HONORARY_CONTRACT })
+      const { data: row } = await supabaseAdmin!
+        .from('honorary_droidz')
+        .select('token_id, name, description, external_url, traits, has_gif, display_pref')
+        .eq('token_id', tokenId)
+        .maybeSingle()
 
-      const tokenURI = await readContract({
-        contract,
-        method: "function tokenURI(uint256) returns (string)",
-        params: [BigInt(tokenId)]
-      })
-
-      const metadataUrl = resolveIpfs(tokenURI)
-      const metaRes = await fetch(metadataUrl, { next: { revalidate: 3600 } })
-      if (!metaRes.ok) {
-        return NextResponse.json({ error: 'Failed to fetch IPFS metadata' }, { status: 502, headers: corsHeaders })
-      }
-      const metadata = await metaRes.json()
-
-      // Resolve image URL inside metadata too
-      if (metadata.image) {
-        metadata.image = resolveIpfs(metadata.image)
+      if (!row) {
+        return NextResponse.json({ error: 'Honorary droid not found' }, { status: 404, headers: corsHeaders })
       }
 
-      return NextResponse.json(metadata, { headers: corsHeaders })
+      const d = buildHonoraryDisplay(row)
+      const origin = new URL(request.url).origin
+
+      return NextResponse.json({
+        name: d.name,
+        description: d.description,
+        image: d.image,
+        // Interactive previewer — same switcher as the base collection, minus
+        // the level/3D views that do not apply here.
+        animation_url: `${origin}/api/viewer/${tokenId}?collection=honorary&v=${d.display_view}`,
+        external_url: d.external_url || 'https://x.com/ApeDroidz',
+        attributes: d.attributes,
+      }, { headers: corsHeaders })
     }
 
     // === БЛОК ДРОИДОВ ===
@@ -130,19 +137,20 @@ export async function GET(
       const origin = new URL(request.url).origin;
       const viewerUrl = `${origin}/api/viewer/${tokenId}?v=${bustVersion}`;
 
-      // Base metadata object
+      // Standard marketplace shape — nothing beyond what OpenSea reads.
+      //   image         → the variant the holder chose (thumbnails, grids, mobile;
+      //                   a marketplace cannot render an HTML page here)
+      //   animation_url → the interactive previewer, opening on that same choice
+      // Both therefore reflect the saved default; the extra image_pixel /
+      // image_animated / display_view fields the site used to publish were
+      // non-standard noise and moved to /api/owned-droids.
       const metadata: Record<string, any> = {
         name: `ApeDroid #${droid.token_id}`,
         description: droid.description || "3333 glitch-born Droidz on ApeChain.",
         image: bustImage(effectiveView === 'animated' ? animatedUrl : pixelUrl),
-        // Site-internal helpers (harmless extras for marketplaces): the
-        // dashboard inventory always renders the lightweight static art.
-        image_pixel: bustImage(pixelUrl),
-        image_animated: bustImage(animatedUrl),
-        display_view: effectiveView,
-        mml: droid.mml_url, // Added MML parameter from DB
-        external_url: "https://apedroidz.com/dashboard",
         animation_url: viewerUrl,
+        external_url: "https://apedroidz.com/dashboard",
+        mml: droid.mml_url,
         attributes: [
           ...cleanAttributes,
           { trait_type: "level", value: levelString }
