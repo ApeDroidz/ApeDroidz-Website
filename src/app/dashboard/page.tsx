@@ -12,7 +12,7 @@ import { AlertModal } from "@/components/alert-modal"
 import { ProfileModal } from "@/components/profile-modal"
 import { resolveImageUrl } from "@/lib/utils"
 import { useGlitchSession } from "@/hooks/useGlitchSession"
-import { Check, ChevronsUp, Loader2, Save } from "lucide-react"
+import { Check, Loader2, Lock, Save } from "lucide-react"
 
 // Level can arrive as 'level' (current) or legacy 'Level'/'Rank Value'.
 const LEVEL_TRAIT_KEYS = ['level', 'rank value', 'upgrade level']
@@ -299,14 +299,16 @@ export default function DashboardPage() {
             <div className="flex-shrink-0 mt-4 relative w-full max-w-[520px] mx-auto">
               <AnimatePresence mode="wait">
                 {needsUpgradeForCurrent ? (
+                  // Locked state: the actionable CTA lives on the previewer itself,
+                  // so this one just reads as unavailable.
                   <motion.button
                     key="upgrade"
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                    onClick={handleSaveDefault}
-                    className="w-full h-12 flex items-center justify-center gap-2 bg-[#3b82f6] text-white font-black uppercase tracking-wider rounded-xl hover:bg-[#0069FF] transition-all text-sm shadow-lg cursor-pointer"
+                    disabled
+                    className="w-full h-12 flex items-center justify-center gap-2 bg-white/5 text-white/30 border border-white/10 font-black uppercase tracking-wider rounded-xl text-sm cursor-not-allowed"
                   >
-                    <ChevronsUp size={18} />
-                    Upgrade to unlock Animated
+                    <Lock size={16} />
+                    Upgrade to save
                   </motion.button>
                 ) : (
                   <motion.button
