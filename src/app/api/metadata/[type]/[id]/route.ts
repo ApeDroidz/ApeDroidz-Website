@@ -41,6 +41,27 @@ export async function GET(
     // Honorary is 1155, so the padded-hex form must resolve or marketplaces
     // would 404 on every token past #9.
     const raw = params.id.trim().replace(/\.json$/i, '');
+
+    // === CONTRACT-LEVEL METADATA (contractURI) ===
+    // Collection card on marketplaces: name, blurb, avatar, banner. This is a
+    // different thing from token metadata — contractURI describes the whole
+    // collection, uri()/tokenURI() describes one NFT.
+    // Royalties are intentionally omitted: this contract exposes EIP-2981
+    // on-chain, which marketplaces prefer over anything declared here.
+    if (raw.toLowerCase() === 'collection') {
+      const site = 'https://apedroidz.com';
+      const isHonoraryCollection = type === 'honorary';
+      return NextResponse.json({
+        name: isHonoraryCollection ? 'ApeDroidz Honorary' : 'ApeDroidz',
+        description: isHonoraryCollection
+          ? 'Honorary ApeDroidz — 1/1 droids handed to the people who built and carried the Droidz Network.'
+          : '3333 glitch-born Droidz built on ApeChain. Each one is a living fragment of the closed Droidz Network.',
+        image: `${site}/collection-avatar.png`,
+        banner_image_url: `${site}/og-image.png`,
+        external_link: site,
+      }, { headers: corsHeaders });
+    }
+
     const tokenId = /^[0-9a-fA-F]{64}$/.test(raw) ? parseInt(raw, 16) : parseInt(raw, 10);
 
     if (isNaN(tokenId) || tokenId < 0) {
