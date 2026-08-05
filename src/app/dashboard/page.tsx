@@ -96,10 +96,18 @@ export default function DashboardPage() {
         id: d.id,
         tokenId: d.tokenId,
         name: d.name,
-        image: resolveImageUrl(d.image_pixel || d.image),
+        // Cards show whatever the holder saved as their default view.
+        image: resolveImageUrl(d.image || d.image_pixel),
         type: 'droid' as const,
         level: d.level ?? 1,
-        metadata: { attributes: d.attributes, display_view: d.display_view, is_super: d.is_super },
+        metadata: {
+          attributes: d.attributes,
+          display_view: d.display_view,
+          is_super: d.is_super,
+          // Kept so saving a new default can repaint the card without a refetch.
+          image_pixel: d.image_pixel,
+          image_animated: d.image_animated,
+        },
       }))
       setDroids(loadedDroids)
       if (typeof window !== 'undefined') {
@@ -185,6 +193,29 @@ export default function DashboardPage() {
       }
       setSavedView(currentView)
       setJustSaved(true)
+
+      // Repaint this droid's card with the newly chosen view right away, and
+      // drop the caches so a reload (or the upgrade module) agrees with it.
+      setDroids(prev => {
+        const next = prev.map(d => {
+          if (d.id !== selectedDroid.id) return d
+          const variant = currentView === 'animated' ? d.metadata?.image_animated : d.metadata?.image_pixel
+          return variant
+            ? { ...d, image: variant, metadata: { ...d.metadata, display_view: currentView } }
+            : d
+        })
+        if (account?.address && typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(
+              `apedroidz:droids:${account.address.toLowerCase()}`,
+              JSON.stringify({ ts: Date.now(), droids: next })
+            )
+            sessionStorage.removeItem(`apedroidz:nfts:${account.address.toLowerCase()}`)
+          } catch { /* quota */ }
+        }
+        return next
+      })
+
       setToastState({
         isOpen: true, type: 'success', title: 'PFP saved',
         message: `Droid #${selectedDroid.tokenId} now shows the ${currentView === 'animated' ? 'Animated' : 'Pixel'} version on marketplaces. Refresh metadata on OpenSea to see it live.`,

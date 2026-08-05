@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
         id: String(tokenId),
         tokenId: String(tokenId),
         name: d.name,
-        image: d.image_pixel, // list shows the static render (fast)
+        image: d.image, // the droid's saved default view (pixel or animated)
         image_pixel: d.image_pixel,
         image_animated: d.image_animated,
         level: d.level,

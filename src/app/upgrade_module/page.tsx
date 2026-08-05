@@ -140,7 +140,8 @@ export default function UpgradeModulePage() {
         id: d.id,
         tokenId: d.tokenId,
         name: d.name,
-        image: resolveImageUrl(d.image_pixel || d.image),
+        // Cards + machine screen show the holder's saved default view.
+        image: resolveImageUrl(d.image || d.image_pixel),
         type: 'droid' as const,
         level: d.level ?? 1,
         metadata: { attributes: d.attributes, display_view: d.display_view, is_super: d.is_super },
