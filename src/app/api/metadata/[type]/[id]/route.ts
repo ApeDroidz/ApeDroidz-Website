@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getContract } from 'thirdweb/contract'
-import { readContract } from 'thirdweb'
-import { client, apeChain } from '@/lib/thirdweb'
 import { droidStaticUrl, droidAnimatedUrl, batteryUrl } from '@/lib/media'
 import { buildHonoraryDisplay } from '@/lib/droidDisplay'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-
-const HONORARY_CONTRACT = '0x427ff4b908c4ba7bc1d689bacac280a0435b2514'
 
 // `force-dynamic` only stops Next.js from caching the route output. Without
 // these headers any upstream CDN/edge (Vercel, Cloudflare) and consumers
@@ -27,13 +22,6 @@ const corsHeaders = {
   'Expires': '0',
 }
 
-const resolveIpfs = (url: string | undefined | null): string => {
-  if (!url) return ''
-  if (url.startsWith('ipfs://')) return url.replace('ipfs://', 'https://cf-ipfs.com/ipfs/')
-  if (url.startsWith('http')) return url
-  return url
-}
-
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders })
 }
@@ -45,17 +33,24 @@ export async function GET(
   try {
     const params = await context.params;
     const type = params.type.toLowerCase().trim();
-    const id = params.id.trim();
-    const tokenId = parseInt(id);
 
-    if (isNaN(tokenId)) {
+    // Token ids arrive in whatever shape the contract's URI template produces:
+    //   /42          plain decimal
+    //   /42.json     when the template ends in {id}.json
+    //   /00…002a     ERC-1155 spec form — lowercase hex, zero-padded to 64
+    // Honorary is 1155, so the padded-hex form must resolve or marketplaces
+    // would 404 on every token past #9.
+    const raw = params.id.trim().replace(/\.json$/i, '');
+    const tokenId = /^[0-9a-fA-F]{64}$/.test(raw) ? parseInt(raw, 16) : parseInt(raw, 10);
+
+    if (isNaN(tokenId) || tokenId < 0) {
       return NextResponse.json({ error: "Invalid ID" }, { status: 400, headers: corsHeaders });
     }
 
     // === HONORARY DROIDZ (ERC-1155) ===
     // Served from our own mirror rather than the on-chain uri(): the collection
     // is 1155 (there is no tokenURI), and the site owns two things the static
-    // IPFS JSON does not know about — which tokens actually have a gif, and the
+    // source JSON does not know about — which tokens actually have a gif, and the
     // holder's saved default view.
     if (type === 'honorary') {
       const { data: row } = await supabaseAdmin!
@@ -127,7 +122,6 @@ export async function GET(
       const bustVersion = `${currentLevel}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}`;
       const bustImage = (url: string | undefined | null): string => {
         if (!url) return '';
-        if (url.startsWith('ipfs://')) return url;
         const sep = url.includes('?') ? '&' : '?';
         return `${url}${sep}v=${bustVersion}`;
       };
@@ -168,11 +162,7 @@ export async function GET(
         .eq('token_id', tokenId)
         .maybeSingle();
 
-      const IPFS_LINKS = {
-        standard: "ipfs://bafybeid4d4yfoljgoqkbwzv7lk6trdsivanfeuziq7w5m2ogsgmlra7aiy/standart_battery.webp",
-        super: "ipfs://bafybeid4d4yfoljgoqkbwzv7lk6trdsivanfeuziq7w5m2ogsgmlra7aiy/super_battery.webp"
-      };
-
+      // Art is served from our own storage — no IPFS anywhere in the pipeline.
       const HTTP_LINKS = {
         standard: batteryUrl(false),
         super: batteryUrl(true)
@@ -187,9 +177,7 @@ export async function GET(
         description: isSuper
           ? "Super Battery used for ApeDroid evolution."
           : "Standard Battery used for ApeDroid evolution.",
-        image: isSuper ? IPFS_LINKS.super : IPFS_LINKS.standard,
-        animation_url: isSuper ? IPFS_LINKS.super : IPFS_LINKS.standard, // User requested identical to image
-        image_http: isSuper ? HTTP_LINKS.super : HTTP_LINKS.standard, // Для сайта
+        image: isSuper ? HTTP_LINKS.super : HTTP_LINKS.standard,
         external_url: "https://apedroidz.com/dashboard",
         attributes: [
           { trait_type: "Type", value: bType }

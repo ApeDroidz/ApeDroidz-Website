@@ -249,24 +249,9 @@ export async function GET(
     -webkit-user-drag: none;
   }
   #art.visible { opacity: 1; }
-  /* Animated preview on a not-yet-upgraded droid: greyed teaser. */
-  /* Locked teaser. Scaling the <img> down and back up does NOT pixelate —
-     browsers re-rasterise at the composited scale and the detail survives. So
-     the art is drawn into a tiny canvas each frame (keeps the GIF moving) and
-     that canvas is upscaled with nearest-neighbour, which does hold. */
-  #art-px {
-    display: none;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-    filter: brightness(0.78) saturate(0.55);
-  }
-  /* keep the source <img> in the layer tree (opacity, not display) so the GIF
-     keeps advancing frames while we sample it */
-  #art-wrap.locked #art { opacity: 0; position: absolute; pointer-events: none; }
-  #art-wrap.locked #art-px { display: block; }
+  /* Locked teaser: black & white and blurred. The animation still reads as
+     motion, the artwork detail does not. */
+  #art-wrap.locked #art { filter: grayscale(1) blur(12px) brightness(0.72); }
 
   /* Lock overlay — sits over the blurred animated teaser (level < 2) */
   #lock-overlay {
@@ -365,7 +350,6 @@ export async function GET(
 
   <div id="art-wrap">
     <img id="art" alt="${isHonorary ? `Honorary DRD#${tokenId}` : `ApeDroid #${tokenId}`}" draggable="false" />
-    <canvas id="art-px" aria-hidden="true"></canvas>
   </div>
 
   <div id="lock-overlay">
@@ -455,36 +439,11 @@ export async function GET(
     window.open(CFG.cta.url, '_blank', 'noopener');
   }
 
-  // Pixelated teaser: sample the live <img> into a tiny canvas every frame, so
-  // an animated GIF keeps moving while its detail is destroyed by the downscale.
-  var PX_SIZE = 20, pxRaf = null;
-
-  function startPixelate() {
-    var art = document.getElementById('art');
-    var cv = document.getElementById('art-px');
-    cv.width = PX_SIZE; cv.height = PX_SIZE;
-    var ctx = cv.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    stopPixelate();
-    (function draw() {
-      if (art.naturalWidth) {
-        try { ctx.drawImage(art, 0, 0, PX_SIZE, PX_SIZE); } catch (e) { /* not decodable yet */ }
-      }
-      pxRaf = requestAnimationFrame(draw);
-    })();
-  }
-
-  function stopPixelate() {
-    if (pxRaf) cancelAnimationFrame(pxRaf);
-    pxRaf = null;
-  }
-
-  // Pixelate + lock overlay when previewing the animated view on a level-1 droid.
+  // Blur + lock overlay when the selected view is not available for this token.
   function applyLock(view) {
     var levelLocked = (view === 'animated' && CFG.animatedLocked);
     document.getElementById('art-wrap').classList.toggle('locked', levelLocked);
     document.getElementById('lock-overlay').style.display = levelLocked ? 'flex' : 'none';
-    if (levelLocked) startPixelate(); else stopPixelate();
   }
 
   function showError(show) {
