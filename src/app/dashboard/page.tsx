@@ -14,6 +14,9 @@ import { resolveImageUrl } from "@/lib/utils"
 import { useGlitchSession } from "@/hooks/useGlitchSession"
 import { Check, ChevronsUp, Loader2, Save } from "lucide-react"
 
+// Level can arrive as 'level' (current) or legacy 'Level'/'Rank Value'.
+const LEVEL_TRAIT_KEYS = ['level', 'rank value', 'upgrade level']
+
 type ViewKey = 'pixel' | 'animated' | 'pfp3d' | 'fullbody'
 
 // Per-wallet droid cache TTL — avoids re-hitting the indexer on every
@@ -26,7 +29,7 @@ const getDroidLevel = (item: NFTItem | null): number => {
   const attributes = item.metadata?.attributes || item.metadata?.traits || [];
   if (Array.isArray(attributes)) {
     const lvlAttr = attributes.find((a: any) =>
-      a.trait_type === "Level" || a.trait_type === "Rank Value" || a.trait_type === "Upgrade Level"
+      LEVEL_TRAIT_KEYS.includes(String(a.trait_type || '').toLowerCase())
     );
     if (lvlAttr) {
       const val = parseInt(String(lvlAttr.value).replace(/\D/g, ''));

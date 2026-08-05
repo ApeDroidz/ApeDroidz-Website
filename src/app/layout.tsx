@@ -33,9 +33,10 @@ export const metadata: Metadata = {
   authors: [{ name: "ApeDroidz" }],
   creator: "ApeDroidz",
   metadataBase: new URL("https://www.apedroidz.com"),
+  // `src/app/favicon.ico` is auto-detected by Next and emits the <link rel="icon">
+  // tag itself — declaring it here too produced four duplicate icon links.
+  // Only apple-touch needs to be spelled out.
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
     apple: "/favicon.ico",
   },
   openGraph: {

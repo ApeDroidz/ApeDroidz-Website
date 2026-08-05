@@ -229,7 +229,7 @@ export default function GlitchFlightPage() {
                                     initial={{ opacity: 0, y: -15 }}
                                     animate={{ opacity: 1, y: 0 }}
                                 >
-                                    <span className="drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">Glitch Flight</span>{' '}
+                                    <span className="font-sans font-bold not-italic normal-case tracking-[-0.06em] drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">Glitch Flight</span>{' '}
                                     <span className="text-[#3b82f6]">Season 2</span>
                                 </motion.h1>
                                 <motion.p

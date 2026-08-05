@@ -65,6 +65,6 @@ export function buildDroidDisplay(row: Partial<DroidRow> & { token_id: number })
     level,
     is_super: isSuper,
     display_view: effectiveView,
-    attributes: [...cleanAttributes, { trait_type: 'Level', value: levelString }],
+    attributes: [...cleanAttributes, { trait_type: 'level', value: levelString }],
   }
 }

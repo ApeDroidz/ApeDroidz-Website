@@ -145,7 +145,7 @@ export async function GET(
         animation_url: viewerUrl,
         attributes: [
           ...cleanAttributes,
-          { trait_type: "Level", value: levelString }
+          { trait_type: "level", value: levelString }
         ]
       };
 

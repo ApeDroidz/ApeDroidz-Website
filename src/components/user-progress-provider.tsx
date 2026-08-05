@@ -7,6 +7,9 @@ import { getOwnedNFTs } from "thirdweb/extensions/erc721"
 import { client, apeChain } from "@/lib/thirdweb"
 import { supabase } from "@/lib/supabase"
 
+// Level can arrive as 'level' (current) or legacy 'Level'/'Rank Value'.
+const LEVEL_TRAIT_KEYS = ['level', 'rank value', 'upgrade level']
+
 const DROID_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
 const BATTERY_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BATTERY_CONTRACT_ADDRESS || ""
 
@@ -210,9 +213,7 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
 
                             if (Array.isArray(attrs)) {
                                 const lvlAttr = attrs.find((a: any) =>
-                                    a.trait_type === "Level" ||
-                                    a.trait_type === "Rank Value" ||
-                                    a.trait_type === "Upgrade Level"
+                                    LEVEL_TRAIT_KEYS.includes(String(a.trait_type || '').toLowerCase())
                                 )
                                 if (lvlAttr) {
                                     const val = parseInt(String(lvlAttr.value).replace(/\D/g, ''))

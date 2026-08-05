@@ -42,3 +42,8 @@ next-env.d.ts
 
 # Local mirror of Cloudflare R2 assets (never commit — 100s of MB of art)
 /R2/
+
+# Source metadata drops + DB backups — inputs/outputs of one-off migrations, not app source
+/metadata/
+/json_without_json/
+/backups/
