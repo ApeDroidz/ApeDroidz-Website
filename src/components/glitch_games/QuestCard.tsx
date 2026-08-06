@@ -93,7 +93,7 @@ export function QuestCard({ quest, isHolder, wallet, onClaimed }: QuestCardProps
                 <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                         {isClaimed && <CheckCircle className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />}
-                        {isLocked && <Lock className="w-3 h-3 text-white/20 flex-shrink-0" />}
+                        {isLocked && <Lock className="w-3 h-3 text-[#333333] flex-shrink-0" />}
                         <span className={`text-xs font-bold leading-tight ${isClaimed ? "text-white/30 line-through" : isLocked ? "text-white/25" : "text-white/80"}`}>
                             {quest.title}
                         </span>

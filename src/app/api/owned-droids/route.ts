@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
   const rowsById = new Map<number, any>()
   const { data: rows, error } = await supabaseAdmin!
     .from('droidz')
-    .select('token_id, level, is_super, traits, display_pref')
+    .select('token_id, level, is_super, traits, display_pref, display_pref_updated_at')
     .in('token_id', uniqueIds)
   if (error) {
     console.error('[owned-droids] db query failed:', error)

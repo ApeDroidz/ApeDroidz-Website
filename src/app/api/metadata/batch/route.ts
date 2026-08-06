@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   const { data: rows, error } = await supabaseAdmin!
     .from('droidz')
-    .select('token_id, level, is_super, traits, display_pref')
+    .select('token_id, level, is_super, traits, display_pref, display_pref_updated_at')
     .in('token_id', ids)
 
   if (error) {

@@ -129,7 +129,7 @@ export function StreakBlock({ streak, isHolder, wallet, onClaimed }: StreakBlock
                             ) : isPastUnclaimed ? (
                                 <CheckCircle className="w-3.5 h-3.5 text-white/15" />
                             ) : (
-                                <Lock className="w-3 h-3 text-white/15" />
+                                <Lock className="w-3 h-3 text-[#262626]" />
                             )}
 
                             {/* XP reward */}

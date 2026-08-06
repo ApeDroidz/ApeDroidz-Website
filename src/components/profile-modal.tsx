@@ -296,7 +296,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                         <button onClick={() => setActiveTab('profile')} className={`cursor-pointer px-4 sm:px-6 py-2 rounded-lg sm:rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'profile' ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/20' : 'text-white/40'}`}>Profile</button>
                         <button onClick={() => setActiveTab('leaderboard')} className={`cursor-pointer px-4 sm:px-6 py-2 rounded-lg sm:rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'leaderboard' ? 'bg-[#3b82f6] text-white shadow-lg shadow-blue-500/20' : 'text-white/40'}`}>Leaderboard</button>
                     </div>
-                    <button onClick={onClose} className="cursor-pointer w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all"><X size={22} /></button>
+                    <button onClick={onClose} className="cursor-pointer w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-white/5 text-[#666666] hover:text-white hover:bg-white/10 transition-all"><X size={22} /></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scrollbar-hide">

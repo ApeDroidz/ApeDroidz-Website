@@ -79,7 +79,7 @@ export function AlertModal({
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 text-white/30 hover:text-white transition-colors"
+              className="absolute top-4 right-4 text-[#4d4d4d] hover:text-white transition-colors"
             >
               <X size={20} />
             </button>
@@ -93,7 +93,7 @@ export function AlertModal({
                   {title || "Notification"}
                 </h2>
                 {message && (
-                  <p className="text-gray-400 text-sm font-mono leading-relaxed max-w-[90%] mx-auto">
+                  <p className="text-gray-400 text-sm font-mono leading-relaxed max-w-[90%] mx-auto whitespace-pre-line">
                     {message}
                   </p>
                 )}

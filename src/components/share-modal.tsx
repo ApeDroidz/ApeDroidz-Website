@@ -385,7 +385,7 @@ export function ShareModal({ item, isOpen, onClose, onShowToast }: ShareModalPro
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
 
           <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-md flex flex-col items-center">
-            <button onClick={!isGenerating ? onClose : undefined} className={`absolute -top-12 right-0 p-2 text-white/50 hover:text-white transition-colors ${isGenerating ? 'opacity-0' : ''}`}><X size={24} /></button>
+            <button onClick={!isGenerating ? onClose : undefined} className={`absolute -top-12 right-0 p-2 text-[#808080] hover:text-white transition-colors ${isGenerating ? 'opacity-0' : ''}`}><X size={24} /></button>
 
             {/* ПРЕВЬЮ */}
             <div className="relative w-full aspect-square rounded-2xl overflow-hidden border border-white/20 shadow-2xl mb-6 bg-black" style={{ containerType: 'size' }}><FlexCard /></div>

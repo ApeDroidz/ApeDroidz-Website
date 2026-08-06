@@ -226,7 +226,7 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
                   View Details <ExternalLink size={10} />
                 </a>
               </div>
-              <button onClick={() => setShowMaxLevelAlert(false)} className="absolute top-4 right-4 text-white/50 hover:text-white"><X size={20} /></button>
+              <button onClick={() => setShowMaxLevelAlert(false)} className="absolute top-4 right-4 text-[#808080] hover:text-white"><X size={20} /></button>
             </motion.div>
           </div>
         )}

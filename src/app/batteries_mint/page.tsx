@@ -938,7 +938,7 @@ export default function MintPage() {
                                                                     {/* Header Row: Lock + UPCOMING on left, CHECK ELIGIBILITY on right */}
                                                                     <div className="flex justify-between items-center mb-4">
                                                                         <div className="flex items-center gap-2">
-                                                                            <Lock size={14} className="text-white/50" />
+                                                                            <Lock size={14} className="text-[#808080]" />
                                                                             <span className="font-black text-xs uppercase tracking-widest text-white/50">
                                                                                 Upcoming
                                                                             </span>

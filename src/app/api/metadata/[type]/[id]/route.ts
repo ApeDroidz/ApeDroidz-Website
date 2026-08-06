@@ -76,7 +76,7 @@ export async function GET(
     if (type === 'honorary') {
       const { data: row } = await supabaseAdmin!
         .from('honorary_droidz')
-        .select('token_id, name, description, external_url, traits, has_gif, has_png, display_pref')
+        .select('token_id, name, description, external_url, traits, has_gif, has_png, display_pref, display_pref_updated_at')
         .eq('token_id', tokenId)
         .maybeSingle()
 
@@ -142,7 +142,12 @@ export async function GET(
       // Cache-bust HTTP image URLs by level/super-state AND chosen view.
       // Marketplaces (OpenSea, Magic Eden) cache assets by absolute URL — the
       // query param changes exactly when the visual changes, so caches re-pull.
-      const bustVersion = `${currentLevel}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}`;
+      // Include when the preference was saved: switching back to a previous
+      // variant would otherwise reuse a URL the marketplace already cached, and
+      // it would keep serving the old thumbnail.
+      const prefMs = Date.parse(droid.display_pref_updated_at || '');
+      const prefTag = Number.isFinite(prefMs) ? `-${Math.floor(prefMs / 1000).toString(36)}` : '';
+      const bustVersion = `${currentLevel}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}${prefTag}`;
       const bustImage = (url: string | undefined | null): string => {
         if (!url) return '';
         const sep = url.includes('?') ? '&' : '?';

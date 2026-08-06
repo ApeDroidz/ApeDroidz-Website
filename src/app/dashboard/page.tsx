@@ -251,8 +251,8 @@ export default function DashboardPage() {
       setToastState({
         isOpen: true, type: 'success', title: 'PFP saved',
         message: data?.marketplaceRefreshed === false
-          ? `Droid #${selectedDroid.tokenId} now shows the ${variant} version. OpenSea did not accept the refresh — hit "Refresh metadata" there if it looks stale.`
-          : `Droid #${selectedDroid.tokenId} now shows the ${variant} version. OpenSea has been asked to refresh — it can take a few minutes.`,
+          ? `Droid #${selectedDroid.tokenId} — ${variant} version\nMarketplace refresh was rejected — refresh manually if it looks stale`
+          : `Droid #${selectedDroid.tokenId} — ${variant} version\nMetadata will update automatically`,
       })
       setTimeout(() => setJustSaved(false), 2500)
     } catch (error: any) {

@@ -9,6 +9,7 @@ export type DroidRow = {
   is_super: boolean | null
   traits: any[] | null
   display_pref: string | null
+  display_pref_updated_at?: string | null
 }
 
 export type DroidDisplay = {
@@ -20,6 +21,17 @@ export type DroidDisplay = {
   is_super: boolean
   display_view: 'pixel' | 'animated'
   attributes: { trait_type: string; value: string }[]
+}
+
+/** Marketplaces cache the derived thumbnail by image URL. A bust built only
+ *  from level/view repeats itself when a holder switches back to a variant they
+ *  used before, so the CDN happily serves the stale derivative. Mixing in the
+ *  moment the preference was saved makes every change produce a URL that was
+ *  never fetched. Tokens that never changed keep their stable URL. */
+const prefStamp = (updatedAt: string | null | undefined): string => {
+  if (!updatedAt) return ''
+  const ms = Date.parse(updatedAt)
+  return Number.isFinite(ms) ? `-${Math.floor(ms / 1000).toString(36)}` : ''
 }
 
 const STRIP_TRAITS = ['level', 'upgraded', 'upgrade level', 'upgraded level', 'rank', 'rank value']
@@ -56,7 +68,7 @@ export function buildDroidDisplay(row: Partial<DroidRow> & { token_id: number })
   const pixelUrl = droidStaticUrl(tokenId, level, isSuper)
   const animatedUrl = droidAnimatedWebpUrl(tokenId, isSuper)
 
-  const bustVersion = `${level}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}`
+  const bustVersion = `${level}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}${prefStamp(row.display_pref_updated_at)}`
   const bust = (url: string) => `${url}?v=${bustVersion}`
 
   return {
@@ -90,6 +102,7 @@ export type HonoraryRow = {
   has_gif: boolean | null
   has_png: boolean | null
   display_pref: string | null
+  display_pref_updated_at?: string | null
 }
 
 export type HonoraryDisplay = {
@@ -125,7 +138,7 @@ export function buildHonoraryDisplay(
   // directly — only WebP autoplays in an <img>.
   const animatedAutoplayUrl = hasGif ? honoraryAnimatedWebpUrl(tokenId) : null
 
-  const bust = `${hasGif ? 'g' : 'p'}${effectiveView === 'animated' ? 'a' : 'p'}`
+  const bust = `${hasGif ? 'g' : 'p'}${effectiveView === 'animated' ? 'a' : 'p'}${prefStamp(row.display_pref_updated_at)}`
   const withBust = (url: string) => `${url}?v=${bust}`
 
   return {
