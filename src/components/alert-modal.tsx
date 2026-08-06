@@ -74,7 +74,7 @@ export function AlertModal({
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="relative w-full max-w-sm bg-[#0a0a0a] border border-white/15 rounded-3xl p-8 flex flex-col gap-6 text-center shadow-[0_0_50px_rgba(0,0,0,0.8)]"
+            className="relative w-full max-w-sm sm:max-w-md bg-[#0a0a0a] border border-white/15 rounded-3xl p-8 flex flex-col gap-6 text-center shadow-[0_0_50px_rgba(0,0,0,0.8)]"
           >
             {/* Close Button */}
             <button
@@ -93,7 +93,7 @@ export function AlertModal({
                   {title || "Notification"}
                 </h2>
                 {message && (
-                  <p className="text-gray-400 text-sm font-mono leading-relaxed max-w-[90%] mx-auto whitespace-pre-line">
+                  <p className="text-gray-400 text-sm font-mono leading-relaxed w-full mx-auto whitespace-pre-line sm:text-balance">
                     {message}
                   </p>
                 )}
