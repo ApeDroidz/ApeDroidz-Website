@@ -80,6 +80,19 @@ export const TEAM: TeamMember[] = [
   { name: "TBA", role: "Community" },
 ]
 
+export interface PlayImage {
+  src: string
+  alt: string
+  href?: string
+}
+
+// EDIT ME: картинки в блоке "Ready to the Other Side?" — пока баннеры игр,
+// сюда же можно положить 3D-рендеры дроидов, когда будут готовы.
+export const PLAY_IMAGES: PlayImage[] = [
+  { src: "/images/glitch-cards-banner.jpg", alt: "Glitch Cards", href: "/glitch_games/cards" },
+  { src: "/images/glitch-flight-banner.jpg", alt: "Glitch Flight", href: "/glitch_games/flight" },
+]
+
 export const OTHERSIDE_URL = "https://otherside.xyz"
 // TODO: confirm the honorary collection slug on OpenSea.
 export const HONORARY_OPENSEA_URL = "https://opensea.io/collection/apedroidz-honorary"

@@ -5,6 +5,13 @@ import { Header } from "@/components/header"
 import { DigitalBackground } from "@/components/digital-background"
 import { ProfileModal } from "@/components/profile-modal"
 import { HeroSection } from "@/components/landing/hero-section"
+import { StatsStrip } from "@/components/landing/stats-strip"
+import { CollectionSection } from "@/components/landing/collection-section"
+import { HonorariesSection } from "@/components/landing/honoraries-section"
+import { PlaySection } from "@/components/landing/play-section"
+import { PartnersMarquee } from "@/components/landing/partners-marquee"
+import { TeamSection } from "@/components/landing/team-section"
+import { Footer } from "@/components/footer"
 
 export default function Home() {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -43,6 +50,13 @@ export default function Home() {
       {/* КОНТЕНТ */}
       <div className="relative z-10">
         <HeroSection />
+        <StatsStrip />
+        <CollectionSection />
+        <HonorariesSection />
+        <PlaySection />
+        <PartnersMarquee />
+        <TeamSection />
+        <Footer />
       </div>
 
       {/* Profile Modal */}

@@ -57,14 +57,17 @@ export function HeroSection() {
     return () => clearTimeout(t)
   }, [])
 
-  // headline → materialize → ready: и текст доигран, и модель загружена
+  // headline → materialize: и текст доигран, и модель загружена
   useEffect(() => {
-    if (phase === "headline" && headlineDone && glbReady) {
-      setPhase("materialize")
-      const t = setTimeout(() => setPhase("ready"), reduced ? 350 : 850)
-      return () => clearTimeout(t)
-    }
-  }, [phase, headlineDone, glbReady, reduced])
+    if (phase === "headline" && headlineDone && glbReady) setPhase("materialize")
+  }, [phase, headlineDone, glbReady])
+
+  // materialize → ready (отдельным эффектом: смена фазы не должна чистить свой же таймер)
+  useEffect(() => {
+    if (phase !== "materialize") return
+    const t = setTimeout(() => setPhase("ready"), reduced ? 350 : 850)
+    return () => clearTimeout(t)
+  }, [phase, reduced])
 
   const onSceneReady = useCallback(() => setGlbReady(true), [])
   const onSceneProgress = useCallback((pct: number) => setLoadPct(pct), [])
