@@ -1,60 +1,29 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
-import { useActiveAccount } from "thirdweb/react"
-import dynamic from "next/dynamic"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
-import { MotionMenu } from "@/components/motionmenu"
 import { DigitalBackground } from "@/components/digital-background"
 import { ProfileModal } from "@/components/profile-modal"
-import { Droid3DCTA } from "@/components/droid-3d-cta"
-
-// Landing CTA for the 3D drop. Off until the 3D previews are uploaded.
-const SHOW_3D_CTA = false
-import { SocialSidebar } from "@/components/social-sidebar"
-
-// Динамический импорт Scene с отключенным SSR
-const Scene = dynamic(() => import("@/components/scene").then((mod) => ({ default: mod.Scene })), {
-  ssr: false,
-  loading: () => <div className="absolute inset-0 w-full h-full bg-black" />
-})
+import { HeroSection } from "@/components/landing/hero-section"
 
 export default function Home() {
-  const [activeEmotion, setActiveEmotion] = useState<string | null>(null)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'leaderboard'>('profile')
-  const router = useRouter()
-  const account = useActiveAccount()
-
 
   useEffect(() => {
-    const preloadModel = (url: string) => {
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'fetch';
-      link.href = url;
-      link.crossOrigin = 'anonymous';
-      document.head.appendChild(link);
-    };
-    preloadModel('/white-droid.glb');
-    preloadModel('/animations/Dance.glb');
-  }, []);
+    const link = document.createElement('link')
+    link.rel = 'preload'
+    link.as = 'fetch'
+    link.href = '/white-droid.glb'
+    link.crossOrigin = 'anonymous'
+    document.head.appendChild(link)
+  }, [])
 
   return (
-    <main className="relative h-[100dvh] w-full bg-black overflow-hidden font-sans">
-
-      {/* СЛОЙ 5 (ВЕРХНИЙ): HEADER */}
-      <div className="absolute top-0 left-0 right-0 z-50">
-        <Header
-          onOpenProfile={() => { setProfileInitialTab('profile'); setIsProfileOpen(true); }}
-          onOpenLeaderboard={() => { setProfileInitialTab('leaderboard'); setIsProfileOpen(true); }}
-        />
-      </div>
-
-      {/* СЛОЙ 1 (ФОН): ЦИФРОВОЙ ФОН (над дымом) */}
+    <main className="relative w-full bg-black font-sans text-white">
+      {/* ФОН: бегущие символы, фиксированы на всю страницу */}
       <div
-        className="absolute inset-0 z-0 pointer-events-none select-none mix-blend-screen"
+        className="fixed inset-0 z-0 pointer-events-none select-none mix-blend-screen"
         style={{
           maskImage: "linear-gradient(to bottom, black 40%, transparent 70%)",
           WebkitMaskImage: "linear-gradient(to bottom, black 40%, transparent 70%)"
@@ -63,28 +32,18 @@ export default function Home() {
         <DigitalBackground />
       </div>
 
-      {/* СЛОЙ 2 (СЕРЕДИНА): 3D СЦЕНА */}
-      <div className="absolute inset-0 z-10">
-        <Scene
-          activeEmotion={activeEmotion}
-          onEmotionEnd={() => setActiveEmotion(null)}
+      {/* HEADER */}
+      <div className="fixed top-0 left-0 right-0 z-50">
+        <Header
+          onOpenProfile={() => { setProfileInitialTab('profile'); setIsProfileOpen(true); }}
+          onOpenLeaderboard={() => { setProfileInitialTab('leaderboard'); setIsProfileOpen(true); }}
         />
       </div>
 
-      {/* СЛОЙ 3 (UI): МЕНЮ */}
-      <MotionMenu
-        activeEmotion={activeEmotion}
-        onSelect={setActiveEmotion}
-        disabled={activeEmotion !== null}
-      />
-
-      {/* Mint CTA */}
-      {/* Hidden until the 3D renders ship — flip SHOW_3D_CTA in the component
-          (or this flag) to bring it back, nothing else needs changing. */}
-      {SHOW_3D_CTA && <Droid3DCTA />}
-
-      {/* Social Sidebar */}
-      <SocialSidebar />
+      {/* КОНТЕНТ */}
+      <div className="relative z-10">
+        <HeroSection />
+      </div>
 
       {/* Profile Modal */}
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} initialTab={profileInitialTab} />
