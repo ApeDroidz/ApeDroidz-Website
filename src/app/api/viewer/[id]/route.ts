@@ -258,6 +258,7 @@ export async function GET(
     position: absolute;
     inset: 0;
     display: none;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     z-index: 45;
@@ -286,6 +287,21 @@ export async function GET(
   #lock-cta:hover { background: #0069FF; color: #fff; transform: translateY(-1px); }
   #lock-cta:active { transform: translateY(0); }
   #lock-cta svg { width: 14px; height: 14px; flex: 0 0 auto; }
+  #lock-cta, #cta-handle { text-decoration: none; }
+  /* Readable fallback: if the marketplace sandbox blocks new tabs, the handle
+     is still visible and selectable. */
+  #cta-handle {
+    display: none;
+    pointer-events: auto;
+    margin-top: 10px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.65);
+    user-select: text;
+  }
+  #cta-handle:hover { color: #fff; }
 
   /* Loader — droid logo fills white left-to-right showing REAL load progress */
   #loader {
@@ -353,10 +369,11 @@ export async function GET(
   </div>
 
   <div id="lock-overlay">
-    <button id="lock-cta" type="button" onclick="goUpgrade()">
+    <a id="lock-cta" href="${cta.url}" target="_blank" rel="noopener noreferrer" onclick="return onCtaClick(event)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       <span id="cta-label">Upgrade to unlock</span>
-    </button>
+    </a>
+    <a id="cta-handle" href="${cta.url}" target="_blank" rel="noopener noreferrer"></a>
   </div>
 
   <div id="loader">
@@ -423,20 +440,19 @@ export async function GET(
   // "Upgrade to unlock" CTA. Embedded on our own dashboard we let the parent
   // route (no reload); from a marketplace iframe we open the site in a new tab,
   // landing on the upgrade module with this droid already selected.
-  function goUpgrade() {
-    // Honorary's CTA is an external profile link — it must never be handled as
-    // an in-site route by the embedding dashboard.
-    if (CFG.cta.external) {
-      window.open(CFG.cta.url, '_blank', 'noopener');
-      return;
-    }
-    if (CFG.embed && window.parent && window.parent !== window) {
+  function onCtaClick(e) {
+    // Embedded on our own dashboard an internal CTA should route in-place
+    // instead of opening a tab. Everything else falls through to the anchor's
+    // native target=_blank, which survives marketplace iframe sandboxes that
+    // block window.open().
+    if (!CFG.cta.external && CFG.embed && window.parent && window.parent !== window) {
       try {
         window.parent.postMessage({ type: 'apedroidz:upgradeRequested', tokenId: CFG.tokenId }, '*');
-        return;
-      } catch (e) { /* fall through to opening a tab */ }
+        if (e && e.preventDefault) e.preventDefault();
+        return false;
+      } catch (err) { /* let the link handle it */ }
     }
-    window.open(CFG.cta.url, '_blank', 'noopener');
+    return true;
   }
 
   // Blur + lock overlay when the selected view is not available for this token.
@@ -563,6 +579,13 @@ export async function GET(
   });
 
   document.getElementById('cta-label').textContent = CFG.cta.label;
+  // If the marketplace sandbox refuses to open tabs, the handle is still
+  // readable (and selectable) right under the button.
+  var handleEl = document.getElementById('cta-handle');
+  if (CFG.cta.external) {
+    handleEl.textContent = CFG.cta.url.replace(/^https?:\/\/(www\.)?x\.com\//, '@');
+    handleEl.style.display = 'block';
+  }
   buildSwitch();
   switchView(currentView, true);
 </script>
