@@ -181,7 +181,7 @@ function OverviewTab() {
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono text-white/30">{new Date(data.generatedAt).toLocaleString()}</span>
-                <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/40 hover:text-white">
+                <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-[#666666] hover:text-white">
                     <RefreshCcw size={12} /> Refresh
                 </button>
             </div>
@@ -667,7 +667,7 @@ function SeasonTab() {
     return (
         <div className="flex flex-col gap-4">
             <div className="flex justify-end">
-                <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/40 hover:text-white"><RefreshCcw size={12} /> Refresh</button>
+                <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /> Refresh</button>
             </div>
             {loading && !data ? <Loading /> : err ? <ErrorBox msg={err} /> : data && (
                 <>
@@ -778,7 +778,7 @@ function PrizesTab() {
                 <div className="flex items-center gap-2">
                     <button onClick={() => setShowInv(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white px-3 py-2 border border-white/10 rounded-xl flex items-center gap-1.5"><BoxSelect size={12} /> Inventory</button>
                     <button onClick={() => setShowForm(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white px-3 py-2 bg-[#3b82f6] hover:bg-[#2c63c4] rounded-xl flex items-center gap-1.5"><Plus size={12} /> New prize</button>
-                    <button onClick={load} className="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white"><RefreshCcw size={12} /></button>
+                    <button onClick={load} className="text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /></button>
                 </div>
             </div>
 
@@ -983,7 +983,7 @@ function HealthTab() {
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono text-white/30">{data?.generatedAt && new Date(data.generatedAt).toLocaleString()}</span>
-                <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/40 hover:text-white"><RefreshCcw size={12} /> Refresh</button>
+                <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /> Refresh</button>
             </div>
 
             {loading && !data ? <Loading /> : err ? <ErrorBox msg={err} /> : data && (
@@ -1048,7 +1048,7 @@ function AlertCard({ alert, onResolved }: { alert: { severity: string; kind: str
                     <span className="text-[10px] font-mono text-white/30 truncate">{alert.kind}</span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                    {alert.detail && <button onClick={() => setOpen(o => !o)} className="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white">{open ? 'Hide' : 'Detail'}</button>}
+                    {alert.detail && <button onClick={() => setOpen(o => !o)} className="text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white">{open ? 'Hide' : 'Detail'}</button>}
                     {alert.fingerprint && (
                         <button
                             onClick={resolve}
@@ -1118,7 +1118,7 @@ function UsersTab() {
                     <button onClick={() => performSearch(search)} disabled={drillLoading} className="h-10 px-4 bg-[#3b82f6] hover:bg-[#2c63c4] disabled:opacity-50 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                         {drillLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />} Search
                     </button>
-                    {drillDown && <button onClick={() => { setDrillDown(null); setSearch('') }} className="h-10 px-3 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white">Clear</button>}
+                    {drillDown && <button onClick={() => { setDrillDown(null); setSearch('') }} className="h-10 px-3 text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white">Clear</button>}
                 </div>
                 {drillError && <p className="text-xs text-red-400 mt-2">{drillError}</p>}
             </Card>
@@ -1131,7 +1131,7 @@ function UsersTab() {
                                 <button key={id} onClick={() => setView(id as any)} className={`px-3 h-7 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${view === id ? 'bg-[#3b82f6] text-white' : 'text-white/40 hover:text-white'}`}>{label}</button>
                             ))}
                         </div>
-                        <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/40 hover:text-white"><RefreshCcw size={12} /> Refresh</button>
+                        <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /> Refresh</button>
                     </div>
 
                     {loading && !data ? <Loading /> : err ? <ErrorBox msg={err} /> : data && (
@@ -1321,7 +1321,7 @@ function QuestsTab() {
                     >
                         <Plus size={12} /> New quest
                     </button>
-                    <button onClick={load} className="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white">
+                    <button onClick={load} className="text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white">
                         <RefreshCcw size={12} />
                     </button>
                 </div>
@@ -1536,7 +1536,7 @@ function WindowSwitcher({ value, onChange, onRefresh }: { value: Window; onChang
                     <button key={w} onClick={() => onChange(w)} className={`px-3 h-7 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${value === w ? 'bg-[#3b82f6] text-white' : 'text-white/40 hover:text-white'}`}>{w === 'all' ? 'All-time' : w}</button>
                 ))}
             </div>
-            <button onClick={onRefresh} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-white/40 hover:text-white"><RefreshCcw size={12} /> Refresh</button>
+            <button onClick={onRefresh} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /> Refresh</button>
         </div>
     )
 }
@@ -1597,8 +1597,8 @@ export default function SpltpnlPage() {
                     <h1 className="text-sm font-black uppercase tracking-widest">SPLTPNL</h1>
                     <span className="text-[9px] font-mono text-white/30">admin · season 2</span>
                     <div className="ml-auto flex items-center gap-3">
-                        <a href="/" className="text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white">Site →</a>
-                        <button onClick={logout} className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white"><LogOut size={12} /> Logout</button>
+                        <a href="/" className="text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white">Site →</a>
+                        <button onClick={logout} className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white"><LogOut size={12} /> Logout</button>
                     </div>
                 </div>
                 <nav className="max-w-[1400px] mx-auto flex overflow-x-auto px-3 gap-1 -mb-px">

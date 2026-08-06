@@ -159,7 +159,7 @@ export function BatterySelector({
                     >
                         <RefreshCcw
                             size={13}
-                            className={`text-white/40 group-hover:text-white transition-all ${(isRefreshing || isLoading) ? 'animate-spin opacity-50' : ''}`}
+                            className={`transition-all ${(isRefreshing || isLoading) ? 'animate-spin text-[#3d3d3d]' : 'text-[#666666] group-hover:text-white'}`}
                         />
                     </button>
                     <div className="flex-1" />
