@@ -35,15 +35,27 @@ export const droidStaticUrl = (tokenId: string | number, level: number, isSuper:
 }
 
 /** Animated (GIF) art. Level-1 droids have no animation of their own — the
- *  standard L2 render doubles as the "upgrade teaser" preview. */
+ *  standard L2 render doubles as the "upgrade teaser" preview.
+ *  Use this wherever the file itself is the point (previewer, downloads). */
 export const droidAnimatedUrl = (tokenId: string | number, isSuper: boolean): string =>
   `${PIXEL_MEDIA}/${isSuper ? 'lvl_2_super_gif' : 'lvl_2_gif'}/${tokenId}.gif`
+
+/** Same animation as WebP — pixel-identical to the GIF, ~20x smaller.
+ *  This is what belongs in metadata `image`: marketplaces autoplay animated
+ *  WebP, while a GIF in that slot renders as a still frame that only moves on
+ *  hover. The previewer keeps serving the GIF so "save image" yields a GIF. */
+export const droidAnimatedWebpUrl = (tokenId: string | number, isSuper: boolean): string =>
+  `${PIXEL_MEDIA}/${isSuper ? 'lvl_2_super_webp' : 'lvl_2_webp'}/${tokenId}.webp`
 
 export const honoraryStaticUrl = (tokenId: string | number): string =>
   `${HONORARY}/png/${tokenId}.png`
 
 export const honoraryAnimatedUrl = (tokenId: string | number): string =>
   `${HONORARY}/gif/${tokenId}.gif`
+
+/** Autoplaying variant for metadata `image` — see droidAnimatedWebpUrl. */
+export const honoraryAnimatedWebpUrl = (tokenId: string | number): string =>
+  `${HONORARY}/webp/${tokenId}.webp`
 
 export const batteryUrl = (isSuper: boolean, ext: 'webp' | 'gif' = 'webp'): string =>
   `${MEDIA_BASE}/batteries/${isSuper ? 'super' : 'standart'}_battery.${ext}`

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { droidStaticUrl, droidAnimatedUrl, batteryUrl } from '@/lib/media'
+import { droidStaticUrl, droidAnimatedWebpUrl, batteryUrl } from '@/lib/media'
 import { buildHonoraryDisplay } from '@/lib/droidDisplay'
 
 export const dynamic = 'force-dynamic'
@@ -135,7 +135,9 @@ export async function GET(
       // Variant assets live on Cloudflare R2 (assets.apedroidz.com), addressed
       // by token id. Pixel = STATIC png, animated = GIF. See lib/media.
       const pixelUrl = droidStaticUrl(tokenId, currentLevel, isSuper);
-      const animatedUrl = droidAnimatedUrl(tokenId, isSuper);
+      // WebP, not GIF: marketplaces autoplay animated WebP in the image slot,
+      // whereas a GIF there shows a frozen frame that only animates on hover.
+      const animatedUrl = droidAnimatedWebpUrl(tokenId, isSuper);
 
       // Cache-bust HTTP image URLs by level/super-state AND chosen view.
       // Marketplaces (OpenSea, Magic Eden) cache assets by absolute URL — the

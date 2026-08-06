@@ -12,7 +12,7 @@ import { AlertModal } from "@/components/alert-modal"
 import { ProfileModal } from "@/components/profile-modal"
 import { resolveImageUrl } from "@/lib/utils"
 import { useGlitchSession } from "@/hooks/useGlitchSession"
-import { Check, Loader2, Lock, Save } from "lucide-react"
+import { Check, ChevronsUp, Loader2, Lock, Save } from "lucide-react"
 
 // Level can arrive as 'level' (current) or legacy 'Level'/'Rank Value'.
 const LEVEL_TRAIT_KEYS = ['level', 'rank value', 'upgrade level']
@@ -321,17 +321,29 @@ export default function DashboardPage() {
             <div className="flex-shrink-0 mt-4 relative w-full max-w-[520px] mx-auto">
               <AnimatePresence mode="wait">
                 {needsUpgradeForCurrent ? (
-                  // Locked state: the actionable CTA lives on the previewer itself,
-                  // so this one just reads as unavailable.
-                  <motion.button
-                    key="upgrade"
-                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                    disabled
-                    className="w-full h-12 flex items-center justify-center gap-2 bg-white/5 text-white/30 border border-white/10 font-black uppercase tracking-wider rounded-xl text-sm cursor-not-allowed"
-                  >
-                    <Lock size={16} />
-                    {isHonorary ? 'Write SPLITFORM to save' : 'Upgrade to save'}
-                  </motion.button>
+                  // Locked. On the base collection this is actionable — upgrading
+                  // is something the holder can do right now. Honorary has no
+                  // self-serve path, so it only states what unlocks it.
+                  isHonorary ? (
+                    <motion.div
+                      key="honorary-locked"
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-white/5 text-white/40 border border-white/10 font-black uppercase tracking-wider rounded-xl text-sm"
+                    >
+                      <Lock size={16} />
+                      Contact @SPLITF0RM on X to unlock
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="upgrade"
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                      onClick={handleSaveDefault}
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-wider rounded-xl hover:bg-[#0069FF] hover:text-white transition-all text-sm shadow-lg cursor-pointer"
+                    >
+                      <ChevronsUp size={18} />
+                      Upgrade to unlock Animated
+                    </motion.button>
+                  )
                 ) : (
                   <motion.button
                     key="save"

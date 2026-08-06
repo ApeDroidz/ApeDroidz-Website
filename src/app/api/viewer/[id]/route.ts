@@ -13,7 +13,7 @@ const LOCKED_VIEWS: ViewKey[] = ['pfp3d', 'fullbody', 'model3d']
 
 // Honorary is a separate ERC-1155 collection: no levels, no 3D renders, and the
 // animated version exists only for the tokens that have a gif.
-const HONORARY_X_URL = 'https://x.com/SPLITF0RM'
+const HONORARY_X_HANDLE = '@SPLITF0RM'
 
 const headers = {
   'Content-Type': 'text/html; charset=utf-8',
@@ -108,11 +108,12 @@ export async function GET(
     ? 'HONORARY'
     : (level >= 2 ? (isSuper ? 'LVL 2 SUPER' : 'LVL 2') : 'LVL 1')
 
-  // Absolute so the CTA works from a marketplace iframe too, where a relative
-  // path would resolve against OpenSea rather than our site.
+  // Wording only — the plaque is not clickable. Marketplace iframes are
+  // sandboxed, so any button here would be dead on arrival; the site renders a
+  // real button under the previewer instead.
   const cta = isHonorary
-    ? { label: 'Write SPLITFORM to unlock', url: HONORARY_X_URL, external: true }
-    : { label: 'Upgrade to unlock', url: `${origin}/upgrade_module?select=${tokenId}`, external: false }
+    ? { label: `Contact ${HONORARY_X_HANDLE} on X to unlock` }
+    : { label: 'Upgrade to unlock' }
 
   const config = {
     tokenId,
@@ -264,44 +265,28 @@ export async function GET(
     z-index: 45;
     pointer-events: none; /* only the CTA is clickable */
   }
-  #lock-cta {
-    pointer-events: auto;
+  /* Static plaque. Marketplaces sandbox this page, so any link or window.open
+     is silently swallowed — a button here would just look broken. The site
+     renders its own actionable button below the previewer instead. */
+  #lock-plaque {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    appearance: none;
-    border: none;
-    cursor: pointer;
-    background: #fff;
-    color: #000;
-    font-family: inherit;
+    gap: 9px;
+    background: rgba(0,0,0,0.62);
+    border: 1px solid rgba(255,255,255,0.16);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: rgba(255,255,255,0.95);
     font-size: 12px;
     font-weight: 900;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 12px 20px;
-    border-radius: 12px;
-    box-shadow: 0 10px 34px rgba(0,0,0,0.5);
-    transition: background .2s, color .2s, transform .2s;
-  }
-  #lock-cta:hover { background: #0069FF; color: #fff; transform: translateY(-1px); }
-  #lock-cta:active { transform: translateY(0); }
-  #lock-cta svg { width: 14px; height: 14px; flex: 0 0 auto; }
-  #lock-cta, #cta-handle { text-decoration: none; }
-  /* Readable fallback: if the marketplace sandbox blocks new tabs, the handle
-     is still visible and selectable. */
-  #cta-handle {
-    display: none;
-    pointer-events: auto;
-    margin-top: 10px;
-    font-size: 11px;
-    font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.65);
-    user-select: text;
+    padding: 13px 20px;
+    border-radius: 12px;
+    box-shadow: 0 10px 34px rgba(0,0,0,0.5);
+    text-align: center;
   }
-  #cta-handle:hover { color: #fff; }
+  #lock-plaque svg { width: 15px; height: 15px; flex: 0 0 auto; opacity: .9; }
 
   /* Loader — droid logo fills white left-to-right showing REAL load progress */
   #loader {
@@ -315,12 +300,73 @@ export async function GET(
     transition: opacity .35s ease;
   }
   #loader.done { opacity: 0; pointer-events: none; }
+  /* Loader: the mark fills white left-to-right with real download progress,
+     while glitch slices tear across it. Monochrome on purpose — horizontal
+     cuts, displacement and flicker, no chromatic fringing. */
   #loader-logo { position: relative; width: 130px; height: 97px; }
   #loader-logo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
   #logo-dim path { fill: rgba(255,255,255,0.16); }
-  /* clip-path is driven by JS from 100% (hidden) to 0% (full) as bytes arrive */
-  #logo-fill { clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0); transition: clip-path .15s linear, -webkit-clip-path .15s linear; }
-  #logo-fill path { fill: #fff; }
+
+  /* JS drives this from 100% (empty) to 0% (full) as bytes arrive */
+  #logo-fill-wrap {
+    position: absolute; inset: 0;
+    clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0);
+    transition: clip-path .15s linear, -webkit-clip-path .15s linear;
+  }
+  #logo-fill-wrap svg path { fill: #fff; }
+
+  /* Slices: each band lives in its own layer and jumps sideways on its own
+     rhythm, so the tears never line up into a regular pattern. */
+  .glitch-slice { position: absolute; inset: 0; }
+  .glitch-slice.s1 {
+    clip-path: inset(14% 0 68% 0); -webkit-clip-path: inset(14% 0 68% 0);
+    animation: sliceA 2.1s steps(1, end) infinite;
+  }
+  .glitch-slice.s2 {
+    clip-path: inset(46% 0 34% 0); -webkit-clip-path: inset(46% 0 34% 0);
+    animation: sliceB 1.7s steps(1, end) infinite;
+  }
+  .glitch-slice.s3 {
+    clip-path: inset(74% 0 8% 0); -webkit-clip-path: inset(74% 0 8% 0);
+    animation: sliceC 2.6s steps(1, end) infinite;
+  }
+  @keyframes sliceA {
+    0%,72%   { transform: translateX(0);     opacity: 1; }
+    74%      { transform: translateX(-7px);  opacity: .55; }
+    77%      { transform: translateX(5px);   opacity: 1; }
+    79%,100% { transform: translateX(0);     opacity: 1; }
+  }
+  @keyframes sliceB {
+    0%,40%   { transform: translateX(0);     opacity: 1; }
+    43%      { transform: translateX(9px);   opacity: .4; }
+    46%      { transform: translateX(-4px);  opacity: 1; }
+    49%,100% { transform: translateX(0);     opacity: 1; }
+  }
+  @keyframes sliceC {
+    0%,86%   { transform: translateX(0);     opacity: 1; }
+    88%      { transform: translateX(-11px); opacity: .6; }
+    91%      { transform: translateX(3px);   opacity: .85; }
+    93%,100% { transform: translateX(0);     opacity: 1; }
+  }
+
+  /* Chunky vertical banding — reads as pixelation without touching the art */
+  #loader-logo::after {
+    content: "";
+    position: absolute; inset: -4% -8%;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0 3px,
+      rgba(0,0,0,0.55) 3px 4px
+    );
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    animation: scan 3.4s steps(1, end) infinite;
+  }
+  @keyframes scan {
+    0%,58%   { opacity: .35; transform: translateY(0); }
+    60%      { opacity: .8;  transform: translateY(-2px); }
+    63%,100% { opacity: .35; transform: translateY(0); }
+  }
 
   #error-box {
     position: absolute;
@@ -369,17 +415,21 @@ export async function GET(
   </div>
 
   <div id="lock-overlay">
-    <a id="lock-cta" href="${cta.url}" target="_blank" rel="noopener noreferrer" onclick="return onCtaClick(event)">
+    <div id="lock-plaque">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       <span id="cta-label">Upgrade to unlock</span>
-    </a>
-    <a id="cta-handle" href="${cta.url}" target="_blank" rel="noopener noreferrer"></a>
+    </div>
   </div>
 
   <div id="loader">
     <div id="loader-logo">
       <svg id="logo-dim" viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg>
-      <svg id="logo-fill" viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg>
+      <div id="logo-fill-wrap">
+        <svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg>
+        <div class="glitch-slice s1"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg></div>
+        <div class="glitch-slice s2"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg></div>
+        <div class="glitch-slice s3"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg></div>
+      </div>
     </div>
   </div>
 
@@ -432,7 +482,7 @@ export async function GET(
   function setProgress(p) {
     var pct = Math.max(0, Math.min(1, p || 0));
     var inset = 'inset(0 ' + ((1 - pct) * 100) + '% 0 0)';
-    var fill = document.getElementById('logo-fill');
+    var fill = document.getElementById('logo-fill-wrap');
     fill.style.clipPath = inset;
     fill.style.webkitClipPath = inset;
   }
@@ -440,20 +490,6 @@ export async function GET(
   // "Upgrade to unlock" CTA. Embedded on our own dashboard we let the parent
   // route (no reload); from a marketplace iframe we open the site in a new tab,
   // landing on the upgrade module with this droid already selected.
-  function onCtaClick(e) {
-    // Embedded on our own dashboard an internal CTA should route in-place
-    // instead of opening a tab. Everything else falls through to the anchor's
-    // native target=_blank, which survives marketplace iframe sandboxes that
-    // block window.open().
-    if (!CFG.cta.external && CFG.embed && window.parent && window.parent !== window) {
-      try {
-        window.parent.postMessage({ type: 'apedroidz:upgradeRequested', tokenId: CFG.tokenId }, '*');
-        if (e && e.preventDefault) e.preventDefault();
-        return false;
-      } catch (err) { /* let the link handle it */ }
-    }
-    return true;
-  }
 
   // Blur + lock overlay when the selected view is not available for this token.
   function applyLock(view) {
@@ -579,17 +615,6 @@ export async function GET(
   });
 
   document.getElementById('cta-label').textContent = CFG.cta.label;
-  // If the marketplace sandbox refuses to open tabs, the handle is still
-  // readable (and selectable) right under the button.
-  var handleEl = document.getElementById('cta-handle');
-  if (CFG.cta.external) {
-    // No regex here on purpose: this script lives inside a TS template literal,
-    // which swallows backslashes and would silently break the whole page.
-    var u = CFG.cta.url.split('?')[0];
-    while (u.length && u.charAt(u.length - 1) === '/') u = u.slice(0, -1);
-    handleEl.textContent = '@' + u.substring(u.lastIndexOf('/') + 1);
-    handleEl.style.display = 'block';
-  }
   buildSwitch();
   switchView(currentView, true);
 </script>

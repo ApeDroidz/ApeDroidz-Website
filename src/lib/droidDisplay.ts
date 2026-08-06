@@ -1,7 +1,7 @@
 // Shared display-resolution logic for droids, used by /api/metadata/batch and
 // /api/owned-droids so the image/level/view rules live in exactly one place.
 
-import { droidStaticUrl, droidAnimatedUrl, honoraryStaticUrl, honoraryAnimatedUrl } from './media'
+import { droidStaticUrl, droidAnimatedWebpUrl, honoraryStaticUrl, honoraryAnimatedWebpUrl } from './media'
 
 export type DroidRow = {
   token_id: number
@@ -50,9 +50,11 @@ export function buildDroidDisplay(row: Partial<DroidRow> & { token_id: number })
       : displayPref === 'pixel' ? 'pixel'
         : level >= 2 ? 'animated' : 'pixel'
 
-  // Pixel = STATIC png, animated = GIF. Paths resolved by lib/media (R2).
+  // Pixel = STATIC png. For anything rendered directly as an image (metadata,
+  // dashboard cards) the animation is WebP: it autoplays and is ~20x lighter
+  // than the GIF. The GIF stays for the previewer and downloads.
   const pixelUrl = droidStaticUrl(tokenId, level, isSuper)
-  const animatedUrl = droidAnimatedUrl(tokenId, isSuper)
+  const animatedUrl = droidAnimatedWebpUrl(tokenId, isSuper)
 
   const bustVersion = `${level}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}`
   const bust = (url: string) => `${url}?v=${bustVersion}`
@@ -112,7 +114,9 @@ export function buildHonoraryDisplay(
         : hasGif ? 'animated' : 'pixel'
 
   const pixelUrl = honoraryStaticUrl(tokenId)
-  const animatedUrl = hasGif ? honoraryAnimatedUrl(tokenId) : null
+  // GIF for the previewer/downloads, WebP for anything a marketplace renders
+  // directly — only WebP autoplays in an <img>.
+  const animatedAutoplayUrl = hasGif ? honoraryAnimatedWebpUrl(tokenId) : null
 
   const bust = `${hasGif ? 'g' : 'p'}${effectiveView === 'animated' ? 'a' : 'p'}`
   const withBust = (url: string) => `${url}?v=${bust}`
@@ -121,9 +125,9 @@ export function buildHonoraryDisplay(
     name: row.name || `Honorary DRD#${tokenId}`,
     description: row.description || 'Honorary ApeDroid.',
     external_url: row.external_url || null,
-    image: withBust(effectiveView === 'animated' && animatedUrl ? animatedUrl : pixelUrl),
+    image: withBust(effectiveView === 'animated' && animatedAutoplayUrl ? animatedAutoplayUrl : pixelUrl),
     image_pixel: withBust(pixelUrl),
-    image_animated: animatedUrl ? withBust(animatedUrl) : null,
+    image_animated: animatedAutoplayUrl ? withBust(animatedAutoplayUrl) : null,
     has_gif: hasGif,
     display_view: effectiveView,
     attributes: row.traits || [],
