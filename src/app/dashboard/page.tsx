@@ -325,14 +325,9 @@ export default function DashboardPage() {
                   // is something the holder can do right now. Honorary has no
                   // self-serve path, so it only states what unlocks it.
                   isHonorary ? (
-                    <motion.div
-                      key="honorary-locked"
-                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                      className="w-full h-12 flex items-center justify-center gap-2 bg-white/5 text-white/40 border border-white/10 font-black uppercase tracking-wider rounded-xl text-sm"
-                    >
-                      <Lock size={16} />
-                      Contact @SPLITF0RM on X to unlock
-                    </motion.div>
+                    // Nothing actionable here — the previewer plaque already
+                    // states what unlocks it, so this slot stays empty.
+                    <motion.div key="honorary-locked" className="h-12" />
                   ) : (
                     <motion.button
                       key="upgrade"

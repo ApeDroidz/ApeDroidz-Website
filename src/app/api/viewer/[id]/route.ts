@@ -13,7 +13,6 @@ const LOCKED_VIEWS: ViewKey[] = ['pfp3d', 'fullbody', 'model3d']
 
 // Honorary is a separate ERC-1155 collection: no levels, no 3D renders, and the
 // animated version exists only for the tokens that have a gif.
-const HONORARY_X_HANDLE = '@SPLITF0RM'
 
 const headers = {
   'Content-Type': 'text/html; charset=utf-8',
@@ -112,7 +111,7 @@ export async function GET(
   // sandboxed, so any button here would be dead on arrival; the site renders a
   // real button under the previewer instead.
   const cta = isHonorary
-    ? { label: `Contact ${HONORARY_X_HANDLE} on X to unlock` }
+    ? { label: 'Contact SPLITFORM to unlock' }
     : { label: 'Upgrade to unlock' }
 
   const config = {
@@ -295,77 +294,101 @@ export async function GET(
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.75);
+    background: rgba(0,0,0,0.93);
     z-index: 60;
     transition: opacity .35s ease;
   }
   #loader.done { opacity: 0; pointer-events: none; }
-  /* Loader: the mark fills white left-to-right with real download progress,
-     while glitch slices tear across it. Monochrome on purpose — horizontal
-     cuts, displacement and flicker, no chromatic fringing. */
+  /* Loader. The mark glitches continuously on its own clock — it must read as
+     glitching even when a cached asset resolves in 200ms — while the white fill
+     inside it tracks real download progress left-to-right.
+     Built from horizontal bands: each band clips the same mark and tears
+     sideways on its own rhythm, so dim and filled parts displace together. */
   #loader-logo { position: relative; width: 130px; height: 97px; }
-  #loader-logo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  #logo-dim path { fill: rgba(255,255,255,0.16); }
-
-  /* JS drives this from 100% (empty) to 0% (full) as bytes arrive */
-  #logo-fill-wrap {
+  .band { position: absolute; inset: 0; }
+  .band svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .band .dim { fill: rgba(255,255,255,0.15); }
+  .fillclip {
     position: absolute; inset: 0;
     clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0);
-    transition: clip-path .15s linear, -webkit-clip-path .15s linear;
+    transition: clip-path .12s linear, -webkit-clip-path .12s linear;
   }
-  #logo-fill-wrap svg path { fill: #fff; }
+  .fillclip svg { fill: #fff; }
 
-  /* Slices: each band lives in its own layer and jumps sideways on its own
-     rhythm, so the tears never line up into a regular pattern. */
-  .glitch-slice { position: absolute; inset: 0; }
-  .glitch-slice.s1 {
-    clip-path: inset(14% 0 68% 0); -webkit-clip-path: inset(14% 0 68% 0);
-    animation: sliceA 2.1s steps(1, end) infinite;
+  /* Bands tile the mark top-to-bottom with no overlap or gaps. */
+  .b1 { clip-path: inset(0 0 88% 0);   -webkit-clip-path: inset(0 0 88% 0); }
+  .b2 { clip-path: inset(12% 0 70% 0); -webkit-clip-path: inset(12% 0 70% 0); }
+  .b3 { clip-path: inset(30% 0 56% 0); -webkit-clip-path: inset(30% 0 56% 0); }
+  .b4 { clip-path: inset(44% 0 36% 0); -webkit-clip-path: inset(44% 0 36% 0); }
+  .b5 { clip-path: inset(64% 0 28% 0); -webkit-clip-path: inset(64% 0 28% 0); }
+  .b6 { clip-path: inset(72% 0 10% 0); -webkit-clip-path: inset(72% 0 10% 0); }
+  .b7 { clip-path: inset(90% 0 0 0);   -webkit-clip-path: inset(90% 0 0 0); }
+
+  /* Short cycles so a tear lands within the first frames, not seconds later. */
+  .b2 { animation: tearA .62s steps(1, end) infinite; }
+  .b4 { animation: tearB .47s steps(1, end) infinite; }
+  .b6 { animation: tearC .83s steps(1, end) infinite; }
+  .b3 { animation: tearD 1.1s steps(1, end) infinite; }
+  @keyframes tearA {
+    0%,58%   { transform: translateX(0); }
+    62%      { transform: translateX(-6px); }
+    70%      { transform: translateX(4px); }
+    76%,100% { transform: translateX(0); }
   }
-  .glitch-slice.s2 {
-    clip-path: inset(46% 0 34% 0); -webkit-clip-path: inset(46% 0 34% 0);
-    animation: sliceB 1.7s steps(1, end) infinite;
+  @keyframes tearB {
+    0%,44%   { transform: translateX(0); opacity: 1; }
+    50%      { transform: translateX(8px); opacity: .65; }
+    58%      { transform: translateX(-3px); opacity: 1; }
+    64%,100% { transform: translateX(0); }
   }
-  .glitch-slice.s3 {
-    clip-path: inset(74% 0 8% 0); -webkit-clip-path: inset(74% 0 8% 0);
-    animation: sliceC 2.6s steps(1, end) infinite;
+  @keyframes tearC {
+    0%,70%   { transform: translateX(0); }
+    75%      { transform: translateX(-10px); }
+    82%      { transform: translateX(2px); }
+    86%,100% { transform: translateX(0); }
   }
-  @keyframes sliceA {
-    0%,72%   { transform: translateX(0);     opacity: 1; }
-    74%      { transform: translateX(-7px);  opacity: .55; }
-    77%      { transform: translateX(5px);   opacity: 1; }
-    79%,100% { transform: translateX(0);     opacity: 1; }
-  }
-  @keyframes sliceB {
-    0%,40%   { transform: translateX(0);     opacity: 1; }
-    43%      { transform: translateX(9px);   opacity: .4; }
-    46%      { transform: translateX(-4px);  opacity: 1; }
-    49%,100% { transform: translateX(0);     opacity: 1; }
-  }
-  @keyframes sliceC {
-    0%,86%   { transform: translateX(0);     opacity: 1; }
-    88%      { transform: translateX(-11px); opacity: .6; }
-    91%      { transform: translateX(3px);   opacity: .85; }
-    93%,100% { transform: translateX(0);     opacity: 1; }
+  @keyframes tearD {
+    0%,80%   { transform: translateX(0); opacity: 1; }
+    84%      { transform: translateX(5px); opacity: .5; }
+    90%,100% { transform: translateX(0); opacity: 1; }
   }
 
-  /* Chunky vertical banding — reads as pixelation without touching the art */
+  /* Barely-there RGB split, as in the reference — colour only on the edges. */
+  #loader-logo .ghost { position: absolute; inset: 0; mix-blend-mode: screen; opacity: .5; }
+  #loader-logo .ghost svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #loader-logo .ghost.r svg { fill: #ff2d2d; }
+  #loader-logo .ghost.c svg { fill: #24e1ff; }
+  #loader-logo .ghost.r { animation: ghostR .53s steps(1, end) infinite; }
+  #loader-logo .ghost.c { animation: ghostC .67s steps(1, end) infinite; }
+  @keyframes ghostR {
+    0%,62%   { transform: translateX(-1px); }
+    66%      { transform: translateX(-3px); }
+    72%,100% { transform: translateX(-1px); }
+  }
+  @keyframes ghostC {
+    0%,54%   { transform: translateX(1px); }
+    60%      { transform: translateX(3px); }
+    66%,100% { transform: translateX(1px); }
+  }
+
+  /* Film grain over the whole mark. */
   #loader-logo::after {
     content: "";
-    position: absolute; inset: -4% -8%;
-    background: repeating-linear-gradient(
-      to bottom,
-      rgba(0,0,0,0) 0 3px,
-      rgba(0,0,0,0.55) 3px 4px
-    );
+    position: absolute; inset: -10%;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='0.55'/></svg>");
+    opacity: .3;
+    /* multiply keeps the grain invisible on the black backdrop and lets it bite
+       only into the lit parts of the mark — no visible rectangle */
     mix-blend-mode: multiply;
     pointer-events: none;
-    animation: scan 3.4s steps(1, end) infinite;
+    animation: grain .28s steps(1, end) infinite;
   }
-  @keyframes scan {
-    0%,58%   { opacity: .35; transform: translateY(0); }
-    60%      { opacity: .8;  transform: translateY(-2px); }
-    63%,100% { opacity: .35; transform: translateY(0); }
+  @keyframes grain {
+    0%   { transform: translate(0,0); }
+    25%  { transform: translate(-3px,2px); }
+    50%  { transform: translate(2px,-3px); }
+    75%  { transform: translate(-2px,-1px); }
+    100% { transform: translate(0,0); }
   }
 
   #error-box {
@@ -423,13 +446,40 @@ export async function GET(
 
   <div id="loader">
     <div id="loader-logo">
-      <svg id="logo-dim" viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg>
-      <div id="logo-fill-wrap">
-        <svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg>
-        <div class="glitch-slice s1"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg></div>
-        <div class="glitch-slice s2"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg></div>
-        <div class="glitch-slice s3"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><path d="${LOGO_PATH}"/></svg></div>
+      <svg width="0" height="0" style="position:absolute" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs><path id="mk" d="${LOGO_PATH}"/></defs>
+      </svg>
+      <div class="ghost r"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk"/></svg></div>
+      <div class="ghost c"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk"/></svg></div>
+      <div class="band b1">
+        <svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk" class="dim"/></svg>
+        <div class="fillclip"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk"/></svg></div>
       </div>
+      <div class="band b2">
+        <svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk" class="dim"/></svg>
+        <div class="fillclip"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk"/></svg></div>
+      </div>
+      <div class="band b3">
+        <svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk" class="dim"/></svg>
+        <div class="fillclip"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk"/></svg></div>
+      </div>
+      <div class="band b4">
+        <svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk" class="dim"/></svg>
+        <div class="fillclip"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk"/></svg></div>
+      </div>
+      <div class="band b5">
+        <svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk" class="dim"/></svg>
+        <div class="fillclip"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk"/></svg></div>
+      </div>
+      <div class="band b6">
+        <svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk" class="dim"/></svg>
+        <div class="fillclip"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk"/></svg></div>
+      </div>
+      <div class="band b7">
+        <svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk" class="dim"/></svg>
+        <div class="fillclip"><svg viewBox="0 0 131 97" xmlns="http://www.w3.org/2000/svg"><use href="#mk"/></svg></div>
+      </div>
+    </div>
     </div>
   </div>
 
@@ -482,9 +532,11 @@ export async function GET(
   function setProgress(p) {
     var pct = Math.max(0, Math.min(1, p || 0));
     var inset = 'inset(0 ' + ((1 - pct) * 100) + '% 0 0)';
-    var fill = document.getElementById('logo-fill-wrap');
-    fill.style.clipPath = inset;
-    fill.style.webkitClipPath = inset;
+    var fills = document.querySelectorAll('.fillclip');
+    for (var i = 0; i < fills.length; i++) {
+      fills[i].style.clipPath = inset;
+      fills[i].style.webkitClipPath = inset;
+    }
   }
 
   // "Upgrade to unlock" CTA. Embedded on our own dashboard we let the parent

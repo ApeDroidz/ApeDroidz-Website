@@ -104,7 +104,10 @@ export async function POST(req: Request) {
             }
 
             refreshOpenseaNft({ contract: HONORARY_CONTRACT, tokenId })
-                .catch((e) => console.error('[display-pref] opensea refresh failed:', e))
+                .then(r => r.ok
+                    ? console.log(`[display-pref] opensea refresh queued honorary #${tokenId}`)
+                    : console.warn(`[display-pref] opensea refresh FAILED honorary #${tokenId}:`, r.error || r.status, r.body || '', r.url || ''))
+                .catch((e) => console.error('[display-pref] opensea refresh threw:', e))
 
             console.log(`✅ [display-pref] wallet=${wallet.slice(0, 8)} honorary=${tokenId} view=${view}`)
             return NextResponse.json({ ok: true, tokenId, view, collection: 'honorary' })
@@ -166,7 +169,10 @@ export async function POST(req: Request) {
         // Nudge OpenSea to re-pull metadata so the new default shows up sooner.
         // Fire-and-forget — marketplace lag must not fail the save.
         refreshOpenseaNft({ contract: DROID_CONTRACT_ADDRESS, tokenId })
-            .catch((e) => console.error('[display-pref] opensea refresh failed:', e))
+            .then(r => r.ok
+                ? console.log(`[display-pref] opensea refresh queued droid #${tokenId}`)
+                : console.warn(`[display-pref] opensea refresh FAILED droid #${tokenId}:`, r.error || r.status, r.body || '', r.url || ''))
+            .catch((e) => console.error('[display-pref] opensea refresh threw:', e))
 
         console.log(`✅ [display-pref] wallet=${wallet.slice(0, 8)} droid=${tokenId} view=${view}`)
         return NextResponse.json({ ok: true, tokenId, view })
