@@ -48,6 +48,8 @@ export async function refreshOpenseaNft(opts: {
     contract: string
     tokenId: number | string
     chain?: string  // override default chain slug for ad-hoc probing
+    /** Shorter budget for interactive routes that await this inline. */
+    timeoutMs?: number
 }): Promise<OpenseaRefreshResult> {
     const apiKey = process.env.OPENSEA_API_KEY
     if (!apiKey) {
@@ -74,7 +76,7 @@ export async function refreshOpenseaNft(opts: {
             },
             // Keep this tight — if OpenSea is slow, the upgrade route
             // shouldn't sit waiting on them.
-            signal: AbortSignal.timeout(8000),
+            signal: AbortSignal.timeout(opts.timeoutMs ?? 8000),
         })
         const body = await res.text().catch(() => '')
         return {

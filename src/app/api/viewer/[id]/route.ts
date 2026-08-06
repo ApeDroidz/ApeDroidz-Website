@@ -205,8 +205,10 @@ export async function GET(
   }
   .sw-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
   .sw-btn.active { background: #fff; color: #000; }
-  .sw-btn.locked { opacity: 0.4; cursor: not-allowed; }
-  .sw-btn.locked:hover { color: rgba(255,255,255,0.55); background: transparent; }
+  /* Solid muted colour rather than opacity: the padlock's shackle and body
+     strokes overlap, and any transparency turns that overlap into a seam. */
+  .sw-btn.locked { opacity: 1; color: #5f5f5f; cursor: not-allowed; }
+  .sw-btn.locked:hover { color: #5f5f5f; background: transparent; }
   .sw-btn svg { width: 10px; height: 10px; flex: 0 0 auto; }
 
   /* Badges */

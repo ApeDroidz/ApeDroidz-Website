@@ -244,22 +244,23 @@ export async function POST(req: Request) {
 
         console.log(`✅ [Upgrade] Droid #${targetId} → Level 2 (Super: ${isSuperBattery})`);
 
-        // ── 11. Pre-warm marketplaces — fire-and-forget. ─────────────────────
-        // OpenSea ignores Cache-Control headers and serves cached metadata
-        // until their indexer re-pulls. Calling /refresh queues that re-pull
-        // immediately so the new image/level is visible within minutes
-        // instead of hours. We don't await — the upgrade is already done
-        // from the user's perspective and OpenSea responsiveness varies.
+        // ── 11. Pre-warm marketplaces. ───────────────────────────────────────
+        // OpenSea ignores Cache-Control headers and serves cached metadata until
+        // their indexer re-pulls; /refresh queues that re-pull immediately.
+        // This MUST be awaited: a serverless function is frozen as soon as the
+        // response is sent, so a fire-and-forget request never leaves the box.
+        // Short timeout, and failures never affect the upgrade result.
+        let marketplaceRefreshed = false
         if (DROID_CONTRACT_ADDRESS) {
-            refreshOpenseaNft({ contract: DROID_CONTRACT_ADDRESS, tokenId: targetId })
-                .then(r => {
-                    if (!r.ok) console.warn('[Upgrade] OpenSea refresh skipped:', r.error);
-                    else console.log(`[Upgrade] OpenSea refresh queued for #${targetId}`);
-                })
-                .catch(e => console.warn('[Upgrade] OpenSea refresh threw:', e?.message));
+            const os = await refreshOpenseaNft({ contract: DROID_CONTRACT_ADDRESS, tokenId: targetId, timeoutMs: 4000 })
+                .catch((e): any => ({ ok: false, error: e?.message }))
+            marketplaceRefreshed = !!os.ok
+            if (os.ok) console.log(`[Upgrade] OpenSea refreshed #${targetId}`)
+            else console.warn(`[Upgrade] OpenSea refresh FAILED #${targetId}:`, os.error || os.status, os.body || '', os.url || '')
         }
 
         return NextResponse.json({
+            marketplaceRefreshed,
             updatedDroid: finalDroid,
             newLevel: finalDroid.level,
             newImage: finalDroid.image_url,

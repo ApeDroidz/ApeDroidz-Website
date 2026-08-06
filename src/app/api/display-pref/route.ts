@@ -103,14 +103,13 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: 'Database update failed' }, { status: 500 })
             }
 
-            refreshOpenseaNft({ contract: HONORARY_CONTRACT, tokenId })
-                .then(r => r.ok
-                    ? console.log(`[display-pref] opensea refresh queued honorary #${tokenId}`)
-                    : console.warn(`[display-pref] opensea refresh FAILED honorary #${tokenId}:`, r.error || r.status, r.body || '', r.url || ''))
-                .catch((e) => console.error('[display-pref] opensea refresh threw:', e))
+            const osHon = await refreshOpenseaNft({ contract: HONORARY_CONTRACT, tokenId, timeoutMs: 4000 })
+                .catch((e): any => ({ ok: false, error: e?.message }))
+            if (osHon.ok) console.log(`[display-pref] opensea refreshed honorary #${tokenId}`)
+            else console.warn(`[display-pref] opensea refresh FAILED honorary #${tokenId}:`, osHon.error || osHon.status, osHon.body || '', osHon.url || '')
 
             console.log(`✅ [display-pref] wallet=${wallet.slice(0, 8)} honorary=${tokenId} view=${view}`)
-            return NextResponse.json({ ok: true, tokenId, view, collection: 'honorary' })
+            return NextResponse.json({ ok: true, tokenId, view, collection: 'honorary', marketplaceRefreshed: !!osHon.ok })
         } catch (err: any) {
             console.error('[display-pref] honorary error:', err)
             return NextResponse.json({ error: 'Server error' }, { status: 500 })
@@ -168,14 +167,13 @@ export async function POST(req: Request) {
 
         // Nudge OpenSea to re-pull metadata so the new default shows up sooner.
         // Fire-and-forget — marketplace lag must not fail the save.
-        refreshOpenseaNft({ contract: DROID_CONTRACT_ADDRESS, tokenId })
-            .then(r => r.ok
-                ? console.log(`[display-pref] opensea refresh queued droid #${tokenId}`)
-                : console.warn(`[display-pref] opensea refresh FAILED droid #${tokenId}:`, r.error || r.status, r.body || '', r.url || ''))
-            .catch((e) => console.error('[display-pref] opensea refresh threw:', e))
+        const os = await refreshOpenseaNft({ contract: DROID_CONTRACT_ADDRESS, tokenId, timeoutMs: 4000 })
+            .catch((e): any => ({ ok: false, error: e?.message }))
+        if (os.ok) console.log(`[display-pref] opensea refreshed droid #${tokenId}`)
+        else console.warn(`[display-pref] opensea refresh FAILED droid #${tokenId}:`, os.error || os.status, os.body || '', os.url || '')
 
         console.log(`✅ [display-pref] wallet=${wallet.slice(0, 8)} droid=${tokenId} view=${view}`)
-        return NextResponse.json({ ok: true, tokenId, view })
+        return NextResponse.json({ ok: true, tokenId, view, marketplaceRefreshed: !!os.ok })
     } catch (err: any) {
         console.error('[display-pref] error:', err)
         return NextResponse.json({ error: 'Server error' }, { status: 500 })
