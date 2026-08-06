@@ -583,7 +583,11 @@ export async function GET(
   // readable (and selectable) right under the button.
   var handleEl = document.getElementById('cta-handle');
   if (CFG.cta.external) {
-    handleEl.textContent = CFG.cta.url.replace(/^https?:\/\/(www\.)?x\.com\//, '@');
+    // No regex here on purpose: this script lives inside a TS template literal,
+    // which swallows backslashes and would silently break the whole page.
+    var u = CFG.cta.url.split('?')[0];
+    while (u.length && u.charAt(u.length - 1) === '/') u = u.slice(0, -1);
+    handleEl.textContent = '@' + u.substring(u.lastIndexOf('/') + 1);
     handleEl.style.display = 'block';
   }
   buildSwitch();
