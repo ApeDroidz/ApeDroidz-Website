@@ -362,7 +362,15 @@ export async function GET(
   }
 
   /* Barely-there RGB split, as in the reference — colour only on the edges. */
-  #loader-logo .ghost { position: absolute; inset: 0; mix-blend-mode: screen; opacity: .5; }
+  #loader-logo .ghost {
+    position: absolute; inset: 0;
+    mix-blend-mode: screen;
+    opacity: .45;
+    /* starts empty and is revealed with the fill, so the unloaded mark stays
+       neutral grey instead of picking up a red/cyan tint */
+    clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0);
+    transition: clip-path .12s linear, -webkit-clip-path .12s linear;
+  }
   #loader-logo .ghost svg { position: absolute; inset: 0; width: 100%; height: 100%; }
   #loader-logo .ghost.r svg { fill: #ff2d2d; }
   #loader-logo .ghost.c svg { fill: #24e1ff; }
@@ -540,7 +548,7 @@ export async function GET(
   function setProgress(p) {
     var pct = Math.max(0, Math.min(1, p || 0));
     var inset = 'inset(0 ' + ((1 - pct) * 100) + '% 0 0)';
-    var fills = document.querySelectorAll('.fillclip');
+    var fills = document.querySelectorAll('.fillclip, .ghost');
     for (var i = 0; i < fills.length; i++) {
       fills[i].style.clipPath = inset;
       fills[i].style.webkitClipPath = inset;
