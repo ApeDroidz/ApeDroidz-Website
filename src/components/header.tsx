@@ -233,7 +233,9 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
           >
             <Coins size={18} className="text-[#4d4d4d]" />
             <span className="text-sm font-bold text-[#5f5f5f]">Staking</span>
-            <span className="px-1.5 py-[2px] rounded bg-[#3b82f6]/15 text-[#3b82f6] text-[9px] font-black uppercase tracking-wider leading-none">
+            {/* Floating badge rather than inline: it sat well on the corner and
+                keeps the button's own row reading as one label. */}
+            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-[1px] rounded bg-[#3b82f6] text-white text-[8px] font-black uppercase tracking-wider leading-none">
               Soon
             </span>
           </div>
