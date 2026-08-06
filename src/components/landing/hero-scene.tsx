@@ -22,7 +22,7 @@ import type { HeroPhase } from "./hero-section"
 // Тюнить здесь.
 const CAM = {
   desktop: { far: new THREE.Vector3(0, 0, 8), near: new THREE.Vector3(0, 1.05, 4.6) },
-  mobile: { far: new THREE.Vector3(0, 0, 11), near: new THREE.Vector3(0, 1.15, 6.6) },
+  mobile: { far: new THREE.Vector3(0, 0, 11), near: new THREE.Vector3(0, 0.9, 8.6) },
 }
 
 function CameraRig({ phase, isMobile }: { phase: HeroPhase; isMobile: boolean }) {
