@@ -77,7 +77,9 @@ export default function GridPage() {
                 image: resolveImageUrl(d.image_pixel || d.image),
                 type: 'droid' as const,
                 level: 1,
-                metadata: { attributes: d.attributes },
+                // has_gif drives whether this one can animate — honorary art is
+                // per-token, only some of them were animated.
+                metadata: { attributes: d.attributes, has_gif: d.has_gif, image_animated: d.image_animated },
                 isHonorary: true,
             }))
 

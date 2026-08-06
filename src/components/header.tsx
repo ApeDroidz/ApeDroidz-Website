@@ -8,7 +8,7 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap, Gamepad2, Wrench, ChevronDown, ChevronsUp } from "lucide-react";
+import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap, Gamepad2, Wrench, ChevronDown, ChevronsUp, Coins } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 
 const wallets = [
@@ -165,7 +165,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               >
                 <Gamepad2 size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
                 <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
-                  Games
+                  Glitch Cards
                 </div>
               </motion.div>
             </Link>
@@ -223,6 +223,21 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
+
+          {/* Staking — placeholder until the mechanics ship. Deliberately not a
+              link: it reads as present-but-not-yet rather than clickable. */}
+          <div
+            className="relative flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/10 rounded-xl shadow-lg group cursor-not-allowed select-none"
+            aria-disabled="true"
+          >
+            <Coins size={20} className="text-[#4d4d4d]" />
+            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-[1px] rounded bg-[#3b82f6] text-white text-[8px] font-black uppercase tracking-wider leading-none">
+              Soon
+            </span>
+            <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
+              Staking — coming soon
+            </div>
           </div>
 
           {/* Dashboard — primary white button on the home page, dark elsewhere;
@@ -382,6 +397,13 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   </Link>
                 )}
 
+                {/* Staking — not yet clickable */}
+                <div className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl opacity-70 cursor-not-allowed select-none">
+                  <Coins size={18} className="text-[#4d4d4d]" />
+                  <span className="text-white/70 font-medium text-sm">Staking</span>
+                  <span className="ml-auto px-1.5 py-[2px] rounded bg-[#3b82f6] text-white text-[9px] font-black uppercase tracking-wider">Soon</span>
+                </div>
+
                 {/* 3. Glitch Games hub */}
                 {!isGlitchGamesPage && (
                   <Link
@@ -390,7 +412,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
                   >
                     <Gamepad2 size={18} className="text-[#A1A1AA]" />
-                    <span className="text-white font-medium text-sm">Glitch Games</span>
+                    <span className="text-white font-medium text-sm">Glitch Cards</span>
                   </Link>
                 )}
 

@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from "react"
 import { NFTItem } from "@/app/upgrade_module/page"
 import { resolveImageUrl } from "@/lib/utils"
-import { droidAnimatedUrl, honoraryStaticUrl } from "@/lib/media"
+import { droidAnimatedUrl, honoraryAnimatedUrl } from "@/lib/media"
 import { Loader2, Download, Share2 } from "lucide-react"
 
 interface GridDownloadButtonProps {
@@ -25,15 +25,17 @@ const isSuper = (item: NFTItem): boolean => {
 }
 
 const getAnimatedUrl = (item: NFTItem): string | null => {
-    const level = item.level || 1
-    if (level < 2) return null
-
     const tokenId = item.tokenId || item.id
 
-    if (isSuper(item)) {
-        return droidAnimatedUrl(tokenId, true)
+    // Honorary is a separate collection with its own art: it has no levels, and
+    // only the tokens that actually have a gif can animate.
+    if (item.isHonorary) {
+        return item.metadata?.has_gif ? honoraryAnimatedUrl(tokenId) : null
     }
-    return droidAnimatedUrl(tokenId, false)
+
+    const level = item.level || 1
+    if (level < 2) return null
+    return droidAnimatedUrl(tokenId, isSuper(item))
 }
 
 // Calculate optimal grid dimensions (minimum 2)

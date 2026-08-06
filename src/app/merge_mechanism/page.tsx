@@ -4,9 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react"
 import { motion } from "framer-motion"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useActiveAccount } from "thirdweb/react"
-import { getContract } from "thirdweb"
 import { client, apeChain } from "@/lib/thirdweb"
-import { getOwnedNFTs } from "thirdweb/extensions/erc721"
 import { Header } from "@/components/header"
 import { DigitalBackground } from "@/components/digital-background"
 import { MergeMachine } from "./merge-machine"
@@ -15,7 +13,6 @@ import { ProfileModal } from "@/components/profile-modal"
 import { AlertModal } from "@/components/alert-modal"
 import { useBatchTransfer } from "@/hooks/useBatchTransfer"
 import { useShardTransfer } from "@/hooks/useShardTransfer"
-import { resolveImageUrl } from "@/lib/utils"
 import { batteryUrl } from "@/lib/media"
 
 export type BatteryItem = {
@@ -77,35 +74,21 @@ function MergeMechanismContent() {
             return
         }
         try {
-            const batteryContract = getContract({ client, chain: apeChain, address: BATTERY_CONTRACT_ADDRESS })
-            const batteryNfts = await getOwnedNFTs({ contract: batteryContract, owner: account.address })
-            const loadedBatteries = await Promise.all(
-                batteryNfts.map(async (nft) => {
-                    const tokenId = nft.id.toString()
-                    try {
-                        const res = await fetch(`/api/metadata/batteries/${tokenId}`)
-                        let metadata = res.ok ? await res.json() : (nft.metadata || {})
-                        const typeAttr = metadata?.attributes?.find((a: any) => a.trait_type === "Type")
-                        const batteryType = typeAttr?.value === "Super" ? "Super" : "Standard"
-                        return {
-                            id: tokenId, tokenId,
-                            name: metadata?.name || `Battery #${tokenId}`,
-                            image: resolveImageUrl(metadata?.image || nft.metadata?.image),
-                            batteryType: batteryType as 'Standard' | 'Super',
-                            metadata
-                        }
-                    } catch {
-                        return {
-                            id: tokenId, tokenId,
-                            name: `Battery #${tokenId}`,
-                            image: resolveImageUrl(nft.metadata?.image),
-                            batteryType: 'Standard' as const,
-                            metadata: nft.metadata || {}
-                        }
-                    }
-                })
-            )
-            setBatteries(loadedBatteries.filter(b => b.batteryType === 'Standard'))
+            // Same RPC-free path as the dashboard and upgrade module: the
+            // indexer plus one DB query, instead of getOwnedNFTs (which costs a
+            // thirdweb RPC call per token) and a metadata fetch per battery.
+            const res = await fetch(`/api/owned-batteries?owner=${account.address}`, { cache: 'no-store' })
+            const json = res.ok ? await res.json() : {}
+            const loadedBatteries = (json?.batteries || []).map((b: any) => ({
+                id: b.tokenId,
+                tokenId: b.tokenId,
+                name: b.name,
+                image: b.image,
+                batteryType: b.batteryType as 'Standard' | 'Super',
+                metadata: b.metadata || {},
+            }))
+            // Merging consumes Standard batteries only.
+            setBatteries(loadedBatteries.filter((b: any) => b.batteryType === 'Standard'))
         } catch (error) {
             console.error("Error loading batteries:", error)
         } finally {
