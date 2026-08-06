@@ -275,7 +275,7 @@ export async function GET(
     border: 1px solid rgba(255,255,255,0.16);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    color: rgba(255,255,255,0.95);
+    color: #fff;
     font-size: 12px;
     font-weight: 900;
     letter-spacing: 0.1em;
@@ -285,7 +285,9 @@ export async function GET(
     box-shadow: 0 10px 34px rgba(0,0,0,0.5);
     text-align: center;
   }
-  #lock-plaque svg { width: 15px; height: 15px; flex: 0 0 auto; opacity: .9; }
+  /* Solid, fully opaque: with any alpha the shackle/body stroke overlap
+     shows through as a seam. */
+  #lock-plaque svg { width: 15px; height: 15px; flex: 0 0 auto; opacity: 1; color: #b8b8b8; }
 
   /* Loader — droid logo fills white left-to-right showing REAL load progress */
   #loader {

@@ -247,7 +247,7 @@ export default function DashboardPage() {
 
       setToastState({
         isOpen: true, type: 'success', title: 'PFP saved',
-        message: `Droid #${selectedDroid.tokenId} now shows the ${currentView === 'animated' ? 'Animated' : 'Pixel'} version on marketplaces. Refresh metadata on OpenSea to see it live.`,
+        message: `Droid #${selectedDroid.tokenId} now shows the ${currentView === 'animated' ? 'Animated' : 'Pixel'} version. Marketplaces are refreshed automatically — it can take a few minutes to appear.`,
       })
       setTimeout(() => setJustSaved(false), 2500)
     } catch (error: any) {
@@ -325,9 +325,19 @@ export default function DashboardPage() {
                   // is something the holder can do right now. Honorary has no
                   // self-serve path, so it only states what unlocks it.
                   isHonorary ? (
-                    // Nothing actionable here — the previewer plaque already
-                    // states what unlocks it, so this slot stays empty.
-                    <motion.div key="honorary-locked" className="h-12" />
+                    // On the site (no marketplace sandbox) this can be a real
+                    // link, unlike the plaque inside the previewer.
+                    <motion.a
+                      key="honorary-locked"
+                      href="https://x.com/SPLITF0RM"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-wider rounded-xl hover:bg-[#0069FF] hover:text-white transition-all text-sm shadow-lg cursor-pointer no-underline"
+                    >
+                      <Lock size={16} />
+                      Contact SPLITFORM
+                    </motion.a>
                   ) : (
                     <motion.button
                       key="upgrade"
@@ -365,7 +375,7 @@ export default function DashboardPage() {
               </AnimatePresence>
               {selectedDroid && (
                 <p className="text-[10px] text-white/25 text-center mt-2">
-                  Saved PFP becomes the default on OpenSea after a metadata refresh.
+                  Saved PFP becomes the default everywhere your droid is shown.
                 </p>
               )}
             </div>
