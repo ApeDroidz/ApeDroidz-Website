@@ -9,6 +9,9 @@ import { MotionMenu } from "@/components/motionmenu"
 import { DigitalBackground } from "@/components/digital-background"
 import { ProfileModal } from "@/components/profile-modal"
 import { Droid3DCTA } from "@/components/droid-3d-cta"
+
+// Landing CTA for the 3D drop. Off until the 3D previews are uploaded.
+const SHOW_3D_CTA = false
 import { SocialSidebar } from "@/components/social-sidebar"
 
 // Динамический импорт Scene с отключенным SSR
@@ -76,7 +79,9 @@ export default function Home() {
       />
 
       {/* Mint CTA */}
-      <Droid3DCTA />
+      {/* Hidden until the 3D renders ship — flip SHOW_3D_CTA in the component
+          (or this flag) to bring it back, nothing else needs changing. */}
+      {SHOW_3D_CTA && <Droid3DCTA />}
 
       {/* Social Sidebar */}
       <SocialSidebar />
