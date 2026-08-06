@@ -245,9 +245,14 @@ export default function DashboardPage() {
         return next
       })
 
+      // Say plainly whether the marketplace nudge went through, instead of
+      // promising an automatic refresh that may have silently failed.
+      const variant = currentView === 'animated' ? 'Animated' : 'Pixel'
       setToastState({
         isOpen: true, type: 'success', title: 'PFP saved',
-        message: `Droid #${selectedDroid.tokenId} now shows the ${currentView === 'animated' ? 'Animated' : 'Pixel'} version. Marketplaces are refreshed automatically — it can take a few minutes to appear.`,
+        message: data?.marketplaceRefreshed === false
+          ? `Droid #${selectedDroid.tokenId} now shows the ${variant} version. OpenSea did not accept the refresh — hit "Refresh metadata" there if it looks stale.`
+          : `Droid #${selectedDroid.tokenId} now shows the ${variant} version. OpenSea has been asked to refresh — it can take a few minutes.`,
       })
       setTimeout(() => setJustSaved(false), 2500)
     } catch (error: any) {
