@@ -317,10 +317,10 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* SAVE YOUR PFP */}
+            {/* SAVE YOUR PFP — nothing to act on until a droid is picked */}
             <div className="flex-shrink-0 mt-4 relative w-full max-w-[520px] mx-auto">
               <AnimatePresence mode="wait">
-                {needsUpgradeForCurrent ? (
+                {!selectedDroid ? null : needsUpgradeForCurrent ? (
                   // Locked. On the base collection this is actionable — upgrading
                   // is something the holder can do right now. Honorary has no
                   // self-serve path, so it only states what unlocks it.
@@ -336,7 +336,7 @@ export default function DashboardPage() {
                       className="w-full h-12 flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-wider rounded-xl hover:bg-[#0069FF] hover:text-white transition-all text-sm shadow-lg cursor-pointer no-underline"
                     >
                       <Lock size={16} />
-                      Contact SPLITFORM
+                      Contact SPLITFORM to order
                     </motion.a>
                   ) : (
                     <motion.button
@@ -354,13 +354,11 @@ export default function DashboardPage() {
                     key="save"
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                     onClick={handleSaveDefault}
-                    disabled={!selectedDroid || isSaving || isCurrentSaved}
+                    disabled={isSaving || isCurrentSaved}
                     className={`w-full h-12 flex items-center justify-center gap-2 font-black uppercase tracking-wider rounded-xl transition-all text-sm shadow-lg ${
-                      !selectedDroid
-                        ? 'bg-white/5 text-white/25 cursor-not-allowed border border-white/10'
-                        : isCurrentSaved
-                          ? 'bg-white/10 text-white/60 border border-white/15 cursor-default'
-                          : 'bg-white text-black hover:bg-[#0069FF] hover:text-white cursor-pointer'
+                      isCurrentSaved
+                        ? 'bg-white/10 text-white/60 border border-white/15 cursor-default'
+                        : 'bg-white text-black hover:bg-[#0069FF] hover:text-white cursor-pointer'
                     }`}
                   >
                     {isSaving ? (

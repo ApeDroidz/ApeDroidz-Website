@@ -77,6 +77,10 @@ export function buildDroidDisplay(row: Partial<DroidRow> & { token_id: number })
 // view is the gif when there is one, otherwise the static png — but a holder can
 // still pick and save the static version.
 
+// Token #100 is the "not drawn yet" droid — a single closed-up render shared by
+// every honorary token whose own art has not been produced.
+const HONORARY_PLACEHOLDER_ID = 100
+
 export type HonoraryRow = {
   token_id: number
   name: string | null
@@ -84,6 +88,7 @@ export type HonoraryRow = {
   external_url: string | null
   traits: any[] | null
   has_gif: boolean | null
+  has_png: boolean | null
   display_pref: string | null
 }
 
@@ -104,6 +109,8 @@ export function buildHonoraryDisplay(
 ): HonoraryDisplay {
   const tokenId = row.token_id
   const hasGif = !!row.has_gif
+  // Undrawn tokens fall back to the shared placeholder art.
+  const artId = row.has_png === false ? HONORARY_PLACEHOLDER_ID : tokenId
 
   const pref = row.display_pref
   const savedPref = pref === 'pixel' || pref === 'animated' ? pref : null
@@ -113,7 +120,7 @@ export function buildHonoraryDisplay(
       : savedPref === 'pixel' ? 'pixel'
         : hasGif ? 'animated' : 'pixel'
 
-  const pixelUrl = honoraryStaticUrl(tokenId)
+  const pixelUrl = honoraryStaticUrl(artId)
   // GIF for the previewer/downloads, WebP for anything a marketplace renders
   // directly — only WebP autoplays in an <img>.
   const animatedAutoplayUrl = hasGif ? honoraryAnimatedWebpUrl(tokenId) : null

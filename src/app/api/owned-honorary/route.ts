@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
   const rowsById = new Map<number, any>()
   const { data: rows, error } = await supabaseAdmin!
     .from('honorary_droidz')
-    .select('token_id, name, description, external_url, traits, has_gif, display_pref')
+    .select('token_id, name, description, external_url, traits, has_gif, has_png, display_pref')
     .in('token_id', uniqueIds)
   if (error) {
     console.error('[owned-honorary] db query failed:', error)

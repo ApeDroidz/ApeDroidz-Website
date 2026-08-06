@@ -42,17 +42,19 @@ export async function GET(
   let level = 1
   let isSuper = false
   let hasGif = false
+  let hasPng = true
   let displayPref: string | null = null
 
   try {
     if (isHonorary) {
       const { data: row } = await supabaseAdmin!
         .from('honorary_droidz')
-        .select('has_gif, display_pref')
+        .select('has_gif, has_png, display_pref')
         .eq('token_id', tokenId)
         .maybeSingle()
       if (row) {
         hasGif = !!row.has_gif
+        hasPng = row.has_png !== false
         displayPref = ['pixel', 'animated'].includes(row.display_pref) ? row.display_pref : null
       }
     } else {
@@ -88,9 +90,11 @@ export async function GET(
 
   // Honorary tokens without a gif still get an Animated switch — it shows the
   // static art as a locked teaser behind the "write SPLITFORM" CTA.
-  const pixelUrl = isHonorary ? honoraryStaticUrl(tokenId) : droidStaticUrl(tokenId, level, isSuper)
+  // Undrawn honorary tokens share the placeholder art (#100).
+  const honoraryArtId = hasPng ? tokenId : 100
+  const pixelUrl = isHonorary ? honoraryStaticUrl(honoraryArtId) : droidStaticUrl(tokenId, level, isSuper)
   const animatedUrl = isHonorary
-    ? (hasGif ? honoraryAnimatedUrl(tokenId) : honoraryStaticUrl(tokenId))
+    ? (hasGif ? honoraryAnimatedUrl(tokenId) : honoraryStaticUrl(honoraryArtId))
     : droidAnimatedUrl(tokenId, isSuper)
 
   // Animated is a locked teaser when the token cannot actually have it.
@@ -111,7 +115,7 @@ export async function GET(
   // sandboxed, so any button here would be dead on arrival; the site renders a
   // real button under the previewer instead.
   const cta = isHonorary
-    ? { label: 'Contact SPLITFORM to unlock' }
+    ? { label: 'Contact SPLITFORM to order' }
     : { label: 'Upgrade to unlock' }
 
   const config = {

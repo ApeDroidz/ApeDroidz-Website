@@ -76,7 +76,7 @@ export async function GET(
     if (type === 'honorary') {
       const { data: row } = await supabaseAdmin!
         .from('honorary_droidz')
-        .select('token_id, name, description, external_url, traits, has_gif, display_pref')
+        .select('token_id, name, description, external_url, traits, has_gif, has_png, display_pref')
         .eq('token_id', tokenId)
         .maybeSingle()
 
