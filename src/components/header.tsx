@@ -228,16 +228,14 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
           {/* Staking — placeholder until the mechanics ship. Deliberately not a
               link: it reads as present-but-not-yet rather than clickable. */}
           <div
-            className="relative flex items-center justify-center h-[48px] w-[48px] bg-black border border-white/10 rounded-xl shadow-lg group cursor-not-allowed select-none"
+            className="relative flex items-center gap-2 h-[48px] px-4 bg-black border border-white/10 rounded-xl shadow-lg cursor-not-allowed select-none"
             aria-disabled="true"
           >
-            <Coins size={20} className="text-[#4d4d4d]" />
-            <span className="absolute -top-1.5 -right-1.5 px-1.5 py-[1px] rounded bg-[#3b82f6] text-white text-[8px] font-black uppercase tracking-wider leading-none">
+            <Coins size={18} className="text-[#4d4d4d]" />
+            <span className="text-sm font-bold text-[#5f5f5f]">Staking</span>
+            <span className="px-1.5 py-[2px] rounded bg-[#3b82f6]/15 text-[#3b82f6] text-[9px] font-black uppercase tracking-wider leading-none">
               Soon
             </span>
-            <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
-              Staking — coming soon
-            </div>
           </div>
 
           {/* Dashboard — primary white button on the home page, dark elsewhere;
