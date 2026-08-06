@@ -49,6 +49,9 @@ export function DigitalBackground() {
     }
 
     const draw = () => {
+      // Не жжём CPU, пока вкладка в фоне
+      if (document.hidden) return;
+
       // 1. Мягкое стирание (твоя логика, оставляет шлейф)
       ctx.globalCompositeOperation = 'destination-out';
       ctx.fillStyle = `rgba(0, 0, 0, ${config.trailFade})`;

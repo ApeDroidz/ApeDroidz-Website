@@ -6,6 +6,7 @@ import React, { useState, useEffect } from "react"
 import { ArrowRight, Share, Zap, X, RefreshCcw, ExternalLink } from "lucide-react"
 import { ShareModal } from "@/components/share-modal"
 import { useUserProgress } from "@/hooks/useUserProgress"
+import { GlitchContainer, GLITCH_STYLES } from "@/components/glitch/glitch-container"
 
 // Адрес для ссылки на OpenSea (Фикс ошибки TS)
 const DROID_COLLECTION_ADDRESS = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
@@ -53,31 +54,7 @@ const HARDCORE_GLITCH_STYLES = `
     100% { box-shadow: 0 0 5px rgba(59,130,246,0.2); border-color: rgba(59,130,246,0.2); } 
   }
   .animate-level-up { animation: glow-pulse 2s infinite ease-in-out; }
-
-  /* Glitch Keyframes */
-  @keyframes glitch-anim-1 { 0% { clip-path: inset(50% 0 30% 0); transform: translate(-5px, 0); } 5% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } 10% { clip-path: inset(80% 0 5% 0); transform: translate(-5px, 0); } 15% { clip-path: inset(30% 0 60% 0); transform: translate(5px, 0); } 20% { clip-path: inset(60% 0 20% 0); transform: translate(-5px, 0); } 25% { clip-path: inset(10% 0 85% 0); transform: translate(5px, 0); } 30% { clip-path: inset(40% 0 40% 0); transform: translate(-5px, 0); } 35% { clip-path: inset(80% 0 10% 0); transform: translate(5px, 0); } 40% { clip-path: inset(20% 0 50% 0); transform: translate(-5px, 0); } 45% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 50% { clip-path: inset(10% 0 80% 0); transform: translate(-5px, 0); } 55% { clip-path: inset(70% 0 20% 0); transform: translate(5px, 0); } 60% { clip-path: inset(30% 0 60% 0); transform: translate(-5px, 0); } 65% { clip-path: inset(90% 0 5% 0); transform: translate(5px, 0); } 70% { clip-path: inset(15% 0 80% 0); transform: translate(-5px, 0); } 75% { clip-path: inset(55% 0 10% 0); transform: translate(5px, 0); } 80% { clip-path: inset(25% 0 50% 0); transform: translate(-5px, 0); } 85% { clip-path: inset(75% 0 15% 0); transform: translate(5px, 0); } 90% { clip-path: inset(10% 0 85% 0); transform: translate(-5px, 0); } 95% { clip-path: inset(45% 0 45% 0); transform: translate(5px, 0); } 100% { clip-path: inset(50% 0 30% 0); transform: translate(-5px, 0); } }
-  @keyframes glitch-anim-2 { 0% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } 5% { clip-path: inset(80% 0 10% 0); transform: translate(-5px, 0); } 10% { clip-path: inset(30% 0 60% 0); transform: translate(5px, 0); } 15% { clip-path: inset(70% 0 20% 0); transform: translate(-5px, 0); } 20% { clip-path: inset(10% 0 40% 0); transform: translate(5px, 0); } 25% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 30% { clip-path: inset(20% 0 70% 0); transform: translate(5px, 0); } 35% { clip-path: inset(90% 0 5% 0); transform: translate(-5px, 0); } 40% { clip-path: inset(30% 0 50% 0); transform: translate(5px, 0); } 45% { clip-path: inset(60% 0 20% 0); transform: translate(-5px, 0); } 50% { clip-path: inset(10% 0 85% 0); transform: translate(5px, 0); } 55% { clip-path: inset(80% 0 10% 0); transform: translate(-5px, 0); } 60% { clip-path: inset(40% 0 40% 0); transform: translate(5px, 0); } 65% { clip-path: inset(20% 0 70% 0); transform: translate(-5px, 0); } 70% { clip-path: inset(70% 0 15% 0); transform: translate(5px, 0); } 75% { clip-path: inset(10% 0 80% 0); transform: translate(-5px, 0); } 80% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 85% { clip-path: inset(25% 0 60% 0); transform: translate(-5px, 0); } 90% { clip-path: inset(85% 0 5% 0); transform: translate(5px, 0); } 95% { clip-path: inset(35% 0 50% 0); transform: translate(-5px, 0); } 100% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } }
-  
-  .glitch-wrapper { position: relative; width: 100%; height: 100%; }
-  .glitch-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: transparent; }
-  .intensity-1 .layer-1 { animation: glitch-anim-1 4s infinite step-end alternate-reverse; opacity: 0.3; }
-  .intensity-1 .layer-2 { animation: glitch-anim-2 4s infinite step-end alternate-reverse; opacity: 0.3; }
-  .intensity-2 .layer-1 { animation: glitch-anim-1 2s infinite step-end alternate-reverse; opacity: 0.7; }
-  .intensity-2 .layer-2 { animation: glitch-anim-2 2s infinite step-end alternate-reverse; opacity: 0.7; }
-  .intensity-3 .layer-1 { animation: glitch-anim-1 0.1s infinite step-end alternate-reverse; opacity: 1; }
-  .intensity-3 .layer-2 { animation: glitch-anim-2 0.1s infinite step-end alternate-reverse; opacity: 1; }
 `
-
-const GlitchContainer = ({ children, intensity }: { children: React.ReactNode, intensity: 0 | 1 | 2 | 3 }) => {
-  if (intensity === 0) return <>{children}</>
-  return (
-    <div className={`glitch-wrapper intensity-${intensity}`}>
-      <div className="relative z-10 w-full h-full">{children}</div>
-      <div className="glitch-layer layer-1 z-20 pointer-events-none" aria-hidden="true">{children}</div>
-      <div className="glitch-layer layer-2 z-20 pointer-events-none" aria-hidden="true">{children}</div>
-    </div>
-  )
-}
 
 interface UpgradeMachineProps {
   selectedDroid: NFTItem | null
@@ -192,7 +169,7 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-start pt-4 md:pt-4 p-0 relative overflow-hidden">
-      <style>{HARDCORE_GLITCH_STYLES}</style>
+      <style>{HARDCORE_GLITCH_STYLES + GLITCH_STYLES}</style>
 
       {newDroid && !isNewImageLoaded && (
         <img src={newDroid.image} alt="Preload" className="absolute opacity-0 w-0 h-0" onLoad={() => setIsNewImageLoaded(true)} onError={() => setIsNewImageLoaded(true)} />

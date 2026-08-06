@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import React, { useState, useEffect } from "react"
 import { Zap, ArrowRight, RefreshCcw } from "lucide-react"
 import { batteryUrl } from "@/lib/media"
+import { GlitchContainer, GLITCH_STYLES, GlitchLevel } from "@/components/glitch/glitch-container"
 
 // === GLITCH + ANIMATION STYLES ===
 const MERGE_GLITCH_STYLES = `
@@ -23,39 +24,6 @@ const MERGE_GLITCH_STYLES = `
   
   @keyframes flash-bang { 0% { opacity: 1; } 100% { opacity: 0; } }
   .animate-flash-bang { animation: flash-bang 0.5s ease-out forwards; }
-
-  /* Glitch Keyframes */
-  @keyframes glitch-anim-1 { 
-    0% { clip-path: inset(50% 0 30% 0); transform: translate(-5px, 0); } 
-    20% { clip-path: inset(60% 0 20% 0); transform: translate(5px, 0); } 
-    40% { clip-path: inset(10% 0 85% 0); transform: translate(-5px, 0); } 
-    60% { clip-path: inset(80% 0 10% 0); transform: translate(5px, 0); } 
-    80% { clip-path: inset(30% 0 50% 0); transform: translate(-5px, 0); } 
-    100% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 
-  }
-  @keyframes glitch-anim-2 { 
-    0% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } 
-    20% { clip-path: inset(70% 0 15% 0); transform: translate(-5px, 0); } 
-    40% { clip-path: inset(40% 0 40% 0); transform: translate(5px, 0); } 
-    60% { clip-path: inset(20% 0 70% 0); transform: translate(-5px, 0); } 
-    80% { clip-path: inset(85% 0 5% 0); transform: translate(5px, 0); } 
-    100% { clip-path: inset(10% 0 80% 0); transform: translate(-5px, 0); } 
-  }
-  
-  .glitch-wrapper { position: relative; width: 100%; height: 100%; }
-  .glitch-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: transparent; }
-  
-  /* 5 Intensity levels for 20 batteries */
-  .intensity-1 .layer-1 { animation: glitch-anim-1 4s infinite step-end alternate-reverse; opacity: 0.2; }
-  .intensity-1 .layer-2 { animation: glitch-anim-2 4s infinite step-end alternate-reverse; opacity: 0.2; }
-  .intensity-2 .layer-1 { animation: glitch-anim-1 2s infinite step-end alternate-reverse; opacity: 0.4; }
-  .intensity-2 .layer-2 { animation: glitch-anim-2 2s infinite step-end alternate-reverse; opacity: 0.4; }
-  .intensity-3 .layer-1 { animation: glitch-anim-1 0.5s infinite step-end alternate-reverse; opacity: 0.6; }
-  .intensity-3 .layer-2 { animation: glitch-anim-2 0.5s infinite step-end alternate-reverse; opacity: 0.6; }
-  .intensity-4 .layer-1 { animation: glitch-anim-1 0.2s infinite step-end alternate-reverse; opacity: 0.8; }
-  .intensity-4 .layer-2 { animation: glitch-anim-2 0.2s infinite step-end alternate-reverse; opacity: 0.8; }
-  .intensity-5 .layer-1 { animation: glitch-anim-1 0.1s infinite step-end alternate-reverse; opacity: 1; }
-  .intensity-5 .layer-2 { animation: glitch-anim-2 0.1s infinite step-end alternate-reverse; opacity: 1; }
 
   /* Success image animation */
   @keyframes float-gentle {
@@ -119,17 +87,14 @@ const PixelConfetti = ({ isShards = false }: { isShards?: boolean }) => {
     )
 }
 
-// Glitch container with intensity levels
-const GlitchContainer = ({ children, intensity }: { children: React.ReactNode, intensity: 0 | 1 | 2 | 3 | 4 | 5 }) => {
-    if (intensity === 0) return <>{children}</>
-    return (
-        <div className={`glitch-wrapper intensity-${intensity}`}>
-            <div className="relative z-10 w-full h-full">{children}</div>
-            <div className="glitch-layer layer-1 z-20 pointer-events-none" aria-hidden="true">{children}</div>
-            <div className="glitch-layer layer-2 z-20 pointer-events-none" aria-hidden="true">{children}</div>
-        </div>
-    )
-}
+// 5 intensity levels for 20 batteries (shared GlitchContainer, merge's own scale)
+const MERGE_GLITCH_LEVELS: GlitchLevel[] = [
+    { duration: "4s", opacity: 0.2 },
+    { duration: "2s", opacity: 0.4 },
+    { duration: "0.5s", opacity: 0.6 },
+    { duration: "0.2s", opacity: 0.8 },
+    { duration: "0.1s", opacity: 1 },
+]
 
 // Progress bar for batteries — 20 cells, orange
 const ProgressBar = ({ filledCount }: { filledCount: number }) => {
@@ -244,7 +209,7 @@ export function MergeMachine({
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-between p-4 sm:p-6 relative overflow-hidden">
-            <style>{MERGE_GLITCH_STYLES}</style>
+            <style>{MERGE_GLITCH_STYLES + GLITCH_STYLES}</style>
 
             {/* Header */}
             <div className="w-full max-w-[1200px] px-4 z-20 text-center flex-shrink-0 mb-4 sm:mb-0">
@@ -283,7 +248,7 @@ export function MergeMachine({
                             }
                             className="relative flex items-center justify-center gap-6 w-full px-4"
                         >
-                            <GlitchContainer intensity={getGlitchIntensity()}>
+                            <GlitchContainer intensity={getGlitchIntensity()} levels={MERGE_GLITCH_LEVELS}>
                                 <div className="flex flex-col items-center justify-center gap-3 sm:gap-4 lg:gap-5">
                                     {/* Target image */}
                                     <div className="relative">
