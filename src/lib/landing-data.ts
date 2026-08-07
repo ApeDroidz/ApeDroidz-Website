@@ -129,7 +129,7 @@ export const PARTNERS: Partner[] = [
   { scale: 1.25, name: "Zards", src: "/partners/zards.png", url: "http://zards.io/" },
   { scale: 1.1, name: "Sloooths", src: "/partners/sloooths.svg", url: "https://sloooths.com/" },
   { scale: 0.95, name: "JNKYZ", src: "/partners/jnkyz.png", url: "https://www.jnkyz.com/" },
-  { scale: 1.8, name: "Night Glyders", src: "/partners/nightglyders.png", url: "https://www.nightglyders.com/" },
+  { scale: 2.25, name: "Night Glyders", src: "/partners/nightglyders.png", url: "https://www.nightglyders.com/" },
   { scale: 1.2, name: "Inceptive Studio", src: "/partners/inceptive.png", url: "https://inceptivestudio.com/" },
   { scale: 1.15, name: "Balloons", src: "/partners/balloons.png", url: "https://www.balloonsballoons.xyz/" },
   // TODO: у gobs.land и designertoshiro.com на сайте нет пригодного логотипа —

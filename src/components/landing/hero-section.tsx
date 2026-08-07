@@ -12,7 +12,13 @@ import {
 } from "framer-motion"
 import Link from "next/link"
 import { ArrowUpRight, ChevronDown } from "lucide-react"
-import { GlitchContainer } from "@/components/glitch/glitch-container"
+import { GlitchContainer, GlitchLevel } from "@/components/glitch/glitch-container"
+
+// Заголовок глитчит заметнее обычного idle-уровня, но не «рвётся» постоянно.
+const GLITCH_HEADLINE_LEVELS: GlitchLevel[] = [
+  { duration: "2.6s", opacity: 0.45 },
+  { duration: "1.1s", opacity: 0.85 },
+]
 import { GlitchReveal } from "@/components/glitch/glitch-reveal"
 import { ACCENT_BTN } from "./ui"
 
@@ -86,7 +92,7 @@ export function HeroSection() {
   // Заголовок гаснет, лор въезжает слева, в конце тоже уходит
   const headlineOpacity = useTransform(scrollYProgress, [0.08, 0.24], [1, 0])
   const headlineY = useTransform(scrollYProgress, [0.08, 0.24], [0, -50])
-  const loreOpacity = useTransform(scrollYProgress, [0.26, 0.4, 0.74, 0.86], [0, 1, 1, 0])
+  const loreOpacity = useTransform(scrollYProgress, [0.26, 0.4, 0.72, 0.86], [0, 1, 1, 0])
   const loreX = useTransform(scrollYProgress, [0.24, 0.36], [-40, 0])
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
@@ -98,7 +104,7 @@ export function HeroSection() {
   })
 
   return (
-    <section ref={heroRef} className="relative h-[150dvh]">
+    <section ref={heroRef} className="relative h-[140dvh]">
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
@@ -131,7 +137,7 @@ export function HeroSection() {
 
             {/* «The Glitch» — появляется глитчем и продолжает подрагивать */}
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
-              <GlitchContainer intensity={headlineDone ? 1 : 0} className="!h-auto">
+              <GlitchContainer intensity={headlineDone ? 2 : 0} levels={GLITCH_HEADLINE_LEVELS} className="!h-auto">
                 <span className="block font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]">
                   The Glitch
                 </span>
