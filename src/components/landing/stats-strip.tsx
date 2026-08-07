@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { motion, useInView } from "framer-motion"
 import { PARTNERS, STATS, Stat } from "@/lib/landing-data"
 import { useCountUp } from "@/hooks/useCountUp"
@@ -39,9 +39,41 @@ function StatCell({ stat, play, index }: { stat: Stat; play: boolean; index: num
   )
 }
 
+interface LiveStats {
+  volume: number | null
+  holders: number | null
+  ath: number | null
+}
+
+/** Форматируем крупные числа коротко: 12.4K / 1.2M. */
+const compact = (n: number) =>
+  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
+  : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K`
+  : Math.round(n).toLocaleString("en-US")
+
 export function StatsStrip() {
   const ref = useRef<HTMLElement>(null)
   const inView = useInView(ref, { once: true, amount: 0.2 })
+  const [live, setLive] = useState<LiveStats | null>(null)
+
+  // Цифры коллекции — свой роут поверх OpenSea, кэш на сутки.
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/collection-stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d) setLive({ volume: d.volume, holders: d.holders, ath: d.ath }) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  // Живые значения подменяют плейсхолдеры из landing-data по ключу label.
+  const withLive = (stat: Stat): Stat => {
+    if (!live) return stat
+    if (stat.label === "Total Volume" && live.volume != null) return { ...stat, display: `${compact(live.volume)}` }
+    if (stat.label === "Holders" && live.holders != null) return { ...stat, display: undefined, value: live.holders, suffix: "" }
+    if (stat.label === "ATH" && live.ath != null) return { ...stat, display: `${compact(live.ath)}` }
+    return stat
+  }
 
   // Партнёров пока немного — дублируем ряд, чтобы лента шла без разрывов.
   const partnerRow = Array.from({ length: Math.max(2, Math.ceil(14 / PARTNERS.length)) }, () => PARTNERS).flat()
@@ -55,7 +87,7 @@ export function StatsStrip() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 md:gap-x-14 gap-y-16">
           {STATS.map((s, i) => (
-            <StatCell key={s.label} stat={s} play={inView} index={i} />
+            <StatCell key={s.label} stat={withLive(s)} play={inView} index={i} />
           ))}
         </div>
       </div>
@@ -74,7 +106,8 @@ export function StatsStrip() {
                   title={p.name}
                   loading="lazy"
                   draggable={false}
-                  className="h-6 md:h-7 w-auto max-w-[140px] object-contain opacity-30 grayscale hover:opacity-80 transition-all duration-300 select-none"
+                  style={{ height: `${1.75 * (p.scale ?? 1)}rem` }}
+                  className="w-auto max-w-[170px] object-contain opacity-30 grayscale hover:opacity-80 transition-all duration-300 select-none"
                 />
               )
               return p.url ? (

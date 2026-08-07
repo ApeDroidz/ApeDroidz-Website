@@ -1,48 +1,61 @@
 "use client"
 
-import { User } from "lucide-react"
-import { TEAM, TeamMember } from "@/lib/landing-data"
+import { ArrowUpRight } from "lucide-react"
+import { CREATORS, Creator } from "@/lib/landing-data"
 import { LABEL_CLASS, Reveal } from "./ui"
 
-function TeamCard({ member, index }: { member: TeamMember; index: number }) {
-  const card = (
-    <div className="w-full rounded-2xl border border-white/10 bg-white/[0.02] p-5 hover:border-white/25 hover:bg-white/[0.04] transition-colors duration-300">
-      <div className="aspect-square rounded-xl bg-[#111] border border-white/5 flex items-center justify-center overflow-hidden mb-5">
-        {member.avatar ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={member.avatar} alt={member.name} loading="lazy" draggable={false} className="w-full h-full object-cover" />
-        ) : (
-          <User className="w-10 h-10 text-white/10" />
+function CreatorCard({ creator, index }: { creator: Creator; index: number }) {
+  const inner = (
+    <div className="group relative h-full rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-8 md:p-10 flex flex-col justify-between gap-10 hover:border-white/25 transition-colors duration-300">
+      <div className="flex items-start justify-between gap-6">
+        <span className={`${LABEL_CLASS} text-white/30`}>{creator.role}</span>
+        {creator.url && (
+          <ArrowUpRight size={18} className="text-white/25 group-hover:text-white transition-colors shrink-0" />
         )}
       </div>
-      <div className="font-medium tracking-tight text-lg truncate">{member.name}</div>
-      <div className={`${LABEL_CLASS} text-white/30 mt-1.5`}>{member.role}</div>
+
+      <div>
+        {creator.logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={creator.logo}
+            alt={creator.name}
+            draggable={false}
+            className="h-9 md:h-11 w-auto opacity-80 group-hover:opacity-100 transition-opacity select-none"
+          />
+        ) : (
+          <span className="block font-semibold tracking-tight text-3xl md:text-4xl">{creator.name}</span>
+        )}
+        {creator.note && (
+          <p className="mt-5 max-w-sm font-sans text-sm md:text-base text-white/35 leading-relaxed">{creator.note}</p>
+        )}
+      </div>
     </div>
   )
+
   return (
-    <Reveal delay={0.06 * index}>
-      {member.url ? (
-        <a href={member.url} target="_blank" rel="noopener noreferrer">{card}</a>
-      ) : card}
+    <Reveal delay={0.08 * index} className="h-full">
+      {creator.url ? (
+        <a href={creator.url} target="_blank" rel="noopener noreferrer" className="block h-full">{inner}</a>
+      ) : inner}
     </Reveal>
   )
 }
 
 export function TeamSection() {
-  if (TEAM.length === 0) return null
+  if (CREATORS.length === 0) return null
   return (
     <section className="relative py-20 md:py-28">
       <div className="w-full px-[5vw]">
         <Reveal>
-          <div className={`${LABEL_CLASS} text-white/35 mb-4`}>The Crew</div>
-          <h2 className="font-semibold tracking-tight text-[clamp(2.2rem,4.6vw,4rem)] leading-none">Team</h2>
-          <p className="mt-6 max-w-xl font-sans text-base md:text-lg leading-relaxed">
-            <span className="text-white">The operators behind the Droidz Network.</span>
-          </p>
+          <div className={`${LABEL_CLASS} text-white/35 mb-4`}>Created by</div>
+          <h2 className="font-semibold tracking-tight text-[clamp(2.2rem,4.6vw,4rem)] leading-none">
+            The <span className="text-white/35">Makers</span>
+          </h2>
         </Reveal>
 
-        <div className="mt-14 grid grid-cols-2 md:grid-cols-3 gap-4 max-w-3xl">
-          {TEAM.map((m, i) => <TeamCard key={m.name + m.role} member={m} index={i} />)}
+        <div className="mt-12 grid gap-4 md:grid-cols-2">
+          {CREATORS.map((c, i) => <CreatorCard key={c.name} creator={c} index={i} />)}
         </div>
       </div>
     </section>

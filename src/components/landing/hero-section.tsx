@@ -10,9 +10,11 @@ import {
   useScroll,
   useTransform,
 } from "framer-motion"
-import { ChevronDown } from "lucide-react"
+import Link from "next/link"
+import { ArrowUpRight, ChevronDown } from "lucide-react"
 import { GlitchContainer } from "@/components/glitch/glitch-container"
 import { GlitchReveal } from "@/components/glitch/glitch-reveal"
+import { ACCENT_BTN } from "./ui"
 
 const HeroScene = dynamic(
   () => import("./hero-scene").then((mod) => ({ default: mod.HeroScene })),
@@ -77,7 +79,7 @@ export function HeroSection() {
   // Заголовок гаснет, лор въезжает слева, в конце тоже уходит
   const headlineOpacity = useTransform(scrollYProgress, [0.08, 0.24], [1, 0])
   const headlineY = useTransform(scrollYProgress, [0.08, 0.24], [0, -50])
-  const loreOpacity = useTransform(scrollYProgress, [0.24, 0.36, 0.86, 0.97], [0, 1, 1, 0])
+  const loreOpacity = useTransform(scrollYProgress, [0.26, 0.4, 0.82, 0.94], [0, 1, 1, 0])
   const loreX = useTransform(scrollYProgress, [0.24, 0.36], [-40, 0])
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
@@ -85,45 +87,63 @@ export function HeroSection() {
   // поэтому одноразовая защёлка по прогрессу скролла.
   const [loreOn, setLoreOn] = useState(false)
   useMotionValueEvent(scrollYProgress, "change", (v) => {
-    if (v > 0.27) setLoreOn(true)
+    if (v > 0.3) setLoreOn(true)
   })
 
   return (
-    <section ref={heroRef} className="relative h-[210dvh]">
+    <section ref={heroRef} className="relative h-[175dvh]">
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
           style={{ opacity: headlineOpacity, y: headlineY }}
           className="absolute inset-0 z-0 flex flex-col items-start justify-center pb-[10vh] pl-[7vw] pr-6 text-left"
         >
-          <GlitchContainer intensity={headlineDone ? 1 : 0} className="!h-auto">
-          <h1 className="leading-[1.05]">
-            <GlitchReveal play={headlinePlay} durationMs={780} onComplete={onHeadlineDone}>
-              <span className="block font-bold tracking-tight leading-[0.95] text-[clamp(2.6rem,7vw,6.5rem)]">
-                Born in the
-                <br />
-                Glitch
+          <GlitchReveal play={headlinePlay} durationMs={620} delayMs={0} className="mb-5 md:mb-7">
+            <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[clamp(1.2rem,3vw,2.5rem)] text-white/60">
+              Activated on
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/Apechain.svg"
+                alt="ApeChain"
+                draggable={false}
+                className="h-[0.72em] w-auto brightness-0 invert opacity-60 select-none translate-y-[0.05em]"
+              />
+            </span>
+          </GlitchReveal>
+
+          <h1 className="leading-[0.95]">
+            {/* «Born in» — глитчит только на появлении */}
+            <GlitchReveal play={headlinePlay} durationMs={620}>
+              <span className="block font-bold tracking-tight text-[clamp(3rem,8.5vw,8rem)]">
+                Born in
               </span>
             </GlitchReveal>
 
-            <GlitchReveal play={headlinePlay} durationMs={720} delayMs={260} className="mt-5 md:mt-7">
-              <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[clamp(0.95rem,2.2vw,1.8rem)] text-white/70">
-                Activated on
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/Apechain.svg"
-                  alt="ApeChain"
-                  draggable={false}
-                  className="h-[0.78em] w-auto brightness-0 invert opacity-90 select-none translate-y-[0.04em]"
-                />
-              </span>
+            {/* «The Glitch» — появляется глитчем и продолжает подрагивать */}
+            <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
+              <GlitchContainer intensity={headlineDone ? 1 : 0} className="!h-auto">
+                <span className="block font-bold tracking-tight text-[clamp(3rem,8.5vw,8rem)]">
+                  The Glitch
+                </span>
+              </GlitchContainer>
             </GlitchReveal>
           </h1>
-          </GlitchContainer>
+
+          {/* Круглая кнопка — новый паттерн активного действия */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={phase === "ready" ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-10"
+          >
+            <Link href="/dashboard" className={ACCENT_BTN}>
+              Go to Dashboard <ArrowUpRight size={16} />
+            </Link>
+          </motion.div>
 
           {phase === "headline" && !glbReady && (
             <div className="mt-10 font-mono text-[10px] font-black uppercase tracking-[0.3em] text-white/30 self-start">
-              LOADING {loadPct}%
+              {loadPct > 0 ? `LOADING ${loadPct}%` : "LOADING"}
             </div>
           )}
         </motion.div>

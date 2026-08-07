@@ -4,8 +4,8 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { Canvas, useThree } from "@react-three/fiber"
 import { Environment, OrbitControls, useAnimations, useGLTF } from "@react-three/drei"
 import * as THREE from "three"
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
-import { Crosshair, Footprints, Hand, Loader2, Minus, Music, Plus, Radio, RotateCcw, Shuffle, Zap } from "lucide-react"
+import { SkeletonUtils, type OrbitControls as OrbitControlsImpl } from "three-stdlib"
+import { Crosshair, Footprints, Hand, Loader2, Minus, Music, Pause, Play, Plus, Radio, RotateCcw, Shuffle, Zap } from "lucide-react"
 import { droidModelUrl } from "@/lib/media"
 import { LABEL_CLASS } from "./ui"
 
@@ -31,13 +31,15 @@ function FittedModel({ url, move, onMoveEnd }: { url: string; move: MoveId | nul
   const groupRef = useRef<THREE.Group>(null)
 
   const prepared = useMemo(() => {
-    const root = scene.clone(true)
+    // SkeletonUtils.clone: обычный clone не переносит привязку костей,
+    // из-за чего клипы движений не проигрываются.
+    const root = SkeletonUtils.clone(scene) as THREE.Object3D
     root.updateWorldMatrix(true, true)
 
     // Габариты считаем ТОЛЬКО по мешам: кости и пустые узлы у этих GLB
     // раздувают Box3.setFromObject и модель уезжает из кадра.
     const box = new THREE.Box3()
-    root.traverse((o) => {
+    root.traverse((o: THREE.Object3D) => {
       const mesh = o as THREE.Mesh
       if (!mesh.isMesh || !mesh.geometry) return
       mesh.geometry.computeBoundingBox()
@@ -99,12 +101,13 @@ function useAnimationClips(): THREE.AnimationClip[] {
 }
 
 function ViewerCanvas({
-  url, controlsRef, move, onMoveEnd,
+  url, controlsRef, move, onMoveEnd, spin,
 }: {
   url: string
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>
   move: MoveId | null
   onMoveEnd: () => void
+  spin: boolean
 }) {
   return (
     <Canvas camera={{ position: [0, 0.1, 4.2], fov: 35 }} gl={{ antialias: true, alpha: true }} dpr={[1, 2]}>
@@ -119,7 +122,7 @@ function ViewerCanvas({
         ref={controlsRef}
         enablePan
         screenSpacePanning
-        autoRotate
+        autoRotate={spin}
         autoRotateSpeed={1.1}
         minDistance={2.6}
         maxDistance={9}
@@ -138,6 +141,7 @@ export function DroidViewer() {
   const [error, setError] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<number | null>(DEFAULT_ID)
   const [move, setMove] = useState<MoveId | null>(null)
+  const [spin, setSpin] = useState(true)
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
 
   // Кнопочный зум: двигаем камеру вдоль луча «камера → цель».
@@ -245,6 +249,7 @@ export function DroidViewer() {
             controlsRef={controlsRef}
             move={move}
             onMoveEnd={() => setMove(null)}
+            spin={spin}
           />
         ) : null}
 
@@ -287,6 +292,15 @@ export function DroidViewer() {
 
         {/* Микро-навигация: зум + сброс вида */}
         <div className="absolute right-3 bottom-3 flex flex-col rounded-xl border border-white/10 bg-black/70 backdrop-blur-sm overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSpin((v) => !v)}
+            aria-label={spin ? "Pause rotation" : "Play rotation"}
+            className="p-2 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            {spin ? <Pause size={13} /> : <Play size={13} />}
+          </button>
+          <span className="h-px bg-white/10" />
           <button type="button" onClick={() => zoom(0.82)} aria-label="Zoom in"
             className="p-2 text-white/50 hover:text-white hover:bg-white/10 transition-colors">
             <Plus size={14} />

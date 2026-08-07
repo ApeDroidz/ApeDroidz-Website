@@ -43,7 +43,7 @@ export function Footer() {
   return (
     <footer className="relative px-[5vw] pb-8 pt-10">
       <Reveal>
-        <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-7 py-12 md:px-12 md:py-14">
+        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md px-7 py-12 md:px-12 md:py-14">
           <div className="grid gap-12 md:grid-cols-[1.2fr_1fr_1fr_1fr] md:gap-8">
             {/* Бренд + соцсети */}
             <div className="flex flex-col justify-between gap-8">
@@ -58,7 +58,7 @@ export function Footer() {
                     target="_blank"
                     rel="noopener noreferrer"
                     title={social.name}
-                    className="flex items-center justify-center w-[42px] h-[42px] border border-white/10 rounded-xl hover:bg-white/[0.06] hover:border-white/25 transition-all duration-300 text-white/50 hover:text-white group"
+                    className="flex items-center justify-center w-[42px] h-[42px] border border-white/10 rounded-full hover:bg-white/[0.06] hover:border-white/25 transition-all duration-300 text-white/50 hover:text-white group"
                   >
                     <social.Icon className={social.name === "OpenSea"
                       ? "w-[18px] h-[18px] brightness-0 invert-[0.55] group-hover:invert transition-all duration-300"

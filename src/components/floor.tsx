@@ -6,7 +6,7 @@ import { useFrame } from "@react-three/fiber"
 import * as THREE from "three"
 import type { MotionValue } from "framer-motion"
 
-const BASE_Y = -2.3
+const BASE_Y = -2.6   // совпадает с GROUND_Y дроида: ноги стоят на сетке
 const FADE_START = 0.16
 const FADE_RANGE = 0.34
 

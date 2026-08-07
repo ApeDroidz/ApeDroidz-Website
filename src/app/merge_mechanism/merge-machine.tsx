@@ -348,7 +348,7 @@ export function MergeMachine({
                     <>
                         <button
                             onClick={onReset}
-                            className="group relative w-full h-14 flex items-center justify-center gap-3 uppercase font-black tracking-widest text-base rounded-xl border-2 bg-white border-white text-black hover:bg-blue-600 hover:border-blue-600 hover:text-white cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all"
+                            className="group relative w-full h-14 flex items-center justify-center gap-3 uppercase font-black tracking-widest text-base rounded-full border-2 bg-white border-white text-black hover:bg-blue-600 hover:border-blue-600 hover:text-white cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all"
                         >
                             <RefreshCcw size={18} />
                             Merge Another
@@ -358,7 +358,7 @@ export function MergeMachine({
                     <button
                         onClick={onStartMerge}
                         disabled={!isButtonActive}
-                        className={`group relative w-full h-12 md:h-14 flex items-center justify-center gap-3 uppercase font-black tracking-widest text-sm md:text-base rounded-xl border-2 transition-all duration-300 overflow-hidden shadow-2xl
+                        className={`group relative w-full h-12 md:h-14 flex items-center justify-center gap-3 uppercase font-black tracking-widest text-sm md:text-base rounded-full border-2 transition-all duration-300 overflow-hidden shadow-2xl
                             ${isButtonActive
                                 ? "bg-white border-white text-black hover:bg-blue-600 hover:border-blue-600 hover:text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.6)] cursor-pointer"
                                 : "bg-white/5 text-white/30 border-white/10 cursor-default"}`}

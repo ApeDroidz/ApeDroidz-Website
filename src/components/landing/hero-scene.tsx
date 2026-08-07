@@ -25,12 +25,12 @@ const CAM = {
   desktop: {
     far: new THREE.Vector3(0, 0, 9),        // интро, пока дроида нет
     near: new THREE.Vector3(0, 0.1, 8.4),   // акт 1 — дроид почти в полный рост
-    wide: new THREE.Vector3(0, 1.55, 4.6),  // акт 2 — крупный план от пояса и выше
+    wide: new THREE.Vector3(0, 0, 4.6),     // акт 2 — крупный план; высота берётся от головы дроида
   },
   mobile: {
     far: new THREE.Vector3(0, 0, 12),
     near: new THREE.Vector3(0, 0.2, 13),
-    wide: new THREE.Vector3(0, 1.5, 8),
+    wide: new THREE.Vector3(0, 0, 7),
   },
 }
 
@@ -73,7 +73,7 @@ function CameraRig({
     camera.position.z = THREE.MathUtils.damp(camera.position.z, target.z, 2.2, delta)
 
     // Наводка: от центра сцены к груди дроида по мере наезда.
-    lookAt.set((droidFocus.x - 1.15) * shift, droidFocus.y * shift, 0)
+    lookAt.set((droidFocus.x - 1.15) * shift, THREE.MathUtils.lerp(0, droidFocus.y, shift), 0)
     lookCurrent.x = THREE.MathUtils.damp(lookCurrent.x, lookAt.x, 2.2, delta)
     lookCurrent.y = THREE.MathUtils.damp(lookCurrent.y, lookAt.y, 2.2, delta)
     camera.lookAt(lookCurrent)
@@ -134,6 +134,16 @@ function LoadingReporter({ onProgress }: { onProgress: (pct: number) => void }) 
   return null
 }
 
+/** Включает бёрст, пока дроид растворяется на выходе (читает общий focus). */
+function DissolveBurst() {
+  const [on, setOn] = useState(false)
+  useFrame(() => {
+    const active = droidFocus.dissolve > 0.02 && droidFocus.dissolve < 0.99
+    setOn((prev) => (prev === active ? prev : active))
+  })
+  return on ? <GlitchBurst /> : null
+}
+
 interface HeroSceneProps {
   phase: HeroPhase
   scrollProgress: MotionValue<number>
@@ -181,6 +191,7 @@ export function HeroScene({ phase, scrollProgress, active, burst, onReady, onPro
         </Suspense>
 
         {burst && phase === "materialize" && <GlitchBurst />}
+        {burst && phase === "ready" && <DissolveBurst />}
       </Canvas>
     </div>
   )

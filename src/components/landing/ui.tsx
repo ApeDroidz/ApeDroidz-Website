@@ -7,10 +7,14 @@ import { GlitchContainer } from "@/components/glitch/glitch-container"
 
 // Кнопки лендинга — идиомы проекта (см. dashboard/upgrade module)
 export const PRIMARY_BTN =
-  "inline-flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-widest text-sm rounded-xl px-8 py-4 hover:bg-[#0069FF] hover:text-white transition-colors duration-300 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+  "inline-flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-widest text-sm rounded-full px-9 py-4 hover:bg-[#0069FF] hover:text-white transition-colors duration-300 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+
+// Синяя кнопка действия: на ховере становится белой.
+export const ACCENT_BTN =
+  "inline-flex items-center justify-center gap-2 bg-[#0069FF] text-white font-black uppercase tracking-widest text-sm rounded-full px-9 py-4 hover:bg-white hover:text-black transition-colors duration-300 shadow-[0_0_28px_rgba(0,105,255,0.35)]"
 
 export const SECONDARY_BTN =
-  "inline-flex items-center justify-center gap-2 bg-transparent border border-white/15 text-white/80 font-black uppercase tracking-widest text-sm rounded-xl px-8 py-4 hover:bg-white/10 hover:border-white/30 hover:text-white transition-colors duration-300"
+  "inline-flex items-center justify-center gap-2 bg-transparent border border-white/15 text-white/80 font-black uppercase tracking-widest text-sm rounded-full px-9 py-4 hover:bg-white/10 hover:border-white/30 hover:text-white transition-colors duration-300"
 
 export const LABEL_CLASS =
   "font-mono text-[10px] font-black uppercase tracking-[0.2em]"

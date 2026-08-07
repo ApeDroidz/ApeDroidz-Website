@@ -27,23 +27,13 @@ export function OthersideSection() {
         {/* Левая колонка — смысл */}
         <div>
           <Reveal>
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/otherside.svg"
-                alt="Otherside"
-                draggable={false}
-                className="h-4 md:h-5 w-auto select-none opacity-40"
-              />
-              <span className="text-white/15 leading-none">×</span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/full-logo.svg"
-                alt="ApeDroidz"
-                draggable={false}
-                className="h-5 md:h-6 w-auto select-none opacity-40"
-              />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/otherside.svg"
+              alt="Otherside"
+              draggable={false}
+              className="h-7 md:h-9 w-auto select-none opacity-70"
+            />
           </Reveal>
 
           <Reveal className="mt-8" delay={0.08}>

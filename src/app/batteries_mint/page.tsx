@@ -1209,7 +1209,7 @@ export default function MintPage() {
                                                                                             onTransactionConfirmed={handleMintSuccess}
                                                                                             onError={(err) => console.error(err)}
                                                                                             disabled={!phaseEligibility?.isEligible || quantity === 0}
-                                                                                            className="!bg-white !text-black !font-bold !uppercase !tracking-wider !rounded-xl !h-[52px] lg:!h-12 !px-10 !w-full lg:!w-auto hover:!bg-[#0069FF] hover:!text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:!bg-white disabled:hover:!text-black"
+                                                                                            className="!bg-white !text-black !font-bold !uppercase !tracking-wider !rounded-full !h-[52px] lg:!h-12 !px-10 !w-full lg:!w-auto hover:!bg-[#0069FF] hover:!text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:!bg-white disabled:hover:!text-black"
                                                                                         >
                                                                                             Mint Now
                                                                                         </TransactionButton>

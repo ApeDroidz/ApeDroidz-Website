@@ -191,11 +191,11 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
               </div>
               <div className="flex flex-col gap-3 w-full mt-2">
                 {/* Кнопка Share - Синяя */}
-                <button onClick={() => { if (onShare) onShare(); setShowMaxLevelAlert(false); }} className="w-full h-12 flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-wider rounded-xl hover:bg-blue-600 hover:border-blue-600 hover:text-white transition-all shadow-lg text-sm">
+                <button onClick={() => { if (onShare) onShare(); setShowMaxLevelAlert(false); }} className="w-full h-12 flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-wider rounded-full hover:bg-blue-600 hover:border-blue-600 hover:text-white transition-all shadow-lg text-sm">
                   <Share size={16} /> Share & Flex
                 </button>
                 {/* Кнопка Reset - Контурная */}
-                <button onClick={() => { if (onReset) onReset(); setShowMaxLevelAlert(false); }} className="w-full h-12 flex items-center justify-center gap-2 border border-white/20 text-white font-bold uppercase tracking-wider rounded-xl hover:bg-white/10 transition-all text-sm">
+                <button onClick={() => { if (onReset) onReset(); setShowMaxLevelAlert(false); }} className="w-full h-12 flex items-center justify-center gap-2 border border-white/20 text-white font-bold uppercase tracking-wider rounded-full hover:bg-white/10 transition-all text-sm">
                   <RefreshCcw size={16} /> Select Another
                 </button>
                 {/* Ссылка на детали (Безопасный адрес) */}
@@ -309,7 +309,7 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
         {showSuccessScreen ? (
           <>
             {/* === КНОПКА SHARE (СИНИЙ HOVER: blue-600) === */}
-            <button onClick={onShare} className="group relative w-full h-14 flex items-center justify-center gap-3 uppercase font-black tracking-widest text-base rounded-xl border-2 bg-white border-white text-black hover:bg-blue-600 hover:border-blue-600 hover:text-white cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.3)] hover:shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-all">
+            <button onClick={onShare} className="group relative w-full h-14 flex items-center justify-center gap-3 uppercase font-black tracking-widest text-base rounded-full border-2 bg-white border-white text-black hover:bg-blue-600 hover:border-blue-600 hover:text-white cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.3)] hover:shadow-[0_0_20px_rgba(37,99,235,0.6)] transition-all">
               Share & Flex Your Droid
               <Share size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" />
             </button>
@@ -317,7 +317,7 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
           </>
         ) : (
           // === КНОПКА UPGRADE (СИНИЙ HOVER: blue-600) ===
-          <button onClick={() => { if (isReady && !isUpgrading) handleMainAction() }} disabled={!(selectedDroid && selectedBattery) || isUpgrading} className={`group relative w-full h-12 md:h-14 flex items-center justify-center gap-3 uppercase font-black tracking-widest text-sm md:text-base rounded-xl border-2 transition-all duration-300 overflow-hidden shadow-2xl ${isActive ? "bg-white border-white text-black hover:bg-blue-600 hover:border-blue-600 hover:text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.6)] cursor-pointer" : "bg-white/5 text-white/30 border-white/10 cursor-default"}`}>
+          <button onClick={() => { if (isReady && !isUpgrading) handleMainAction() }} disabled={!(selectedDroid && selectedBattery) || isUpgrading} className={`group relative w-full h-12 md:h-14 flex items-center justify-center gap-3 uppercase font-black tracking-widest text-sm md:text-base rounded-full border-2 transition-all duration-300 overflow-hidden shadow-2xl ${isActive ? "bg-white border-white text-black hover:bg-blue-600 hover:border-blue-600 hover:text-white hover:shadow-[0_0_20px_rgba(37,99,235,0.6)] cursor-pointer" : "bg-white/5 text-white/30 border-white/10 cursor-default"}`}>
             {buttonText}
             {(isUpgrading || (newDroid && !isNewImageLoaded)) ? <svg className="animate-spin h-4 w-4 text-current" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg> : isReady ? <ArrowRight size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" /> : null}
           </button>

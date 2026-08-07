@@ -23,13 +23,16 @@ const seg = (p: number, from: number, to: number) =>
 //   0.00–0.25  стоит справа в полный рост (акт 1, текст слева)
 //   0.25–0.45  камера наезжает — в кадре верх корпуса (акт 2, лор слева)
 //   0.45–0.86  держится
-//   0.86–1.00  уходит за правый край
+//   0.86–1.00  растворяется глитчем (как появлялся)
 const SHIFT = { from: 0.25, to: 0.45 }
-const EXIT = { from: 0.86, to: 1.0 }
+const DISSOLVE = { from: 0.8, to: 0.93 }
 
 // Базовое положение в мировых единицах: правая половина кадра.
 // Константа, а не доля viewport — иначе при наезде камеры дроид «сползает» в центр.
 const PARK_X_DESKTOP = 2.5
+// Ноги стоят ровно на полу: у модели min.y = 0, поэтому позиция группы = уровень пола.
+const GROUND_Y = -2.6
+const SCALE = 2.86   // +30% к прежним 2.2
 const PARK_X_MOBILE = 0.85
 
 export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
@@ -103,6 +106,19 @@ export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
     group.visible = visible
     if (!visible) return
 
+    const p = scrollProgress.get()
+    const shift = seg(p, SHIFT.from, SHIFT.to)
+    const dissolve = seg(p, DISSOLVE.from, DISSOLVE.to)
+
+    // Растворение на выходе: тот же приём, что и при появлении, но наоборот.
+    if (fadeDone.current && dissolve > 0) {
+      const visibleAmount = 1 - dissolve
+      materials.forEach(({ mat }) => { mat.transparent = true; mat.opacity = visibleAmount })
+      group.visible = visibleAmount > 0.01
+    } else if (fadeDone.current) {
+      materials.forEach(({ mat, wasTransparent }) => { mat.transparent = wasTransparent; mat.opacity = 1 })
+    }
+
     // Материализация: opacity 0 → 1 за ~450мс под глитч-бёрст
     if (!fadeDone.current) {
       if (fadeStart.current === null) {
@@ -146,25 +162,23 @@ export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
       bones.current.spine.rotation.x = THREE.MathUtils.lerp(bones.current.spine.rotation.x, targetX + (breathe * 0.5), smoothSpeed)
     }
 
-    const p = scrollProgress.get()
-    const shift = seg(p, SHIFT.from, SHIFT.to)
-    const exit = seg(p, EXIT.from, EXIT.to)
-    const halfW = state.viewport.width / 2
-
     const parkX = isMobile ? PARK_X_MOBILE : PARK_X_DESKTOP
-    group.position.x = parkX + exit * (halfW + 2.6)
-    group.position.y = -2.6
+    group.position.x = parkX
+    group.position.y = GROUND_Y
 
-    group.scale.setScalar(2.2)
+    group.scale.setScalar(SCALE)
 
-    // Точка наводки для камеры — примерно грудь дроида (модель ~1.57 юнита ростом).
-    droidFocus.x = group.position.x
-    droidFocus.y = group.position.y + 2.2 * 1.15
+    // Точка наводки для камеры — грудь дроида в «припаркованном» положении.
+    // Уход за край (exit) сюда НЕ входит: иначе камера гонится за улетающей
+    // моделью и кадр дёргается на стыке с блоком цифр.
+    droidFocus.x = parkX
+    droidFocus.y = GROUND_Y + SCALE * 1.32   // уровень головы
+    droidFocus.dissolve = dissolve
 
-    // Стоя справа, разворачивается к тексту (он слева).
+    // Стоя справа, доворачивается к тексту слева (на акте 2 сильнее).
     group.rotation.y = THREE.MathUtils.lerp(
       group.rotation.y,
-      -mouseX * 0.1 - shift * 0.35 + exit * 0.15,
+      -mouseX * 0.1 + 0.18 + shift * 0.22,
       delta * 2
     )
   })

@@ -1,13 +1,14 @@
 "use client"
 
 import { ArrowUpRight } from "lucide-react"
-import { droidStaticUrl } from "@/lib/media"
-import { DROID_CONTRACT, MARQUEE_ROW_A, MARQUEE_ROW_B, openseaItemUrl } from "@/lib/landing-data"
+import { droidAnimatedWebpUrl } from "@/lib/media"
+import { DROID_CONTRACT, MARQUEE_ROW_A, MARQUEE_ROW_B, MarqueeDroid, openseaItemUrl } from "@/lib/landing-data"
 import { OPENSEA_COLLECTION_URL } from "@/lib/socials"
 import { Marquee } from "./marquee"
 import { LABEL_CLASS, SECONDARY_BTN, Reveal } from "./ui"
 
-function DroidCard({ id }: { id: number }) {
+function DroidCard({ droid }: { droid: MarqueeDroid }) {
+  const { id } = droid
   return (
     <a
       href={openseaItemUrl(DROID_CONTRACT, id)}
@@ -18,7 +19,7 @@ function DroidCard({ id }: { id: number }) {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={droidStaticUrl(id, 1, false)}
+        src={droidAnimatedWebpUrl(id, droid.super)}
         alt={`ApeDroid #${id}`}
         width={224}
         height={224}
@@ -63,10 +64,10 @@ export function CollectionSection() {
 
       <Reveal className="mt-14 space-y-4">
         <Marquee durationSec={64} pauseOnHover>
-          {MARQUEE_ROW_A.map((id) => <DroidCard key={id} id={id} />)}
+          {MARQUEE_ROW_A.map((d) => <DroidCard key={d.id} droid={d} />)}
         </Marquee>
         <Marquee durationSec={64} direction="right" pauseOnHover>
-          {MARQUEE_ROW_B.map((id) => <DroidCard key={id} id={id} />)}
+          {MARQUEE_ROW_B.map((d) => <DroidCard key={d.id} droid={d} />)}
         </Marquee>
       </Reveal>
     </section>
