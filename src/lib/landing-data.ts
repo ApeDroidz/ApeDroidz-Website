@@ -123,13 +123,13 @@ export interface Partner {
 export const PARTNERS: Partner[] = [
   { scale: 1.0, name: "ApeChain", src: "/Apechain.svg", url: "https://apechain.com" },
   { scale: 0.98, name: "Otherside", src: "/otherside.svg", url: "https://www.otherside.xyz" },
-  { scale: 1.0, name: "ZeroBrand", src: "/partners/zerobrand.svg", url: "https://zerobrand.xyz/" },
+  { scale: 0.93, name: "ZeroBrand", src: "/partners/zerobrand.svg", url: "https://zerobrand.xyz/" },
   { scale: 1.5, name: "G's on Ape", src: "/partners/geezonape.png", url: "https://www.geezonape.com/" },
   { scale: 1.0, name: "Blever", src: "/partners/blever.svg", url: "https://app.blever.xyz/" },
   { scale: 1.25, name: "Zards", src: "/partners/zards.png", url: "http://zards.io/" },
   { scale: 1.1, name: "Sloooths", src: "/partners/sloooths.svg", url: "https://sloooths.com/" },
   { scale: 0.95, name: "JNKYZ", src: "/partners/jnkyz.png", url: "https://www.jnkyz.com/" },
-  { scale: 2.25, name: "Night Glyders", src: "/partners/nightglyders.png", url: "https://www.nightglyders.com/" },
+  { scale: 2.59, name: "Night Glyders", src: "/partners/nightglyders.png", url: "https://www.nightglyders.com/" },
   { scale: 1.2, name: "Inceptive Studio", src: "/partners/inceptive.png", url: "https://inceptivestudio.com/" },
   { scale: 1.15, name: "Balloons", src: "/partners/balloons.png", url: "https://www.balloonsballoons.xyz/" },
   // TODO: у gobs.land и designertoshiro.com на сайте нет пригодного логотипа —

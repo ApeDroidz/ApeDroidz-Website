@@ -87,7 +87,7 @@ export function HeroSection() {
   // Заголовок гаснет, лор въезжает слева, в конце тоже уходит
   const headlineOpacity = useTransform(scrollYProgress, [0.08, 0.24], [1, 0])
   const headlineY = useTransform(scrollYProgress, [0.08, 0.24], [0, -50])
-  const loreOpacity = useTransform(scrollYProgress, [0.26, 0.4, 0.72, 0.86], [0, 1, 1, 0])
+  const loreOpacity = useTransform(scrollYProgress, [0.26, 0.4, 0.78, 0.94], [0, 1, 1, 0])
   const loreX = useTransform(scrollYProgress, [0.24, 0.36], [-40, 0])
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
