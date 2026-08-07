@@ -85,21 +85,21 @@ export function HeroSection() {
   const sceneActive = heroInView || phase !== "ready"
 
   // Заголовок гаснет, лор въезжает слева, в конце тоже уходит
-  const headlineOpacity = useTransform(scrollYProgress, [0.08, 0.24], [1, 0])
-  const headlineY = useTransform(scrollYProgress, [0.08, 0.24], [0, -50])
-  const loreOpacity = useTransform(scrollYProgress, [0.2, 0.34, 0.7, 0.86], [0, 1, 1, 0])
-  const loreX = useTransform(scrollYProgress, [0.24, 0.36], [-40, 0])
+  const headlineOpacity = useTransform(scrollYProgress, [0.16, 0.3], [1, 0])
+  const headlineY = useTransform(scrollYProgress, [0.16, 0.3], [0, -50])
+  const loreOpacity = useTransform(scrollYProgress, [0.3, 0.42, 0.82, 0.93], [0, 1, 1, 0])
+  const loreX = useTransform(scrollYProgress, [0.3, 0.42], [-40, 0])
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
   // Абзацы лора живут внутри sticky-контейнера — whileInView тут бесполезен,
   // поэтому одноразовая защёлка по прогрессу скролла.
   const [loreOn, setLoreOn] = useState(false)
   useMotionValueEvent(scrollYProgress, "change", (v) => {
-    if (v > 0.26) setLoreOn(true)
+    if (v > 0.32) setLoreOn(true)
   })
 
   return (
-    <section ref={heroRef} className="relative h-[118dvh]">
+    <section ref={heroRef} className="relative h-[230dvh]">
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div

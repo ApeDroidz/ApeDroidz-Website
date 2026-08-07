@@ -56,7 +56,7 @@ function CameraRig({
 
     // Тот же сегмент, что и у наезда в droid-rig (SHIFT).
     const shift = arrived
-      ? smoothstep(THREE.MathUtils.clamp((scrollProgress.get() - 0.25) / 0.2, 0, 1))
+      ? smoothstep(THREE.MathUtils.clamp((scrollProgress.get() - 0.18) / 0.22, 0, 1))
       : 0
 
     if (!arrived) {
@@ -134,16 +134,6 @@ function LoadingReporter({ onProgress }: { onProgress: (pct: number) => void }) 
   return null
 }
 
-/** Включает бёрст, пока дроид растворяется на выходе (читает общий focus). */
-function DissolveBurst() {
-  const [on, setOn] = useState(false)
-  useFrame(() => {
-    const active = droidFocus.dissolve > 0.02 && droidFocus.dissolve < 0.99
-    setOn((prev) => (prev === active ? prev : active))
-  })
-  return on ? <GlitchBurst /> : null
-}
-
 interface HeroSceneProps {
   phase: HeroPhase
   scrollProgress: MotionValue<number>
@@ -195,7 +185,6 @@ export function HeroScene({ phase, scrollProgress, active, burst, onReady, onPro
         </Suspense>
 
         {burst && phase === "materialize" && <GlitchBurst />}
-        {burst && phase === "ready" && <DissolveBurst />}
       </Canvas>
     </div>
   )

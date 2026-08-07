@@ -297,146 +297,83 @@
   @media (prefers-reduced-motion: reduce) { .landing-marquee-track { animation: none; } }
 
 
-/* ============ Живой глитч заголовка ============ */
-/* Надпись собрана из полос: в покое встык, при срыве разъезжаются */
-@keyframes gt-slice-0 {
-  0%, 20%, 100% { transform: translate3d(0, 0, 0); }
-  22% { transform: translate3d(-9px, 4px, 0); }
-  26% { transform: translate3d(4px, 2px, 0); }
-  29% { transform: translate3d(0, 0, 0); }
-  57% { transform: translate3d(0, 0, 0); }
-  60% { transform: translate3d(-13px, -4px, 0); }
-  64% { transform: translate3d(-3px, 4px, 0); }
-  67% { transform: translate3d(0, 0, 0); }
-  88% { transform: translate3d(0, 0, 0); }
-  90% { transform: translate3d(9px, 6px, 0); }
-  93% { transform: translate3d(-9px, 0, 0); }
-  95% { transform: translate3d(0, 0, 0); }
-}
-.gt-slice-0 { clip-path: inset(0.0% 0 83.33% 0); animation: gt-slice-0 2.9s steps(1, end) infinite; }
-@keyframes gt-slice-1 {
-  0%, 20%, 100% { transform: translate3d(0, 0, 0); }
-  22% { transform: translate3d(7px, -5px, 0); }
-  26% { transform: translate3d(-4px, -3px, 0); }
-  29% { transform: translate3d(0, 0, 0); }
-  57% { transform: translate3d(0, 0, 0); }
-  60% { transform: translate3d(10px, 5px, 0); }
-  64% { transform: translate3d(2px, -5px, 0); }
-  67% { transform: translate3d(0, 0, 0); }
-  88% { transform: translate3d(0, 0, 0); }
-  90% { transform: translate3d(-7px, -8px, 0); }
-  93% { transform: translate3d(7px, 0, 0); }
-  95% { transform: translate3d(0, 0, 0); }
-}
-.gt-slice-1 { clip-path: inset(16.67% 0 66.67% 0); animation: gt-slice-1 3.4s steps(1, end) infinite; }
-@keyframes gt-slice-2 {
-  0%, 20%, 100% { transform: translate3d(0, 0, 0); }
-  22% { transform: translate3d(-12px, 6px, 0); }
-  26% { transform: translate3d(6px, 3px, 0); }
-  29% { transform: translate3d(0, 0, 0); }
-  57% { transform: translate3d(0, 0, 0); }
-  60% { transform: translate3d(-17px, -6px, 0); }
-  64% { transform: translate3d(-4px, 6px, 0); }
-  67% { transform: translate3d(0, 0, 0); }
-  88% { transform: translate3d(0, 0, 0); }
-  90% { transform: translate3d(12px, 10px, 0); }
-  93% { transform: translate3d(-12px, 0, 0); }
-  95% { transform: translate3d(0, 0, 0); }
-}
-.gt-slice-2 { clip-path: inset(33.33% 0 50.0% 0); animation: gt-slice-2 2.6s steps(1, end) infinite; }
-@keyframes gt-slice-3 {
-  0%, 20%, 100% { transform: translate3d(0, 0, 0); }
-  22% { transform: translate3d(10px, -3px, 0); }
-  26% { transform: translate3d(-5px, -2px, 0); }
-  29% { transform: translate3d(0, 0, 0); }
-  57% { transform: translate3d(0, 0, 0); }
-  60% { transform: translate3d(14px, 3px, 0); }
-  64% { transform: translate3d(3px, -3px, 0); }
-  67% { transform: translate3d(0, 0, 0); }
-  88% { transform: translate3d(0, 0, 0); }
-  90% { transform: translate3d(-10px, -5px, 0); }
-  93% { transform: translate3d(10px, 0, 0); }
-  95% { transform: translate3d(0, 0, 0); }
-}
-.gt-slice-3 { clip-path: inset(50.0% 0 33.33% 0); animation: gt-slice-3 3.9s steps(1, end) infinite; }
-@keyframes gt-slice-4 {
-  0%, 20%, 100% { transform: translate3d(0, 0, 0); }
-  22% { transform: translate3d(-6px, -7px, 0); }
-  26% { transform: translate3d(3px, -4px, 0); }
-  29% { transform: translate3d(0, 0, 0); }
-  57% { transform: translate3d(0, 0, 0); }
-  60% { transform: translate3d(-8px, 7px, 0); }
-  64% { transform: translate3d(-2px, -7px, 0); }
-  67% { transform: translate3d(0, 0, 0); }
-  88% { transform: translate3d(0, 0, 0); }
-  90% { transform: translate3d(6px, -11px, 0); }
-  93% { transform: translate3d(-6px, 0, 0); }
-  95% { transform: translate3d(0, 0, 0); }
-}
-.gt-slice-4 { clip-path: inset(66.67% 0 16.67% 0); animation: gt-slice-4 3.1s steps(1, end) infinite; }
-@keyframes gt-slice-5 {
-  0%, 20%, 100% { transform: translate3d(0, 0, 0); }
-  22% { transform: translate3d(8px, 5px, 0); }
-  26% { transform: translate3d(-4px, 2px, 0); }
-  29% { transform: translate3d(0, 0, 0); }
-  57% { transform: translate3d(0, 0, 0); }
-  60% { transform: translate3d(11px, -5px, 0); }
-  64% { transform: translate3d(2px, 5px, 0); }
-  67% { transform: translate3d(0, 0, 0); }
-  88% { transform: translate3d(0, 0, 0); }
-  90% { transform: translate3d(-8px, 8px, 0); }
-  93% { transform: translate3d(8px, 0, 0); }
-  95% { transform: translate3d(0, 0, 0); }
-}
-.gt-slice-5 { clip-path: inset(83.33% 0 0.0% 0); animation: gt-slice-5 4.3s steps(1, end) infinite; }
-
-/* ASCII-вспышки: видны короткими окнами */
-@keyframes gt-ascii-a { 0%, 20%, 100% { opacity: 0; } 22%, 25% { opacity: .95; } 26% { opacity: 0; } }
-@keyframes gt-ascii-b { 0%, 58%, 100% { opacity: 0; } 60%, 63% { opacity: .9; } 64% { opacity: 0; } }
-@keyframes gt-ascii-c { 0%, 88%, 100% { opacity: 0; } 90%, 93% { opacity: .85; } 94% { opacity: 0; } }
-
-/* Рябь строками */
-@keyframes gt-scan {
-  0% { background-position-y: 0; opacity: .16; }
-  50% { opacity: .3; }
-  100% { background-position-y: 14px; opacity: .16; }
-}
-
-.gt-wrap { position: relative; display: block; isolation: isolate; }
-/* невидимый экземпляр держит ширину и высоту строки */
+/* ============ Глитч заголовка (та же техника, что у прелоадера вьювера) ============ */
+.gt-wrap { position: relative; display: block; }
 .gt-sizer { display: block; visibility: hidden; }
 
-.gt-slice,
-.gt-ascii {
+.gt-band,
+.gt-ghost {
   position: absolute;
   inset: 0;
   pointer-events: none;
   color: #fff;
   white-space: nowrap;
-  filter: url(#gt-grain);
 }
 
-/* ASCII-слои рвут строку по своим полосам */
-.gt-ascii-a { clip-path: inset(4% 0 60% 0);  animation: gt-ascii-a 3.1s steps(1, end) infinite; }
-.gt-ascii-b { clip-path: inset(42% 0 24% 0); animation: gt-ascii-b 4.7s steps(1, end) infinite; }
-.gt-ascii-c { clip-path: inset(66% 0 6% 0);  animation: gt-ascii-c 5.9s steps(1, end) infinite; }
+/* Полосы тайлят строку сверху вниз без нахлёстов и зазоров */
+.gt-b1 { clip-path: inset(0 0 88% 0); }
+.gt-b2 { clip-path: inset(12% 0 70% 0); }
+.gt-b3 { clip-path: inset(30% 0 56% 0); }
+.gt-b4 { clip-path: inset(44% 0 36% 0); }
+.gt-b5 { clip-path: inset(64% 0 28% 0); }
+.gt-b6 { clip-path: inset(72% 0 10% 0); }
+.gt-b7 { clip-path: inset(90% 0 0 0); }
 
-.gt-scan {
-  position: absolute;
-  inset: -4% -2%;
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    rgba(255,255,255,0.16) 0px,
-    rgba(255,255,255,0.16) 1px,
-    transparent 1px,
-    transparent 4px
-  );
-  animation: gt-scan 1.1s linear infinite;
+/* Короткие клоки: разрыв случается часто и вразнобой */
+.gt-b2 { animation: gt-tearA .62s steps(1, end) infinite; }
+.gt-b4 { animation: gt-tearB .47s steps(1, end) infinite; }
+.gt-b6 { animation: gt-tearC .83s steps(1, end) infinite; }
+.gt-b3 { animation: gt-tearD 1.1s steps(1, end) infinite; }
+.gt-b5 { animation: gt-tearE 1.4s steps(1, end) infinite; }
+
+@keyframes gt-tearA {
+  0%,58%   { transform: translateX(0); }
+  62%      { transform: translateX(-10px); }
+  70%      { transform: translateX(7px); }
+  76%,100% { transform: translateX(0); }
 }
+@keyframes gt-tearB {
+  0%,44%   { transform: translateX(0); opacity: 1; }
+  50%      { transform: translateX(13px); opacity: .65; }
+  58%      { transform: translateX(-5px); opacity: 1; }
+  64%,100% { transform: translateX(0); }
+}
+@keyframes gt-tearC {
+  0%,70%   { transform: translateX(0); }
+  75%      { transform: translateX(-16px); }
+  82%      { transform: translateX(4px); }
+  86%,100% { transform: translateX(0); }
+}
+@keyframes gt-tearD {
+  0%,80%   { transform: translateX(0); opacity: 1; }
+  84%      { transform: translateX(9px); opacity: .5; }
+  90%,100% { transform: translateX(0); opacity: 1; }
+}
+/* редкий вертикальный увод одной полосы */
+@keyframes gt-tearE {
+  0%,88%   { transform: translate(0, 0); }
+  91%      { transform: translate(-6px, 5px); }
+  95%      { transform: translate(3px, -3px); }
+  97%,100% { transform: translate(0, 0); }
+}
+
+/* Еле заметный RGB-split — только по краям */
+.gt-ghost { mix-blend-mode: screen; opacity: .45; }
+.gt-ghost-r { color: #ff2d2d; animation: gt-ghostR .53s steps(1, end) infinite; }
+.gt-ghost-c { color: #24e1ff; animation: gt-ghostC .67s steps(1, end) infinite; }
+@keyframes gt-ghostR {
+  0%,62%   { transform: translateX(-1.5px); }
+  66%      { transform: translateX(-4px); }
+  72%,100% { transform: translateX(-1.5px); }
+}
+@keyframes gt-ghostC {
+  0%,54%   { transform: translateX(1.5px); }
+  60%      { transform: translateX(4px); }
+  66%,100% { transform: translateX(1.5px); }
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   .gt-sizer { visibility: visible; }
-  .gt-slice, .gt-ascii, .gt-scan { display: none; }
+  .gt-band, .gt-ghost { display: none; }
 }
