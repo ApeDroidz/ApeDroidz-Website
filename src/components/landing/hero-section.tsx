@@ -12,13 +12,8 @@ import {
 } from "framer-motion"
 import Link from "next/link"
 import { ArrowUpRight, ChevronDown } from "lucide-react"
-import { GlitchContainer, GlitchLevel } from "@/components/glitch/glitch-container"
-
-// Заголовок глитчит заметнее обычного idle-уровня, но не «рвётся» постоянно.
-const GLITCH_HEADLINE_LEVELS: GlitchLevel[] = [
-  { duration: "2.6s", opacity: 0.45 },
-  { duration: "1.1s", opacity: 0.85 },
-]
+import { GlitchContainer } from "@/components/glitch/glitch-container"
+import { GlitchText } from "@/components/glitch/glitch-text"
 import { GlitchReveal } from "@/components/glitch/glitch-reveal"
 import { ACCENT_BTN } from "./ui"
 
@@ -137,11 +132,15 @@ export function HeroSection() {
 
             {/* «The Glitch» — появляется глитчем и продолжает подрагивать */}
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
-              <GlitchContainer intensity={headlineDone ? 2 : 0} levels={GLITCH_HEADLINE_LEVELS} className="!h-auto">
+              {headlineDone ? (
+                <GlitchText className="font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]">
+                  The Glitch
+                </GlitchText>
+              ) : (
                 <span className="block font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]">
                   The Glitch
                 </span>
-              </GlitchContainer>
+              )}
             </GlitchReveal>
           </h1>
 

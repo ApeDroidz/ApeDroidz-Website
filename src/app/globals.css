@@ -296,3 +296,48 @@
   .landing-marquee-pause:hover .landing-marquee-track { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) { .landing-marquee-track { animation: none; } }
 
+
+/* ============ Живой глитч заголовка (референс: логотип с RGB-двоением) ============ */
+@keyframes gt-jitter-r {
+  0%, 100% { transform: translate3d(-1.5px, 0, 0); }
+  20% { transform: translate3d(-3px, 0.5px, 0); }
+  40% { transform: translate3d(-1px, -0.5px, 0); }
+  60% { transform: translate3d(-2.5px, 0, 0); }
+  80% { transform: translate3d(-1.5px, 0.5px, 0); }
+}
+@keyframes gt-jitter-c {
+  0%, 100% { transform: translate3d(1.5px, 0, 0); }
+  20% { transform: translate3d(2.5px, -0.5px, 0); }
+  40% { transform: translate3d(1px, 0.5px, 0); }
+  60% { transform: translate3d(3px, 0, 0); }
+  80% { transform: translate3d(1.5px, -0.5px, 0); }
+}
+/* редкие микро-срывы всей надписи — как «просадка сигнала» */
+@keyframes gt-slip {
+  0%, 92%, 100% { transform: translate3d(0, 0, 0); opacity: 1; }
+  93% { transform: translate3d(-2px, 0, 0); opacity: .92; }
+  95% { transform: translate3d(3px, 0, 0); opacity: 1; }
+  97% { transform: translate3d(-1px, 0, 0); opacity: .96; }
+}
+
+.gt-wrap { position: relative; display: block; }
+.gt-base {
+  position: relative;
+  display: block;
+  filter: url(#gt-grain);
+  animation: gt-slip 7s steps(1, end) infinite;
+}
+.gt-ghost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: url(#gt-grain);
+}
+.gt-ghost-r { color: #ff2d2d; animation: gt-jitter-r 1.1s steps(1, end) infinite; }
+.gt-ghost-c { color: #24e1ff; animation: gt-jitter-c 1.3s steps(1, end) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gt-base { filter: none; animation: none; }
+  .gt-ghost { display: none; }
+}
