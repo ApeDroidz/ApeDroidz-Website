@@ -57,6 +57,17 @@ export const honoraryAnimatedUrl = (tokenId: string | number): string =>
 export const honoraryAnimatedWebpUrl = (tokenId: string | number): string =>
   `${HONORARY}/webp/${tokenId}.webp`
 
+// Per-token 3D models live on GCS (separate host from the R2 image bucket) and
+// are what the `mml` field in the NFT metadata points at. CORS is open, so
+// useGLTF can load them straight from the browser.
+export const MODEL_BASE = (
+  process.env.NEXT_PUBLIC_MODEL_URL || 'https://storage.googleapis.com/apedroidz'
+).replace(/\/+$/, '')
+
+/** Full-body GLB for a droid — ids 1…3333. */
+export const droidModelUrl = (tokenId: string | number): string =>
+  `${MODEL_BASE}/glb/${tokenId}.glb`
+
 export const batteryUrl = (isSuper: boolean, ext: 'webp' | 'gif' = 'webp'): string =>
   `${MEDIA_BASE}/batteries/${isSuper ? 'super' : 'standart'}_battery.${ext}`
 

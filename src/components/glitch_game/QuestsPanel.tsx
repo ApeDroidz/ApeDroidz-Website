@@ -752,16 +752,21 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
                                                     >
                                                         {claiming ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
                                                     </button>
-                                                ) : (
+                                                ) : key.startsWith('cards') ? (
                                                     <Link
-                                                        href={key.startsWith('cards') ? '/glitch_games/cards' : '/glitch_games/flight'}
+                                                        href="/glitch_games/cards"
                                                         onMouseEnter={playHover}
                                                         onClick={playClick}
                                                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/70 border border-white/[0.08] transition-all"
                                                     >
-                                                        {key.startsWith('cards') ? 'Play Cards' : 'Play Flight'}
+                                                        Play Cards
                                                         <ArrowUpRight className="w-2.5 h-2.5" />
                                                     </Link>
+                                                ) : (
+                                                    /* Flight временно закрыт для публики — квест остаётся для учёта XP */
+                                                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-white/5 text-white/25 border border-white/[0.08] select-none">
+                                                        Paused
+                                                    </span>
                                                 )}
                                             </div>
 

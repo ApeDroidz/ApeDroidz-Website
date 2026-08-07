@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import React, { useState, useEffect } from "react"
 import { Zap, ArrowRight, RefreshCcw } from "lucide-react"
 import { batteryUrl } from "@/lib/media"
-import { GlitchContainer, GLITCH_STYLES, GlitchLevel } from "@/components/glitch/glitch-container"
+import { GlitchContainer, GlitchLevel } from "@/components/glitch/glitch-container"
 
 // === GLITCH + ANIMATION STYLES ===
 const MERGE_GLITCH_STYLES = `
@@ -209,7 +209,7 @@ export function MergeMachine({
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-between p-4 sm:p-6 relative overflow-hidden">
-            <style>{MERGE_GLITCH_STYLES + GLITCH_STYLES}</style>
+            <style>{MERGE_GLITCH_STYLES}</style>
 
             {/* Header */}
             <div className="w-full max-w-[1200px] px-4 z-20 text-center flex-shrink-0 mb-4 sm:mb-0">

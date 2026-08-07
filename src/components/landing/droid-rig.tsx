@@ -6,20 +6,33 @@ import { useGLTF } from "@react-three/drei"
 import * as THREE from "three"
 import type { MotionValue } from "framer-motion"
 import type { HeroPhase } from "./hero-section"
+import { droidFocus } from "./droid-focus"
 
 interface DroidRigProps {
   phase: HeroPhase
-  /** 0..1 — прогресс скролла hero-секции (акты 1-2) */
+  /** 0..1 — прогресс скролла hero-секции */
   scrollProgress: MotionValue<number>
+  isMobile: boolean
 }
 
 const smoothstep = (t: number) => t * t * (3 - 2 * t)
+const seg = (p: number, from: number, to: number) =>
+  smoothstep(THREE.MathUtils.clamp((p - from) / (to - from), 0, 1))
 
-// Слайд дроида вправо за экран: прогресс скролла 0.35 → 0.85
-const SLIDE_START = 0.35
-const SLIDE_RANGE = 0.5
+// Хореография по прогрессу hero:
+//   0.00–0.25  стоит справа в полный рост (акт 1, текст слева)
+//   0.25–0.45  камера наезжает — в кадре верх корпуса (акт 2, лор слева)
+//   0.45–0.86  держится
+//   0.86–1.00  уходит за правый край
+const SHIFT = { from: 0.25, to: 0.45 }
+const EXIT = { from: 0.86, to: 1.0 }
 
-export function DroidRig({ phase, scrollProgress }: DroidRigProps) {
+// Базовое положение в мировых единицах: правая половина кадра.
+// Константа, а не доля viewport — иначе при наезде камеры дроид «сползает» в центр.
+const PARK_X_DESKTOP = 2.5
+const PARK_X_MOBILE = 0.85
+
+export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
   const groupRef = useRef<THREE.Group>(null)
   const { scene } = useGLTF("/white-droid.glb")
 
@@ -133,20 +146,31 @@ export function DroidRig({ phase, scrollProgress }: DroidRigProps) {
       bones.current.spine.rotation.x = THREE.MathUtils.lerp(bones.current.spine.rotation.x, targetX + (breathe * 0.5), smoothSpeed)
     }
 
-    // Акт 2: уезжает вправо за край + слегка отворачивается
     const p = scrollProgress.get()
-    const slide = smoothstep(THREE.MathUtils.clamp((p - SLIDE_START) / SLIDE_RANGE, 0, 1))
-    group.position.x = slide * (state.viewport.width / 2 + 2.2)
+    const shift = seg(p, SHIFT.from, SHIFT.to)
+    const exit = seg(p, EXIT.from, EXIT.to)
+    const halfW = state.viewport.width / 2
 
+    const parkX = isMobile ? PARK_X_MOBILE : PARK_X_DESKTOP
+    group.position.x = parkX + exit * (halfW + 2.6)
+    group.position.y = -2.6
+
+    group.scale.setScalar(2.2)
+
+    // Точка наводки для камеры — примерно грудь дроида (модель ~1.57 юнита ростом).
+    droidFocus.x = group.position.x
+    droidFocus.y = group.position.y + 2.2 * 1.15
+
+    // Стоя справа, разворачивается к тексту (он слева).
     group.rotation.y = THREE.MathUtils.lerp(
       group.rotation.y,
-      -mouseX * 0.1 + slide * -0.35,
+      -mouseX * 0.1 - shift * 0.35 + exit * 0.15,
       delta * 2
     )
   })
 
   return (
-    <group ref={groupRef} scale={2.5} position={[0, -2.25, 0]} visible={false}>
+    <group ref={groupRef} scale={2.2} position={[0, -2.6, 0]} visible={false}>
       <primitive object={scene} />
     </group>
   )

@@ -8,9 +8,11 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap, Gamepad2, Wrench, ChevronDown, ChevronsUp, Coins } from "lucide-react";
+import { Menu, X, LayoutDashboard, Home, Battery, Grid2X2, Wallet, Zap, Wrench, ChevronDown, ChevronsUp, Coins } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
 import { SOCIALS } from "@/lib/socials";
+import { CardsIcon } from "@/components/icons/cards-icon";
 
 const wallets = [
   createWallet("io.metamask"),
@@ -24,13 +26,31 @@ interface HeaderProps {
   onOpenLeaderboard?: () => void;
 }
 
+type MenuKey = 'upgrade' | 'tools';
+
+interface MenuItem {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+}
+
+interface MenuGroup {
+  key: MenuKey;
+  label: string;
+  Icon: LucideIcon;
+  active: boolean;
+  items: MenuItem[];
+}
+
 export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }: HeaderProps) {
   const account = useActiveAccount();
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isToolsOpen, setIsToolsOpen] = useState(false);          // desktop dropdown
-  const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
-  const toolsRef = useRef<HTMLDivElement>(null);
+  // Какой из десктопных дропдаунов открыт ('upgrade' | 'tools' | null)
+  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+  const [openMobileGroup, setOpenMobileGroup] = useState<MenuKey | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
 
   // Page-context flags
   const isGamePage = pathname === '/glitch_game' || pathname === '/glitch_games/cards' || pathname === '/glitch_games/flight' || pathname === '/glitch_flight';
@@ -42,21 +62,21 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
   const isHomePage = pathname === '/';
   const showDashboardNav = isGamePage || isGlitchGamesPage || isGridPage || isMergePage;
 
-  // Tools = the "utility" pages (upgrade / mint / merge / grid)
-  const isAnyToolsPage = isUpgradePage || isMintPage || isMergePage || isGridPage;
+  const isAnyUpgradePage = isUpgradePage || isMintPage;
+  const isAnyToolsPage = isMergePage || isGridPage;
 
   const closeMenu = () => setIsMenuOpen(false);
 
-  // Close desktop dropdown on outside-click + ESC + route change.
+  // Close desktop dropdowns on outside-click + ESC + route change.
   useEffect(() => {
-    if (!isToolsOpen) return;
+    if (!openMenu) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) {
-        setIsToolsOpen(false);
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
       }
     };
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsToolsOpen(false);
+      if (e.key === 'Escape') setOpenMenu(null);
     };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEsc);
@@ -64,41 +84,57 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEsc);
     };
-  }, [isToolsOpen]);
+  }, [openMenu]);
 
   // Auto-close on route change (useful for both desktop dropdown + mobile drawer).
   useEffect(() => {
-    setIsToolsOpen(false);
-    setIsMobileToolsOpen(false);
+    setOpenMenu(null);
+    setOpenMobileGroup(null);
     setIsMenuOpen(false);
   }, [pathname]);
 
-  // Tool entries — single source of truth so desktop dropdown + mobile section
-  // stay in sync.
-  const TOOLS: Array<{ href: string; label: string; icon: React.ReactNode; active: boolean }> = [
+  // Меню-группы — единый источник для десктопного дропдауна и мобильного
+  // аккордеона. Upgrade = всё про прокачку дроида, Tools = утилиты.
+  const MENUS: MenuGroup[] = [
     {
-      href: "/upgrade_module",
-      label: "Upgrade Module",
-      icon: <ChevronsUp size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />,
-      active: isUpgradePage,
+      key: 'upgrade',
+      label: "Upgrade",
+      Icon: ChevronsUp,
+      active: isAnyUpgradePage,
+      items: [
+        {
+          href: "/upgrade_module",
+          label: "Upgrade Module",
+          icon: <ChevronsUp size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />,
+          active: isUpgradePage,
+        },
+        {
+          href: "/batteries_mint",
+          label: "Mint Batteries",
+          icon: <Battery size={18} className="-rotate-90 text-[#A1A1AA] group-hover:text-white transition-colors" />,
+          active: isMintPage,
+        },
+      ],
     },
     {
-      href: "/batteries_mint",
-      label: "Mint Batteries",
-      icon: <Battery size={18} className="-rotate-90 text-[#A1A1AA] group-hover:text-white transition-colors" />,
-      active: isMintPage,
-    },
-    {
-      href: "/merge_mechanism",
-      label: "Merge Mechanism",
-      icon: <Zap size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />,
-      active: isMergePage,
-    },
-    {
-      href: "/grid",
-      label: "Grid Maker",
-      icon: <Grid2X2 size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />,
-      active: isGridPage,
+      key: 'tools',
+      label: "Tools",
+      Icon: Wrench,
+      active: isAnyToolsPage,
+      items: [
+        {
+          href: "/merge_mechanism",
+          label: "Merge Mechanism",
+          icon: <Zap size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />,
+          active: isMergePage,
+        },
+        {
+          href: "/grid",
+          label: "Grid Maker",
+          icon: <Grid2X2 size={18} className="text-[#A1A1AA] group-hover:text-white transition-colors" />,
+          active: isGridPage,
+        },
+      ],
     },
   ];
 
@@ -123,6 +159,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
 
         {/* DESKTOP Navigation */}
         <motion.div
+          ref={navRef}
           className="hidden lg:flex items-center gap-2"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -141,7 +178,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Gamepad2 size={20} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
+                <CardsIcon size={21} className="text-[#A1A1AA] group-hover:text-white transition-colors" />
                 <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
                   Glitch Cards
                 </div>
@@ -149,59 +186,64 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             </Link>
           )}
 
-          {/* Tools dropdown — icon-only button */}
-          <div ref={toolsRef} className="relative">
-            <motion.button
-              onClick={() => setIsToolsOpen(o => !o)}
-              className={`flex items-center justify-center h-[48px] w-[48px] bg-black border rounded-xl transition-all duration-300 shadow-lg group cursor-pointer relative ${
-                isAnyToolsPage || isToolsOpen
-                  ? 'border-white/30 bg-white/5'
-                  : 'border-white/15 hover:bg-white/10 hover:border-white/30'
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              aria-haspopup="menu"
-              aria-expanded={isToolsOpen}
-              aria-label="Tools"
-            >
-              <Wrench size={20} className={`transition-colors ${isAnyToolsPage || isToolsOpen ? 'text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
-              <ChevronDown size={10} className={`absolute bottom-1 right-1 transition-transform ${isToolsOpen ? 'rotate-180 text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
-              <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
-                Tools
-              </div>
-            </motion.button>
-
-            <AnimatePresence>
-              {isToolsOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute right-0 top-[56px] min-w-[220px] bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-2 z-50"
-                  role="menu"
+          {/* Upgrade + Tools dropdowns — icon-only buttons */}
+          {MENUS.map((menu) => {
+            const isOpen = openMenu === menu.key;
+            return (
+              <div key={menu.key} className="relative">
+                <motion.button
+                  onClick={() => setOpenMenu(o => (o === menu.key ? null : menu.key))}
+                  className={`flex items-center justify-center h-[48px] w-[48px] bg-black border rounded-xl transition-all duration-300 shadow-lg group cursor-pointer relative ${
+                    menu.active || isOpen
+                      ? 'border-white/30 bg-white/5'
+                      : 'border-white/15 hover:bg-white/10 hover:border-white/30'
+                  }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  aria-haspopup="menu"
+                  aria-expanded={isOpen}
+                  aria-label={menu.label}
                 >
-                  {TOOLS.map((tool) => (
-                    <Link
-                      key={tool.href}
-                      href={tool.href}
-                      onClick={() => setIsToolsOpen(false)}
-                      className={`group flex items-center gap-3 w-full h-[44px] px-3 rounded-xl transition-colors ${
-                        tool.active
-                          ? 'bg-[#3b82f6]/10 text-white border border-[#3b82f6]/30'
-                          : 'text-white/80 hover:bg-white/5 hover:text-white border border-transparent'
-                      }`}
-                      role="menuitem"
+                  <menu.Icon size={20} className={`transition-colors ${menu.active || isOpen ? 'text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
+                  <ChevronDown size={10} className={`absolute bottom-1 right-1 transition-transform ${isOpen ? 'rotate-180 text-white' : 'text-[#A1A1AA] group-hover:text-white'}`} />
+                  <div className="absolute top-14 opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-white/10 text-white text-xs px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
+                    {menu.label}
+                  </div>
+                </motion.button>
+
+                <AnimatePresence>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                      className="absolute right-0 top-[56px] min-w-[220px] bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-2 z-50"
+                      role="menu"
                     >
-                      {tool.icon}
-                      <span className="text-sm font-medium">{tool.label}</span>
-                      {tool.active && <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-[#3b82f6]">Active</span>}
-                    </Link>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                      {menu.items.map((tool) => (
+                        <Link
+                          key={tool.href}
+                          href={tool.href}
+                          onClick={() => setOpenMenu(null)}
+                          className={`group flex items-center gap-3 w-full h-[44px] px-3 rounded-xl transition-colors ${
+                            tool.active
+                              ? 'bg-[#3b82f6]/10 text-white border border-[#3b82f6]/30'
+                              : 'text-white/80 hover:bg-white/5 hover:text-white border border-transparent'
+                          }`}
+                          role="menuitem"
+                        >
+                          {tool.icon}
+                          <span className="text-sm font-medium">{tool.label}</span>
+                          {tool.active && <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-[#3b82f6]">Active</span>}
+                        </Link>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
 
           {/* Staking — placeholder until the mechanics ship. Deliberately not a
               link: it reads as present-but-not-yet rather than clickable. */}
@@ -389,58 +431,63 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     onClick={closeMenu}
                     className="flex items-center gap-3 w-full h-[52px] px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
                   >
-                    <Gamepad2 size={18} className="text-[#A1A1AA]" />
+                    <CardsIcon size={19} className="text-[#A1A1AA]" />
                     <span className="text-white font-medium text-sm">Glitch Cards</span>
                   </Link>
                 )}
 
-                {/* 4. Tools — accordion section */}
-                <div className="flex flex-col gap-1.5 mt-1">
-                  <button
-                    onClick={() => setIsMobileToolsOpen(o => !o)}
-                    className={`flex items-center gap-3 w-full h-[52px] px-4 border rounded-xl transition-colors ${
-                      isAnyToolsPage || isMobileToolsOpen
-                        ? 'bg-white/10 border-white/20'
-                        : 'bg-white/5 border-white/10 hover:bg-white/10'
-                    }`}
-                    aria-expanded={isMobileToolsOpen}
-                  >
-                    <Wrench size={18} className="text-[#A1A1AA]" />
-                    <span className="text-white font-medium text-sm flex-1 text-left">Tools</span>
-                    <ChevronDown size={16} className={`text-white/60 transition-transform ${isMobileToolsOpen ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  <AnimatePresence initial={false}>
-                    {isMobileToolsOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="overflow-hidden"
+                {/* 4. Upgrade + Tools — accordion sections */}
+                {MENUS.map((menu) => {
+                  const isOpen = openMobileGroup === menu.key;
+                  return (
+                    <div key={menu.key} className="flex flex-col gap-1.5 mt-1">
+                      <button
+                        onClick={() => setOpenMobileGroup(o => (o === menu.key ? null : menu.key))}
+                        className={`flex items-center gap-3 w-full h-[52px] px-4 border rounded-xl transition-colors ${
+                          menu.active || isOpen
+                            ? 'bg-white/10 border-white/20'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                        }`}
+                        aria-expanded={isOpen}
                       >
-                        <div className="flex flex-col gap-1.5 pl-3 pt-1">
-                          {TOOLS.map(tool => (
-                            <Link
-                              key={tool.href}
-                              href={tool.href}
-                              onClick={closeMenu}
-                              className={`flex items-center gap-3 w-full h-[44px] px-3 rounded-xl transition-colors border ${
-                                tool.active
-                                  ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-white'
-                                  : 'bg-white/[0.025] border-white/5 hover:bg-white/10 text-white/80'
-                              }`}
-                            >
-                              {tool.icon}
-                              <span className="text-sm font-medium">{tool.label}</span>
-                              {tool.active && <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-[#3b82f6]">Active</span>}
-                            </Link>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                        <menu.Icon size={18} className="text-[#A1A1AA]" />
+                        <span className="text-white font-medium text-sm flex-1 text-left">{menu.label}</span>
+                        <ChevronDown size={16} className={`text-white/60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      <AnimatePresence initial={false}>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                            className="overflow-hidden"
+                          >
+                            <div className="flex flex-col gap-1.5 pl-3 pt-1">
+                              {menu.items.map(tool => (
+                                <Link
+                                  key={tool.href}
+                                  href={tool.href}
+                                  onClick={closeMenu}
+                                  className={`flex items-center gap-3 w-full h-[44px] px-3 rounded-xl transition-colors border ${
+                                    tool.active
+                                      ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-white'
+                                      : 'bg-white/[0.025] border-white/5 hover:bg-white/10 text-white/80'
+                                  }`}
+                                >
+                                  {tool.icon}
+                                  <span className="text-sm font-medium">{tool.label}</span>
+                                  {tool.active && <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-[#3b82f6]">Active</span>}
+                                </Link>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
 
                 {/* Divider */}
                 <div className="h-px bg-white/10 mt-4 mb-2" />

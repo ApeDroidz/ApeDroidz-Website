@@ -15,24 +15,68 @@ import * as THREE from "three"
 import type { MotionValue } from "framer-motion"
 import { Floor } from "@/components/floor"
 import { DroidRig } from "./droid-rig"
+import { droidFocus } from "./droid-focus"
 import type { HeroPhase } from "./hero-section"
 
-// Камера: FAR — стартовый общий план (как на старой главной),
-// NEAR — наезд после материализации, дроид в кадре примерно по пояс.
-// Тюнить здесь.
+// Камера: FAR — стартовый общий план (как на старой главной), NEAR — наезд
+// после материализации (дроид в кадре по пояс), WIDE — отъезд на акте 2,
+// чтобы дроид целиком поместился в правой половине рядом с текстом.
 const CAM = {
-  desktop: { far: new THREE.Vector3(0, 0, 8), near: new THREE.Vector3(0, 1.05, 4.6) },
-  mobile: { far: new THREE.Vector3(0, 0, 11), near: new THREE.Vector3(0, 0.9, 8.6) },
+  desktop: {
+    far: new THREE.Vector3(0, 0, 9),        // интро, пока дроида нет
+    near: new THREE.Vector3(0, 0.1, 8.4),   // акт 1 — дроид почти в полный рост
+    wide: new THREE.Vector3(0, 1.55, 4.6),  // акт 2 — крупный план от пояса и выше
+  },
+  mobile: {
+    far: new THREE.Vector3(0, 0, 12),
+    near: new THREE.Vector3(0, 0.2, 13),
+    wide: new THREE.Vector3(0, 1.5, 8),
+  },
 }
 
-function CameraRig({ phase, isMobile }: { phase: HeroPhase; isMobile: boolean }) {
+const smoothstep = (t: number) => t * t * (3 - 2 * t)
+
+function CameraRig({
+  phase,
+  isMobile,
+  scrollProgress,
+}: {
+  phase: HeroPhase
+  isMobile: boolean
+  scrollProgress: MotionValue<number>
+}) {
   const camera = useThree((s) => s.camera)
+  const target = useMemo(() => new THREE.Vector3(), [])
+  const lookAt = useMemo(() => new THREE.Vector3(), [])
+  const lookCurrent = useMemo(() => new THREE.Vector3(0, 0, 0), [])
+
   useFrame((_, delta) => {
     const cam = isMobile ? CAM.mobile : CAM.desktop
-    const target = phase === "materialize" || phase === "ready" ? cam.near : cam.far
+    const arrived = phase === "materialize" || phase === "ready"
+
+    // Тот же сегмент, что и у наезда в droid-rig (SHIFT).
+    const shift = arrived
+      ? smoothstep(THREE.MathUtils.clamp((scrollProgress.get() - 0.25) / 0.2, 0, 1))
+      : 0
+
+    if (!arrived) {
+      target.copy(cam.far)
+    } else {
+      target.copy(cam.near).lerp(cam.wide, shift)
+      // На крупном плане подъезжаем вбок к дроиду, иначе он уходит за край.
+      // Камера подъезжает к дроиду, но с отступом — он должен остаться справа.
+      target.x += (droidFocus.x - 1.15) * shift
+    }
+
     camera.position.x = THREE.MathUtils.damp(camera.position.x, target.x, 2.2, delta)
     camera.position.y = THREE.MathUtils.damp(camera.position.y, target.y, 2.2, delta)
     camera.position.z = THREE.MathUtils.damp(camera.position.z, target.z, 2.2, delta)
+
+    // Наводка: от центра сцены к груди дроида по мере наезда.
+    lookAt.set((droidFocus.x - 1.15) * shift, droidFocus.y * shift, 0)
+    lookCurrent.x = THREE.MathUtils.damp(lookCurrent.x, lookAt.x, 2.2, delta)
+    lookCurrent.y = THREE.MathUtils.damp(lookCurrent.y, lookAt.y, 2.2, delta)
+    camera.lookAt(lookCurrent)
   })
   return null
 }
@@ -127,11 +171,11 @@ export function HeroScene({ phase, scrollProgress, active, burst, onReady, onPro
         <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} />
         <spotLight position={[-10, 5, 10]} angle={0.15} penumbra={1} intensity={0.5} color="#4f46e5" />
 
-        <CameraRig phase={phase} isMobile={isMobile} />
-        <Floor />
+        <CameraRig phase={phase} isMobile={isMobile} scrollProgress={scrollProgress} />
+        <Floor scrollProgress={scrollProgress} />
 
         <Suspense fallback={null}>
-          <DroidRig phase={phase} scrollProgress={scrollProgress} />
+          <DroidRig phase={phase} scrollProgress={scrollProgress} isMobile={isMobile} />
           <Environment preset="city" />
           <ReadySignal onReady={onReady} />
         </Suspense>

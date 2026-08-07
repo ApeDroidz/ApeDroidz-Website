@@ -6,7 +6,7 @@ import React, { useState, useEffect } from "react"
 import { ArrowRight, Share, Zap, X, RefreshCcw, ExternalLink } from "lucide-react"
 import { ShareModal } from "@/components/share-modal"
 import { useUserProgress } from "@/hooks/useUserProgress"
-import { GlitchContainer, GLITCH_STYLES } from "@/components/glitch/glitch-container"
+import { GlitchContainer } from "@/components/glitch/glitch-container"
 
 // Адрес для ссылки на OpenSea (Фикс ошибки TS)
 const DROID_COLLECTION_ADDRESS = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ""
@@ -169,7 +169,7 @@ export function UpgradeMachine({ selectedDroid, selectedBattery, onUpgrade, onRe
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-start pt-4 md:pt-4 p-0 relative overflow-hidden">
-      <style>{HARDCORE_GLITCH_STYLES + GLITCH_STYLES}</style>
+      <style>{HARDCORE_GLITCH_STYLES}</style>
 
       {newDroid && !isNewImageLoaded && (
         <img src={newDroid.image} alt="Preload" className="absolute opacity-0 w-0 h-0" onLoad={() => setIsNewImageLoaded(true)} onError={() => setIsNewImageLoaded(true)} />

@@ -26,7 +26,7 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ label, title, description, center = true, glitch = 0 }: SectionHeaderProps) {
   const heading = (
-    <h2 className="font-black uppercase tracking-tighter text-4xl md:text-6xl leading-none">
+    <h2 className="font-semibold tracking-tight text-4xl md:text-6xl leading-none">
       {title}
     </h2>
   )
@@ -38,7 +38,7 @@ export function SectionHeader({ label, title, description, center = true, glitch
       variants={staggerContainer}
       className={center ? "flex flex-col items-center text-center" : ""}
     >
-      <motion.div variants={fadeUp} className={`${LABEL_CLASS} text-[#3b82f6] mb-4`}>
+      <motion.div variants={fadeUp} className={`${LABEL_CLASS} text-white/35 mb-4`}>
         {label}
       </motion.div>
       <motion.div variants={fadeUp} className="mb-5">

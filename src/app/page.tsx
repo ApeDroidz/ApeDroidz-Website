@@ -8,8 +8,7 @@ import { HeroSection } from "@/components/landing/hero-section"
 import { StatsStrip } from "@/components/landing/stats-strip"
 import { CollectionSection } from "@/components/landing/collection-section"
 import { HonorariesSection } from "@/components/landing/honoraries-section"
-import { PlaySection } from "@/components/landing/play-section"
-import { PartnersMarquee } from "@/components/landing/partners-marquee"
+import { OthersideSection } from "@/components/landing/otherside-section"
 import { TeamSection } from "@/components/landing/team-section"
 import { Footer } from "@/components/footer"
 
@@ -53,8 +52,7 @@ export default function Home() {
         <StatsStrip />
         <CollectionSection />
         <HonorariesSection />
-        <PlaySection />
-        <PartnersMarquee />
+        <OthersideSection />
         <TeamSection />
         <Footer />
       </div>

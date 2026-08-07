@@ -232,3 +232,67 @@
   background-size: 200% 100%;
   animation: progressPulse 3.5s linear infinite;
 }
+
+/* ============ Landing / glitch FX ============ */
+  @keyframes glitch-anim-1 { 0% { clip-path: inset(50% 0 30% 0); transform: translate(-5px, 0); } 5% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } 10% { clip-path: inset(80% 0 5% 0); transform: translate(-5px, 0); } 15% { clip-path: inset(30% 0 60% 0); transform: translate(5px, 0); } 20% { clip-path: inset(60% 0 20% 0); transform: translate(-5px, 0); } 25% { clip-path: inset(10% 0 85% 0); transform: translate(5px, 0); } 30% { clip-path: inset(40% 0 40% 0); transform: translate(-5px, 0); } 35% { clip-path: inset(80% 0 10% 0); transform: translate(5px, 0); } 40% { clip-path: inset(20% 0 50% 0); transform: translate(-5px, 0); } 45% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 50% { clip-path: inset(10% 0 80% 0); transform: translate(-5px, 0); } 55% { clip-path: inset(70% 0 20% 0); transform: translate(5px, 0); } 60% { clip-path: inset(30% 0 60% 0); transform: translate(-5px, 0); } 65% { clip-path: inset(90% 0 5% 0); transform: translate(5px, 0); } 70% { clip-path: inset(15% 0 80% 0); transform: translate(-5px, 0); } 75% { clip-path: inset(55% 0 10% 0); transform: translate(5px, 0); } 80% { clip-path: inset(25% 0 50% 0); transform: translate(-5px, 0); } 85% { clip-path: inset(75% 0 15% 0); transform: translate(5px, 0); } 90% { clip-path: inset(10% 0 85% 0); transform: translate(-5px, 0); } 95% { clip-path: inset(45% 0 45% 0); transform: translate(5px, 0); } 100% { clip-path: inset(50% 0 30% 0); transform: translate(-5px, 0); } }
+  @keyframes glitch-anim-2 { 0% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } 5% { clip-path: inset(80% 0 10% 0); transform: translate(-5px, 0); } 10% { clip-path: inset(30% 0 60% 0); transform: translate(5px, 0); } 15% { clip-path: inset(70% 0 20% 0); transform: translate(-5px, 0); } 20% { clip-path: inset(10% 0 40% 0); transform: translate(5px, 0); } 25% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 30% { clip-path: inset(20% 0 70% 0); transform: translate(5px, 0); } 35% { clip-path: inset(90% 0 5% 0); transform: translate(-5px, 0); } 40% { clip-path: inset(30% 0 50% 0); transform: translate(5px, 0); } 45% { clip-path: inset(60% 0 20% 0); transform: translate(-5px, 0); } 50% { clip-path: inset(10% 0 85% 0); transform: translate(5px, 0); } 55% { clip-path: inset(80% 0 10% 0); transform: translate(-5px, 0); } 60% { clip-path: inset(40% 0 40% 0); transform: translate(5px, 0); } 65% { clip-path: inset(20% 0 70% 0); transform: translate(-5px, 0); } 70% { clip-path: inset(70% 0 15% 0); transform: translate(5px, 0); } 75% { clip-path: inset(10% 0 80% 0); transform: translate(-5px, 0); } 80% { clip-path: inset(50% 0 30% 0); transform: translate(5px, 0); } 85% { clip-path: inset(25% 0 60% 0); transform: translate(-5px, 0); } 90% { clip-path: inset(85% 0 5% 0); transform: translate(5px, 0); } 95% { clip-path: inset(35% 0 50% 0); transform: translate(-5px, 0); } 100% { clip-path: inset(10% 0 80% 0); transform: translate(5px, 0); } }
+
+  .glitch-wrapper { position: relative; width: 100%; height: 100%; }
+  .glitch-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: transparent; opacity: var(--g-op, 0.3); }
+  .glitch-wrapper .layer-1 { animation: glitch-anim-1 var(--g-dur, 4s) infinite step-end alternate-reverse; }
+  .glitch-wrapper .layer-2 { animation: glitch-anim-2 var(--g-dur, 4s) infinite step-end alternate-reverse; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .glitch-wrapper .glitch-layer { display: none; }
+  }
+
+  @keyframes gr-body {
+    0%   { opacity: 0; clip-path: inset(46% 0 46% 0); transform: translate3d(0,0,0); }
+    7%   { opacity: 1; clip-path: inset(0 0 62% 0);  transform: translate3d(-9px,0,0); }
+    13%  { opacity: .25; clip-path: inset(58% 0 8% 0); transform: translate3d(7px,0,0); }
+    20%  { opacity: 1; clip-path: inset(18% 0 34% 0); transform: translate3d(-5px,0,0); }
+    27%  { opacity: .8; clip-path: inset(0 0 0 0);    transform: translate3d(4px,0,0); }
+    34%  { opacity: 1; clip-path: inset(38% 0 52% 0); transform: translate3d(-7px,0,0); }
+    41%  { opacity: .35; clip-path: inset(4% 0 72% 0); transform: translate3d(5px,0,0); }
+    48%  { opacity: 1; clip-path: inset(0 0 0 0);     transform: translate3d(-2px,0,0); }
+    58%  { opacity: .6; clip-path: inset(64% 0 22% 0); transform: translate3d(3px,0,0); }
+    66%  { opacity: 1; clip-path: inset(0 0 0 0);     transform: translate3d(0,0,0); }
+    78%  { opacity: .85; }
+    100% { opacity: 1; clip-path: inset(0 0 0 0); transform: translate3d(0,0,0); }
+  }
+  @keyframes gr-ghost-r {
+    0%   { opacity: 0; transform: translate3d(0,0,0); }
+    8%   { opacity: .95; transform: translate3d(-12px,2px,0); }
+    18%  { opacity: .7;  transform: translate3d(9px,-3px,0); }
+    30%  { opacity: .9;  transform: translate3d(-6px,1px,0); }
+    45%  { opacity: .5;  transform: translate3d(5px,0,0); }
+    62%  { opacity: .35; transform: translate3d(-3px,0,0); }
+    82%  { opacity: 0;   transform: translate3d(0,0,0); }
+    100% { opacity: 0; }
+  }
+  @keyframes gr-ghost-c {
+    0%   { opacity: 0; transform: translate3d(0,0,0); }
+    8%   { opacity: .9;  transform: translate3d(11px,-2px,0); }
+    18%  { opacity: .65; transform: translate3d(-8px,3px,0); }
+    30%  { opacity: .85; transform: translate3d(6px,-1px,0); }
+    45%  { opacity: .45; transform: translate3d(-4px,0,0); }
+    62%  { opacity: .3;  transform: translate3d(3px,0,0); }
+    82%  { opacity: 0;   transform: translate3d(0,0,0); }
+    100% { opacity: 0; }
+  }
+  .gr-wrap { position: relative; display: block; }
+  .gr-body { animation: gr-body var(--gr-dur, 800ms) steps(1, end) 1 both; }
+  .gr-ghost { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; }
+  .gr-ghost-r { color: #ff2d2d; opacity: 0; animation: gr-ghost-r var(--gr-dur, 800ms) steps(1, end) 1 both; }
+  .gr-ghost-c { color: #24e1ff; opacity: 0; animation: gr-ghost-c var(--gr-dur, 800ms) steps(1, end) 1 both; }
+  @media (prefers-reduced-motion: reduce) {
+    .gr-body { animation: none; }
+    .gr-ghost { display: none; }
+  }
+
+  @keyframes landing-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .landing-marquee-track { display: flex; width: max-content; will-change: transform; animation: landing-marquee var(--marquee-dur, 40s) linear infinite; }
+  .landing-marquee-track.reverse { animation-direction: reverse; }
+  .landing-marquee-pause:hover .landing-marquee-track { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .landing-marquee-track { animation: none; } }
+

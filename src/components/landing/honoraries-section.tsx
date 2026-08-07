@@ -2,54 +2,97 @@
 
 import { honoraryStaticUrl } from "@/lib/media"
 import { HONORARIES, HONORARY_OPENSEA_URL, HonoraryEntry } from "@/lib/landing-data"
+import { XIcon } from "@/lib/socials"
 import { Marquee } from "./marquee"
-import { SECONDARY_BTN, Reveal, SectionHeader } from "./ui"
+import { LABEL_CLASS, SECONDARY_BTN, Reveal } from "./ui"
+import { ArrowUpRight } from "lucide-react"
+
+const handleOf = (entry: HonoraryEntry) =>
+  entry.x ? `@${entry.x.replace(/\/+$/, "").split("/").pop()}` : `#${entry.id}`
 
 function HonoraryCard({ entry }: { entry: HonoraryEntry }) {
+  const Wrapper = entry.x ? "a" : "div"
   return (
-    <div className="w-36 md:w-44 shrink-0">
-      <div className="rounded-xl border border-white/10 bg-[#0a0a0a] overflow-hidden hover:border-white/30 transition-colors duration-300">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={honoraryStaticUrl(entry.id)}
-          alt={`${entry.name} — Honorary ApeDroid #${entry.id}`}
-          width={176}
-          height={176}
-          loading="lazy"
-          decoding="async"
-          draggable={false}
-          className="w-full aspect-square object-cover select-none"
-        />
+    <Wrapper
+      {...(entry.x ? { href: entry.x, target: "_blank", rel: "noopener noreferrer" } : {})}
+      title={entry.x ? `${entry.name} on X` : entry.name}
+      className="group w-28 md:w-36 shrink-0 flex flex-col items-center text-center"
+    >
+      <div className="relative">
+        <div className="rounded-full overflow-hidden border border-white/10 group-hover:border-white/40 transition-colors duration-300 w-24 h-24 md:w-32 md:h-32 bg-[#0a0a0a]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={honoraryStaticUrl(entry.id)}
+            alt={`${entry.name} — Honorary ApeDroid #${entry.id}`}
+            width={128}
+            height={128}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="w-full h-full object-cover select-none scale-[1.02] group-hover:scale-110 transition-transform duration-500"
+          />
+        </div>
+        {entry.x && (
+          <span className="absolute -bottom-1 -right-1 flex items-center justify-center w-7 h-7 rounded-full bg-black border border-white/15 text-white/50 opacity-0 group-hover:opacity-100 group-hover:text-white transition-all duration-300">
+            <XIcon className="w-3 h-3" />
+          </span>
+        )}
       </div>
-      <div className="mt-2 px-0.5 flex items-baseline justify-between gap-2">
-        <span className="font-mono text-xs text-white/60 truncate">{entry.name}</span>
-        <span className="font-mono text-[10px] text-white/30 shrink-0">#{entry.id}</span>
+      <div className="mt-3 w-full">
+        <div className="font-medium text-xs md:text-sm tracking-tight text-white/70 group-hover:text-white transition-colors truncate">
+          {entry.name}
+        </div>
+        <div className="font-mono text-[10px] text-white/25 group-hover:text-[#3b82f6] transition-colors truncate">
+          {handleOf(entry)}
+        </div>
       </div>
-    </div>
+    </Wrapper>
   )
 }
 
 export function HonorariesSection() {
+  const half = Math.ceil(HONORARIES.length / 2)
+  const rowA = HONORARIES.slice(0, half)
+  const rowB = HONORARIES.slice(half)
+
   return (
-    <section className="relative py-24 md:py-32 border-t border-white/10">
-      <div className="max-w-6xl mx-auto px-6">
-        <SectionHeader
-          label="1/1 Series"
-          title="ApeChain Honoraries"
-          description="Honorary ApeDroidz — 1/1 droids handed to the people who built and carried the Droidz Network."
-        />
+    <section className="relative py-20 md:py-28 overflow-hidden">
+      {/* мягкое свечение за «залом славы» */}
+      <div
+        className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[420px] pointer-events-none opacity-50"
+        style={{ background: "radial-gradient(ellipse at center, rgba(59,130,246,0.10) 0%, rgba(0,0,0,0) 70%)" }}
+      />
+
+      <div className="relative w-full px-[5vw] flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+        <Reveal>
+          <div className={`${LABEL_CLASS} text-white/35 mb-4`}>1/1 Series</div>
+          <h2 className="font-semibold tracking-tight text-[clamp(2.2rem,4.6vw,4rem)] leading-none">
+            ApeChain <span className="text-white/35">Honoraries</span>
+          </h2>
+          <p className="mt-6 max-w-xl font-sans text-base md:text-lg leading-relaxed">
+            <span className="text-white">One-of-one droids for the people who built the Network. </span>
+            <span className="text-white/35">Tap a face to meet them.</span>
+          </p>
+        </Reveal>
+        <Reveal delay={0.1} className="md:pt-8 shrink-0">
+          <a
+            href={HONORARY_OPENSEA_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={SECONDARY_BTN}
+          >
+            View all <ArrowUpRight size={16} />
+          </a>
+        </Reveal>
       </div>
 
-      <Reveal className="mt-14">
-        <Marquee durationSec={70}>
-          {HONORARIES.map((h) => <HonoraryCard key={h.id} entry={h} />)}
+      <Reveal className="relative mt-14 space-y-8">
+        <Marquee durationSec={90} gapClassName="gap-6 pr-6" pauseOnHover>
+          {rowA.map((h) => <HonoraryCard key={h.id} entry={h} />)}
         </Marquee>
-      </Reveal>
-
-      <Reveal className="mt-14 flex justify-center" delay={0.15}>
-        <a href={HONORARY_OPENSEA_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BTN}>
-          View on OpenSea
-        </a>
+        <Marquee durationSec={90} direction="right" gapClassName="gap-6 pr-6" pauseOnHover>
+          {rowB.map((h) => <HonoraryCard key={h.id} entry={h} />)}
+        </Marquee>
       </Reveal>
     </section>
   )

@@ -11,35 +11,26 @@ import {
   useTransform,
 } from "framer-motion"
 import { ChevronDown } from "lucide-react"
-import { useScramble } from "@/hooks/useScramble"
-import { GlitchContainer, GLITCH_STYLES } from "@/components/glitch/glitch-container"
+import { GlitchContainer } from "@/components/glitch/glitch-container"
+import { GlitchReveal } from "@/components/glitch/glitch-reveal"
 
 const HeroScene = dynamic(
   () => import("./hero-scene").then((mod) => ({ default: mod.HeroScene })),
   { ssr: false, loading: () => null }
 )
 
-// Интро-таймлайн: boot (фон рисуется) → headline (текст печатается, GLB качается)
-// → materialize (дроид глитчится в кадр) → ready (scroll-индикатор).
+// Интро-таймлайн: boot (фон рисуется) → headline (текст вспыхивает глитчем,
+// GLB догружается) → materialize (дроид глитчится в кадр) → ready.
 export type HeroPhase = "boot" | "headline" | "materialize" | "ready"
 
-const HEADLINE_1 = "BORN IN THE GLITCH."
-const HEADLINE_2 = "ACTIVATED ON APECHAIN."
-
 const LORE_LABEL = "// INCOMING TRANSMISSION"
-const LORE_1 = "3333 glitch-born Droidz built on ApeChain. Each one is a living fragment of the closed Droidz Network."
-const LORE_2 = "They level up, merge and mutate. Every upgrade is written back into the chain — no two fragments of the Network ever run the same."
-const LORE_3 = "Holders don't just collect Droidz. They operate them — through the games, tools and machines of the Network."
 
-/** Резервирует место под финальный текст, чтобы перебор символов не дёргал layout. */
-function ScrambleLine({ final, current, className = "" }: { final: string; current: string; className?: string }) {
-  return (
-    <span className={`relative block whitespace-nowrap ${className}`}>
-      <span className="invisible">{final}</span>
-      <span className="absolute inset-0">{current}</span>
-    </span>
-  )
-}
+// Короткие строки с серыми акцентами — читается как передача, а не как абзац.
+const LORE: Array<Array<{ t: string; dim?: boolean }>> = [
+  [{ t: "3333 " }, { t: "glitch-born Droidz, ", dim: true }, { t: "built on ApeChain." }],
+  [{ t: "Level up. Merge. Mutate. " }, { t: "Every upgrade is written back into the chain.", dim: true }],
+  [{ t: "Holders don't collect Droidz — " }, { t: "they operate them.", dim: true }],
+]
 
 export function HeroSection() {
   const heroRef = useRef<HTMLElement>(null)
@@ -49,7 +40,6 @@ export function HeroSection() {
   const [headlineDone, setHeadlineDone] = useState(false)
   const [glbReady, setGlbReady] = useState(false)
   const [loadPct, setLoadPct] = useState(0)
-  const [loreOn, setLoreOn] = useState(false)
 
   // boot → headline: даём фону и грид-полу отрисоваться первыми
   useEffect(() => {
@@ -71,18 +61,11 @@ export function HeroSection() {
 
   const onSceneReady = useCallback(() => setGlbReady(true), [])
   const onSceneProgress = useCallback((pct: number) => setLoadPct(pct), [])
+  const onHeadlineDone = useCallback(() => setHeadlineDone(true), [])
 
   const headlinePlay = phase !== "boot"
-  const line1 = useScramble({ text: HEADLINE_1, play: headlinePlay, durationMs: 900 })
-  const line2 = useScramble({
-    text: HEADLINE_2,
-    play: headlinePlay,
-    delayMs: 450,
-    durationMs: 1350,
-    onComplete: () => setHeadlineDone(true),
-  })
 
-  // Скролл-прогресс актов 1-2 (0..1 на всю высоту hero-обёртки)
+  // Скролл-прогресс hero (0..1 на всю высоту обёртки)
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end end"],
@@ -91,41 +74,55 @@ export function HeroSection() {
   const heroInView = useInView(heroRef)
   const sceneActive = heroInView || phase !== "ready"
 
-  // Акт 2: заголовок гаснет, лор появляется слева
-  const headlineOpacity = useTransform(scrollYProgress, [0.18, 0.42], [1, 0])
-  const headlineY = useTransform(scrollYProgress, [0.18, 0.42], [0, -60])
-  const loreOpacity = useTransform(scrollYProgress, [0.32, 0.5], [0, 1])
-  const loreX = useTransform(scrollYProgress, [0.32, 0.5], [-40, 0])
-  const indicatorOpacity = useTransform(scrollYProgress, [0, 0.06], [1, 0])
+  // Заголовок гаснет, лор въезжает слева, в конце тоже уходит
+  const headlineOpacity = useTransform(scrollYProgress, [0.08, 0.24], [1, 0])
+  const headlineY = useTransform(scrollYProgress, [0.08, 0.24], [0, -50])
+  const loreOpacity = useTransform(scrollYProgress, [0.24, 0.36, 0.86, 0.97], [0, 1, 1, 0])
+  const loreX = useTransform(scrollYProgress, [0.24, 0.36], [-40, 0])
+  const indicatorOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
-  // Одноразовая защёлка декода лора
+  // Абзацы лора живут внутри sticky-контейнера — whileInView тут бесполезен,
+  // поэтому одноразовая защёлка по прогрессу скролла.
+  const [loreOn, setLoreOn] = useState(false)
   useMotionValueEvent(scrollYProgress, "change", (v) => {
-    if (v > 0.38) setLoreOn(true)
+    if (v > 0.27) setLoreOn(true)
   })
 
-  const p1 = useScramble({ text: LORE_1, play: loreOn, durationMs: 1000 })
-  const p2 = useScramble({ text: LORE_2, play: loreOn, delayMs: 300, durationMs: 1100 })
-  const p3 = useScramble({ text: LORE_3, play: loreOn, delayMs: 600, durationMs: 1200 })
-
   return (
-    <section ref={heroRef} className="relative h-[220dvh]">
-      <style>{GLITCH_STYLES}</style>
-
+    <section ref={heroRef} className="relative h-[210dvh]">
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
           style={{ opacity: headlineOpacity, y: headlineY }}
-          className="absolute inset-0 z-0 flex flex-col items-center justify-center px-4 text-center"
+          className="absolute inset-0 z-0 flex flex-col items-start justify-center pb-[10vh] pl-[7vw] pr-6 text-left"
         >
-          <GlitchContainer intensity={phase === "materialize" ? 3 : 1} className="!h-auto">
-            <h1 className="font-black uppercase tracking-tighter leading-[1.02] text-[8.5vw] md:text-[5.2vw]">
-              <ScrambleLine final={HEADLINE_1} current={line1} />
-              <ScrambleLine final={HEADLINE_2} current={line2} className="text-[#3b82f6]" />
-            </h1>
+          <GlitchContainer intensity={headlineDone ? 1 : 0} className="!h-auto">
+          <h1 className="leading-[1.05]">
+            <GlitchReveal play={headlinePlay} durationMs={780} onComplete={onHeadlineDone}>
+              <span className="block font-bold tracking-tight leading-[0.95] text-[clamp(2.6rem,7vw,6.5rem)]">
+                Born in the
+                <br />
+                Glitch
+              </span>
+            </GlitchReveal>
+
+            <GlitchReveal play={headlinePlay} durationMs={720} delayMs={260} className="mt-5 md:mt-7">
+              <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[clamp(0.95rem,2.2vw,1.8rem)] text-white/70">
+                Activated on
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/Apechain.svg"
+                  alt="ApeChain"
+                  draggable={false}
+                  className="h-[0.78em] w-auto brightness-0 invert opacity-90 select-none translate-y-[0.04em]"
+                />
+              </span>
+            </GlitchReveal>
+          </h1>
           </GlitchContainer>
 
           {phase === "headline" && !glbReady && (
-            <div className="mt-8 font-mono text-[10px] font-black uppercase tracking-[0.3em] text-white/40">
+            <div className="mt-10 font-mono text-[10px] font-black uppercase tracking-[0.3em] text-white/30 self-start">
               LOADING {loadPct}%
             </div>
           )}
@@ -146,15 +143,25 @@ export function HeroSection() {
         {/* Слой 3: лор-блок (акт 2) */}
         <motion.div
           style={{ opacity: loreOpacity, x: loreX }}
-          className="absolute inset-y-0 left-0 z-20 flex items-center w-full max-w-xl px-6 md:pl-[7vw]"
+          className="absolute inset-y-0 left-0 z-20 flex items-center w-full md:w-[52%] px-6 md:pl-[7vw]"
         >
-          <div>
-            <div className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-[#00FF94] mb-5">
+          <div className="max-w-xl">
+            <div className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-white/35 mb-7">
               {LORE_LABEL}
             </div>
-            <p className="font-mono text-sm md:text-base text-white/70 leading-relaxed mb-4">{p1}</p>
-            <p className="font-mono text-sm md:text-base text-white/70 leading-relaxed mb-4">{p2}</p>
-            <p className="font-mono text-sm md:text-base text-white/70 leading-relaxed">{p3}</p>
+            {LORE.map((line, i) => (
+              <motion.p
+                key={i}
+                initial={{ opacity: 0, y: 18 }}
+                animate={loreOn ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
+                transition={{ duration: 0.7, delay: 0.14 * i, ease: [0.16, 1, 0.3, 1] }}
+                className="font-sans text-xl md:text-[1.75rem] leading-[1.35] tracking-tight font-normal mb-7 last:mb-0"
+              >
+                {line.map((chunk, j) => (
+                  <span key={j} className={chunk.dim ? "text-white/35" : "text-white"}>{chunk.t}</span>
+                ))}
+              </motion.p>
+            ))}
           </div>
         </motion.div>
 
