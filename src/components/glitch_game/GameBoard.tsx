@@ -900,7 +900,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 className={`
-                                    h-[56px] sm:h-[64px] px-6 rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300 border
+                                    h-[56px] sm:h-[64px] px-7 rounded-full font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300 border
                                     ${isAutoMode
                                         ? "bg-[#00FF94]/10 border-[#00FF94] text-[#00FF94] shadow-[0_0_20px_rgba(0,255,148,0.2)]"
                                         : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
@@ -918,7 +918,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                                 onMouseEnter={() => phase === "idle" && playSound("btn_hover")}
                                 disabled={phase !== "idle" && phase !== "picking"}
                                 className={`
-                                    flex-1 max-w-sm py-4 sm:py-5 rounded-2xl font-black text-sm sm:text-base tracking-widest uppercase flex items-center justify-center
+                                    flex-1 max-w-sm py-4 sm:py-5 rounded-full font-black text-sm sm:text-base tracking-widest uppercase flex items-center justify-center
                                     transition-all duration-300
                                     ${phase === "idle"
                                         ? "bg-white text-black hover:bg-[#0069FF] hover:text-white shadow-lg shadow-white/10 hover:shadow-blue-600/50 hover:scale-[1.02] cursor-pointer"

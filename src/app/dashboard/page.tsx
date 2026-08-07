@@ -360,7 +360,7 @@ export default function DashboardPage() {
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                     onClick={handleSaveDefault}
                     disabled={isSaving || isCurrentSaved}
-                    className={`w-full h-12 flex items-center justify-center gap-2 font-black uppercase tracking-wider rounded-xl transition-all text-sm shadow-lg ${
+                    className={`w-full h-12 flex items-center justify-center gap-2 font-black uppercase tracking-wider rounded-full transition-all text-sm shadow-lg ${
                       isCurrentSaved
                         ? 'bg-white/10 text-white/60 border border-white/15 cursor-default'
                         : 'bg-white text-black hover:bg-[#0069FF] hover:text-white cursor-pointer'
