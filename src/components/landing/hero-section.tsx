@@ -99,7 +99,7 @@ export function HeroSection() {
   })
 
   return (
-    <section ref={heroRef} className="relative h-[140dvh]">
+    <section ref={heroRef} className="relative h-[122dvh]">
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
@@ -133,9 +133,7 @@ export function HeroSection() {
             {/* «The Glitch» — появляется глитчем и продолжает подрагивать */}
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
               {headlineDone ? (
-                <GlitchText className="font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]">
-                  The Glitch
-                </GlitchText>
+                <GlitchText text="The Glitch" className="font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]" />
               ) : (
                 <span className="block font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]">
                   The Glitch

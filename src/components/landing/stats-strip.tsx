@@ -79,7 +79,7 @@ export function StatsStrip() {
   const partnerRow = Array.from({ length: Math.max(2, Math.ceil(14 / PARTNERS.length)) }, () => PARTNERS).flat()
 
   return (
-    <section ref={ref} className="relative pt-4 pb-20 md:pb-28">
+    <section ref={ref} className="relative pt-0 pb-20 md:pb-28">
       <div className="w-full px-[5vw]">
         <Reveal>
           <div className={`${LABEL_CLASS} text-white/35 mb-10`}>The Network in numbers</div>
