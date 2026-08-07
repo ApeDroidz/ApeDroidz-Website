@@ -63,13 +63,12 @@ export function HeroSection() {
 
   const onSceneReady = useCallback(() => setGlbReady(true), [])
 
-  // Страховка: если сцена почему-то не отрапортовала (сеть, сторонний CDN),
-  // всё равно выходим из фазы загрузки, а не висим на «LOADING».
+  // Страховка на монтировании: если сцена не отрапортовала (медленная сеть,
+  // сторонний CDN под HDRI), всё равно уходим из фазы загрузки.
   useEffect(() => {
-    if (phase !== "headline" || glbReady) return
-    const t = setTimeout(() => setGlbReady(true), 12000)
+    const t = setTimeout(() => setGlbReady(true), 9000)
     return () => clearTimeout(t)
-  }, [phase, glbReady])
+  }, [])
   const onSceneProgress = useCallback((pct: number) => setLoadPct(pct), [])
   const onHeadlineDone = useCallback(() => setHeadlineDone(true), [])
 
@@ -104,7 +103,7 @@ export function HeroSection() {
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
           style={{ opacity: headlineOpacity, y: headlineY }}
-          className="absolute inset-0 z-20 flex flex-col items-start justify-center pb-[10vh] pl-[7vw] pr-6 text-left pointer-events-none [&_a]:pointer-events-auto"
+          className="absolute inset-0 z-30 flex flex-col items-start justify-center pb-[10vh] pl-[7vw] pr-6 text-left"
         >
           <GlitchReveal play={headlinePlay} durationMs={620} delayMs={0} className="mb-2 md:mb-3">
             <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[clamp(0.8rem,2vw,1.7rem)] text-white/60">
@@ -119,7 +118,7 @@ export function HeroSection() {
             </span>
           </GlitchReveal>
 
-          <h1 className="leading-[0.95]">
+          <h1 className="leading-[0.95] pointer-events-none">
             {/* «Born in» — глитчит только на появлении */}
             <motion.span
               initial={{ opacity: 0, y: 18, filter: "blur(6px)" }}
@@ -145,7 +144,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 16 }}
             animate={phase === "ready" ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-10"
+            className="mt-10 pointer-events-auto"
           >
             <Link href="/dashboard" className={ACCENT_BTN}>
               Go to Dashboard <ArrowUpRight size={16} />
