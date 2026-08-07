@@ -182,7 +182,7 @@ export async function GET(
     border: 1px solid rgba(255,255,255,0.14);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border-radius: 12px;
+    border-radius: 999px;
     z-index: 40;
   }
   .sw-btn {
@@ -194,8 +194,8 @@ export async function GET(
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    padding: 7px 12px;
-    border-radius: 8px;
+    padding: 7px 14px;
+    border-radius: 999px;
     cursor: pointer;
     transition: all .2s;
     white-space: nowrap;

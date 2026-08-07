@@ -108,7 +108,7 @@ export default function GlitchCardsPage() {
 
                 {!isLoading && (
                     <motion.div
-                        className="pt-20 flex-1 flex flex-col lg:flex-row"
+                        className="pt-24 flex-1 flex flex-col lg:flex-row"
                         initial="hidden"
                         animate="show"
                         variants={staggerContainer}

@@ -458,7 +458,7 @@ export function GridDownloadButton({ droids, gridOrder }: GridDownloadButtonProp
             onClick={generateGrid}
             disabled={isDisabled}
             className={`
-        w-full h-12 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg flex items-center justify-center gap-2 flex-shrink-0
+        w-full h-12 rounded-full font-black uppercase tracking-widest text-xs transition-all shadow-lg flex items-center justify-center gap-2 flex-shrink-0
         ${isDisabled
                     ? "bg-white/10 border-2 border-white/20 text-white/40 cursor-not-allowed"
                     : "bg-white text-black border-2 border-white hover:bg-[#0069FF] hover:border-[#0069FF] hover:text-white hover:shadow-[0_0_20px_rgba(0,105,255,0.5)] cursor-pointer"

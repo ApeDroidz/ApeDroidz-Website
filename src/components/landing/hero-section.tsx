@@ -62,6 +62,14 @@ export function HeroSection() {
   }, [phase, reduced])
 
   const onSceneReady = useCallback(() => setGlbReady(true), [])
+
+  // Страховка: если сцена почему-то не отрапортовала (сеть, сторонний CDN),
+  // всё равно выходим из фазы загрузки, а не висим на «LOADING».
+  useEffect(() => {
+    if (phase !== "headline" || glbReady) return
+    const t = setTimeout(() => setGlbReady(true), 12000)
+    return () => clearTimeout(t)
+  }, [phase, glbReady])
   const onSceneProgress = useCallback((pct: number) => setLoadPct(pct), [])
   const onHeadlineDone = useCallback(() => setHeadlineDone(true), [])
 
@@ -79,7 +87,7 @@ export function HeroSection() {
   // Заголовок гаснет, лор въезжает слева, в конце тоже уходит
   const headlineOpacity = useTransform(scrollYProgress, [0.08, 0.24], [1, 0])
   const headlineY = useTransform(scrollYProgress, [0.08, 0.24], [0, -50])
-  const loreOpacity = useTransform(scrollYProgress, [0.26, 0.4, 0.82, 0.94], [0, 1, 1, 0])
+  const loreOpacity = useTransform(scrollYProgress, [0.26, 0.4, 0.74, 0.86], [0, 1, 1, 0])
   const loreX = useTransform(scrollYProgress, [0.24, 0.36], [-40, 0])
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
@@ -91,38 +99,41 @@ export function HeroSection() {
   })
 
   return (
-    <section ref={heroRef} className="relative h-[175dvh]">
+    <section ref={heroRef} className="relative h-[150dvh]">
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
           style={{ opacity: headlineOpacity, y: headlineY }}
-          className="absolute inset-0 z-0 flex flex-col items-start justify-center pb-[10vh] pl-[7vw] pr-6 text-left"
+          className="absolute inset-0 z-20 flex flex-col items-start justify-center pb-[10vh] pl-[7vw] pr-6 text-left pointer-events-none [&_a]:pointer-events-auto"
         >
-          <GlitchReveal play={headlinePlay} durationMs={620} delayMs={0} className="mb-5 md:mb-7">
-            <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[clamp(1.2rem,3vw,2.5rem)] text-white/60">
+          <GlitchReveal play={headlinePlay} durationMs={620} delayMs={0} className="mb-2 md:mb-3">
+            <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[clamp(0.8rem,2vw,1.7rem)] text-white/60">
               Activated on
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/Apechain.svg"
                 alt="ApeChain"
                 draggable={false}
-                className="h-[0.72em] w-auto brightness-0 invert opacity-60 select-none translate-y-[0.05em]"
+                className="h-[0.95em] w-auto brightness-0 invert opacity-60 select-none translate-y-[0.05em]"
               />
             </span>
           </GlitchReveal>
 
           <h1 className="leading-[0.95]">
             {/* «Born in» — глитчит только на появлении */}
-            <GlitchReveal play={headlinePlay} durationMs={620}>
-              <span className="block font-bold tracking-tight text-[clamp(3rem,8.5vw,8rem)]">
-                Born in
-              </span>
-            </GlitchReveal>
+            <motion.span
+              initial={{ opacity: 0, y: 18, filter: "blur(6px)" }}
+              animate={headlinePlay ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
+              transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+              className="block font-normal tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]"
+            >
+              Born in
+            </motion.span>
 
             {/* «The Glitch» — появляется глитчем и продолжает подрагивать */}
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
               <GlitchContainer intensity={headlineDone ? 1 : 0} className="!h-auto">
-                <span className="block font-bold tracking-tight text-[clamp(3rem,8.5vw,8rem)]">
+                <span className="block font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]">
                   The Glitch
                 </span>
               </GlitchContainer>
@@ -163,7 +174,7 @@ export function HeroSection() {
         {/* Слой 3: лор-блок (акт 2) */}
         <motion.div
           style={{ opacity: loreOpacity, x: loreX }}
-          className="absolute inset-y-0 left-0 z-20 flex items-center w-full md:w-[52%] px-6 md:pl-[7vw]"
+          className="absolute inset-y-0 left-0 z-20 pointer-events-none flex items-center w-full md:w-[52%] px-6 md:pl-[7vw]"
         >
           <div className="max-w-xl">
             <div className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-white/35 mb-7">
@@ -194,12 +205,12 @@ export function HeroSection() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}>
               <GlitchContainer intensity={1}>
                 <div className="flex flex-col items-center gap-1.5 text-white/60">
-                  <span className="font-mono text-[10px] font-black uppercase tracking-[0.3em]">Scroll</span>
+                  <span className="font-mono text-[13px] font-black uppercase tracking-[0.3em]">Scroll</span>
                   <motion.span
                     animate={reduced ? undefined : { y: [0, 6, 0] }}
                     transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
                   >
-                    <ChevronDown size={18} />
+                    <ChevronDown size={23} />
                   </motion.span>
                 </div>
               </GlitchContainer>

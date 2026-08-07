@@ -1127,7 +1127,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                                             setShowShareModal(true)
                                         }}
                                         onMouseEnter={() => playSound("btn_hover")}
-                                        className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all border border-white/5 cursor-pointer flex items-center justify-center gap-2 group/share"
+                                        className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white font-bold text-xs uppercase tracking-[0.2em] rounded-full transition-all border border-white/5 cursor-pointer flex items-center justify-center gap-2 group/share"
                                     >
                                         <span className="pointer-events-none">Share</span>
                                         <svg viewBox="0 0 24 24" aria-hidden="true" className="w-3.5 h-3.5 fill-white/40 group-hover/share:fill-white transition-colors pointer-events-none">
@@ -1137,7 +1137,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                                     <button
                                         onClick={() => { playSound("pick"); resetGame(true) }}
                                         onMouseEnter={() => playSound("btn_hover")}
-                                        className="flex-[2] py-4 bg-white text-black hover:bg-[#0069FF] hover:text-white font-black text-sm uppercase tracking-[0.2em] rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-white/10 hover:shadow-blue-600/50 cursor-pointer flex items-center justify-center gap-2"
+                                        className="flex-[2] py-4 bg-white text-black hover:bg-[#0069FF] hover:text-white font-black text-sm uppercase tracking-[0.2em] rounded-full transition-all hover:scale-[1.02] shadow-lg shadow-white/10 hover:shadow-blue-600/50 cursor-pointer flex items-center justify-center gap-2"
                                     >
                                         <span className="pointer-events-none">PLAY AGAIN FOR 1</span>
                                         <Ticket className="w-4 h-4" />

@@ -27,24 +27,26 @@ export function OthersideSection() {
         {/* Левая колонка — смысл */}
         <div>
           <Reveal>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/otherside.svg"
-              alt="Otherside"
-              draggable={false}
-              className="h-7 md:h-9 w-auto select-none opacity-70"
-            />
-          </Reveal>
+            <div className="flex items-center gap-3 mb-8">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/otherside.svg" alt="Otherside" draggable={false} className="h-4 md:h-5 w-auto select-none opacity-45" />
+              <span className="text-white/15 leading-none">×</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/full-logo.svg" alt="ApeDroidz" draggable={false} className="h-5 md:h-6 w-auto select-none opacity-45" />
+            </div>
 
-          <Reveal className="mt-8" delay={0.08}>
             <h2 className="font-semibold tracking-tight leading-[1.05] text-[clamp(2.4rem,5vw,4.5rem)]">
               <GlitchReveal play durationMs={700}>
-                <span className="block">Ready to the Otherside</span>
+                <span className="block">
+                  <span className="text-white">Ready </span>
+                  <span className="text-white/35">to the </span>
+                  <span className="text-white">Otherside</span>
+                </span>
               </GlitchReveal>
             </h2>
           </Reveal>
 
-          <Reveal className="mt-7 max-w-xl" delay={0.14}>
+          <Reveal className="mt-8 max-w-xl" delay={0.14}>
             <p className="font-sans text-lg md:text-xl leading-[1.45] tracking-tight">
               <span className="text-white">Every Droid ships with a full 3D body. </span>
               <span className="text-white/35">

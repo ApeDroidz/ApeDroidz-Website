@@ -48,7 +48,7 @@ export function Footer() {
             {/* Бренд + соцсети */}
             <div className="flex flex-col justify-between gap-8">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/full-logo.svg" alt="ApeDroidz" className="h-8 w-auto" draggable={false} />
+              <img src="/full-logo.svg" alt="ApeDroidz" className="h-8 w-auto self-start" draggable={false} />
 
               <div className="flex gap-2">
                 {SOCIALS.map((social) => (
@@ -89,10 +89,12 @@ export function Footer() {
             <NavColumn title="Tools" items={NAV_TOOLS} />
           </div>
 
-          <div className={`mt-14 pt-7 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3 ${LABEL} text-white/25`}>
-            <span>© 2026 ApeDroidz</span>
-            <span>All Systems Glitched</span>
-          </div>
+        </div>
+
+        {/* Мелкий шрифт живёт под фреймом, по его краям */}
+        <div className={`mt-5 px-2 flex flex-col sm:flex-row items-center justify-between gap-2 ${LABEL} text-white/25`}>
+          <span>© 2026 ApeDroidz</span>
+          <span>All Systems Glitched</span>
         </div>
       </Reveal>
     </footer>

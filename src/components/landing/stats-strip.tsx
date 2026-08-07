@@ -94,8 +94,8 @@ export function StatsStrip() {
 
       {/* Партнёры — второстепенная строка под цифрами */}
       <div className="mt-20 md:mt-28">
-        <Reveal className="flex flex-col items-center">
-          <div className={`${LABEL_CLASS} text-white/25 mb-8`}>Partners &amp; Friends</div>
+        <Reveal className="flex flex-col">
+          <div className={`${LABEL_CLASS} text-white/25 mb-8 px-[5vw]`}>Partners &amp; Friends</div>
           <Marquee durationSec={46} gapClassName="gap-14 pr-14" className="w-full" pauseOnHover>
             {partnerRow.map((p, i) => {
               const logo = (

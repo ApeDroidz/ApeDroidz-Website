@@ -184,10 +184,14 @@ export function HeroScene({ phase, scrollProgress, active, burst, onReady, onPro
         <CameraRig phase={phase} isMobile={isMobile} scrollProgress={scrollProgress} />
         <Floor scrollProgress={scrollProgress} />
 
+        {/* Модель и окружение — раздельные границы: HDRI тянется со стороннего
+            CDN и, если он недоступен, не должен держать появление дроида. */}
         <Suspense fallback={null}>
           <DroidRig phase={phase} scrollProgress={scrollProgress} isMobile={isMobile} />
-          <Environment preset="city" />
           <ReadySignal onReady={onReady} />
+        </Suspense>
+        <Suspense fallback={null}>
+          <Environment preset="city" />
         </Suspense>
 
         {burst && phase === "materialize" && <GlitchBurst />}

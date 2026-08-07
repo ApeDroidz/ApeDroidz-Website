@@ -293,7 +293,7 @@ export default function DashboardPage() {
             <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent rounded-full blur-3xl pointer-events-none transform scale-75" />
 
             {/* Header — размеры и верстка как в апгрейд-модуле (по центру) */}
-            <div className="w-full max-w-[1200px] px-4 mb-4 md:mb-6 z-20 text-center flex-shrink-0">
+            <div className="w-full max-w-[1200px] px-4 mt-4 mb-4 md:mb-6 z-20 text-center flex-shrink-0">
               <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] mb-2">
                 Choose Your PFP
               </h1>
@@ -338,7 +338,7 @@ export default function DashboardPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                      className="w-full h-12 flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-wider rounded-xl hover:bg-[#0069FF] hover:text-white transition-all text-sm shadow-lg cursor-pointer no-underline"
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-wider rounded-full hover:bg-[#0069FF] hover:text-white transition-all text-sm shadow-lg cursor-pointer no-underline"
                     >
                       <Lock size={16} />
                       Contact SPLITFORM to order
@@ -348,7 +348,7 @@ export default function DashboardPage() {
                       key="upgrade"
                       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                       onClick={handleSaveDefault}
-                      className="w-full h-12 flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-wider rounded-xl hover:bg-[#0069FF] hover:text-white transition-all text-sm shadow-lg cursor-pointer"
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-white text-black font-black uppercase tracking-wider rounded-full hover:bg-[#0069FF] hover:text-white transition-all text-sm shadow-lg cursor-pointer"
                     >
                       <ChevronsUp size={18} />
                       Upgrade to unlock Animated

@@ -634,7 +634,7 @@ export function ControlPanel({
                             onClick={() => { playSound("pick"); handleBuy() }}
                             onMouseEnter={() => selectedPack && wallet && buyingPack === null && playSound("hover")}
                             disabled={!selectedPack || !wallet || buyingPack !== null}
-                            className={`px-6 h-11 rounded-xl text-[10px] font-black tracking-[0.15em] uppercase
+                            className={`px-6 h-11 rounded-full text-[10px] font-black tracking-[0.15em] uppercase
                                 border transition-all duration-300 flex items-center justify-center gap-2
                                 ${selectedPack && wallet && buyingPack === null
                                     ? "bg-orange-500 border-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-900/30 cursor-pointer"

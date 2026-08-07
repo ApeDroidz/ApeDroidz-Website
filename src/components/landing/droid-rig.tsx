@@ -25,11 +25,11 @@ const seg = (p: number, from: number, to: number) =>
 //   0.45–0.86  держится
 //   0.86–1.00  растворяется глитчем (как появлялся)
 const SHIFT = { from: 0.25, to: 0.45 }
-const DISSOLVE = { from: 0.8, to: 0.93 }
+const DISSOLVE = { from: 0.72, to: 0.86 }
 
 // Базовое положение в мировых единицах: правая половина кадра.
 // Константа, а не доля viewport — иначе при наезде камеры дроид «сползает» в центр.
-const PARK_X_DESKTOP = 2.5
+const PARK_X_DESKTOP = 1.95
 // Ноги стоят ровно на полу: у модели min.y = 0, поэтому позиция группы = уровень пола.
 const GROUND_Y = -2.6
 const SCALE = 2.86   // +30% к прежним 2.2
@@ -175,10 +175,10 @@ export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
     droidFocus.y = GROUND_Y + SCALE * 1.32   // уровень головы
     droidFocus.dissolve = dissolve
 
-    // Стоя справа, доворачивается к тексту слева (на акте 2 сильнее).
+    // Разворот корпуса вправо (на акте 2 чуть сильнее).
     group.rotation.y = THREE.MathUtils.lerp(
       group.rotation.y,
-      -mouseX * 0.1 + 0.18 + shift * 0.22,
+      -mouseX * 0.1 - 0.5 - shift * 0.25,
       delta * 2
     )
   })

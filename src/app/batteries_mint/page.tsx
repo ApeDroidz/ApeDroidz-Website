@@ -776,7 +776,7 @@ export default function MintPage() {
                 onOpenLeaderboard={() => { setProfileInitialTab('leaderboard'); setIsProfileOpen(true); }}
             />
 
-            <div className="flex min-h-screen pt-20 justify-center">
+            <div className="flex min-h-screen pt-24 justify-center">
                 <div className="flex w-full max-w-[1600px] px-8 lg:px-16">
                     {/* LEFT SIDE: Fixed battery image */}
                     <div className="hidden lg:flex w-[40%] fixed left-1/2 -translate-x-[calc(50%+380px)] top-0 h-screen items-center justify-center p-8">

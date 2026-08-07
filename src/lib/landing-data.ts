@@ -15,40 +15,49 @@ export interface MarqueeDroid {
   super: boolean
 }
 
-// EDIT ME: подборка для ленты — только LVL2 и SUPER, у них есть анимация.
-// Отобраны по редкости трейтов, без повторов шляпы/одежды.
+// EDIT ME: подборка для ленты. Все показываем как LVL 2 (обычный, синий фон) —
+// на сами NFT это не влияет, это только визуальная унификация лендинга.
+// Порядок подобран так, чтобы у соседей не совпадали шляпа/одежда.
 export const MARQUEE_ROW_A: MarqueeDroid[] = [
-  { id: 3273, super: false },
-  { id: 653, super: false },
-  { id: 126, super: false },
-  { id: 999, super: false },
-  { id: 829, super: false },
-  { id: 756, super: false },
+  { id: 2585, super: false },
   { id: 2548, super: false },
-  { id: 1525, super: false },
-  { id: 1984, super: true },
-  { id: 1, super: true },
-  { id: 2527, super: true },
-  { id: 2588, super: true },
-  { id: 23, super: true },
-  { id: 2322, super: true },
+  { id: 353, super: false },
+  { id: 2583, super: false },
+  { id: 23, super: false },
+  { id: 3204, super: false },
+  { id: 1900, super: false },
+  { id: 833, super: false },
+  { id: 1909, super: false },
+  { id: 2, super: false },
+  { id: 1816, super: false },
+  { id: 2742, super: false },
+  { id: 2783, super: false },
+  { id: 2322, super: false },
+  { id: 3276, super: false },
+  { id: 27, super: false },
+  { id: 716, super: false },
+  { id: 728, super: false },
 ]
 
 export const MARQUEE_ROW_B: MarqueeDroid[] = [
-  { id: 2, super: false },
-  { id: 2065, super: false },
-  { id: 353, super: false },
-  { id: 3217, super: false },
-  { id: 3161, super: false },
-  { id: 519, super: false },
-  { id: 274, super: false },
-  { id: 609, super: false },
-  { id: 510, super: true },
-  { id: 815, super: true },
-  { id: 1730, super: true },
-  { id: 3204, super: true },
-  { id: 1168, super: true },
-  { id: 3200, super: true },
+  { id: 672, super: false },
+  { id: 1038, super: false },
+  { id: 1890, super: false },
+  { id: 873, super: false },
+  { id: 2778, super: false },
+  { id: 1984, super: false },
+  { id: 857, super: false },
+  { id: 2984, super: false },
+  { id: 3, super: false },
+  { id: 1249, super: false },
+  { id: 439, super: false },
+  { id: 77, super: false },
+  { id: 685, super: false },
+  { id: 2701, super: false },
+  { id: 1, super: false },
+  { id: 841, super: false },
+  { id: 4, super: false },
+  { id: 2448, super: false },
 ]
 
 export interface HonoraryEntry {
@@ -149,6 +158,8 @@ export const STATS: Stat[] = [
 export interface Creator {
   name: string
   role: string
+  /** аватар-PFP (полный URL или /public путь) */
+  avatar?: string
   /** /public путь к логотипу; если пусто — печатается имя */
   logo?: string
   note?: string
@@ -160,6 +171,7 @@ export const CREATORS: Creator[] = [
   {
     name: "SPLITF0RM",
     role: "Art & Direction",
+    avatar: "https://assets.apedroidz.com/apedroidz_honorary/png/1.png",
     note: "Droid design, 3D and the look of everything you just scrolled through.",
     url: "https://x.com/SPLITF0RM",
   },

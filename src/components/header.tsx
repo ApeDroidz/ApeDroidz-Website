@@ -186,7 +186,6 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
           >
-            {account && onOpenProfile && <UserLevelBadge onClick={onOpenProfile} />}
             <ConnectButton
               client={client}
               chain={apeChain}
@@ -204,6 +203,8 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               detailsButton={{
                 className: `
                   !bg-white/5 !border !border-white/10 !rounded-full !h-[42px] !text-sm
+                  [&_img]:!w-[26px] [&_img]:!h-[26px]
+                  [&_svg]:!w-[26px] [&_svg]:!h-[26px]
                 `,
               }}
               connectModal={{

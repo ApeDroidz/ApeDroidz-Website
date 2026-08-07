@@ -368,7 +368,7 @@ function MergeMechanismContent() {
                 />
 
                 <motion.div
-                    className="flex-1 pt-16 sm:pt-20 pb-2 sm:pb-4 px-4 sm:px-6 flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:gap-4 lg:overflow-hidden"
+                    className="flex-1 pt-24 pb-2 sm:pb-4 px-4 sm:px-6 flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:gap-4 lg:overflow-hidden"
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
                 >
                     <div className="lg:col-span-7 flex flex-col min-h-0 order-1 lg:order-none">
@@ -385,7 +385,7 @@ function MergeMechanismContent() {
                         />
                     </div>
 
-                    <div className="lg:col-span-5 min-h-[400px] lg:min-h-0 order-2 lg:order-none flex flex-col overflow-hidden lg:pt-2">
+                    <div className="lg:col-span-5 min-h-[400px] lg:min-h-0 order-2 lg:order-none flex flex-col overflow-hidden shadow-2xl shadow-black/50 rounded-2xl">
                         <div className="flex-1 h-full min-h-0 relative">
                             <div className="absolute inset-0">
                                 <BatterySelector
