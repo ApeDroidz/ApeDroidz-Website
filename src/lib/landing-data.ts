@@ -122,7 +122,7 @@ export interface Partner {
 // EDIT ME: положи логотип в /public/partners и добавь строку.
 export const PARTNERS: Partner[] = [
   { scale: 1.0, name: "ApeChain", src: "/Apechain.svg", url: "https://apechain.com" },
-  { scale: 1.15, name: "Otherside", src: "/otherside.svg", url: "https://www.otherside.xyz" },
+  { scale: 0.98, name: "Otherside", src: "/otherside.svg", url: "https://www.otherside.xyz" },
   { scale: 1.0, name: "ZeroBrand", src: "/partners/zerobrand.svg", url: "https://zerobrand.xyz/" },
   { scale: 1.5, name: "G's on Ape", src: "/partners/geezonape.png", url: "https://www.geezonape.com/" },
   { scale: 1.0, name: "Blever", src: "/partners/blever.svg", url: "https://app.blever.xyz/" },
@@ -178,7 +178,7 @@ export const CREATORS: Creator[] = [
   {
     name: "ZeroBrand",
     role: "Studio & Development",
-    logo: "/partners/zerobrand.svg",
+    logo: "/partners/zerobrand-powered.svg",
     note: "Product, contracts and the machines behind the Droidz Network.",
     url: "https://zerobrand.xyz/",
   },
