@@ -85,7 +85,11 @@ function CameraRig({
 // three 0.182 (его barrel тянет N8AO/SSR со снесённым WebGLMultipleRenderTargets),
 // поэтому композер собран напрямую из `postprocessing`. useFrame с priority 1
 // перехватывает рендер у R3F на время монтирования; на анмаунте всё возвращается.
-function GlitchBurst() {
+function GlitchBurst({ mode = GlitchMode.CONSTANT_WILD, strength = [0.25, 0.65] as [number, number], ratio = 0.85 }: {
+  mode?: GlitchMode
+  strength?: [number, number]
+  ratio?: number
+}) {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
   const camera = useThree((s) => s.camera)
@@ -97,16 +101,16 @@ function GlitchBurst() {
     const chromatic = new ChromaticAberrationEffect()
     const glitch = new GlitchEffect({
       chromaticAberrationOffset: chromatic.offset,
-      strength: new THREE.Vector2(0.25, 0.65),
+      strength: new THREE.Vector2(strength[0], strength[1]),
       delay: new THREE.Vector2(0, 0),
       duration: new THREE.Vector2(0.1, 0.3),
-      ratio: 0.85,
+      ratio,
     })
-    glitch.mode = GlitchMode.CONSTANT_WILD
+    glitch.mode = mode
     c.addPass(new EffectPass(camera, glitch))
     c.addPass(new EffectPass(camera, chromatic))
     return c
-  }, [gl, scene, camera])
+  }, [gl, scene, camera, mode, strength, ratio])
 
   useEffect(() => {
     composer.setSize(size.width, size.height)
@@ -119,6 +123,16 @@ function GlitchBurst() {
   }, 1)
 
   return null
+}
+
+/** Глитч на растворении — тот же бёрст, что и на появлении дроида. */
+function DissolveBurst() {
+  const [on, setOn] = useState(false)
+  useFrame(() => {
+    const active = droidFocus.dissolve > 0.03 && droidFocus.dissolve < 0.98
+    setOn((prev) => (prev === active ? prev : active))
+  })
+  return on ? <GlitchBurst /> : null
 }
 
 /** Срабатывает ровно один раз, когда Suspense-boundary (GLB + HDRI) разрезолвился. */
@@ -185,6 +199,7 @@ export function HeroScene({ phase, scrollProgress, active, burst, onReady, onPro
         </Suspense>
 
         {burst && phase === "materialize" && <GlitchBurst />}
+        {burst && phase === "ready" && <DissolveBurst />}
       </Canvas>
     </div>
   )
