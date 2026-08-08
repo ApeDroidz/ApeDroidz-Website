@@ -1,0 +1,15 @@
+# Локальные зеркала и дампы — в сборке не участвуют, но CLI грузит всё подряд
+# (в .gitignore они уже есть; здесь — чтобы не улетали при `vercel deploy`).
+R2
+metadata
+json_without_json
+backups
+shards.csv
+traits.txt
+
+# Отдельный WS-сервер игры живёт на Railway, к Next-сборке отношения не имеет
+game-server
+
+# Мусор
+.next
+node_modules

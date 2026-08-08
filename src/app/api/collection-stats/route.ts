@@ -32,6 +32,8 @@ export interface CollectionStats {
   floor: number | null
   sales: number | null
   ath: number | null
+  /** валюта floor/volume по версии OpenSea (обычно APE на ApeChain) */
+  symbol?: string | null
   /** true, когда цифры пришли от OpenSea, а не из фолбэка */
   live: boolean
 }
@@ -56,6 +58,7 @@ export async function GET() {
     const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null)
 
     return NextResponse.json({
+      symbol: typeof total.floor_price_symbol === "string" ? total.floor_price_symbol : null,
       volume: num(total.volume),
       holders: num(total.num_owners),
       floor: num(total.floor_price),
