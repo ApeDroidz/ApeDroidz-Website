@@ -36,11 +36,14 @@ interface LiveStats {
   ath: number | null
 }
 
-/** Крупные числа — коротко и всегда вниз: 159 759 → 159K, не 159.8K. */
-const compact = (n: number) =>
-  n >= 1_000_000 ? `${Math.floor(n / 1_000_000)}M`
-  : n >= 1_000 ? `${Math.floor(n / 1_000)}K`
-  : Math.floor(n).toLocaleString("en-US")
+/**
+ * Крупные числа — коротко и всегда вниз: 159 759 → 159K, не 159.8K.
+ * Единицу отдаём отдельно, чтобы она рисовалась серой, как «%» у Animated.
+ */
+const compact = (n: number): { value: string; unit: string } =>
+  n >= 1_000_000 ? { value: String(Math.floor(n / 1_000_000)), unit: "M" }
+  : n >= 1_000 ? { value: String(Math.floor(n / 1_000)), unit: "K" }
+  : { value: Math.floor(n).toLocaleString("en-US"), unit: "" }
 
 export function StatsStrip() {
   const ref = useRef<HTMLElement>(null)
@@ -60,9 +63,15 @@ export function StatsStrip() {
   // Живые значения подменяют плейсхолдеры из landing-data по ключу label.
   const withLive = (stat: Stat): Stat => {
     if (!live) return stat
-    if (stat.label === "Total Volume" && live.volume != null) return { ...stat, display: `${compact(live.volume)}` }
+    if (stat.label === "Total Volume" && live.volume != null) {
+      const c = compact(live.volume)
+      return { ...stat, display: c.value, suffix: c.unit }
+    }
     if (stat.label === "Holders" && live.holders != null) return { ...stat, display: undefined, value: live.holders, suffix: "" }
-    if (stat.label === "ATH" && live.ath != null) return { ...stat, display: `${compact(live.ath)}` }
+    if (stat.label === "ATH" && live.ath != null) {
+      const c = compact(live.ath)
+      return { ...stat, display: c.value, suffix: c.unit }
+    }
     return stat
   }
 
