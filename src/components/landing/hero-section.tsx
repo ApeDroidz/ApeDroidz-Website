@@ -90,21 +90,21 @@ export function HeroSection() {
   const sceneActive = heroInView || phase !== "ready"
 
   // Заголовок гаснет, лор въезжает слева, в конце тоже уходит
-  const headlineOpacity = useTransform(scrollYProgress, [0.16, 0.3], [1, 0])
-  const headlineY = useTransform(scrollYProgress, [0.16, 0.3], [0, -50])
-  const loreOpacity = useTransform(scrollYProgress, [0.3, 0.42, 0.78, 0.9], [0, 1, 1, 0])
-  const loreX = useTransform(scrollYProgress, [0.3, 0.42], [-40, 0])
+  const headlineOpacity = useTransform(scrollYProgress, [0.14, 0.26], [1, 0])
+  const headlineY = useTransform(scrollYProgress, [0.14, 0.26], [0, -50])
+  const loreOpacity = useTransform(scrollYProgress, [0.26, 0.36, 0.82, 0.93], [0, 1, 1, 0])
+  const loreX = useTransform(scrollYProgress, [0.26, 0.36], [-40, 0])
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
   // Абзацы лора живут внутри sticky-контейнера — whileInView тут бесполезен,
   // поэтому одноразовая защёлка по прогрессу скролла.
   const [loreOn, setLoreOn] = useState(false)
   useMotionValueEvent(scrollYProgress, "change", (v) => {
-    if (v > 0.32) setLoreOn(true)
+    if (v > 0.28) setLoreOn(true)
   })
 
   return (
-    <section ref={heroRef} className="relative h-[205dvh]">
+    <section ref={heroRef} className="relative h-[275dvh]">
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
@@ -194,7 +194,7 @@ export function HeroSection() {
         {/* Слой 3: лор-блок (акт 2) */}
         <motion.div
           style={{ opacity: loreOpacity, x: loreX }}
-          className="absolute inset-x-0 top-0 md:inset-y-0 md:top-auto z-20 pointer-events-none flex items-start md:items-center pt-[14dvh] md:pt-0 w-full md:w-[52%] px-6 md:pl-[7vw]"
+          className="absolute inset-x-0 top-0 bottom-auto md:bottom-0 z-20 pointer-events-none flex items-start md:items-center pt-[14dvh] md:pt-0 md:pb-[10dvh] w-full md:w-[52%] px-6 md:pl-[7vw]"
         >
           <div className="max-w-xl">
             <div className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-white/35 mb-7">

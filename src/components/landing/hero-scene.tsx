@@ -56,7 +56,7 @@ function CameraRig({
 
     // Тот же сегмент, что и у наезда в droid-rig (SHIFT).
     const shift = arrived
-      ? smoothstep(THREE.MathUtils.clamp((scrollProgress.get() - 0.18) / 0.22, 0, 1))
+      ? smoothstep(THREE.MathUtils.clamp((scrollProgress.get() - 0.15) / 0.19, 0, 1))
       : 0
 
     if (!arrived) {
