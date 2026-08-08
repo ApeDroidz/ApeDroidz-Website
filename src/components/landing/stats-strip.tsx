@@ -36,11 +36,11 @@ interface LiveStats {
   ath: number | null
 }
 
-/** Форматируем крупные числа коротко: 12.4K / 1.2M. */
+/** Крупные числа — коротко и всегда вниз: 159 759 → 159K, не 159.8K. */
 const compact = (n: number) =>
-  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
-  : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K`
-  : Math.round(n).toLocaleString("en-US")
+  n >= 1_000_000 ? `${Math.floor(n / 1_000_000)}M`
+  : n >= 1_000 ? `${Math.floor(n / 1_000)}K`
+  : Math.floor(n).toLocaleString("en-US")
 
 export function StatsStrip() {
   const ref = useRef<HTMLElement>(null)
