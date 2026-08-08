@@ -44,9 +44,10 @@ export function CollectionSection() {
           <div className={`${LABEL_CLASS} text-white/35 mb-4`}>Main Collection</div>
           <h2 className="font-semibold tracking-tight text-[clamp(2.2rem,4.6vw,4rem)] leading-none">ApeDroidz</h2>
           <p className="mt-6 max-w-xl font-sans text-base md:text-lg leading-relaxed">
-            <span className="text-white">3333 animated pixel droids living on ApeChain. </span>
+            <span className="text-white">3333 glitch-born droids on ApeChain. </span>
             <span className="text-white/35">
-              Every Droid levels from static L1 art to a fully animated L2 — with 169 SUPER mutations hiding in the set.
+              Every Droid starts as pixel art, upgrades into a fully animated version and ships with a 3D body
+              made for Otherside. 169 SUPER mutations hide in the set.
             </span>
           </p>
         </Reveal>

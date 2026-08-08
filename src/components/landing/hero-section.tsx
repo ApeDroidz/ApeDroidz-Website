@@ -30,9 +30,9 @@ const LORE_LABEL = "// INCOMING TRANSMISSION"
 
 // Короткие строки с серыми акцентами — читается как передача, а не как абзац.
 const LORE: Array<Array<{ t: string; dim?: boolean }>> = [
-  [{ t: "3333 " }, { t: "glitch-born Droidz, ", dim: true }, { t: "built on ApeChain." }],
-  [{ t: "Level up. Merge. Mutate. " }, { t: "Every upgrade is written back into the chain.", dim: true }],
-  [{ t: "Holders don't collect Droidz — " }, { t: "they operate them.", dim: true }],
+  [{ t: "3333 droids born from a system glitch — " }, { t: "carrying the minds of ApeChain's builders, artists and culture drivers.", dim: true }],
+  [{ t: "Every Droid levels up: " }, { t: "pixel art → fully animated → a 3D body built for Otherside.", dim: true }],
+  [{ t: "Batteries, merges, mini-games and holder tools. " }, { t: "The Network keeps shipping.", dim: true }],
 ]
 
 export function HeroSection() {
