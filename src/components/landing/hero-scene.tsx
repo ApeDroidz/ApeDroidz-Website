@@ -29,8 +29,8 @@ const CAM = {
   },
   mobile: {
     far: new THREE.Vector3(0, 0, 12),
-    near: new THREE.Vector3(0, 0.2, 13),
-    wide: new THREE.Vector3(0, 0, 7),
+    near: new THREE.Vector3(0, -0.15, 12),
+    wide: new THREE.Vector3(0, 0, 9.5),
   },
 }
 

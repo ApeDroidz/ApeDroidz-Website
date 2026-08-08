@@ -16,14 +16,14 @@ const DroidViewer = dynamic(() => import("./droid-viewer").then((m) => ({ defaul
 
 export function OthersideSection() {
   return (
-    <section className="relative py-24 md:py-32 overflow-hidden">
+    <section className="relative py-16 md:py-32 overflow-hidden">
       {/* мягкая подсветка за превьюером */}
       <div
         className="absolute right-0 top-1/2 -translate-y-1/2 w-[60vw] h-[60vw] max-w-[900px] max-h-[900px] pointer-events-none opacity-40"
         style={{ background: "radial-gradient(circle, rgba(59,130,246,0.16) 0%, rgba(0,0,0,0) 65%)" }}
       />
 
-      <div className="relative w-full px-[5vw] grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-12 lg:gap-20 items-center">
+      <div className="relative w-full px-6 md:px-[5vw] grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-10 lg:gap-20 items-center">
         {/* Левая колонка — смысл */}
         <div>
           <Reveal>
@@ -35,7 +35,7 @@ export function OthersideSection() {
               <img src="/full-logo.svg" alt="ApeDroidz" draggable={false} className="h-5 md:h-6 w-auto select-none opacity-45" />
             </div>
 
-            <h2 className="font-semibold tracking-tight leading-[1.05] text-[clamp(2.4rem,5vw,4.5rem)]">
+            <h2 className="font-semibold tracking-tight leading-[1.05] text-[2rem] md:text-[clamp(2.4rem,5vw,4.5rem)]">
               <GlitchReveal play durationMs={700}>
                 <span className="block">
                   <span className="text-white">Ready </span>
@@ -47,7 +47,7 @@ export function OthersideSection() {
           </Reveal>
 
           <Reveal className="mt-8 max-w-xl" delay={0.14}>
-            <p className="font-sans text-lg md:text-xl leading-[1.45] tracking-tight">
+            <p className="font-sans text-base md:text-xl leading-[1.45] tracking-tight">
               <span className="text-white">Every Droid ships with a full 3D body. </span>
               <span className="text-white/35">
                 Punch in any token number and inspect the model right here — the same file the metaverse loads.

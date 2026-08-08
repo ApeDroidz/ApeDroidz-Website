@@ -38,12 +38,12 @@ function DroidCard({ droid }: { droid: MarqueeDroid }) {
 
 export function CollectionSection() {
   return (
-    <section className="relative py-20 md:py-28">
-      <div className="w-full px-[5vw] flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+    <section className="relative py-14 md:py-28">
+      <div className="w-full px-6 md:px-[5vw] flex flex-col md:flex-row md:items-start md:justify-between gap-6 md:gap-8">
         <Reveal>
           <div className={`${LABEL_CLASS} text-white/35 mb-4`}>Main Collection</div>
-          <h2 className="font-semibold tracking-tight text-[clamp(2.2rem,4.6vw,4rem)] leading-none">ApeDroidz</h2>
-          <p className="mt-6 max-w-xl font-sans text-base md:text-lg leading-relaxed">
+          <h2 className="font-semibold tracking-tight text-[2rem] md:text-[clamp(2.2rem,4.6vw,4rem)] leading-none">ApeDroidz</h2>
+          <p className="mt-5 md:mt-6 max-w-xl font-sans text-[0.95rem] md:text-lg leading-relaxed">
             <span className="text-white">3333 glitch-born Droidz on ApeChain. </span>
             <span className="text-white/35">
               Every Droid starts as pixel art, upgrades into a fully animated version and ships with a 3D body
@@ -51,7 +51,7 @@ export function CollectionSection() {
             </span>
           </p>
         </Reveal>
-        <Reveal delay={0.1} className="md:pt-8 shrink-0">
+        <Reveal delay={0.1} className="md:pt-8 shrink-0 [&_a]:px-6 [&_a]:py-3.5 md:[&_a]:px-9 md:[&_a]:py-4 [&_a]:text-xs md:[&_a]:text-sm">
           <a
             href={OPENSEA_COLLECTION_URL}
             target="_blank"
@@ -63,7 +63,7 @@ export function CollectionSection() {
         </Reveal>
       </div>
 
-      <Reveal className="mt-14 space-y-4">
+      <Reveal className="mt-10 md:mt-14 space-y-3 md:space-y-4">
         <Marquee durationSec={64} pauseOnHover>
           {MARQUEE_ROW_A.map((d) => <DroidCard key={d.id} droid={d} />)}
         </Marquee>

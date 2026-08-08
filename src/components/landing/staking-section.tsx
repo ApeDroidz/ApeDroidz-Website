@@ -14,14 +14,14 @@ const READOUT = [
 
 export function StakingSection() {
   return (
-    <section id="staking" className="relative py-20 md:py-28 scroll-mt-28">
-      <div className="w-full px-[5vw]">
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md px-7 py-12 md:px-14 md:py-16 grid lg:grid-cols-[1.1fr_minmax(0,0.9fr)] gap-12 lg:gap-16 items-center">
+    <section id="staking" className="relative py-16 md:py-28 scroll-mt-24">
+      <div className="w-full px-6 md:px-[5vw]">
+        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md px-6 py-10 md:px-14 md:py-16 grid lg:grid-cols-[1.1fr_minmax(0,0.9fr)] gap-10 lg:gap-16 items-center">
           {/* Смысл */}
           <div>
             <Reveal>
               <div className={`${LABEL_CLASS} text-white/35 mb-4`}>Next module</div>
-              <h2 className="font-semibold tracking-tight text-[clamp(2.2rem,4.6vw,4rem)] leading-none">
+              <h2 className="font-semibold tracking-tight text-[2rem] md:text-[clamp(2.2rem,4.6vw,4rem)] leading-none">
                 <GlitchContainer intensity={1} className="!h-auto">
                   <span>Staking</span>
                 </GlitchContainer>
@@ -37,8 +37,8 @@ export function StakingSection() {
               </p>
             </Reveal>
 
-            <Reveal className="mt-10 flex items-center gap-4" delay={0.14}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-6 py-4 text-sm font-black uppercase tracking-widest text-[#5f5f5f] select-none cursor-not-allowed">
+            <Reveal className="mt-8 md:mt-10 flex flex-wrap items-center gap-3 md:gap-4" delay={0.14}>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-5 md:px-6 py-3.5 md:py-4 text-xs md:text-sm font-black uppercase tracking-widest text-[#5f5f5f] select-none cursor-not-allowed">
                 {/* сплошной цвет, а не opacity: у замка дужка перекрывает корпус
                     и любая прозрачность рисует шов на пересечении */}
                 <Lock size={15} className="text-[#5f5f5f]" /> Locked

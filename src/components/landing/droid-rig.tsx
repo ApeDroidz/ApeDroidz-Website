@@ -33,7 +33,7 @@ const PARK_X_DESKTOP = 1.95
 // Ноги стоят ровно на полу: у модели min.y = 0, поэтому позиция группы = уровень пола.
 const GROUND_Y = -2.6
 const SCALE = 2.86   // +30% к прежним 2.2
-const PARK_X_MOBILE = 0.85
+const PARK_X_MOBILE = 0.75
 
 export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
   const groupRef = useRef<THREE.Group>(null)
@@ -164,15 +164,15 @@ export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
 
     const parkX = isMobile ? PARK_X_MOBILE : PARK_X_DESKTOP
     group.position.x = parkX
-    group.position.y = GROUND_Y
+    group.position.y = isMobile ? GROUND_Y - 0.35 : GROUND_Y
 
-    group.scale.setScalar(SCALE)
+    group.scale.setScalar(isMobile ? SCALE * 0.62 : SCALE)
 
     // Точка наводки для камеры — грудь дроида в «припаркованном» положении.
     // Уход за край (exit) сюда НЕ входит: иначе камера гонится за улетающей
     // моделью и кадр дёргается на стыке с блоком цифр.
     droidFocus.x = parkX
-    droidFocus.y = GROUND_Y + SCALE * 1.32   // уровень головы
+    droidFocus.y = (isMobile ? GROUND_Y - 0.35 : GROUND_Y) + SCALE * (isMobile ? 0.85 : 1.32)   // уровень головы
     droidFocus.dissolve = dissolve
 
     // Разворот корпуса вправо (на акте 2 чуть сильнее).

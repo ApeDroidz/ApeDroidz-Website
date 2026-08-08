@@ -19,7 +19,7 @@ function StatCell({ stat, play, index }: { stat: Stat; play: boolean; index: num
     >
       <span className={`${LABEL_CLASS} text-white/25`}>{String(index + 1).padStart(2, "0")}</span>
 
-      <span className="mt-7 font-semibold tracking-tight tabular-nums leading-[0.9] text-[clamp(2.6rem,5.6vw,6rem)]">
+      <span className="mt-7 font-semibold tracking-tight tabular-nums leading-[0.9] text-[2.4rem] md:text-[clamp(2.6rem,5.6vw,6rem)]">
         {text}
         {stat.suffix && <span className="text-white/30">{stat.suffix}</span>}
       </span>
@@ -75,14 +75,14 @@ export function StatsStrip() {
       /* -mt: секция наезжает на хвост hero. Без этого её верх оказывается у
          нижней кромки ровно в тот момент, когда дроид уже растворился, и
          пользователь мотает почти пустой экран. */
-      className="relative z-10 -mt-[45dvh] pt-0 pb-20 md:pb-28"
+      className="relative z-10 -mt-[12dvh] md:-mt-[45dvh] pt-0 pb-16 md:pb-28"
     >
       <div className="w-full px-[5vw]">
         <Reveal>
-          <div className={`${LABEL_CLASS} text-white/35 mb-10`}>The Network in numbers</div>
+          <div className={`${LABEL_CLASS} text-white/35 mb-8 md:mb-10`}>The Network in numbers</div>
         </Reveal>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 md:gap-x-14 gap-y-16">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 md:gap-x-14 gap-y-10 md:gap-y-16">
           {STATS.map((s, i) => (
             <StatCell key={s.label} stat={withLive(s)} play={inView} index={i} />
           ))}
@@ -90,7 +90,7 @@ export function StatsStrip() {
       </div>
 
       {/* Партнёры — второстепенная строка под цифрами */}
-      <div className="mt-20 md:mt-28">
+      <div className="mt-14 md:mt-28">
         <Reveal className="flex flex-col">
           <div className={`${LABEL_CLASS} text-white/25 mb-8 px-[5vw]`}>Partners &amp; Friends</div>
           <Marquee durationSec={46} gapClassName="gap-14 pr-14" className="w-full" pauseOnHover>

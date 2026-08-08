@@ -6,7 +6,7 @@ import { LABEL_CLASS, Reveal } from "./ui"
 
 function CreatorCard({ creator, index }: { creator: Creator; index: number }) {
   const inner = (
-    <div className="group relative h-full rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-8 md:p-10 flex flex-col justify-between gap-10 hover:border-white/25 transition-colors duration-300">
+    <div className="group relative h-full rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-7 md:p-10 flex flex-col justify-between gap-8 md:gap-10 hover:border-white/25 transition-colors duration-300">
       <div className="flex items-start justify-between gap-6">
         <div className="flex items-center gap-4">
           {creator.avatar && (
@@ -63,16 +63,16 @@ function CreatorCard({ creator, index }: { creator: Creator; index: number }) {
 export function TeamSection() {
   if (CREATORS.length === 0) return null
   return (
-    <section className="relative py-20 md:py-28">
-      <div className="w-full px-[5vw]">
+    <section className="relative py-14 md:py-28">
+      <div className="w-full px-6 md:px-[5vw]">
         <Reveal>
           <div className={`${LABEL_CLASS} text-white/35 mb-4`}>Created by</div>
-          <h2 className="font-semibold tracking-tight text-[clamp(2.2rem,4.6vw,4rem)] leading-none">
+          <h2 className="font-semibold tracking-tight text-[2rem] md:text-[clamp(2.2rem,4.6vw,4rem)] leading-none">
             <span className="text-white/35">The</span> Makers
           </h2>
         </Reveal>
 
-        <div className="mt-12 grid gap-4 md:grid-cols-2">
+        <div className="mt-10 md:mt-12 grid gap-4 md:grid-cols-2">
           {CREATORS.map((c, i) => <CreatorCard key={c.name} creator={c} index={i} />)}
         </div>
       </div>

@@ -17,8 +17,14 @@ export const revalidate = 86400
 const OPENSEA_API = "https://api.opensea.io/api/v2"
 const SLUG = process.env.OPENSEA_COLLECTION_SLUG ?? "apedroidz"
 
-/** EDIT ME: пиковая продажа в APE — OpenSea её через API не отдаёт. */
-const ATH_OVERRIDE: number | null = null
+/**
+ * Пиковая продажа в APE — OpenSea её через API не отдаёт.
+ * Правится переменной APEDROIDZ_ATH на Vercel без редеплоя кода.
+ */
+const ATH_OVERRIDE: number | null = (() => {
+  const raw = Number(process.env.APEDROIDZ_ATH)
+  return Number.isFinite(raw) && raw > 0 ? raw : 155
+})()
 
 export interface CollectionStats {
   volume: number | null

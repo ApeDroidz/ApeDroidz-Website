@@ -259,7 +259,7 @@ export function DroidViewer() {
     <div ref={wrapRef} className="w-full rounded-2xl border border-white/10 bg-[#0a0a0a]/90 backdrop-blur-xl overflow-hidden">
       {/* Строка управления */}
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-        <span className={`${LABEL_CLASS} text-white/30 hidden sm:block`}>Droid</span>
+        <span className={`${LABEL_CLASS} text-white/30 hidden md:block`}>Droid</span>
         <form
           onSubmit={(e) => { e.preventDefault(); submit(input) }}
           className="flex items-center gap-2 flex-1 min-w-0"
@@ -293,7 +293,7 @@ export function DroidViewer() {
       </div>
 
       {/* Сцена */}
-      <div className="relative aspect-square lg:aspect-[5/4] w-full">
+      <div className="relative aspect-[4/5] sm:aspect-square lg:aspect-[5/4] w-full">
         {mounted && modelUrl ? (
           <ViewerCanvas
             url={modelUrl}
@@ -379,7 +379,7 @@ export function DroidViewer() {
           </button>
         </div>
 
-        <div className="absolute left-4 bottom-3 flex items-center gap-1.5 text-white/25 pointer-events-none">
+        <div className="absolute left-4 bottom-3 hidden sm:flex items-center gap-1.5 text-white/25 pointer-events-none">
           <span className="font-mono text-[10px] uppercase tracking-[0.2em]">Drag · rotate</span>
           <span className="text-white/15">/</span>
           <span className="font-mono text-[10px] uppercase tracking-[0.2em]">Right-drag · move</span>

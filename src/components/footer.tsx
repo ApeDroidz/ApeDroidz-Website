@@ -41,12 +41,12 @@ function NavColumn({ title, items }: { title: string; items: Array<{ href: strin
 
 export function Footer() {
   return (
-    <footer className="relative px-[5vw] pb-8 pt-10">
+    <footer className="relative px-6 md:px-[5vw] pb-8 pt-8 md:pt-10">
       <Reveal>
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md px-7 py-12 md:px-12 md:py-14">
-          <div className="grid gap-12 md:grid-cols-[1.2fr_1fr_1fr_1fr] md:gap-8">
+        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md px-6 py-10 md:px-12 md:py-14">
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-[1.2fr_1fr_1fr_1fr] md:gap-8">
             {/* Бренд + соцсети */}
-            <div className="flex flex-col justify-between gap-8">
+            <div className="col-span-2 md:col-span-1 flex flex-col justify-between gap-6 md:gap-8">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/full-logo.svg" alt="ApeDroidz" className="h-8 w-auto self-start" draggable={false} />
 

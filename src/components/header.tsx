@@ -290,18 +290,16 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   </div>
                 )}
 
-                {DIRECT_LINKS.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={closeMenu}
-                    className={`flex items-center h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors ${
-                      isActive(item.href) ? "bg-white/10 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {/* Dashboard идёт первым, Glitch Cards — после групп */}
+                <Link
+                  href="/dashboard"
+                  onClick={closeMenu}
+                  className={`flex items-center h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors ${
+                    isActive("/dashboard") ? "bg-white/10 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  Dashboard
+                </Link>
 
                 {NAV_GROUPS.map((group) => {
                   const open = openMobileGroup === group.key;
@@ -349,6 +347,16 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     </div>
                   );
                 })}
+
+                <Link
+                  href="/glitch_games/cards"
+                  onClick={closeMenu}
+                  className={`flex items-center h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors ${
+                    isActive("/glitch_games/cards") ? "bg-white/10 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  Glitch Cards
+                </Link>
 
                 <Link
                   href={pathname === "/" ? "#staking" : "/#staking"}

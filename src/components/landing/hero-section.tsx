@@ -109,10 +109,10 @@ export function HeroSection() {
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
           style={{ opacity: headlineOpacity, y: headlineY }}
-          className="absolute inset-0 z-30 flex flex-col items-start justify-center pb-[10vh] pl-[7vw] pr-6 text-left"
+          className="absolute inset-0 z-30 flex flex-col items-start justify-center pb-[28vh] md:pb-[10vh] pl-6 md:pl-[7vw] pr-5 md:pr-6 text-left"
         >
           <GlitchReveal play={headlinePlay} durationMs={620} delayMs={0} className="mb-2 md:mb-3">
-            <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[clamp(0.8rem,2vw,1.7rem)] text-white/60">
+            <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[0.95rem] md:text-[clamp(0.8rem,2vw,1.7rem)] text-white/60">
               Activated on
               <a
                 href="https://apechain.com"
@@ -132,13 +132,13 @@ export function HeroSection() {
             </span>
           </GlitchReveal>
 
-          <h1 className="leading-[0.95] pointer-events-none">
+          <h1 className="leading-[1.22] md:leading-[0.95] pointer-events-none">
             {/* «Born in» — глитчит только на появлении */}
             <motion.span
               initial={{ opacity: 0, y: 18, filter: "blur(6px)" }}
               animate={headlinePlay ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
               transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-              className="block font-normal tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]"
+              className="block font-normal tracking-tight text-[2.15rem] md:text-[clamp(2.4rem,6.8vw,6.4rem)]"
             >
               Born in
             </motion.span>
@@ -146,9 +146,9 @@ export function HeroSection() {
             {/* «The Glitch» — появляется глитчем и продолжает подрагивать */}
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
               {headlineDone ? (
-                <GlitchText text="The Glitch" className="font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]" />
+                <GlitchText text="The Glitch" className="font-bold tracking-tight text-[2.15rem] md:text-[clamp(2.4rem,6.8vw,6.4rem)]" />
               ) : (
-                <span className="block font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]">
+                <span className="block font-bold tracking-tight text-[2.15rem] md:text-[clamp(2.4rem,6.8vw,6.4rem)]">
                   The Glitch
                 </span>
               )}
@@ -160,7 +160,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 16 }}
             animate={headlineDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-10 pointer-events-auto"
+            className="mt-8 md:mt-10 pointer-events-auto [&_a]:px-6 [&_a]:py-3.5 md:[&_a]:px-9 md:[&_a]:py-4 [&_a]:text-xs md:[&_a]:text-sm"
           >
             <Link href="/dashboard" className={ACCENT_BTN}>
               Go to Dashboard <ArrowUpRight size={16} />
@@ -184,7 +184,7 @@ export function HeroSection() {
 
         {/* Индикатор загрузки модели — там, где появится дроид */}
         {phase === "headline" && !glbReady && (
-          <div className="absolute inset-y-0 right-0 z-20 hidden md:flex w-[45%] items-center justify-center pointer-events-none">
+          <div className="absolute inset-x-0 bottom-[22vh] md:inset-y-0 md:bottom-auto md:right-0 md:left-auto z-20 flex md:w-[45%] items-center justify-center pointer-events-none">
             <span className="font-mono text-[10px] font-black uppercase tracking-[0.3em] text-white/25">
               {loadPct > 0 ? `LOADING ${loadPct}%` : "LOADING"}
             </span>
@@ -194,7 +194,7 @@ export function HeroSection() {
         {/* Слой 3: лор-блок (акт 2) */}
         <motion.div
           style={{ opacity: loreOpacity, x: loreX }}
-          className="absolute inset-y-0 left-0 z-20 pointer-events-none flex items-center w-full md:w-[52%] px-6 md:pl-[7vw]"
+          className="absolute inset-x-0 top-0 md:inset-y-0 md:top-auto z-20 pointer-events-none flex items-start md:items-center pt-[16vh] md:pt-0 w-full md:w-[52%] px-6 md:pl-[7vw]"
         >
           <div className="max-w-xl">
             <div className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-white/35 mb-7">
@@ -206,7 +206,7 @@ export function HeroSection() {
                 initial={{ opacity: 0, y: 18 }}
                 animate={loreOn ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
                 transition={{ duration: 0.7, delay: 0.14 * i, ease: [0.16, 1, 0.3, 1] }}
-                className="font-sans text-xl md:text-[1.75rem] leading-[1.35] tracking-tight font-normal mb-7 last:mb-0"
+                className="font-sans text-[1.05rem] md:text-[1.75rem] leading-[1.4] md:leading-[1.35] tracking-tight font-normal mb-5 md:mb-7 last:mb-0"
               >
                 {line.map((chunk, j) => (
                   <span key={j} className={chunk.dim ? "text-white/35" : "text-white"}>{chunk.t}</span>

@@ -56,27 +56,27 @@ export function HonorariesSection() {
   const rowB = HONORARIES.slice(half)
 
   return (
-    <section className="relative py-20 md:py-28 overflow-hidden">
+    <section className="relative py-14 md:py-28 overflow-hidden">
       {/* мягкое свечение за «залом славы» */}
       <div
         className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[420px] pointer-events-none opacity-50"
         style={{ background: "radial-gradient(ellipse at center, rgba(59,130,246,0.10) 0%, rgba(0,0,0,0) 70%)" }}
       />
 
-      <div className="relative w-full px-[5vw] flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+      <div className="relative w-full px-6 md:px-[5vw] flex flex-col md:flex-row md:items-start md:justify-between gap-6 md:gap-8">
         <Reveal>
           <div className={`${LABEL_CLASS} text-white/35 mb-4`}>1/1 Series</div>
-          <h2 className="font-semibold tracking-tight text-[clamp(2.2rem,4.6vw,4rem)] leading-none">
+          <h2 className="font-semibold tracking-tight text-[2rem] md:text-[clamp(2.2rem,4.6vw,4rem)] leading-none">
             ApeChain <span className="text-white/35">Honoraries</span>
           </h2>
-          <p className="mt-6 max-w-xl font-sans text-base md:text-lg leading-relaxed">
+          <p className="mt-5 md:mt-6 max-w-xl font-sans text-[0.95rem] md:text-lg leading-relaxed">
             <span className="text-white">Hand-made 1/1 Droidz for the people who built and carried the Network — </span>
             <span className="text-white/35">
               founders, artists and collectors across ApeChain. Each one is named after its owner.
             </span>
           </p>
         </Reveal>
-        <Reveal delay={0.1} className="md:pt-8 shrink-0">
+        <Reveal delay={0.1} className="md:pt-8 shrink-0 [&_a]:px-6 [&_a]:py-3.5 md:[&_a]:px-9 md:[&_a]:py-4 [&_a]:text-xs md:[&_a]:text-sm">
           <a
             href={HONORARY_OPENSEA_URL}
             target="_blank"
@@ -88,7 +88,7 @@ export function HonorariesSection() {
         </Reveal>
       </div>
 
-      <Reveal className="relative mt-14 space-y-8">
+      <Reveal className="relative mt-10 md:mt-14 space-y-6 md:space-y-8">
         <Marquee durationSec={90} gapClassName="gap-6 pr-6" pauseOnHover>
           {rowA.map((h) => <HonoraryCard key={h.id} entry={h} />)}
         </Marquee>
