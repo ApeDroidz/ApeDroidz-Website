@@ -64,9 +64,13 @@ export const MODEL_BASE = (
   process.env.NEXT_PUBLIC_MODEL_URL || 'https://storage.googleapis.com/apedroidz'
 ).replace(/\/+$/, '')
 
-/** Full-body GLB for a droid — ids 1…3333. */
+/** Full-body GLB for a droid — ids 1…3333. Фолбэк, когда MML недоступен. */
 export const droidModelUrl = (tokenId: string | number): string =>
   `${MODEL_BASE}/glb/${tokenId}.glb`
+
+/** MML-обёртка из метаданных NFT: <m-character src="…glb"> */
+export const droidMmlUrl = (tokenId: string | number): string =>
+  `${MODEL_BASE}/mml/${tokenId}.mml`
 
 export const batteryUrl = (isSuper: boolean, ext: 'webp' | 'gif' = 'webp'): string =>
   `${MEDIA_BASE}/batteries/${isSuper ? 'super' : 'standart'}_battery.${ext}`

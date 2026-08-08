@@ -30,9 +30,14 @@ const LORE_LABEL = "// INCOMING TRANSMISSION"
 
 // Короткие строки с серыми акцентами — читается как передача, а не как абзац.
 const LORE: Array<Array<{ t: string; dim?: boolean }>> = [
-  [{ t: "3333 droids born from a system glitch — " }, { t: "carrying the minds of ApeChain's builders, artists and culture drivers.", dim: true }],
-  [{ t: "Every Droid levels up: " }, { t: "pixel art → fully animated → a 3D body built for Otherside.", dim: true }],
-  [{ t: "Batteries, merges, mini-games and holder tools. " }, { t: "The Network keeps shipping.", dim: true }],
+  [
+    { t: "3333 Droidz born from a system glitch — " },
+    { t: "the Network connects creators, builders, influencers and other extraordinary people.", dim: true },
+  ],
+  [
+    { t: "Upgrade system, merges, mini-games and holder tools. " },
+    { t: "The Network keeps shipping.", dim: true },
+  ],
 ]
 
 export function HeroSection() {
@@ -87,7 +92,7 @@ export function HeroSection() {
   // Заголовок гаснет, лор въезжает слева, в конце тоже уходит
   const headlineOpacity = useTransform(scrollYProgress, [0.16, 0.3], [1, 0])
   const headlineY = useTransform(scrollYProgress, [0.16, 0.3], [0, -50])
-  const loreOpacity = useTransform(scrollYProgress, [0.3, 0.42, 0.82, 0.93], [0, 1, 1, 0])
+  const loreOpacity = useTransform(scrollYProgress, [0.3, 0.42, 0.78, 0.9], [0, 1, 1, 0])
   const loreX = useTransform(scrollYProgress, [0.3, 0.42], [-40, 0])
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
@@ -99,7 +104,7 @@ export function HeroSection() {
   })
 
   return (
-    <section ref={heroRef} className="relative h-[230dvh]">
+    <section ref={heroRef} className="relative h-[205dvh]">
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
@@ -153,7 +158,7 @@ export function HeroSection() {
           {/* Круглая кнопка — новый паттерн активного действия */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
-            animate={phase === "ready" ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+            animate={headlineDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="mt-10 pointer-events-auto"
           >
@@ -162,11 +167,7 @@ export function HeroSection() {
             </Link>
           </motion.div>
 
-          {phase === "headline" && !glbReady && (
-            <div className="mt-10 font-mono text-[10px] font-black uppercase tracking-[0.3em] text-white/30 self-start">
-              {loadPct > 0 ? `LOADING ${loadPct}%` : "LOADING"}
-            </div>
-          )}
+
         </motion.div>
 
         {/* Слой 2: 3D-сцена */}
@@ -180,6 +181,15 @@ export function HeroSection() {
             onProgress={onSceneProgress}
           />
         </div>
+
+        {/* Индикатор загрузки модели — там, где появится дроид */}
+        {phase === "headline" && !glbReady && (
+          <div className="absolute inset-y-0 right-0 z-20 hidden md:flex w-[45%] items-center justify-center pointer-events-none">
+            <span className="font-mono text-[10px] font-black uppercase tracking-[0.3em] text-white/25">
+              {loadPct > 0 ? `LOADING ${loadPct}%` : "LOADING"}
+            </span>
+          </div>
+        )}
 
         {/* Слой 3: лор-блок (акт 2) */}
         <motion.div

@@ -79,7 +79,7 @@ export function Footer() {
                   </li>
                 ))}
                 <li className="flex items-center gap-2">
-                  <span className="text-sm text-white/25 cursor-default">Staking</span>
+                  <Link href="/#staking" className="text-sm text-white/60 hover:text-white transition-colors">Staking</Link>
                   <span className="text-[8px] font-black uppercase tracking-widest border border-white/15 text-white/40 rounded px-1.5 py-0.5">Soon</span>
                 </li>
               </ul>

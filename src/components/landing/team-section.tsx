@@ -38,7 +38,7 @@ function CreatorCard({ creator, index }: { creator: Creator; index: number }) {
               src={creator.logo}
               alt={creator.name}
               draggable={false}
-              className="h-9 md:h-11 w-auto opacity-80 group-hover:opacity-100 transition-opacity select-none"
+              className="h-9 md:h-11 w-auto select-none"
             />
           </span>
         ) : (

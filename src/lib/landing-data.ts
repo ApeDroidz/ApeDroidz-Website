@@ -106,6 +106,9 @@ export const HONORARIES: HonoraryEntry[] = [
   { id: 28, name: "Leo", x: "https://x.com/LEOgnarCRO" },
   { id: 71, name: "trenchcreek", x: "https://x.com/trenchcreek" },
   { id: 23, name: "Leonidas", x: "https://x.com/HurryToMurray" },
+{ id: 14, name: "Marlyy.eth", x: "https://x.com/Marly_Eth" },
+  { id: 69, name: "01Flow", x: "https://x.com/01FlowOS" },
+  { id: 79, name: "Vill", x: "https://x.com/silentium_eth" },
 ]
 
 export const HONORARY_OPENSEA_URL = "https://opensea.io/collection/apedroidz-honorary" // TODO: confirm slug
@@ -117,6 +120,8 @@ export interface Partner {
   url?: string
   /** визуальный вес: множитель к базовой высоте (логотипы очень разные) */
   scale?: number
+  /** множитель яркости после обесцвечивания: тёмные знаки иначе теряются */
+  brightness?: number
 }
 
 // EDIT ME: положи логотип в /public/partners и добавь строку.
@@ -130,7 +135,7 @@ export const PARTNERS: Partner[] = [
   { scale: 1.1, name: "Sloooths", src: "/partners/sloooths.svg", url: "https://sloooths.com/" },
   { scale: 0.95, name: "JNKYZ", src: "/partners/jnkyz.png", url: "https://www.jnkyz.com/" },
   { scale: 2.59, name: "Night Glyders", src: "/partners/nightglyders.png", url: "https://www.nightglyders.com/" },
-  { scale: 1.2, name: "Inceptive Studio", src: "/partners/inceptive.png", url: "https://inceptivestudio.com/" },
+  { scale: 1.38, brightness: 2.6, name: "Inceptive Studio", src: "/partners/inceptive.png", url: "https://inceptivestudio.com/" },
   { scale: 1.15, name: "Balloons", src: "/partners/balloons.png", url: "https://www.balloonsballoons.xyz/" },
   // TODO: у gobs.land и designertoshiro.com на сайте нет пригодного логотипа —
   // добавь файлы вручную, если пришлют.

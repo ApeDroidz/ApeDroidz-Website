@@ -15,17 +15,8 @@ function StatCell({ stat, play, index }: { stat: Stat; play: boolean; index: num
       initial={{ opacity: 0, y: 26 }}
       animate={play ? { opacity: 1, y: 0 } : { opacity: 0, y: 26 }}
       transition={{ duration: 0.75, delay: index * 0.09, ease: [0.16, 1, 0.3, 1] }}
-      className="group relative flex flex-col pt-6"
+      className="group relative flex flex-col"
     >
-      {/* тонкая линия сверху, которая «загорается» при наведении */}
-      <span className="absolute inset-x-0 top-0 h-px bg-white/12" />
-      <motion.span
-        className="absolute left-0 top-0 h-px bg-white/70"
-        initial={{ width: 0 }}
-        animate={play ? { width: "38%" } : { width: 0 }}
-        transition={{ duration: 0.9, delay: 0.2 + index * 0.09, ease: [0.16, 1, 0.3, 1] }}
-      />
-
       <span className={`${LABEL_CLASS} text-white/25`}>{String(index + 1).padStart(2, "0")}</span>
 
       <span className="mt-7 font-semibold tracking-tight tabular-nums leading-[0.9] text-[clamp(2.6rem,5.6vw,6rem)]">
@@ -79,7 +70,13 @@ export function StatsStrip() {
   const partnerRow = Array.from({ length: Math.max(2, Math.ceil(14 / PARTNERS.length)) }, () => PARTNERS).flat()
 
   return (
-    <section ref={ref} className="relative pt-0 pb-20 md:pb-28">
+    <section
+      ref={ref}
+      /* -mt: секция наезжает на хвост hero. Без этого её верх оказывается у
+         нижней кромки ровно в тот момент, когда дроид уже растворился, и
+         пользователь мотает почти пустой экран. */
+      className="relative z-10 -mt-[45dvh] pt-0 pb-20 md:pb-28"
+    >
       <div className="w-full px-[5vw]">
         <Reveal>
           <div className={`${LABEL_CLASS} text-white/35 mb-10`}>The Network in numbers</div>
@@ -106,8 +103,11 @@ export function StatsStrip() {
                   title={p.name}
                   loading="lazy"
                   draggable={false}
-                  style={{ height: `${1.75 * (p.scale ?? 1)}rem` }}
-                  className="w-auto max-w-[170px] object-contain opacity-30 grayscale hover:opacity-80 transition-all duration-300 select-none"
+                  style={{
+                    height: `${1.75 * (p.scale ?? 1)}rem`,
+                    filter: `grayscale(1) brightness(${p.brightness ?? 1})`,
+                  }}
+                  className="w-auto max-w-[170px] object-contain opacity-30 hover:opacity-80 transition-opacity duration-300 select-none"
                 />
               )
               return p.url ? (

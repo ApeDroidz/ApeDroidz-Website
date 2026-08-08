@@ -23,9 +23,9 @@ const seg = (p: number, from: number, to: number) =>
 //   0.00–0.18  стоит справа в полный рост (акт 1, текст слева)
 //   0.18–0.40  камера наезжает — в кадре верх корпуса (акт 2, лор слева)
 //   0.40–0.78  держится
-//   0.78–0.96  растворяется глитчем — переход к цифрам мягче
+//   0.74–0.97  растворяется глитчем ровно до конца секции — без «мёртвого» экрана
 const SHIFT = { from: 0.18, to: 0.4 }
-const DISSOLVE = { from: 0.78, to: 0.96 }
+const DISSOLVE = { from: 0.74, to: 0.97 }
 
 // Базовое положение в мировых единицах: правая половина кадра.
 // Константа, а не доля viewport — иначе при наезде камеры дроид «сползает» в центр.
@@ -37,7 +37,7 @@ const PARK_X_MOBILE = 0.85
 
 export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
   const groupRef = useRef<THREE.Group>(null)
-  const { scene } = useGLTF("/white-droid.glb")
+  const { scene } = useGLTF("/white-droid.glb", true)   // true → Draco-декодер
 
   // Канвас лежит под текстовыми слоями, поэтому указатель слушаем на window —
   // взгляд дроида работает, даже когда курсор над текстом.
@@ -190,4 +190,4 @@ export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
   )
 }
 
-useGLTF.preload("/white-droid.glb")
+useGLTF.preload("/white-droid.glb", true)

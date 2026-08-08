@@ -9,6 +9,7 @@ import { StatsStrip } from "@/components/landing/stats-strip"
 import { CollectionSection } from "@/components/landing/collection-section"
 import { HonorariesSection } from "@/components/landing/honoraries-section"
 import { OthersideSection } from "@/components/landing/otherside-section"
+import { StakingSection } from "@/components/landing/staking-section"
 import { TeamSection } from "@/components/landing/team-section"
 import { Footer } from "@/components/footer"
 
@@ -53,6 +54,7 @@ export default function Home() {
         <CollectionSection />
         <HonorariesSection />
         <OthersideSection />
+        <StakingSection />
         <TeamSection />
         <Footer />
       </div>

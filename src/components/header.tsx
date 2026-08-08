@@ -171,12 +171,15 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               );
             })}
 
-            <span className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white/25 cursor-default select-none">
+            <Link
+              href={pathname === "/" ? "#staking" : "/#staking"}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white/40 hover:text-white hover:bg-white/[0.07] transition-colors"
+            >
               Staking
               <span className="text-[8px] font-black uppercase tracking-widest border border-white/15 text-white/40 rounded px-1.5 py-0.5">
                 Soon
               </span>
-            </span>
+            </Link>
           </div>
 
           {/* Профиль + кошелёк справа */}
@@ -203,8 +206,8 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               detailsButton={{
                 className: `
                   !bg-white/5 !border !border-white/10 !rounded-full !h-[42px] !text-sm
-                  [&_img]:!w-[26px] [&_img]:!h-[26px]
-                  [&_svg]:!w-[26px] [&_svg]:!h-[26px]
+                  [&_img]:!w-[24px] [&_img]:!h-[24px]
+                  [&_svg]:!w-[24px] [&_svg]:!h-[24px]
                 `,
               }}
               connectModal={{
@@ -347,12 +350,16 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   );
                 })}
 
-                <div className="flex items-center h-[50px] px-4 rounded-2xl bg-white/[0.03] text-sm text-white/30 select-none">
+                <Link
+                  href={pathname === "/" ? "#staking" : "/#staking"}
+                  onClick={closeMenu}
+                  className="flex items-center h-[50px] px-4 rounded-2xl bg-white/5 text-sm text-white/70 hover:bg-white/10 transition-colors"
+                >
                   <span className="flex-1">Staking</span>
                   <span className="text-[8px] font-black uppercase tracking-widest border border-white/15 text-white/40 rounded px-1.5 py-0.5">
                     Soon
                   </span>
-                </div>
+                </Link>
 
                 <div className="h-px bg-white/10 my-3" />
 

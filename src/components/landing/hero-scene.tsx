@@ -181,9 +181,13 @@ export function HeroScene({ phase, scrollProgress, active, burst, onReady, onPro
         dpr={[1, 2]}
         frameloop={active ? "always" : "never"}
       >
-        <ambientLight intensity={0.5} />
-        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} />
-        <spotLight position={[-10, 5, 10]} angle={0.15} penumbra={1} intensity={0.5} color="#4f46e5" />
+        {/* Свет самодостаточный: HDRI тянется со стороннего CDN и может не
+            ответить — без этих источников металл дроида уходит в чёрный. */}
+        <ambientLight intensity={1.1} />
+        <hemisphereLight args={["#ffffff", "#202028", 1.2]} />
+        <directionalLight position={[6, 9, 7]} intensity={2.4} />
+        <directionalLight position={[-7, 4, 5]} intensity={1.1} color="#8fa2ff" />
+        <spotLight position={[10, 10, 10]} angle={0.35} penumbra={1} intensity={1.2} />
 
         <CameraRig phase={phase} isMobile={isMobile} scrollProgress={scrollProgress} />
         <Floor scrollProgress={scrollProgress} />

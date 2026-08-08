@@ -6,7 +6,7 @@ import { Environment, OrbitControls, useAnimations, useGLTF } from "@react-three
 import * as THREE from "three"
 import { SkeletonUtils, type OrbitControls as OrbitControlsImpl } from "three-stdlib"
 import { Crosshair, Footprints, Hand, Loader2, Minus, Music, Pause, Play, Plus, Radio, RotateCcw, Shuffle, Zap } from "lucide-react"
-import { droidModelUrl } from "@/lib/media"
+import { droidMmlUrl, droidModelUrl } from "@/lib/media"
 import { LABEL_CLASS } from "./ui"
 
 const MAX_ID = 3333
@@ -111,11 +111,15 @@ function ViewerCanvas({
 }) {
   return (
     <Canvas camera={{ position: [0, 0.1, 4.2], fov: 35 }} gl={{ antialias: true, alpha: true }} dpr={[1, 2]}>
-      <ambientLight intensity={0.6} />
-      <spotLight position={[6, 8, 6]} angle={0.3} penumbra={1} intensity={1.2} />
-      <spotLight position={[-8, 4, 6]} angle={0.3} penumbra={1} intensity={0.5} color="#4f46e5" />
+      {/* Свет не зависит от HDRI со стороннего CDN — см. hero-scene */}
+      <ambientLight intensity={1.1} />
+      <hemisphereLight args={["#ffffff", "#202028", 1.2]} />
+      <directionalLight position={[5, 8, 6]} intensity={2.2} />
+      <directionalLight position={[-6, 4, 5]} intensity={1} color="#8fa2ff" />
       <Suspense fallback={null}>
         <FittedModel url={url} move={move} onMoveEnd={onMoveEnd} />
+      </Suspense>
+      <Suspense fallback={null}>
         <Environment preset="city" />
       </Suspense>
       <OrbitControls
@@ -140,6 +144,8 @@ export function DroidViewer() {
   const [input, setInput] = useState(String(DEFAULT_ID))
   const [error, setError] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<number | null>(DEFAULT_ID)
+  const [progress, setProgress] = useState(0)
+  const [modelUrl, setModelUrl] = useState<string | null>(null)
   const [move, setMove] = useState<MoveId | null>(null)
   const [spin, setSpin] = useState(true)
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
@@ -175,16 +181,61 @@ export function DroidViewer() {
     return () => io.disconnect()
   }, [mounted])
 
-  // Пока GLB тянется, держим индикатор — Suspense внутри канваса молчаливый.
+  // Путь к модели берём из MML-обёртки (то же поле, что в метаданных NFT),
+  // и тянем файл сами — чтобы показать реальный прогресс, а не спиннер вслепую.
   useEffect(() => {
     if (!mounted) return
     let cancelled = false
     setLoadingId(tokenId)
+    setProgress(0)
     setError(null)
-    fetch(droidModelUrl(tokenId), { method: "HEAD" })
-      .then((r) => { if (!cancelled && !r.ok) setError(`Droid #${tokenId} has no 3D model yet`) })
-      .catch(() => { if (!cancelled) setError("Could not reach the model server") })
-      .finally(() => { if (!cancelled) setTimeout(() => setLoadingId(null), 600) })
+    setModelUrl(null)
+
+    const run = async () => {
+      let glb = droidModelUrl(tokenId)
+      try {
+        const mml = await fetch(droidMmlUrl(tokenId))
+        if (mml.ok) {
+          const src = (await mml.text()).match(/src=["']([^"']+\.glb)["']/i)?.[1]
+          if (src) glb = src
+        }
+      } catch {
+        /* MML недоступен — остаёмся на прямом пути к GLB */
+      }
+      if (cancelled) return
+
+      try {
+        const res = await fetch(glb)
+        if (!res.ok) throw new Error(String(res.status))
+        const total = Number(res.headers.get("content-length")) || 0
+        const reader = res.body?.getReader()
+        if (!reader) throw new Error("no stream")
+
+        const chunks: Uint8Array[] = []
+        let received = 0
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if (value) {
+            chunks.push(value)
+            received += value.length
+            if (!cancelled && total) setProgress(Math.min(99, Math.round((received / total) * 100)))
+          }
+        }
+        if (cancelled) return
+        // отдаём модели готовый blob — второй раз по сети она не пойдёт
+        const url = URL.createObjectURL(new Blob(chunks as BlobPart[], { type: "model/gltf-binary" }))
+        setProgress(100)
+        setModelUrl(url)
+        setLoadingId(null)
+      } catch {
+        if (!cancelled) {
+          setError(`Droid #${tokenId} has no 3D model yet`)
+          setLoadingId(null)
+        }
+      }
+    }
+    run()
     return () => { cancelled = true }
   }, [tokenId, mounted])
 
@@ -226,7 +277,7 @@ export function DroidViewer() {
           </div>
           <button
             type="submit"
-            className="shrink-0 rounded-lg bg-white text-black font-black uppercase tracking-widest text-[10px] px-4 py-2.5 hover:bg-[#0069FF] hover:text-white transition-colors"
+            className="shrink-0 rounded-full bg-white text-black font-black uppercase tracking-widest text-[10px] px-5 py-2.5 hover:bg-[#0069FF] hover:text-white transition-colors"
           >
             Load
           </button>
@@ -243,9 +294,9 @@ export function DroidViewer() {
 
       {/* Сцена */}
       <div className="relative aspect-square lg:aspect-[5/4] w-full">
-        {mounted ? (
+        {mounted && modelUrl ? (
           <ViewerCanvas
-            url={droidModelUrl(tokenId)}
+            url={modelUrl}
             controlsRef={controlsRef}
             move={move}
             onMoveEnd={() => setMove(null)}
@@ -253,10 +304,21 @@ export function DroidViewer() {
           />
         ) : null}
 
-        {(loadingId !== null || !mounted) && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 text-white/40 pointer-events-none">
-            <Loader2 size={16} className="animate-spin" />
-            <span className={LABEL_CLASS}>Loading #{loadingId ?? tokenId}</span>
+        {(loadingId !== null || !mounted) && !error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-10 pointer-events-none">
+            <div className="flex items-center gap-2 text-white/45">
+              <Loader2 size={15} className="animate-spin" />
+              <span className={LABEL_CLASS}>Loading #{loadingId ?? tokenId}</span>
+            </div>
+            <div className="w-full max-w-[220px]">
+              <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-white/70 transition-[width] duration-150 ease-out"
+                  style={{ width: `${Math.max(progress, 4)}%` }}
+                />
+              </div>
+              <div className={`${LABEL_CLASS} text-white/25 mt-2 text-center`}>{progress}%</div>
+            </div>
           </div>
         )}
 

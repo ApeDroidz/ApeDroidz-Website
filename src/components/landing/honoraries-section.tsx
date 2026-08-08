@@ -70,9 +70,9 @@ export function HonorariesSection() {
             ApeChain <span className="text-white/35">Honoraries</span>
           </h2>
           <p className="mt-6 max-w-xl font-sans text-base md:text-lg leading-relaxed">
-            <span className="text-white">Hand-made 1/1 droids for the people who built and carried the Network — </span>
+            <span className="text-white">Hand-made 1/1 Droidz for the people who built and carried the Network — </span>
             <span className="text-white/35">
-              founders, artists and collectors across ApeChain. Each one is named after its owner. Tap a face to meet them.
+              founders, artists and collectors across ApeChain. Each one is named after its owner.
             </span>
           </p>
         </Reveal>
