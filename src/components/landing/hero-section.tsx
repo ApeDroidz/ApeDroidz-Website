@@ -109,7 +109,7 @@ export function HeroSection() {
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
           style={{ opacity: headlineOpacity, y: headlineY }}
-          className="absolute inset-0 z-30 flex flex-col items-start justify-center pb-[28vh] md:pb-[10vh] pl-6 md:pl-[7vw] pr-5 md:pr-6 text-left"
+          className="absolute inset-0 z-30 flex flex-col items-start justify-center pb-[28dvh] md:pb-[10dvh] pl-6 md:pl-[7vw] pr-5 md:pr-6 text-left"
         >
           <GlitchReveal play={headlinePlay} durationMs={620} delayMs={0} className="mb-2 md:mb-3">
             <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[0.95rem] md:text-[clamp(0.8rem,2vw,1.7rem)] text-white/60">
@@ -184,7 +184,7 @@ export function HeroSection() {
 
         {/* Индикатор загрузки модели — там, где появится дроид */}
         {phase === "headline" && !glbReady && (
-          <div className="absolute inset-x-0 bottom-[22vh] md:inset-y-0 md:bottom-auto md:right-0 md:left-auto z-20 flex md:w-[45%] items-center justify-center pointer-events-none">
+          <div className="absolute inset-x-0 bottom-[22dvh] md:inset-y-0 md:bottom-auto md:right-0 md:left-auto z-20 flex md:w-[45%] items-center justify-center pointer-events-none">
             <span className="font-mono text-[10px] font-black uppercase tracking-[0.3em] text-white/25">
               {loadPct > 0 ? `LOADING ${loadPct}%` : "LOADING"}
             </span>
@@ -194,7 +194,7 @@ export function HeroSection() {
         {/* Слой 3: лор-блок (акт 2) */}
         <motion.div
           style={{ opacity: loreOpacity, x: loreX }}
-          className="absolute inset-x-0 top-0 md:inset-y-0 md:top-auto z-20 pointer-events-none flex items-start md:items-center pt-[16vh] md:pt-0 w-full md:w-[52%] px-6 md:pl-[7vw]"
+          className="absolute inset-x-0 top-0 md:inset-y-0 md:top-auto z-20 pointer-events-none flex items-start md:items-center pt-[14dvh] md:pt-0 w-full md:w-[52%] px-6 md:pl-[7vw]"
         >
           <div className="max-w-xl">
             <div className="font-mono text-[10px] font-black uppercase tracking-[0.2em] text-white/35 mb-7">

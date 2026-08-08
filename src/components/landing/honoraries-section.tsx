@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { honoraryStaticUrl } from "@/lib/media"
 import { HONORARIES, HONORARY_OPENSEA_URL, HonoraryEntry } from "@/lib/landing-data"
 import { XIcon } from "@/lib/socials"
@@ -20,14 +21,13 @@ function HonoraryCard({ entry }: { entry: HonoraryEntry }) {
     >
       <div className="relative">
         <div className="rounded-full overflow-hidden border border-white/10 group-hover:border-white/40 transition-colors duration-300 w-24 h-24 md:w-32 md:h-32 bg-[#0a0a0a]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={honoraryStaticUrl(entry.id)}
             alt={`${entry.name} — Honorary ApeDroid #${entry.id}`}
-            width={128}
-            height={128}
+            width={160}
+            height={160}
+            sizes="(max-width: 768px) 96px, 128px"
             loading="lazy"
-            decoding="async"
             draggable={false}
             className="w-full h-full object-cover select-none scale-[1.02] group-hover:scale-110 transition-transform duration-500"
           />

@@ -39,6 +39,7 @@ const nextConfig = {
 
     dangerouslyAllowSVG: true,
     remotePatterns: [
+      { protocol: 'https', hostname: 'assets.apedroidz.com' },
       // === 1. SUPABASE (Твой главный быстрый источник) ===
       { protocol: 'https', hostname: 'jpbalgwwwalofynoaavv.supabase.co' },
 
