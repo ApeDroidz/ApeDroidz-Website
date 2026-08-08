@@ -27,13 +27,20 @@ function CreatorCard({ creator, index }: { creator: Creator; index: number }) {
 
       <div>
         {creator.logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={creator.logo}
-            alt={creator.name}
-            draggable={false}
-            className="h-9 md:h-11 w-auto opacity-80 group-hover:opacity-100 transition-opacity select-none"
-          />
+          <span className="block">
+            {creator.logoCaption && (
+              <span className="block font-medium tracking-tight text-white/45 text-[0.8rem] md:text-[0.95rem] mb-2.5">
+                {creator.logoCaption}
+              </span>
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={creator.logo}
+              alt={creator.name}
+              draggable={false}
+              className="h-9 md:h-11 w-auto opacity-80 group-hover:opacity-100 transition-opacity select-none"
+            />
+          </span>
         ) : (
           <span className="block font-semibold tracking-tight text-3xl md:text-4xl">{creator.name}</span>
         )}

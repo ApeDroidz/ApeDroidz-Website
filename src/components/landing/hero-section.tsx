@@ -109,13 +109,21 @@ export function HeroSection() {
           <GlitchReveal play={headlinePlay} durationMs={620} delayMs={0} className="mb-2 md:mb-3">
             <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[clamp(0.8rem,2vw,1.7rem)] text-white/60">
               Activated on
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/Apechain.svg"
-                alt="ApeChain"
-                draggable={false}
-                className="h-[0.95em] w-auto brightness-0 invert opacity-60 select-none translate-y-[0.05em]"
-              />
+              <a
+                href="https://apechain.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="ApeChain"
+                className="pointer-events-auto inline-flex opacity-60 hover:opacity-100 transition-opacity"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/Apechain.svg"
+                  alt="ApeChain"
+                  draggable={false}
+                  className="h-[0.95em] w-auto brightness-0 invert select-none translate-y-[0.05em]"
+                />
+              </a>
             </span>
           </GlitchReveal>
 

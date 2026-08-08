@@ -158,6 +158,8 @@ export const STATS: Stat[] = [
 export interface Creator {
   name: string
   role: string
+  /** подпись над логотипом, если он есть */
+  logoCaption?: string
   /** аватар-PFP (полный URL или /public путь) */
   avatar?: string
   /** /public путь к логотипу; если пусто — печатается имя */
@@ -170,7 +172,7 @@ export interface Creator {
 export const CREATORS: Creator[] = [
   {
     name: "SPLITF0RM",
-    role: "Art & Direction",
+    role: "Founder & Artist",
     avatar: "https://assets.apedroidz.com/apedroidz_honorary/png/1.png",
     note: "Droid design, 3D and the look of everything you just scrolled through.",
     url: "https://x.com/SPLITF0RM",
@@ -178,7 +180,8 @@ export const CREATORS: Creator[] = [
   {
     name: "ZeroBrand",
     role: "Studio & Development",
-    logo: "/partners/zerobrand-powered.svg",
+    logo: "/partners/zerobrand.svg",
+    logoCaption: "Powered by",
     note: "Product, contracts and the machines behind the Droidz Network.",
     url: "https://zerobrand.xyz/",
   },
