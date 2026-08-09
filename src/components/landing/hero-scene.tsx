@@ -30,7 +30,7 @@ const CAM = {
   mobile: {
     far: new THREE.Vector3(0, 0, 12),
     near: new THREE.Vector3(0, -0.15, 9.5),
-    wide: new THREE.Vector3(0, 0, 11),
+    wide: new THREE.Vector3(0, 0, 8.5),   // крупный план: +30% к прежнему z=11
   },
 }
 

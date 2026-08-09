@@ -119,10 +119,10 @@ export function HeroSection() {
         {/* Слой 1: заголовок (дроид материализуется ПОВЕРХ него) */}
         <motion.div
           style={{ opacity: headlineOpacity, y: headlineY }}
-          className="absolute inset-0 z-30 flex flex-col items-start justify-center pb-[28dvh] md:pb-[10dvh] pl-6 md:pl-[7vw] pr-5 md:pr-6 text-left"
+          className="absolute inset-0 z-30 flex flex-col items-center md:items-start justify-center pb-[32dvh] md:pb-[10dvh] px-6 md:pl-[7vw] md:pr-6 text-center md:text-left"
         >
           <GlitchReveal play={headlinePlay} durationMs={620} delayMs={0} className="mb-2 md:mb-3">
-            <span className="flex items-center gap-[0.4em] font-light tracking-tight text-[0.95rem] md:text-[clamp(0.8rem,2vw,1.7rem)] text-white/60">
+            <span className="flex items-center justify-center md:justify-start gap-[0.4em] font-light tracking-tight text-[1.08rem] md:text-[clamp(0.8rem,2vw,1.7rem)] text-white/60">
               Activated on
               <a
                 href="https://apechain.com"
@@ -142,24 +142,25 @@ export function HeroSection() {
             </span>
           </GlitchReveal>
 
-          {/* Телефон: вся фраза одной строкой. Эффекты те же — мягкое появление
-              для «Born in the» и живой глитч на «Glitch». */}
+          {/* Телефон: тот же двухстрочный заголовок, что и на десктопе, но
+              по центру и в вымеренных под узкий экран кеглях. Эффекты общие —
+              мягкое появление у «Formed in» и живой глитч у «The Glitch». */}
           {isNarrow ? (
-          <h1 className="leading-[1.1] pointer-events-none whitespace-nowrap flex items-baseline gap-[0.25em]">
+          <h1 className="leading-[1.05] pointer-events-none flex flex-col items-center">
             <motion.span
               initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
               animate={headlinePlay ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
               transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-              className="font-normal tracking-tight text-[7.4vw]"
+              className="block font-normal tracking-tight text-[9.6vw]"
             >
-              Formed in the
+              Formed in
             </motion.span>
 
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
               {headlineDone ? (
-                <GlitchText text="Glitch" className="font-bold tracking-tight text-[7.4vw]" />
+                <GlitchText text="The Glitch" className="font-bold tracking-tight text-[9.6vw]" />
               ) : (
-                <span className="block font-bold tracking-tight text-[7.4vw]">Glitch</span>
+                <span className="block font-bold tracking-tight text-[9.6vw]">The Glitch</span>
               )}
             </GlitchReveal>
           </h1>
@@ -257,7 +258,8 @@ export function HeroSection() {
           {phase === "ready" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}>
               <GlitchContainer intensity={1}>
-                <div className="flex flex-col items-center gap-1.5 text-white/60">
+                {/* Тень: на телефоне индикатор ложится на белую грудь дроида */}
+                <div className="flex flex-col items-center gap-1.5 text-white/60 drop-shadow-[0_2px_7px_rgba(0,0,0,0.95)]">
                   <span className="font-mono text-[13px] font-black uppercase tracking-[0.3em]">Scroll</span>
                   <motion.span
                     animate={reduced ? undefined : { y: [0, 6, 0] }}

@@ -164,17 +164,19 @@ export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
 
     const parkX = isMobile ? PARK_X_MOBILE : PARK_X_DESKTOP
     group.position.x = parkX
-    // Телефон: дроид стоит по центру в полный рост, ноги уходят за нижний край;
+    // Телефон: дроид стоит по центру, нижний край кадра режет его по пояс;
     // при скролле подрастает и опускается ещё ниже.
-    group.position.y = isMobile ? GROUND_Y - 1.5 - shift * 0.85 : GROUND_Y
+    group.position.y = isMobile ? GROUND_Y - 2.34 - shift * 0.85 : GROUND_Y
 
-    group.scale.setScalar(isMobile ? SCALE * (0.86 + shift * 0.22) : SCALE)
+    group.scale.setScalar(isMobile ? SCALE * (0.95 + shift * 0.13) : SCALE)
 
     // Точка наводки для камеры — грудь дроида в «припаркованном» положении.
     // Уход за край (exit) сюда НЕ входит: иначе камера гонится за улетающей
     // моделью и кадр дёргается на стыке с блоком цифр.
     droidFocus.x = parkX
-    droidFocus.y = group.position.y + SCALE * (isMobile ? 1.5 : 1.32)   // уровень головы
+    // Уровень наводки: на телефоне целимся в макушку — тогда на крупном плане
+    // в кадре остаются голова и грудь, а не полкорпуса.
+    droidFocus.y = group.position.y + SCALE * (isMobile ? 1.7 : 1.32)
     droidFocus.dissolve = dissolve
 
     // Разворот корпуса вправо (на акте 2 чуть сильнее).
