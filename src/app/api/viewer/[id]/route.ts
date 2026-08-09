@@ -634,13 +634,38 @@ export async function GET(
       }
       setProgress(1);
       if (reqId !== loadSeq) return;
-      var url = URL.createObjectURL(new Blob(chunks));
+      // Тип обязателен: без него blob: отдаётся без MIME, и «сохранить
+      // картинку» ломается, а «открыть в новой вкладке» показывает бинарь
+      // текстом. Берём то, что прислал сам R2, с запасным вариантом по
+      // расширению — на случай пустого заголовка.
+      var ctype = (resp.headers.get('Content-Type') || '').split(';')[0].trim();
+      if (!ctype || ctype === 'application/octet-stream') {
+        ctype = src.indexOf('.gif') !== -1 ? 'image/gif'
+              : src.indexOf('.webp') !== -1 ? 'image/webp'
+              : 'image/png';
+      }
+      var url = URL.createObjectURL(new Blob(chunks, { type: ctype }));
       art.onload = function () {
         if (reqId !== loadSeq) { URL.revokeObjectURL(url); return; }
         clearWatchdog();
         showLoader(false);
         requestAnimationFrame(function () { art.classList.add('visible'); });
-        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        // Блоб нужен только ради прогресс-бара. Оставлять его в src нельзя:
+        // через пару секунд он отзывается, и тогда «сохранить картинку» и
+        // «открыть в новой вкладке» отваливаются. Возвращаем прямой адрес —
+        // файл уже в HTTP-кэше, поэтому подмена мгновенная и без мигания,
+        // зато правый клик работает штатно и с нормальным именем файла.
+        setTimeout(function () {
+          if (reqId !== loadSeq) { URL.revokeObjectURL(url); return; }
+          var direct = new Image();
+          direct.onload = function () {
+            if (reqId !== loadSeq) { URL.revokeObjectURL(url); return; }
+            art.src = src;
+            URL.revokeObjectURL(url);
+          };
+          direct.onerror = function () { URL.revokeObjectURL(url); };
+          direct.src = src;
+        }, 400);
       };
       art.onerror = function () { clearWatchdog(); fallbackLoad(view, src, reqId); };
       art.src = url;
