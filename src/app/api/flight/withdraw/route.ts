@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { createThirdwebClient, defineChain, prepareTransaction, toWei } from 'thirdweb'
+import { prepareTransaction, toWei } from 'thirdweb'
 import { privateKeyToAccount } from 'thirdweb/wallets'
 import { sendTransactionWithRetry } from '@/lib/sendWithRetry'
 import { verifySignature } from 'thirdweb/auth'
+import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain'
 
-const apeChain = defineChain(33139)
-const thirdwebClient = createThirdwebClient({
-    clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
-})
+const apeChain = apeChainServer
+const thirdwebClient = createServerThirdwebClient()
 const FLIGHT_VAULT_PK = process.env.FLIGHT_PRIZE_VAULT_PRIVATE_KEY!
 const DAILY_CAP = 500    // APE fallback if vault_limits unavailable
 const MIN_WITHDRAW = 1   // APE — below this gas cost exceeds withdrawal value

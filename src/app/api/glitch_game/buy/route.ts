@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createThirdwebClient, defineChain } from 'thirdweb';
+import { createThirdwebClient } from 'thirdweb';
 import { eth_getTransactionReceipt, eth_getTransactionByHash, getRpcClient } from 'thirdweb/rpc';
 import { supabaseAdmin } from '@/lib/supabase';
 import { isValidWallet } from '@/lib/walletAuth';
+import { apeChainServer } from '@/lib/apechain'
 
 const TICKET_PRICE_APE = 2; // 2 APE per ticket
 const RECIPIENT_WALLET = '0x1DcF1d22A1dbDd20AE875beDEEe3A259b1D608db'.toLowerCase();
-const apeChain = defineChain(33139);
+const apeChain = apeChainServer;
 
 const thirdwebClient = createThirdwebClient({
     clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,

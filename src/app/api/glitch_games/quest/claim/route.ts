@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { createThirdwebClient, defineChain, getContract } from 'thirdweb'
+import { getContract } from 'thirdweb'
 import { balanceOf } from 'thirdweb/extensions/erc721'
+import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain'
 import { requireWalletAuth } from '@/lib/walletAuth'
 
-const thirdwebClient = createThirdwebClient({ clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID! })
-const apeChain = defineChain(33139)
+const thirdwebClient = createServerThirdwebClient()
+const apeChain = apeChainServer
 const DROID_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ''
 
 /**

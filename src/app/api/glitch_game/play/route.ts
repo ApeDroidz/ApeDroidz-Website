@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
-import { createThirdwebClient, defineChain, getContract, prepareTransaction, toWei } from 'thirdweb';
+import { getContract, prepareTransaction, toWei } from 'thirdweb';
+import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain';
 import { privateKeyToAccount } from 'thirdweb/wallets';
 import { transferFrom as erc721Transfer } from 'thirdweb/extensions/erc721';
 import { safeTransferFrom as erc1155Transfer } from 'thirdweb/extensions/erc1155';
@@ -9,10 +10,9 @@ import { sendTransactionWithRetry } from '@/lib/sendWithRetry';
 import { requireWalletAuth, isValidWallet } from '@/lib/walletAuth';
 
 const PRIZE_VAULT_PRIVATE_KEY = process.env.PRIZE_VAULT_PRIVATE_KEY!;
-const THIRDWEB_CLIENT_ID = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!;
 const SHARD_CONTRACT_ADDRESS = process.env.SHARD_CONTRACT_ADDRESS!;
-const apeChain = defineChain(33139);
-const thirdwebClient = createThirdwebClient({ clientId: THIRDWEB_CLIENT_ID });
+const apeChain = apeChainServer;
+const thirdwebClient = createServerThirdwebClient();
 
 const SHARD_AMOUNTS: Record<string, number> = {
     shard_x1: 1, shard_x3: 3, shard_x5: 5, shard_x10: 10, shard_x25: 25,
@@ -205,13 +205,29 @@ export async function POST(req: Request) {
                 await supabaseAdmin.from('nft_inventory').update({ status: 'claimed', tx_hash: txHash, won_at: new Date().toISOString() }).eq('id', inventoryItem.id);
             }
             if (finalPrize.type === 'shard') {
-                await supabaseAdmin.from('users').update({ shards_balance: (user.shards_balance || 0) + shardsGained }).ilike('wallet_address', wallet);
+                // Баланс шардов живёт в glitch_users (в users такой колонки нет —
+                // прежний апдейт по users молча не проходил, и зеркало в базе
+                // расходилось с ончейном).
+                const { error: shardErr } = await supabaseAdmin
+                    .from('glitch_users')
+                    .update({ shards_balance: (user.shards_balance || 0) + shardsGained })
+                    .ilike('wallet_address', wallet);
+                if (shardErr) console.warn('[Play] shards_balance update failed:', shardErr.message);
             }
 
         } catch (transferErr: any) {
             if (inventoryItem) {
                 console.log(`⚠️ [Play] Transfer failed, rolling back NFT #${inventoryItem.token_id} to available`);
                 await supabaseAdmin.from('nft_inventory').update({ status: 'available', winner_wallet: null }).eq('id', inventoryItem.id);
+            }
+            // Билет списывается ещё до розыгрыша, поэтому при провале трансфера
+            // его нужно вернуть — иначе игрок платит за спин и не получает ничего.
+            const { error: refundErr } = await supabaseAdmin
+                .rpc('add_glitch_user_tickets', { p_wallet: wallet, p_amount: 1 });
+            if (refundErr) {
+                console.error('❌ [Play] Ticket refund failed:', refundErr.message, { wallet });
+            } else {
+                console.log(`↩️ [Play] Transfer failed — ticket refunded to ${wallet}`);
             }
             throw new Error(`Blockchain Transfer Failed: ${transferErr.message}`);
         }

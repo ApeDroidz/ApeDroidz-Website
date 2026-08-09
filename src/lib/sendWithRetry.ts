@@ -4,6 +4,7 @@ import type { Account } from 'thirdweb/wallets';
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 500;
+const RATE_LIMIT_DELAY_MS = 1200;
 
 /**
  * Sends a blockchain transaction with automatic retry on nonce-related errors.
@@ -40,15 +41,28 @@ export async function sendTransactionWithRetry({
                 msg.includes('replacement transaction underpriced') ||
                 msg.includes('already known');
 
-            if (!isNonceError || attempt === MAX_RETRIES) {
-                // Not a nonce error or final attempt — don't retry
+            // Провайдер притормаживает нас (HTTP 429). Ошибка целиком временная:
+            // достаточно подождать и повторить. Раньше она летела наружу сразу,
+            // и игрок терял спин из-за секундного всплеска нагрузки.
+            const isRateLimited =
+                msg.includes('429') ||
+                msg.includes('too many requests') ||
+                msg.includes('rate limit');
+
+            const retryable = isNonceError || isRateLimited;
+
+            if (!retryable || attempt === MAX_RETRIES) {
                 throw err;
             }
 
-            const delay = BASE_DELAY_MS * attempt; // 500ms, 1000ms, 1500ms
+            // На лимите ждём заметно дольше: окно провайдера считается секундами,
+            // и повтор через 500мс упрётся в тот же лимит.
+            const delay = isRateLimited
+                ? RATE_LIMIT_DELAY_MS * attempt      // 1200ms, 2400ms
+                : BASE_DELAY_MS * attempt;           // 500ms, 1000ms
             console.warn(
-                `⚠️ [${label}] Nonce error on attempt ${attempt}/${MAX_RETRIES}: "${err.message}". ` +
-                `Retrying in ${delay}ms...`
+                `⚠️ [${label}] ${isRateLimited ? 'Rate limited' : 'Nonce error'} on attempt ` +
+                `${attempt}/${MAX_RETRIES}: "${err.message}". Retrying in ${delay}ms...`
             );
             await new Promise((resolve) => setTimeout(resolve, delay));
         }

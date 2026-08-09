@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { createThirdwebClient, defineChain } from 'thirdweb'
+import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain'
 
-const apeChain = defineChain(33139)
+const apeChain = apeChainServer
 const VAULT_WALLET = process.env.NEXT_PUBLIC_FLIGHT_VAULT_WALLET_ADDRESS!
 const MIN_DEPOSIT = 10     // APE
 const MIN_CONFIRMATIONS = 1 // ApeChain has fast finality — 1 conf is sufficient
 
-const thirdwebClient = createThirdwebClient({
-    clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
-})
+const thirdwebClient = createServerThirdwebClient()
 
 /**
  * POST /api/flight/deposit

@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createThirdwebClient, defineChain } from 'thirdweb'
 import { verifySignature } from 'thirdweb/auth'
 import { requireInternalSecret } from '@/lib/requireInternalSecret'
+import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain'
 
-const thirdwebClient = createThirdwebClient({
-    clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
-})
-const apeChain = defineChain(33139)
+const thirdwebClient = createServerThirdwebClient()
+const apeChain = apeChainServer
 
 /**
  * POST /api/flight/verify-ws-auth

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createThirdwebClient, getContract, defineChain } from "thirdweb";
+import { createThirdwebClient, getContract } from "thirdweb";
 import { balanceOf } from "thirdweb/extensions/erc1155";
 import { supabaseAdmin } from "@/lib/supabase";
+import { apeChainServer } from '@/lib/apechain'
 
 const client = createThirdwebClient({
     clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
     secretKey: process.env.THIRDWEB_SECRET_KEY,
 });
-const apeChain = defineChain(33139);
+const apeChain = apeChainServer;
 const SHARD_CONTRACT_ADDRESS = process.env.SHARD_CONTRACT_ADDRESS!;
 const STANDARD_BATTERY_PRIZE_TYPE_ID = 'std_battery';
 

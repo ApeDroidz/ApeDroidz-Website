@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { createThirdwebClient, defineChain, getContract } from 'thirdweb';
+import { getContract } from 'thirdweb';
 import { balanceOf } from 'thirdweb/extensions/erc721';
 import { requireWalletAuth } from '@/lib/walletAuth';
+import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain';
 
-const THIRDWEB_CLIENT_ID = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!;
 const DROID_CONTRACT = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || '';
-const apeChain = defineChain(33139);
-const thirdwebClient = createThirdwebClient({ clientId: THIRDWEB_CLIENT_ID });
+const apeChain = apeChainServer;
+const thirdwebClient = createServerThirdwebClient();
 
 const TWEET_URL_REGEX = /^https?:\/\/(x\.com|twitter\.com)\/\w+\/status\/\d+/i;
 const X_HANDLE_REGEX = /^@?[A-Za-z0-9_]{1,15}$/;

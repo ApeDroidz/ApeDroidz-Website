@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createThirdwebClient, getContract, defineChain } from "thirdweb";
+import { createThirdwebClient, getContract } from "thirdweb";
 import { privateKeyToAccount } from "thirdweb/wallets";
 import { transferFrom } from "thirdweb/extensions/erc721";
 import { sendTransactionWithRetry } from '@/lib/sendWithRetry';
 import { eth_getTransactionReceipt, getRpcClient } from "thirdweb/rpc";
 import { ownerOf } from "thirdweb/extensions/erc721";
 import { supabaseAdmin } from "@/lib/supabase";
+import { apeChainServer } from '@/lib/apechain'
 
 const PRIZE_VAULT_PRIVATE_KEY = process.env.PRIZE_VAULT_PRIVATE_KEY!;
 const SUPER_BATTERY_PRIZE_TYPE_ID = 'super_battery';
@@ -16,7 +17,7 @@ const client = createThirdwebClient({
     clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
     secretKey: process.env.THIRDWEB_SECRET_KEY,
 });
-const apeChain = defineChain(33139);
+const apeChain = apeChainServer;
 
 async function logBatteryMerge(
     userWallet: string,

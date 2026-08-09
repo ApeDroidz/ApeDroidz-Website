@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createThirdwebClient, defineChain } from 'thirdweb'
+import { createThirdwebClient } from 'thirdweb'
 import { eth_getBalance, getRpcClient } from 'thirdweb/rpc'
 import { privateKeyToAccount } from 'thirdweb/wallets'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
+import { apeChainServer } from '@/lib/apechain'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
     const denied = await requireAdmin(req)
     if (denied) return denied
 
-    const apeChain = defineChain(33139)
+    const apeChain = apeChainServer
     const thirdwebClient = createThirdwebClient({
         clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
         secretKey: process.env.THIRDWEB_SECRET_KEY,

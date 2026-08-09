@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createThirdwebClient, defineChain, getContract, readContract } from 'thirdweb'
+import { createThirdwebClient, getContract, readContract } from 'thirdweb'
 import { ownerOf } from 'thirdweb/extensions/erc721'
 import { requireWalletAuth } from '@/lib/walletAuth'
 import { refreshOpenseaNft } from '@/lib/openseaRefresh'
+import { apeChainServer } from '@/lib/apechain'
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-const apeChain = defineChain(33139)
+const apeChain = apeChainServer
 const thirdwebClient = createThirdwebClient({
     clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
     secretKey: process.env.THIRDWEB_SECRET_KEY,
