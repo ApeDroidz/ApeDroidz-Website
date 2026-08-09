@@ -84,7 +84,7 @@ export function StatsStrip() {
       /* -mt: секция наезжает на хвост hero. Без этого её верх оказывается у
          нижней кромки ровно в тот момент, когда дроид уже растворился, и
          пользователь мотает почти пустой экран. */
-      className="relative z-10 -mt-[12dvh] md:-mt-[45dvh] pt-0 pb-16 md:pb-28"
+      className="relative z-10 -mt-[38dvh] md:-mt-[45dvh] pt-0 pb-16 md:pb-28"
     >
       <div className="w-full px-[5vw]">
         <Reveal>

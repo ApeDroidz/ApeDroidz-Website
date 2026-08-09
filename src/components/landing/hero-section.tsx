@@ -99,6 +99,16 @@ export function HeroSection() {
   // Абзацы лора живут внутри sticky-контейнера — whileInView тут бесполезен,
   // поэтому одноразовая защёлка по прогрессу скролла.
   const [loreOn, setLoreOn] = useState(false)
+  // Заголовок на телефоне — одной строкой, на десктопе — в две; держим один
+  // вариант в DOM, чтобы не гонять глитч дважды.
+  const [isNarrow, setIsNarrow] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)")
+    const sync = () => setIsNarrow(mq.matches)
+    sync()
+    mq.addEventListener("change", sync)
+    return () => mq.removeEventListener("change", sync)
+  }, [])
   useMotionValueEvent(scrollYProgress, "change", (v) => {
     if (v > 0.28) setLoreOn(true)
   })
@@ -132,28 +142,51 @@ export function HeroSection() {
             </span>
           </GlitchReveal>
 
-          <h1 className="leading-[1.22] md:leading-[0.95] pointer-events-none">
+          {/* Телефон: вся фраза одной строкой. Эффекты те же — мягкое появление
+              для «Born in the» и живой глитч на «Glitch». */}
+          {isNarrow ? (
+          <h1 className="leading-[1.1] pointer-events-none whitespace-nowrap flex items-baseline gap-[0.25em]">
+            <motion.span
+              initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
+              animate={headlinePlay ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
+              transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+              className="font-normal tracking-tight text-[7.4vw]"
+            >
+              Formed in the
+            </motion.span>
+
+            <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
+              {headlineDone ? (
+                <GlitchText text="Glitch" className="font-bold tracking-tight text-[7.4vw]" />
+              ) : (
+                <span className="block font-bold tracking-tight text-[7.4vw]">Glitch</span>
+              )}
+            </GlitchReveal>
+          </h1>
+          ) : (
+          <h1 className="leading-[0.95] pointer-events-none">
             {/* «Born in» — глитчит только на появлении */}
             <motion.span
               initial={{ opacity: 0, y: 18, filter: "blur(6px)" }}
               animate={headlinePlay ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
               transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-              className="block font-normal tracking-tight text-[2.15rem] md:text-[clamp(2.4rem,6.8vw,6.4rem)]"
+              className="block font-normal tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]"
             >
-              Born in
+              Formed in
             </motion.span>
 
             {/* «The Glitch» — появляется глитчем и продолжает подрагивать */}
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
               {headlineDone ? (
-                <GlitchText text="The Glitch" className="font-bold tracking-tight text-[2.15rem] md:text-[clamp(2.4rem,6.8vw,6.4rem)]" />
+                <GlitchText text="The Glitch" className="font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]" />
               ) : (
-                <span className="block font-bold tracking-tight text-[2.15rem] md:text-[clamp(2.4rem,6.8vw,6.4rem)]">
+                <span className="block font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]">
                   The Glitch
                 </span>
               )}
             </GlitchReveal>
           </h1>
+          )}
 
           {/* Круглая кнопка — новый паттерн активного действия */}
           <motion.div

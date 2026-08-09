@@ -29,8 +29,8 @@ const CAM = {
   },
   mobile: {
     far: new THREE.Vector3(0, 0, 12),
-    near: new THREE.Vector3(0, -0.15, 12),
-    wide: new THREE.Vector3(0, 0, 9.5),
+    near: new THREE.Vector3(0, -0.15, 9.5),
+    wide: new THREE.Vector3(0, 0, 11),
   },
 }
 
@@ -59,13 +59,17 @@ function CameraRig({
       ? smoothstep(THREE.MathUtils.clamp((scrollProgress.get() - 0.15) / 0.19, 0, 1))
       : 0
 
+    // Боковой отступ нужен только десктопу: там дроид держится в правой
+    // половине рядом с лором. На телефоне он стоит по центру — сдвиг камеры
+    // вбок вытолкнул бы его за край кадра.
+    const sideOffset = isMobile ? 0 : 1.15
+
     if (!arrived) {
       target.copy(cam.far)
     } else {
       target.copy(cam.near).lerp(cam.wide, shift)
       // На крупном плане подъезжаем вбок к дроиду, иначе он уходит за край.
-      // Камера подъезжает к дроиду, но с отступом — он должен остаться справа.
-      target.x += (droidFocus.x - 1.15) * shift
+      target.x += (droidFocus.x - sideOffset) * shift
     }
 
     camera.position.x = THREE.MathUtils.damp(camera.position.x, target.x, 2.2, delta)
@@ -73,7 +77,7 @@ function CameraRig({
     camera.position.z = THREE.MathUtils.damp(camera.position.z, target.z, 2.2, delta)
 
     // Наводка: от центра сцены к груди дроида по мере наезда.
-    lookAt.set((droidFocus.x - 1.15) * shift, THREE.MathUtils.lerp(0, droidFocus.y, shift), 0)
+    lookAt.set((droidFocus.x - sideOffset) * shift, THREE.MathUtils.lerp(0, droidFocus.y, shift), 0)
     lookCurrent.x = THREE.MathUtils.damp(lookCurrent.x, lookAt.x, 2.2, delta)
     lookCurrent.y = THREE.MathUtils.damp(lookCurrent.y, lookAt.y, 2.2, delta)
     camera.lookAt(lookCurrent)

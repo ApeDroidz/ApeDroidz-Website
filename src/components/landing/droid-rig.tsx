@@ -33,7 +33,7 @@ const PARK_X_DESKTOP = 1.95
 // Ноги стоят ровно на полу: у модели min.y = 0, поэтому позиция группы = уровень пола.
 const GROUND_Y = -2.6
 const SCALE = 2.86   // +30% к прежним 2.2
-const PARK_X_MOBILE = 0.75
+const PARK_X_MOBILE = 0   // по центру экрана
 
 export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
   const groupRef = useRef<THREE.Group>(null)
@@ -164,21 +164,23 @@ export function DroidRig({ phase, scrollProgress, isMobile }: DroidRigProps) {
 
     const parkX = isMobile ? PARK_X_MOBILE : PARK_X_DESKTOP
     group.position.x = parkX
-    group.position.y = isMobile ? GROUND_Y - 0.35 : GROUND_Y
+    // Телефон: дроид стоит по центру в полный рост, ноги уходят за нижний край;
+    // при скролле подрастает и опускается ещё ниже.
+    group.position.y = isMobile ? GROUND_Y - 1.5 - shift * 0.85 : GROUND_Y
 
-    group.scale.setScalar(isMobile ? SCALE * 0.62 : SCALE)
+    group.scale.setScalar(isMobile ? SCALE * (0.86 + shift * 0.22) : SCALE)
 
     // Точка наводки для камеры — грудь дроида в «припаркованном» положении.
     // Уход за край (exit) сюда НЕ входит: иначе камера гонится за улетающей
     // моделью и кадр дёргается на стыке с блоком цифр.
     droidFocus.x = parkX
-    droidFocus.y = (isMobile ? GROUND_Y - 0.35 : GROUND_Y) + SCALE * (isMobile ? 0.85 : 1.32)   // уровень головы
+    droidFocus.y = group.position.y + SCALE * (isMobile ? 1.5 : 1.32)   // уровень головы
     droidFocus.dissolve = dissolve
 
     // Разворот корпуса вправо (на акте 2 чуть сильнее).
     group.rotation.y = THREE.MathUtils.lerp(
       group.rotation.y,
-      -mouseX * 0.1 - 0.5 - shift * 0.25,
+      isMobile ? 0 : -mouseX * 0.1 - 0.5 - shift * 0.25,
       delta * 2
     )
   })
