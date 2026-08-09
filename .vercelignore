@@ -6,6 +6,7 @@ json_without_json
 backups
 shards.csv
 traits.txt
+3D
 
 # Отдельный WS-сервер игры живёт на Railway, к Next-сборке отношения не имеет
 game-server

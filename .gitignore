@@ -47,3 +47,6 @@ next-env.d.ts
 /metadata/
 /json_without_json/
 /backups/
+
+# Локальная 3D-мастерская (Blender), в репозиторий не идёт
+3D/
