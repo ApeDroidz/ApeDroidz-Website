@@ -111,7 +111,7 @@ export const HONORARIES: HonoraryEntry[] = [
   { id: 79, name: "Vill", x: "https://x.com/silentium_eth" },
 ]
 
-export const HONORARY_OPENSEA_URL = "https://opensea.io/collection/apedroidz-honorary" // TODO: confirm slug
+export { HONORARY_OPENSEA_URL } from "./socials"
 
 export interface Partner {
   name: string

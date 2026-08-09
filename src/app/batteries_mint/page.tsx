@@ -1187,7 +1187,7 @@ export default function MintPage() {
                                                                                             connectButton={{
                                                                                                 label: "Connect Wallet",
                                                                                                 className: `
-                                                                                                !bg-white !text-black !font-bold !rounded-lg 
+                                                                                                !bg-white !text-black !font-bold !rounded-full
                                                                                                 !h-[52px] lg:!h-[48px] !px-8 !text-base !w-full lg:!w-auto
                                                                                                 !border !border-transparent !transition-all !duration-300
                                                                                                 hover:!bg-[#0069FF] hover:!text-white hover:!border-transparent

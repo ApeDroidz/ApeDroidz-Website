@@ -4,6 +4,9 @@
 export const X_URL = "https://x.com/ApeDroidz"
 export const DISCORD_URL = "https://discord.com/invite/sFkkYyFZMj"
 export const OPENSEA_COLLECTION_URL = "https://opensea.io/collection/apedroidz"
+// Слаг подтверждён по странице токена контракта 0x427ff4b9… — прежний
+// «apedroidz-honorary» отдавал 404.
+export const HONORARY_OPENSEA_URL = "https://opensea.io/collection/apechain-honoraries-by-apedroidz"
 
 export function XIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (

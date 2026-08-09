@@ -303,12 +303,12 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
 
         <div className="flex items-center gap-2">
           {collectionSwitch ? (
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-black/40 border border-white/10">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-black/40 border border-white/10">
               {collectionSwitch.options.map((o) => (
                 <button
                   key={o.key}
                   onClick={() => collectionSwitch.onChange(o.key)}
-                  className={`px-3 h-8 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`px-4 h-8 rounded-full text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                     collectionSwitch.value === o.key
                       ? 'bg-white text-black'
                       : 'text-white/50 hover:text-white hover:bg-white/10'

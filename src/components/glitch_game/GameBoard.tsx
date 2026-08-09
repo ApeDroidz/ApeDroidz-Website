@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, X, Gem, Zap, Gamepad2, Share2, Repeat, Ticket, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { GlitchWinShareModal } from "./GlitchWinShareModal"
+import { GlitchText } from "@/components/glitch/glitch-text"
 import { useUserProgress } from "@/hooks/useUserProgress"
 import { useGlitchSession } from "@/hooks/useGlitchSession"
 import { ConnectButton } from "thirdweb/react"
@@ -692,7 +693,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                         initial={{ opacity: 0, y: -15 }}
                         animate={{ opacity: 1, y: 0 }}
                     >
-                        <span className="drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]">Glitch Cards</span> <span className="text-[#3b82f6]">Season 2</span>
+                        <GlitchText text="Glitch Cards" className="drop-shadow-[0_0_12px_rgba(255,255,255,0.35)]" />
                     </motion.h1>
                     <motion.p
                         className="font-bold text-[8px] sm:text-[10px] text-white/40 tracking-[0.3em] sm:tracking-[0.5em] text-center uppercase mt-1.5"
@@ -966,7 +967,7 @@ export function GameBoard({ balance, wallet, onPlayComplete, onRefetch, isFetchi
                                     connectButton={{
                                         label: "Connect Wallet",
                                         className: `
-                                            !bg-white !text-black !font-black !rounded-2xl  
+                                            !bg-white !text-black !font-black !rounded-full
                                             !w-full !h-[56px] sm:!h-[64px] !text-sm sm:!text-base !tracking-widest !uppercase
                                             !transition-all !duration-300 !shadow-lg !shadow-white/10
                                             hover:!bg-[#0069FF] hover:!text-white hover:!shadow-blue-600/50 hover:!scale-[1.02] cursor-pointer

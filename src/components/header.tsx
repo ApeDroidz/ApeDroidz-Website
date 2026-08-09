@@ -8,9 +8,9 @@ import { UserLevelBadge } from "@/components/user-level-badge";
 import { useActiveAccount, ConnectButton } from "thirdweb/react";
 import { client, apeChain } from "@/lib/thirdweb";
 import { createWallet } from "thirdweb/wallets";
-import { Menu, X, Wallet, ChevronDown } from "lucide-react";
+import { Menu, X, Wallet, ChevronDown, ArrowUpRight } from "lucide-react";
 import { slideInLeft } from "@/lib/animations";
-import { SOCIALS } from "@/lib/socials";
+import { SOCIALS, OPENSEA_COLLECTION_URL, HONORARY_OPENSEA_URL, X_URL, DISCORD_URL } from "@/lib/socials";
 
 const wallets = [
   createWallet("io.metamask"),
@@ -27,6 +27,8 @@ interface HeaderProps {
 interface NavItem {
   href: string;
   label: string;
+  /** внешняя ссылка — открываем в новой вкладке, не через next/link */
+  external?: boolean;
 }
 
 interface NavGroup {
@@ -51,6 +53,16 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/merge_mechanism", label: "Merge Mechanism" },
       { href: "/grid", label: "Grid Maker" },
+    ],
+  },
+  {
+    key: "links",
+    label: "Links",
+    items: [
+      { href: OPENSEA_COLLECTION_URL, label: "ApeDroidz on OpenSea", external: true },
+      { href: HONORARY_OPENSEA_URL, label: "Honoraries on OpenSea", external: true },
+      { href: X_URL, label: "X", external: true },
+      { href: DISCORD_URL, label: "Discord", external: true },
     ],
   },
 ];
@@ -149,21 +161,37 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                         className="absolute left-1/2 -translate-x-1/2 top-[calc(100%+10px)] min-w-[210px] rounded-2xl border border-white/10 bg-[#0b0b0b]/95 backdrop-blur-xl shadow-2xl shadow-black/50 p-1.5 z-50"
                         role="menu"
                       >
-                        {group.items.map((item) => (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={() => setOpenMenu(null)}
-                            className={`block px-3.5 py-2.5 rounded-xl text-sm transition-colors ${
-                              isActive(item.href)
-                                ? "bg-white/10 text-white"
-                                : "text-white/70 hover:bg-white/[0.07] hover:text-white"
-                            }`}
-                            role="menuitem"
-                          >
-                            {item.label}
-                          </Link>
-                        ))}
+                        {group.items.map((item) => {
+                          const cls = `block px-3.5 py-2.5 rounded-xl text-sm transition-colors ${
+                            !item.external && isActive(item.href)
+                              ? "bg-white/10 text-white"
+                              : "text-white/70 hover:bg-white/[0.07] hover:text-white"
+                          }`;
+                          return item.external ? (
+                            <a
+                              key={item.href}
+                              href={item.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => setOpenMenu(null)}
+                              className={`${cls} flex items-center justify-between gap-4 whitespace-nowrap`}
+                              role="menuitem"
+                            >
+                              {item.label}
+                              <ArrowUpRight size={13} className="shrink-0 opacity-40" />
+                            </a>
+                          ) : (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              onClick={() => setOpenMenu(null)}
+                              className={cls}
+                              role="menuitem"
+                            >
+                              {item.label}
+                            </Link>
+                          );
+                        })}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -326,20 +354,30 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                             className="overflow-hidden"
                           >
                             <div className="flex flex-col gap-1.5 pl-3">
-                              {group.items.map((item) => (
-                                <Link
-                                  key={item.href}
-                                  href={item.href}
-                                  onClick={closeMenu}
-                                  className={`flex items-center h-[44px] px-4 rounded-xl text-sm transition-colors ${
-                                    isActive(item.href)
-                                      ? "bg-[#3b82f6]/10 text-white border border-[#3b82f6]/30"
-                                      : "bg-white/[0.03] text-white/70 hover:bg-white/10"
-                                  }`}
-                                >
-                                  {item.label}
-                                </Link>
-                              ))}
+                              {group.items.map((item) => {
+                                const cls = `flex items-center h-[44px] px-4 rounded-xl text-sm transition-colors ${
+                                  !item.external && isActive(item.href)
+                                    ? "bg-[#3b82f6]/10 text-white border border-[#3b82f6]/30"
+                                    : "bg-white/[0.03] text-white/70 hover:bg-white/10"
+                                }`;
+                                return item.external ? (
+                                  <a
+                                    key={item.href}
+                                    href={item.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={closeMenu}
+                                    className={`${cls} justify-between gap-3`}
+                                  >
+                                    {item.label}
+                                    <ArrowUpRight size={15} className="shrink-0 opacity-40" />
+                                  </a>
+                                ) : (
+                                  <Link key={item.href} href={item.href} onClick={closeMenu} className={cls}>
+                                    {item.label}
+                                  </Link>
+                                );
+                              })}
                             </div>
                           </motion.div>
                         )}
