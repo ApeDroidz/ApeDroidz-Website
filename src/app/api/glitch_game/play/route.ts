@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getContract, prepareTransaction, toWei } from 'thirdweb';
 import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain';
+import { detectTokenStandard } from '@/lib/tokenStandard';
 import { privateKeyToAccount } from 'thirdweb/wallets';
 import { transferFrom as erc721Transfer } from 'thirdweb/extensions/erc721';
 import { safeTransferFrom as erc1155Transfer } from 'thirdweb/extensions/erc1155';
@@ -189,7 +190,20 @@ export async function POST(req: Request) {
             }
             else if (inventoryItem) {
                 const contract = getContract({ client: thirdwebClient, chain: apeChain, address: inventoryItem.contract_address });
-                tx = erc721Transfer({ contract, from: vaultAccount.address, to: wallet, tokenId: BigInt(inventoryItem.token_id) });
+                // Honorary на ApeChain — ERC1155, остальные призовые контракты ERC721.
+                // Без этой ветки транзакция отлетала с UnsupportedFunctionSelector.
+                const standard = await detectTokenStandard({
+                    client: thirdwebClient, chain: apeChain, address: inventoryItem.contract_address,
+                });
+                tx = standard === 'erc1155'
+                    ? erc1155Transfer({
+                        contract, from: vaultAccount.address, to: wallet,
+                        tokenId: BigInt(inventoryItem.token_id), value: BigInt(1), data: '0x',
+                    })
+                    : erc721Transfer({
+                        contract, from: vaultAccount.address, to: wallet,
+                        tokenId: BigInt(inventoryItem.token_id),
+                    });
                 nftTokenId = inventoryItem.token_id;
                 prizeAmountOrId = nftTokenId;
             }
