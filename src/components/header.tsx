@@ -59,10 +59,10 @@ const NAV_GROUPS: NavGroup[] = [
     key: "links",
     label: "Links",
     items: [
-      { href: OPENSEA_COLLECTION_URL, label: "ApeDroidz on OpenSea", external: true },
-      { href: HONORARY_OPENSEA_URL, label: "Honoraries on OpenSea", external: true },
       { href: X_URL, label: "X", external: true },
       { href: DISCORD_URL, label: "Discord", external: true },
+      { href: OPENSEA_COLLECTION_URL, label: "ApeDroidz on OpenSea", external: true },
+      { href: HONORARY_OPENSEA_URL, label: "Honoraries on OpenSea", external: true },
     ],
   },
 ];
