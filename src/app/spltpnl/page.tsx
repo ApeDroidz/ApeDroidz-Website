@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertTriangle, BarChart3, Check, Coins, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, LogOut, Package, Pencil, Plus, RefreshCcw, Search, ShieldAlert, Sparkles, Target, Trash2, Users, X } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Check, Coins, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, LogOut, Package, Pencil, Plus, RefreshCcw, Search, Sparkles, Target, Trash2, Users, X } from 'lucide-react'
 
 // ── Types (loose — coming from server JSON) ───────────────────────────────────
 
@@ -14,7 +14,6 @@ const TABS = [
     { id: 'users', label: 'Users', icon: Users },
     { id: 'prizes', label: 'Prizes', icon: Package },
     { id: 'quests', label: 'Quests', icon: Target },
-    { id: 'health', label: 'Health', icon: ShieldAlert },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -154,11 +153,21 @@ function ErrorBox({ msg }: { msg: string }) {
 
 function OverviewTab() {
     const [data, setData] = useState<any>(null)
+    const [health, setHealth] = useState<any>(null)
     const [err, setErr] = useState('')
     const [loading, setLoading] = useState(true)
+
     const load = useCallback(async () => {
         setLoading(true); setErr('')
-        try { setData(await jsonFetch('/api/admin/stats/overview')) }
+        try {
+            // Health слит сюда же: отдельная вкладка заставляла ходить за
+            // тем, на что и так надо реагировать в первую очередь.
+            const [o, h] = await Promise.all([
+                jsonFetch('/api/admin/stats/overview'),
+                jsonFetch('/api/admin/health').catch(() => null),
+            ])
+            setData(o); setHealth(h)
+        }
         catch (e: any) { setErr(e.message) }
         finally { setLoading(false) }
     }, [])
@@ -169,19 +178,16 @@ function OverviewTab() {
     if (!data) return null
 
     const lt = data.lifetime ?? {}
-    const liab = data.liability ?? null
     const trends = data.trends ?? { dau: [], signups: [] }
-    const dauSeries = (trends.dau ?? []).map((d: any) => Number(d.cards_dau) + Number(d.flight_dau))
     const cardsDauSeries = (trends.dau ?? []).map((d: any) => Number(d.cards_dau))
-    const flightDauSeries = (trends.dau ?? []).map((d: any) => Number(d.flight_dau))
     const revSeries = (trends.dau ?? []).map((d: any) => Number(d.ape_revenue))
-    const depSeries = (trends.dau ?? []).map((d: any) => Number(d.ape_deposits))
-    const wdSeries = (trends.dau ?? []).map((d: any) => Number(d.ape_withdrawals))
-    const signupsSeries = (trends.signups ?? []).map((d: any) => Number(d.signups))
-    const cumulativeUsers = (trends.signups ?? []).map((d: any) => Number(d.cumulative))
-    const today = (trends.signups ?? []).slice(-1)[0]
     const last7Signups = (trends.signups ?? []).slice(-7).reduce((s: number, d: any) => s + Number(d.signups), 0)
-    const last30Signups = (trends.signups ?? []).reduce((s: number, d: any) => s + Number(d.signups), 0)
+
+    const alerts = health?.alerts ?? []
+    const critical = alerts.filter((a: any) => a.severity === 'critical')
+    const vault = health?.stats?.prizeVault
+    const vaultApe = vault && !('error' in vault) ? Number(vault.ape) : null
+    const vaultLow = vaultApe != null && vault?.maxPrize > 0 && vaultApe < vault.maxPrize * 5
 
     return (
         <div className="flex flex-col gap-4">
@@ -192,20 +198,39 @@ function OverviewTab() {
                 </button>
             </div>
 
-            {/* Status row */}
-            <Card className={data.maintenance ? 'border-orange-500/30 bg-orange-500/5' : ''}>
-                <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${data.maintenance ? 'bg-orange-400 animate-pulse' : 'bg-emerald-400'}`} />
-                    <span className="text-sm font-black uppercase tracking-wider">
-                        {data.maintenance ? 'Maintenance mode ON' : 'Site is LIVE'}
-                    </span>
-                    <span className="text-[10px] text-white/40 ml-auto font-mono">
-                        {data.maintenance ? 'Public sees /coming-soon' : 'Public access enabled'}
-                    </span>
+            {/* Требует действия — выше всего остального */}
+            {alerts.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    {alerts.map((a: any, i: number) => <AlertCard key={a.kind ?? i} alert={a} onResolved={load} />)}
                 </div>
-            </Card>
+            )}
 
-            {/* SQL migration not applied banner */}
+            {/* Состояние сайта и призового волта в одной строке */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Card className={data.maintenance ? 'border-orange-500/30 bg-orange-500/5' : ''}>
+                    <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${data.maintenance ? 'bg-orange-400 animate-pulse' : 'bg-emerald-400'}`} />
+                        <span className="text-sm font-black uppercase tracking-wider">
+                            {data.maintenance ? 'Maintenance mode' : 'Site is live'}
+                        </span>
+                        <span className="text-[10px] text-white/40 ml-auto font-mono">
+                            {data.maintenance ? 'видно /coming-soon' : 'доступ открыт'}
+                        </span>
+                    </div>
+                </Card>
+                <Card className={vaultApe != null && vaultLow ? 'border-red-500/30 bg-red-500/5' : ''}>
+                    <div className="flex items-center gap-3">
+                        <Coins size={14} className={vaultLow ? 'text-red-400' : 'text-white/40'} />
+                        <span className="text-sm font-black uppercase tracking-wider">
+                            {vaultApe != null ? `${fmt(vaultApe, 2)} APE` : '—'}
+                        </span>
+                        <span className="text-[10px] text-white/40 ml-auto font-mono">
+                            призовой волт{vault?.maxPrize ? ` · макс. приз ${vault.maxPrize}` : ''}
+                        </span>
+                    </div>
+                </Card>
+            </div>
+
             {data.migrationNeeded && data.migrationNeeded.length > 0 && (
                 <Card className="border-red-500/40 bg-red-500/10">
                     <div className="flex items-start gap-3">
@@ -213,9 +238,8 @@ function OverviewTab() {
                         <div className="flex-1">
                             <h3 className="text-sm font-black uppercase tracking-wider text-red-400 mb-1">SQL migration not applied</h3>
                             <p className="text-xs text-white/70">
-                                The analytics RPCs are missing. Lifetime totals, sparklines, and Users tab will show empty until you run{' '}
-                                <code className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded">supabase/migrations/20260428_admin_analytics.sql</code>{' '}
-                                in Supabase SQL Editor.
+                                Аналитические RPC отсутствуют — итоги и графики будут пустыми, пока не выполнить{' '}
+                                <code className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded">supabase/migrations/20260428_admin_analytics.sql</code>
                             </p>
                             <p className="text-[10px] text-white/40 font-mono mt-2">Missing: {data.migrationNeeded.join(', ')}</p>
                         </div>
@@ -223,124 +247,45 @@ function OverviewTab() {
                 </Card>
             )}
 
-            {/* ── 24h snapshot row ─────────────────────────────────────────── */}
+            {/* За сутки — то, по чему видно, живёт ли игра */}
             <div>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">Last 24 hours</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">За 24 часа</h3>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <Card><Stat label="Cards plays" value={fmt(data.cards.playsToday)} hint={`${fmt(data.cards.plays7d)} in 7d`} /></Card>
-                    <Card><Stat label="Flight bets" value={fmt(data.flight.betsToday)} hint={`${fmt(data.flight.bets7d)} in 7d`} accent="blue" /></Card>
-                    <Card><Stat label="Cards revenue" value={`${fmt(data.cards.revenueApeToday, 2)} APE`} hint={`${fmt(data.cards.ticketsBoughtToday)} purchases`} accent="green" /></Card>
+                    <Card><Stat label="Спинов" value={fmt(data.cards.playsToday)} hint={`${fmt(data.cards.plays7d)} за 7 дней`} /></Card>
+                    <Card><Stat label="Выручка" value={`${fmt(data.cards.revenueApeToday, 2)} APE`} hint={`${fmt(data.cards.ticketsBoughtToday)} покупок`} accent="green" /></Card>
                     <Card>
                         <Stat
-                            label="Flight net"
-                            value={`${data.flight.netToday >= 0 ? '+' : ''}${fmt(data.flight.netToday, 2)} APE`}
-                            hint={`Deposits ${fmt(data.flight.depositsApeToday, 2)} · Withdrawals ${fmt(data.flight.withdrawalsApeToday, 2)}`}
-                            accent={data.flight.netToday >= 0 ? 'green' : 'red'}
+                            label="Ошибки выдачи"
+                            value={fmt(health?.stats?.cardsErrors24hCount ?? 0)}
+                            hint={(health?.stats?.cardsErrors24hCount ?? 0) > 0 ? 'смотри алерты выше' : 'всё доехало'}
+                            accent={(health?.stats?.cardsErrors24hCount ?? 0) > 0 ? 'red' : 'green'}
                         />
                     </Card>
+                    <Card><Stat label="Новых игроков" value={fmt(last7Signups)} hint="за 7 дней" accent="blue" /></Card>
                 </div>
             </div>
 
-            {/* ── Lifetime totals row ──────────────────────────────────────── */}
-            {lt && (
-                <div>
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">Lifetime totals</h3>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <Card><Stat label="Cards plays" value={fmt(lt.total_card_plays)} hint={`${fmt(lt.total_card_errors)} errors`} /></Card>
-                        <Card><Stat label="Cards revenue" value={`${fmt(lt.total_card_revenue, 2)} APE`} hint={`${fmt(lt.total_card_purchases)} purchases`} accent="green" /></Card>
-                        <Card>
-                            <Stat
-                                label="Flight house edge"
-                                value={`${fmt(data.derived?.lifetimeFlightHouseEdge ?? 0, 2)} APE`}
-                                hint={`Volume ${fmt(lt.total_flight_volume, 2)} APE`}
-                                accent={(data.derived?.lifetimeFlightHouseEdge ?? 0) >= 0 ? 'green' : 'red'}
-                            />
-                        </Card>
-                        <Card><Stat label="Total NFTs claimed" value={fmt(lt.total_nfts_claimed)} hint={`${fmt(lt.total_rounds)} rounds played`} accent="orange" /></Card>
-                    </div>
-                </div>
-            )}
-
-            {/* ── Vault liability ──────────────────────────────────────────── */}
-            {liab && (
-                <Card title="Vault liability — APE owed to players right now" className="border-yellow-500/20 bg-yellow-500/5">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-                        <Stat label="Total liability" value={`${fmt(liab.total_balance, 4)} APE`} accent="orange" hint="If everyone withdraws now" />
-                        <Stat label="Players w/ balance" value={fmt(liab.players)} hint="Active flight wallets" />
-                        <Stat label="Largest balance" value={`${fmt(liab.max_balance, 4)} APE`} hint="Single biggest holder" />
-                        <Stat label="Mean balance" value={`${fmt(liab.mean_balance, 4)} APE`} />
-                    </div>
+            {/* Два графика: игроки и деньги. Остальные ничего не решали. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <Card>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-3">Игроков в день · 30 дней</h3>
+                    <Sparkline data={cardsDauSeries} accent="#3b82f6" />
                 </Card>
-            )}
+                <Card>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-3">Выручка, APE · 30 дней</h3>
+                    <Sparkline data={revSeries} accent="#10b981" />
+                </Card>
+            </div>
 
-            {/* ── 30-day trend charts ──────────────────────────────────────── */}
-            {dauSeries.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                    <Card title="DAU 30 days (cards + flight combined)">
-                        <Sparkline data={dauSeries} accent="#3b82f6" />
-                        <div className="text-[10px] text-white/30 font-mono mt-2">
-                            Latest: {dauSeries.slice(-1)[0]} · Peak: {Math.max(...dauSeries)}
-                        </div>
-                    </Card>
-                    <Card title="Cards revenue 30d (APE)">
-                        <Sparkline data={revSeries} accent="#10b981" />
-                        <div className="text-[10px] text-white/30 font-mono mt-2">
-                            7d total: {fmt(revSeries.slice(-7).reduce((s: number, n: number) => s + n, 0), 2)} APE
-                        </div>
-                    </Card>
-                    <Card title="Flight money flow 30d">
-                        <div className="flex flex-col gap-1">
-                            <Sparkline data={depSeries} accent="#10b981" label="Deposits" />
-                            <Sparkline data={wdSeries} accent="#ef4444" label="Withdrawals" />
-                        </div>
-                    </Card>
+            {/* Итоги за всё время */}
+            <div>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">За всё время</h3>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                    <Card><Stat label="Спинов" value={fmt(lt.total_card_plays)} hint={`${fmt(lt.total_card_errors)} ошибок`} /></Card>
+                    <Card><Stat label="Выручка" value={`${fmt(lt.total_card_revenue, 2)} APE`} hint={`${fmt(lt.total_card_purchases)} покупок`} accent="green" /></Card>
+                    <Card><Stat label="NFT выдано" value={fmt(lt.total_nfts_claimed)} accent="orange" /></Card>
                 </div>
-            )}
-
-            {/* ── Cards vs Flight DAU split ───────────────────────────────── */}
-            {cardsDauSeries.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    <Card title="Cards DAU 30d">
-                        <Sparkline data={cardsDauSeries} accent="#3b82f6" />
-                        <div className="text-[10px] text-white/30 font-mono mt-2">Latest {cardsDauSeries.slice(-1)[0]} · Peak {Math.max(...cardsDauSeries)}</div>
-                    </Card>
-                    <Card title="Flight DAU 30d">
-                        <Sparkline data={flightDauSeries} accent="#f97316" />
-                        <div className="text-[10px] text-white/30 font-mono mt-2">Latest {flightDauSeries.slice(-1)[0]} · Peak {Math.max(...flightDauSeries)}</div>
-                    </Card>
-                </div>
-            )}
-
-            {/* ── Signups & cumulative users ───────────────────────────────── */}
-            {signupsSeries.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                    <Card title="Signups 30 days">
-                        <Sparkline data={signupsSeries} accent="#a855f7" />
-                        <div className="grid grid-cols-3 gap-2 mt-3 text-[10px]">
-                            <div><div className="text-white/30 font-bold uppercase tracking-widest">Today</div><div className="font-mono text-white">{today?.signups ?? 0}</div></div>
-                            <div><div className="text-white/30 font-bold uppercase tracking-widest">7d</div><div className="font-mono text-white">{last7Signups}</div></div>
-                            <div><div className="text-white/30 font-bold uppercase tracking-widest">30d</div><div className="font-mono text-white">{last30Signups}</div></div>
-                        </div>
-                    </Card>
-                    <Card title="Cumulative users (30d)">
-                        <Sparkline data={cumulativeUsers} accent="#a855f7" />
-                        <div className="text-[10px] text-white/30 font-mono mt-2">Now: {cumulativeUsers.slice(-1)[0]} total</div>
-                    </Card>
-
-                    <Card title="Health" className={(data.health.pendingInvestigation > 0 || data.health.errorsToday > 5) ? 'border-red-500/30' : ''}>
-                        <div className="flex flex-col gap-3 mt-2">
-                            <div className="flex items-center justify-between text-sm"><span className="text-white/50">Pending investigation</span><span className={`font-mono font-bold ${data.health.pendingInvestigation > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{fmt(data.health.pendingInvestigation)}</span></div>
-                            <div className="flex items-center justify-between text-sm"><span className="text-white/50">Cards errors 24h</span><span className={`font-mono font-bold ${data.health.errorsToday > 5 ? 'text-orange-400' : 'text-white/60'}`}>{fmt(data.health.errorsToday)}</span></div>
-                            {data.season2.topWallet && (
-                                <div className="border-t border-white/10 pt-3 flex flex-col gap-1">
-                                    <span className="text-[9px] font-bold uppercase tracking-widest text-white/30">S2 leader</span>
-                                    <span className="font-mono text-xs text-white">{shortWallet(data.season2.topWallet)} · {fmt(data.season2.topXp)} XP</span>
-                                </div>
-                            )}
-                        </div>
-                    </Card>
-                </div>
-            )}
+            </div>
         </div>
     )
 }
@@ -951,47 +896,6 @@ function FormField({ label, value, onChange, placeholder, className = '', childr
 
 // ── Tab: Health ───────────────────────────────────────────────────────────────
 
-function HealthTab() {
-    const [data, setData] = useState<any>(null)
-    const [err, setErr] = useState('')
-    const [loading, setLoading] = useState(true)
-    const load = useCallback(async () => {
-        setLoading(true); setErr('')
-        try { setData(await jsonFetch('/api/admin/health')) }
-        catch (e: any) { setErr(e.message) }
-        finally { setLoading(false) }
-    }, [])
-    useEffect(() => { load() }, [load])
-
-    return (
-        <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono text-white/30">{data?.generatedAt && new Date(data.generatedAt).toLocaleString()}</span>
-                <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /> Refresh</button>
-            </div>
-
-            {loading && !data ? <Loading /> : err ? <ErrorBox msg={err} /> : data && (
-                <>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <Card><Stat label="Pending invest." value={fmt(data.stats.pendingInvestigationCount)} accent={data.stats.pendingInvestigationCount > 0 ? 'red' : 'green'} /></Card>
-                        <Card><Stat label="Stuck withdrawals" value={fmt(data.stats.stuckWithdrawalsCount)} accent={data.stats.stuckWithdrawalsCount > 0 ? 'red' : 'green'} /></Card>
-                        <Card><Stat label="Cards errors 24h" value={fmt(data.stats.cardsErrors24hCount)} accent={data.stats.cardsErrors24hCount > 5 ? 'orange' : 'white'} /></Card>
-                        <Card><Stat label="Multi-account flags" value={fmt(data.stats.multiAccountFlags)} accent={data.stats.multiAccountFlags > 0 ? 'orange' : 'white'} /></Card>
-                    </div>
-
-                    {data.alerts.length === 0 ? (
-                        <Card><p className="text-center text-emerald-400 py-8 text-sm">✓ No anomalies detected</p></Card>
-                    ) : (
-                        <div className="flex flex-col gap-3">
-                            {data.alerts.map((a: any, i: number) => <AlertCard key={a.kind ?? i} alert={a} onResolved={load} />)}
-                        </div>
-                    )}
-                </>
-            )}
-        </div>
-    )
-}
-
 function AlertCard({ alert, onResolved }: { alert: { severity: string; kind: string; message: string; detail?: any; fingerprint?: string }; onResolved?: () => void }) {
     const [open, setOpen] = useState(false)
     const [resolving, setResolving] = useState(false)
@@ -1569,7 +1473,6 @@ export default function SpltpnlPage() {
             case 'users':    return <UsersTab />
             case 'prizes':   return <PrizesTab />
             case 'quests':   return <QuestsTab />
-            case 'health':   return <HealthTab />
         }
     }, [tab])
 
@@ -1579,7 +1482,7 @@ export default function SpltpnlPage() {
                 <div className="max-w-[1400px] mx-auto flex items-center gap-4 px-5 h-14">
                     <Sparkles size={16} className="text-[#3b82f6]" />
                     <h1 className="text-sm font-black uppercase tracking-widest">SPLTPNL</h1>
-                    <span className="text-[9px] font-mono text-white/30">admin · season 2</span>
+                    <span className="text-[9px] font-mono text-white/30">admin</span>
                     <div className="ml-auto flex items-center gap-3">
                         <a href="/" className="text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white">Site →</a>
                         <button onClick={logout} className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white"><LogOut size={12} /> Logout</button>
