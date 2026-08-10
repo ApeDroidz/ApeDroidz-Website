@@ -73,6 +73,8 @@ export async function GET(req: NextRequest) {
             .limit(500)
         if (prize) q = q.eq('prize_type_id', prize)
         if (contract) q = q.ilike('contract_address', contract)
+        const status = url.searchParams.get('status') ?? ''
+        if (status) q = q.eq('status', status)
 
         const { data, error } = await q
         if (error) throw error
@@ -88,6 +90,38 @@ export async function GET(req: NextRequest) {
  *   OR  { prize_type_id, contract_address, name, image_url, count, startTokenId? }
  *       — bulk insert N sequential token_ids starting at startTokenId (or auto-detected next)
  */
+/**
+ * PATCH /api/admin/inventory
+ * Body: { ids: string[], prize_type_id }
+ * Массовый перенос позиций в другую категорию — поштучно это неудобно,
+ * когда партия из двух десятков NFT заведена не туда.
+ */
+export async function PATCH(req: Request) {
+    const denied = await requireAdmin(req)
+    if (denied) return denied
+
+    let body: any
+    try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+
+    const ids: string[] = Array.isArray(body?.ids) ? body.ids.map(String) : []
+    const prize_type_id = String(body?.prize_type_id ?? '').trim()
+    if (!ids.length) return NextResponse.json({ error: 'ids required' }, { status: 400 })
+    if (ids.length > 200) return NextResponse.json({ error: 'too many ids (max 200)' }, { status: 400 })
+    if (!prize_type_id) return NextResponse.json({ error: 'prize_type_id required' }, { status: 400 })
+
+    const { data: prize } = await supabaseAdmin
+        .from('prize_types').select('id, type').eq('id', prize_type_id).maybeSingle()
+    if (!prize) return NextResponse.json({ error: `unknown prize_type_id "${prize_type_id}"` }, { status: 400 })
+    if (prize.type !== 'nft') {
+        return NextResponse.json({ error: `"${prize_type_id}" is a ${prize.type} prize — inventory holds NFTs only` }, { status: 400 })
+    }
+
+    const { data, error } = await supabaseAdmin
+        .from('nft_inventory').update({ prize_type_id }).in('id', ids).select('id')
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true, moved: data?.length ?? 0 })
+}
+
 export async function POST(req: Request) {
     const denied = await requireAdmin(req)
     if (denied) return denied

@@ -420,6 +420,7 @@ function PrizesTab() {
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
     const [showImport, setShowImport] = useState(false)
+    const [showStock, setShowStock] = useState(false)
     const [msg, setMsg] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
 
     const [stock, setStock] = useState<Record<string, Record<string, number>>>({})
@@ -574,7 +575,8 @@ function PrizesTab() {
             <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-black uppercase tracking-widest">Prize catalogue</h2>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setShowImport(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white px-3 py-2 border border-white/10 rounded-xl flex items-center gap-1.5"><LinkIcon size={12} /> Import by link</button>
+                    <button onClick={() => setShowStock(s => !s)} className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 border rounded-full flex items-center gap-1.5 transition-colors ${showStock ? 'bg-white text-black border-white' : 'text-white/60 hover:text-white border-white/10'}`}><Package size={12} /> Склад</button>
+                    <button onClick={() => setShowImport(s => !s)} className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 border rounded-full flex items-center gap-1.5 transition-colors ${showImport ? 'bg-white text-black border-white' : 'text-white/60 hover:text-white border-white/10'}`}><LinkIcon size={12} /> Import by link</button>
                     <button onClick={() => setShowForm(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white px-3 py-2 bg-[#3b82f6] hover:bg-[#2c63c4] rounded-xl flex items-center gap-1.5"><Plus size={12} /> New prize</button>
                     <button onClick={load} className="text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /></button>
                 </div>
@@ -584,6 +586,7 @@ function PrizesTab() {
 
             {showForm && <PrizeForm onClose={() => setShowForm(false)} onCreated={() => { setShowForm(false); load(); flash('success', 'Prize created') }} />}
             {showImport && <LinkImportPanel prizes={prizes} onMsg={flash} />}
+            {showStock && <StockPanel prizes={prizes} stock={stock} onMsg={flash} onChanged={load} />}
 
             {loading ? <Loading /> : err ? <ErrorBox msg={err} /> : (
                 <div className="flex flex-col gap-4">
@@ -681,6 +684,199 @@ function PrizeForm({ onClose, onCreated }: { onClose: () => void; onCreated: () 
     )
 }
 
+
+/**
+ * Склад: сами NFT, лежащие за призами. Виден список по категориям, каждую
+ * позицию можно переименовать, перенести в другую категорию, вернуть в пул
+ * или удалить. Категория тут не косметика — она решает, в каком сегменте
+ * барабана приз разыгрывается.
+ */
+function StockPanel({ prizes, stock, onMsg, onChanged }: {
+    prizes: any[]
+    stock: Record<string, Record<string, number>>
+    onMsg: (k: 'success' | 'error', t: string) => void
+    onChanged: () => void
+}) {
+    const nftPrizes = prizes.filter((p: any) => p.type === 'nft')
+    const [cat, setCat] = useState<string>(nftPrizes[0]?.id ?? '')
+    const [status, setStatus] = useState<'available' | 'claimed' | ''>('available')
+    const [items, setItems] = useState<any[]>([])
+    const [loading, setLoading] = useState(false)
+    const [sel, setSel] = useState<Set<string>>(new Set())
+    const [moveTo, setMoveTo] = useState('')
+    const [editing, setEditing] = useState<string | null>(null)
+    const [nameDraft, setNameDraft] = useState('')
+
+    const load = useCallback(async () => {
+        if (!cat) return
+        setLoading(true); setSel(new Set())
+        try {
+            const url = new URL('/api/admin/inventory', window.location.origin)
+            url.searchParams.set('prize_type_id', cat)
+            if (status) url.searchParams.set('status', status)
+            setItems((await jsonFetch(url.toString())).items ?? [])
+        } catch (e: any) { onMsg('error', e.message) }
+        finally { setLoading(false) }
+    }, [cat, status, onMsg])
+    useEffect(() => { load() }, [load])
+
+    const patchItem = async (id: string, body: any, note: string) => {
+        try {
+            await jsonFetch(`/api/admin/inventory/${id}`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+            })
+            onMsg('success', note); load(); onChanged()
+        } catch (e: any) { onMsg('error', e.message) }
+    }
+
+    const removeItem = async (id: string, label: string) => {
+        if (!window.confirm(`Удалить «${label}» со склада?`)) return
+        try {
+            await jsonFetch(`/api/admin/inventory/${id}`, { method: 'DELETE' })
+            onMsg('success', `${label} удалён`); load(); onChanged()
+        } catch (e: any) { onMsg('error', e.message) }
+    }
+
+    const moveSelected = async () => {
+        if (!moveTo || !sel.size) return
+        try {
+            const r = await jsonFetch('/api/admin/inventory', {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: [...sel], prize_type_id: moveTo }),
+            })
+            onMsg('success', `Перенесено ${r.moved} → ${moveTo}`); load(); onChanged()
+        } catch (e: any) { onMsg('error', e.message) }
+    }
+
+    const toggle = (id: string) => setSel(s => {
+        const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n
+    })
+
+    return (
+        <Card>
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+                <h3 className="text-xs font-black uppercase tracking-widest mr-2">Склад</h3>
+                {nftPrizes.map((p: any) => {
+                    const n = stock[p.id]?.available ?? 0
+                    return (
+                        <button
+                            key={p.id}
+                            onClick={() => setCat(p.id)}
+                            className={`px-3 h-7 rounded-full text-[10px] font-bold tracking-wider transition-colors ${cat === p.id
+                                ? 'bg-white text-black'
+                                : 'bg-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
+                        >
+                            {p.id} <span className={cat === p.id ? 'text-black/40' : 'text-white/30'}>{n}</span>
+                        </button>
+                    )
+                })}
+                <div className="ml-auto flex items-center gap-2">
+                    <select
+                        value={status}
+                        onChange={e => setStatus(e.target.value as any)}
+                        className="bg-black/40 border border-white/10 rounded-full h-7 px-3 text-[10px] focus:outline-none focus:border-[#3b82f6]"
+                    >
+                        <option value="available">в наличии</option>
+                        <option value="claimed">выдано</option>
+                        <option value="">все</option>
+                    </select>
+                    <button onClick={load} className="text-[#666666] hover:text-white"><RefreshCcw size={12} /></button>
+                </div>
+            </div>
+
+            {sel.size > 0 && (
+                <div className="flex items-center gap-2 mb-3 p-2 rounded-xl bg-[#3b82f6]/10 border border-[#3b82f6]/25">
+                    <span className="text-[11px] font-bold">Выбрано: {sel.size}</span>
+                    <select
+                        value={moveTo}
+                        onChange={e => setMoveTo(e.target.value)}
+                        className="bg-black/40 border border-white/10 rounded-full h-7 px-3 text-[10px] focus:outline-none focus:border-[#3b82f6]"
+                    >
+                        <option value="">— перенести в категорию —</option>
+                        {nftPrizes.filter((p: any) => p.id !== cat).map((p: any) => <option key={p.id} value={p.id}>{p.id}</option>)}
+                    </select>
+                    <button
+                        onClick={moveSelected}
+                        disabled={!moveTo}
+                        className="h-7 px-3 rounded-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 text-[10px] font-black uppercase tracking-widest"
+                    >
+                        Перенести
+                    </button>
+                    <button onClick={() => setSel(new Set())} className="ml-auto text-white/40 hover:text-white text-[10px] uppercase tracking-widest">сбросить</button>
+                </div>
+            )}
+
+            {loading ? <Loading /> : items.length === 0 ? (
+                <p className="text-center text-xs text-white/30 py-6">Пусто</p>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                    {items.map((it: any) => (
+                        <div key={it.id} className={`flex items-center gap-3 p-2 rounded-xl border transition-colors ${sel.has(it.id) ? 'border-[#3b82f6]/50 bg-[#3b82f6]/10' : 'border-white/5 bg-white/[0.02]'}`}>
+                            <input type="checkbox" checked={sel.has(it.id)} onChange={() => toggle(it.id)} className="shrink-0" />
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            {it.image_url
+                                ? <img src={it.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0 bg-black/40" />
+                                : <div className="w-10 h-10 rounded-lg bg-black/40 shrink-0" />}
+
+                            <div className="min-w-0 flex-1">
+                                {editing === it.id ? (
+                                    <input
+                                        autoFocus
+                                        value={nameDraft}
+                                        onChange={e => setNameDraft(e.target.value)}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter') { patchItem(it.id, { name: nameDraft }, `${it.token_id}: имя обновлено`); setEditing(null) }
+                                            if (e.key === 'Escape') setEditing(null)
+                                        }}
+                                        onBlur={() => setEditing(null)}
+                                        className="w-full bg-black/50 border border-[#3b82f6]/40 rounded-lg h-7 px-2 text-xs focus:outline-none"
+                                    />
+                                ) : (
+                                    <button
+                                        onClick={() => { setEditing(it.id); setNameDraft(it.name ?? '') }}
+                                        className="text-xs text-left hover:text-[#3b82f6] transition-colors truncate block w-full"
+                                    >
+                                        {it.name || <span className="text-red-400/70">— без названия —</span>}
+                                    </button>
+                                )}
+                                <p className="text-[10px] font-mono text-white/30 truncate">
+                                    #{it.token_id} · {String(it.contract_address).slice(0, 8)}…
+                                    {it.status !== 'available' && <span className="text-white/50"> · {it.status}</span>}
+                                </p>
+                            </div>
+
+                            <select
+                                value={it.prize_type_id}
+                                onChange={e => patchItem(it.id, { prize_type_id: e.target.value }, `#${it.token_id} → ${e.target.value}`)}
+                                className="shrink-0 bg-black/40 border border-white/10 rounded-lg h-7 px-1 text-[10px] focus:outline-none focus:border-[#3b82f6]"
+                            >
+                                {nftPrizes.map((p: any) => <option key={p.id} value={p.id}>{p.id}</option>)}
+                            </select>
+
+                            {it.status === 'claimed' ? (
+                                <button
+                                    onClick={() => patchItem(it.id, { status: 'available' }, `#${it.token_id} возвращён в пул`)}
+                                    title="вернуть в пул"
+                                    className="shrink-0 text-white/25 hover:text-emerald-400 transition-colors"
+                                >
+                                    <RefreshCcw size={12} />
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => removeItem(it.id, it.name || `#${it.token_id}`)}
+                                    title="удалить со склада"
+                                    className="shrink-0 text-white/25 hover:text-red-400 transition-colors"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </Card>
+    )
+}
 
 interface ResolvedRow {
     ref: string
