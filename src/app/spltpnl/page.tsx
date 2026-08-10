@@ -11,6 +11,7 @@ type Window = '24h' | '7d' | '30d' | 'all'
 const TABS = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'cards', label: 'Cards', icon: Gamepad2 },
+    { id: 'profit', label: 'Профит', icon: Coins },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'prizes', label: 'Prizes', icon: Package },
     { id: 'quests', label: 'Quests', icon: Target },
@@ -292,6 +293,78 @@ function OverviewTab() {
 
 // ── Tab: Cards ────────────────────────────────────────────────────────────────
 
+/**
+ * Экономика Glitch Cards. Приход — APE за билеты, расход — выплаченные APE
+ * плюс себестоимость выданных NFT. Батарейки и шарды мы чеканим сами, у них
+ * себестоимости нет, поэтому в расход они не идут.
+ */
+function ProfitPanel() {
+    const [d, setD] = useState<any>(null)
+    const [err, setErr] = useState('')
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        (async () => {
+            try { setD(await jsonFetch('/api/admin/stats/profit')) }
+            catch (e: any) { setErr(e.message) }
+            finally { setLoading(false) }
+        })()
+    }, [])
+
+    if (loading) return <Loading />
+    if (err) return <ErrorBox msg={err} />
+    if (!d) return null
+
+    const t = d.totals
+    const c = d.coverage
+    const margin = t.spent > 0 ? (t.profit / t.spent * 100) : 0
+
+    return (
+        <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <Card><Stat label="Занесли игроки" value={`${fmt(t.spent, 0)} APE`} hint={`${fmt(t.tickets)} билетов`} accent="green" /></Card>
+                <Card><Stat label="Выплачено APE" value={`${fmt(t.apeWon, 0)} APE`} hint={`за ${fmt(t.plays)} спинов`} accent="orange" /></Card>
+                <Card><Stat label="Себестоимость NFT" value={`${fmt(t.nftCost, 0)} APE`} hint={`${fmt(t.nftWon)} выдано`} accent="orange" /></Card>
+                <Card>
+                    <Stat
+                        label="Профит"
+                        value={`${t.profit >= 0 ? '' : '−'}${fmt(Math.abs(t.profit), 0)} APE`}
+                        hint={`маржа ${margin.toFixed(0)}%`}
+                        accent={t.profit >= 0 ? 'green' : 'red'}
+                    />
+                </Card>
+            </div>
+
+            {c.unpriced > 0 && (
+                <Card className="border-orange-500/30 bg-orange-500/5">
+                    <p className="text-xs text-white/70">
+                        У <span className="font-mono text-orange-400">{c.unpriced}</span> из {c.claimedNfts} выданных NFT
+                        не проставлена цена приобретения — на столько же занижен расход, а профит выше реального.
+                        Цены ставятся в <span className="text-white">Prizes → Склад</span>, можно сразу пачкой.
+                    </p>
+                </Card>
+            )}
+
+            <Card>
+                <h3 className="text-xs font-black uppercase tracking-widest mb-3">По игрокам · топ-100 по тратам</h3>
+                <Table
+                    headers={['Кошелёк', 'Спинов', 'Билетов', 'Занёс', 'Выиграл APE', 'NFT', 'Себест. NFT', 'Профит нам']}
+                    rows={d.wallets.map((w: any) => [
+                        <span key="w" className="font-mono text-[10px]">{w.wallet.slice(0, 10)}…{w.wallet.slice(-4)}</span>,
+                        fmt(w.plays),
+                        fmt(w.tickets),
+                        <span key="s" className="font-mono text-emerald-400">{fmt(w.spent, 0)}</span>,
+                        <span key="a" className="font-mono text-orange-400">{fmt(w.apeWon, 0)}</span>,
+                        fmt(w.nftWon),
+                        <span key="c" className="font-mono text-white/50">{w.nftCost > 0 ? fmt(w.nftCost, 0) : '—'}</span>,
+                        <span key="p" className={`font-mono font-bold ${w.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmt(w.profit, 0)}</span>,
+                    ])}
+                />
+            </Card>
+        </div>
+    )
+}
+
 function CardsTab() {
     const [win, setWin] = useState<Window>('24h')
     const [data, setData] = useState<any>(null)
@@ -408,7 +481,7 @@ function CardsTab() {
     )
 }
 
-// ── Tab: Flight ───────────────────────────────────────────────────────────────
+// ── Tab: Prizes ───────────────────────────────────────────────────────────────
 
 // ── Tab: Season ───────────────────────────────────────────────────────────────
 
@@ -704,6 +777,7 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
     const [loading, setLoading] = useState(false)
     const [sel, setSel] = useState<Set<string>>(new Set())
     const [moveTo, setMoveTo] = useState('')
+    const [priceAll, setPriceAll] = useState('')
     const [editing, setEditing] = useState<string | null>(null)
     const [nameDraft, setNameDraft] = useState('')
 
@@ -748,6 +822,27 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
         } catch (e: any) { onMsg('error', e.message) }
     }
 
+    // Партия NFT обычно приходит по одной цене, поэтому проставляем сразу всем
+    // выбранным — иначе на сотню позиций это сотня правок.
+    const priceSelected = async () => {
+        const v = priceAll.trim()
+        if (!sel.size || v === '') return
+        const value = v === '-' || v === '—' ? null : v
+        let ok = 0
+        for (const id of sel) {
+            try {
+                await jsonFetch(`/api/admin/inventory/${id}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ acquisition_ape: value }),
+                })
+                ok++
+            } catch { /* по одной: сбой на одной позиции не рушит всю партию */ }
+        }
+        onMsg(ok === sel.size ? 'success' : 'error',
+            `Цена проставлена у ${ok} из ${sel.size}`)
+        setPriceAll(''); load(); onChanged()
+    }
+
     const toggle = (id: string) => setSel(s => {
         const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n
     })
@@ -780,6 +875,12 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                         <option value="claimed">выдано</option>
                         <option value="">все</option>
                     </select>
+                    <button
+                        onClick={() => setSel(s => s.size === items.length ? new Set() : new Set(items.map((i: any) => i.id)))}
+                        className="h-7 px-3 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold uppercase tracking-widest text-white/60 hover:text-white"
+                    >
+                        {sel.size === items.length && items.length > 0 ? 'снять все' : 'выбрать все'}
+                    </button>
                     <button onClick={load} className="text-[#666666] hover:text-white"><RefreshCcw size={12} /></button>
                 </div>
             </div>
@@ -802,6 +903,23 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                     >
                         Перенести
                     </button>
+
+                    <span className="w-px h-5 bg-white/10 mx-1" />
+
+                    <input
+                        value={priceAll}
+                        onChange={e => setPriceAll(e.target.value)}
+                        placeholder="цена, APE"
+                        className="w-24 font-mono bg-black/40 border border-white/10 rounded-full h-7 px-3 text-[10px] focus:outline-none focus:border-[#3b82f6] placeholder:text-white/25"
+                    />
+                    <button
+                        onClick={priceSelected}
+                        disabled={priceAll.trim() === ''}
+                        className="h-7 px-3 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-[10px] font-black uppercase tracking-widest"
+                    >
+                        Проставить
+                    </button>
+
                     <button onClick={() => setSel(new Set())} className="ml-auto text-white/40 hover:text-white text-[10px] uppercase tracking-widest">сбросить</button>
                 </div>
             )}
@@ -843,6 +961,24 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                                     #{it.token_id} · {String(it.contract_address).slice(0, 8)}…
                                     {it.status !== 'available' && <span className="text-white/50"> · {it.status}</span>}
                                 </p>
+                            </div>
+
+                            {/* Себестоимость: во сколько APE обошёлся нам этот NFT.
+                                По ней считается расход в профите Glitch Cards. */}
+                            <div className="shrink-0 flex items-center gap-1">
+                                <input
+                                    defaultValue={it.acquisition_ape ?? ''}
+                                    placeholder="цена"
+                                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                    onBlur={e => {
+                                        const v = e.target.value.trim()
+                                        const was = it.acquisition_ape == null ? '' : String(it.acquisition_ape)
+                                        if (v === was) return
+                                        patchItem(it.id, { acquisition_ape: v === '' ? null : v }, `#${it.token_id}: цена ${v || '—'}`)
+                                    }}
+                                    className={`w-16 font-mono bg-black/40 border rounded-lg h-7 px-2 text-[11px] text-right focus:outline-none focus:border-[#3b82f6] placeholder:text-white/20 ${it.acquisition_ape == null ? 'border-white/10' : 'border-emerald-500/30'}`}
+                                />
+                                <span className="text-[9px] text-white/25">APE</span>
                             </div>
 
                             <select
@@ -1158,7 +1294,7 @@ function UsersTab() {
     const [data, setData] = useState<any>(null)
     const [err, setErr] = useState('')
     const [loading, setLoading] = useState(true)
-    const [view, setView] = useState<'top' | 'profits' | 'losers' | 'recent'>('top')
+    const [view, setView] = useState<'top' | 'recent'>('top')
 
     // Drill-down state
     const [search, setSearch] = useState('')
@@ -1211,7 +1347,7 @@ function UsersTab() {
                 <>
                     <div className="flex items-center justify-between">
                         <div className="flex bg-white/5 rounded-xl border border-white/10 p-0.5">
-                            {([['top', 'Top spenders'], ['profits', 'Top profits'], ['losers', 'Worst losers'], ['recent', 'Recent signups']] as const).map(([id, label]) => (
+                            {([['top', 'Top spenders'], ['recent', 'Recent signups']] as const).map(([id, label]) => (
                                 <button key={id} onClick={() => setView(id as any)} className={`px-3 h-7 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${view === id ? 'bg-[#3b82f6] text-white' : 'text-white/40 hover:text-white'}`}>{label}</button>
                             ))}
                         </div>
@@ -1228,30 +1364,6 @@ function UsersTab() {
                                         <span key="a" className="font-mono text-emerald-400 font-bold">{fmt(u.total_ape, 2)} APE</span>,
                                         <span key="c" className="font-mono text-white/60">{fmt(u.purchases)}</span>,
                                         <span key="l" className="font-mono text-[10px] text-white/30">{u.last_purchase && new Date(u.last_purchase).toLocaleDateString()}</span>,
-                                    ])} />
-                                </Card>
-                            )}
-
-                            {view === 'profits' && (
-                                <Card title="Top 50 Flight profits (all-time)">
-                                    <Table headers={['#', 'Wallet', 'Profit', 'Volume', 'Wins/Losses']} rows={(data.topProfits ?? []).map((u: any, i: number) => [
-                                        <span key="r" className="font-mono text-white/40">{i + 1}</span>,
-                                        <button key="w" onClick={() => { setSearch(u.wallet_address); performSearch(u.wallet_address) }} className="font-mono text-[#3b82f6] hover:underline">{shortWallet(u.wallet_address)}</button>,
-                                        <span key="p" className={`font-mono font-bold ${Number(u.total_profit) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{Number(u.total_profit) >= 0 ? '+' : ''}{fmt(u.total_profit, 4)}</span>,
-                                        <span key="v" className="font-mono text-white/60">{fmt(u.total_volume, 2)}</span>,
-                                        <span key="wl" className="font-mono text-[10px]"><span className="text-emerald-400">{u.wins}W</span>/<span className="text-red-400">{u.losses}L</span></span>,
-                                    ])} />
-                                </Card>
-                            )}
-
-                            {view === 'losers' && (
-                                <Card title="Top 50 Flight losses (all-time)">
-                                    <Table headers={['#', 'Wallet', 'Total lost', 'Volume', 'Plays']} rows={(data.worstLosers ?? []).map((u: any, i: number) => [
-                                        <span key="r" className="font-mono text-white/40">{i + 1}</span>,
-                                        <button key="w" onClick={() => { setSearch(u.wallet_address); performSearch(u.wallet_address) }} className="font-mono text-[#3b82f6] hover:underline">{shortWallet(u.wallet_address)}</button>,
-                                        <span key="l" className="font-mono text-red-400 font-bold">−{fmt(u.total_loss, 4)}</span>,
-                                        <span key="v" className="font-mono text-white/60">{fmt(u.total_volume, 2)}</span>,
-                                        <span key="p" className="font-mono text-white/40">{u.plays}</span>,
                                     ])} />
                                 </Card>
                             )}
@@ -1284,13 +1396,11 @@ function WalletDrillDown({ data }: { data: any }) {
                     <Stat label="Wallet" value={<span className="font-mono text-xs">{shortWallet(s.wallet_address)}</span>} hint={s.x_handle ?? 'no X handle'} />
                     <Stat label="First seen" value={<span className="text-sm font-mono">{s.first_seen ? new Date(s.first_seen).toLocaleDateString() : '—'}</span>} />
                     <Stat label="Droids owned" value={fmt(s.droids_count)} hint="On-chain (DB snapshot)" />
-                    <Stat label="Tickets balance" value={fmt(s.games_balance)} hint={`Flight: ${fmt(s.flight_balance, 4)} APE`} accent="green" />
+                    <Stat label="Tickets balance" value={fmt(s.games_balance)} accent="green" />
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/10">
                     <Stat label="Cards plays" value={fmt(s.cards_plays)} hint={`${fmt(s.cards_nfts_won)} NFTs won`} />
                     <Stat label="Cards spent" value={`${fmt(s.cards_ape_spent, 2)} APE`} accent="green" />
-                    <Stat label="Flight bets" value={fmt(s.flight_bets)} hint={`Profit ${fmt(s.flight_total_profit, 4)} APE`} accent={Number(s.flight_total_profit) >= 0 ? 'green' : 'red'} />
-                    <Stat label="Flight in/out" value={`+${fmt(s.flight_deposits, 2)}/−${fmt(s.flight_withdrawals, 2)}`} accent="blue" />
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/10">
                     <Stat label="Season 2 XP" value={fmt(s.season2_xp)} accent="blue" />
@@ -1308,14 +1418,6 @@ function WalletDrillDown({ data }: { data: any }) {
                     ])} />
                 </Card>
 
-                <Card title="Recent Flight bets (last 30)">
-                    <Table headers={['Bet', 'Mult', 'Profit', 'When']} rows={(data.recentFlight ?? []).slice(0, 15).map((r: any) => [
-                        <span key="b" className="font-mono">{fmt(r.bet_amount, 2)}</span>,
-                        <span key="m" className="font-mono text-white/60">{r.cashout_at ? `${Number(r.cashout_at).toFixed(2)}x` : '✗ lost'}</span>,
-                        <span key="p" className={`font-mono ${Number(r.profit) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.profit != null ? (Number(r.profit) >= 0 ? '+' : '') + fmt(r.profit, 4) : '—'}</span>,
-                        <span key="t" className="font-mono text-[10px] text-white/40">{new Date(r.created_at).toLocaleString()}</span>,
-                    ])} />
-                </Card>
             </div>
 
             <Card title={`NFTs won (${(data.nftsWon ?? []).length})`}>
@@ -1666,6 +1768,7 @@ export default function SpltpnlPage() {
         switch (tab) {
             case 'overview': return <OverviewTab />
             case 'cards':    return <CardsTab />
+            case 'profit':   return <ProfitPanel />
             case 'users':    return <UsersTab />
             case 'prizes':   return <PrizesTab />
             case 'quests':   return <QuestsTab />

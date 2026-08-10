@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
         }
 
         let q = supabaseAdmin.from('nft_inventory')
-            .select('id, prize_type_id, contract_address, token_id, name, image_url, status, winner_wallet, won_at')
+            .select('id, prize_type_id, contract_address, token_id, name, image_url, status, winner_wallet, won_at, acquisition_ape')
             .order('token_id', { ascending: true })
             .limit(500)
         if (prize) q = q.eq('prize_type_id', prize)

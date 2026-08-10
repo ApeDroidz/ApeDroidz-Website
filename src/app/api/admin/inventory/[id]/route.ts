@@ -50,6 +50,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         update.image_url = body.image_url ? String(body.image_url).trim() : null
     }
 
+    // Себестоимость: во сколько APE обошёлся нам этот NFT. Пустое значение —
+    // это «цена не проставлена», а не ноль: ноль занижал бы расход в профите.
+    if ('acquisition_ape' in body) {
+        const raw = body.acquisition_ape
+        if (raw === null || raw === '') {
+            update.acquisition_ape = null
+        } else {
+            const n = Number(raw)
+            if (!Number.isFinite(n) || n < 0) {
+                return NextResponse.json({ error: 'acquisition_ape must be a non-negative number' }, { status: 400 })
+            }
+            update.acquisition_ape = n
+        }
+    }
+
     if ('status' in body) {
         const s = String(body.status ?? '').trim()
         if (!STATUSES.includes(s as any)) {
