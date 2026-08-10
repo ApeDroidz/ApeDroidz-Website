@@ -21,7 +21,14 @@ export const dynamic = 'force-dynamic'
 
 const PAGE = 1000
 
-/** Тянем всю таблицу постранично: PostgREST отдаёт максимум 1000 строк за раз. */
+/**
+ * Тянем всю таблицу постранично: PostgREST отдаёт максимум 1000 строк за раз.
+ *
+ * Каждая страница обязана быть отсортирована по стабильному ключу. Без
+ * ORDER BY порядок строк между запросами не определён, страницы перекрываются,
+ * и часть строк не попадает в выборку вообще — так потерялись позиции с уже
+ * проставленной ценой, и себестоимость выданных NFT показывалась нулевой.
+ */
 async function fetchAll<T>(
     build: (from: number, to: number) => any,
 ): Promise<T[]> {
@@ -58,6 +65,7 @@ export async function GET(req: Request) {
                 supabaseAdmin.from('nft_inventory')
                     .select('prize_type_id, winner_wallet, acquisition_ape')
                     .eq('status', 'claimed')
+                    .order('id', { ascending: true })
                     .range(from, to)
             )
         } catch (e: any) {
@@ -69,12 +77,14 @@ export async function GET(req: Request) {
             fetchAll<any>((from, to) =>
                 supabaseAdmin.from('ticket_purchases')
                     .select('wallet_address, ape_amount, ticket_count, status')
+                    .order('id', { ascending: true })
                     .range(from, to)
             ),
             fetchAll<any>((from, to) =>
                 supabaseAdmin.from('game_logs')
                     .select('wallet_address, prize_type_id, prize_amount_or_id, status')
                     .eq('status', 'success')
+                    .order('id', { ascending: true })
                     .range(from, to)
             ),
         ])
