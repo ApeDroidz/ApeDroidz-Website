@@ -22,6 +22,14 @@ export const dynamic = 'force-dynamic'
 const PAGE = 1000
 
 /**
+ * Что мы чеканим сами. У таких призов нет цены приобретения — покупать их
+ * было не у кого, — поэтому они не идут ни в расход, ни в счётчик покрытия.
+ * Иначе предупреждение «нет цены» висело бы всегда: батареек в выдаче почти
+ * тысяча, и ни у одной цены не будет никогда.
+ */
+const SELF_MINTED = new Set(['std_battery', 'super_battery'])
+
+/**
  * Тянем всю таблицу постранично: PostgREST отдаёт максимум 1000 строк за раз.
  *
  * Каждая страница обязана быть отсортирована по стабильному ключу. Без
@@ -142,16 +150,18 @@ export async function GET(req: Request) {
             nftWon: t.nftWon + r.nftWon,
         }), { spent: 0, tickets: 0, plays: 0, apeWon: 0, nftCost: 0, nftWon: 0 })
 
-        // Сколько выданных NFT ещё без проставленной цены — по ним расход
-        // занижен, и об этом нужно знать, глядя на профит.
-        const pricedClaims = claimed.filter((c: any) => Number(c.acquisition_ape) > 0).length
-        const unpricedClaims = claimed.length - pricedClaims
+        // Покрытие считаем только по покупным призам: сколько из них уже с
+        // ценой. Непроставленная цена = занижённый расход, и это единственное,
+        // что реально стоит показывать рядом с профитом.
+        const purchasable = claimed.filter((c: any) => !SELF_MINTED.has(c.prize_type_id))
+        const pricedClaims = purchasable.filter((c: any) => Number(c.acquisition_ape) > 0).length
+        const unpricedClaims = purchasable.length - pricedClaims
 
         return NextResponse.json({
             generatedAt: new Date().toISOString(),
             costColumnMissing,
             totals: { ...totals, profit: totals.spent - totals.apeWon - totals.nftCost },
-            coverage: { claimedNfts: claimed.length, priced: pricedClaims, unpriced: unpricedClaims },
+            coverage: { claimedNfts: purchasable.length, priced: pricedClaims, unpriced: unpricedClaims, selfMinted: claimed.length - purchasable.length },
             wallets: wallets.sort((a, b) => b.spent - a.spent).slice(0, 100),
         }, { headers: { 'cache-control': 'no-store' } })
     } catch (err: any) {

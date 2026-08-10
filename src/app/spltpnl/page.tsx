@@ -338,7 +338,7 @@ function ProfitPanel() {
             {c.unpriced > 0 && (
                 <Card className="border-orange-500/30 bg-orange-500/5">
                     <p className="text-xs text-white/70">
-                        <span className="font-mono text-orange-400">{c.unpriced}</span> of {c.claimedNfts} handed-out NFTs have no acquisition price yet — the cost side is understated by exactly that much, so the profit above reads higher than it is. Prices are pulled in <span className="text-white">Prizes → Stock</span>.
+                        <span className="font-mono text-orange-400">{c.unpriced}</span> of {c.claimedNfts} purchased NFTs handed out have no acquisition price yet — the cost side is understated by exactly that much, so the profit above reads higher than it is. Prices are pulled in <span className="text-white">Prizes → Stock</span>.
                     </p>
                 </Card>
             )}
