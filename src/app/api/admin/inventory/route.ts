@@ -165,7 +165,7 @@ export async function POST(req: Request) {
             if (error) {
                 skipped.push({
                     token_id: row.token_id,
-                    reason: (error as any).code === '23505' ? 'уже в инвентаре' : error.message,
+                    reason: (error as any).code === '23505' ? 'already in inventory' : error.message,
                 })
             } else {
                 inserted.push(data)

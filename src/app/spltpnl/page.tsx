@@ -11,7 +11,7 @@ type Window = '24h' | '7d' | '30d' | 'all'
 const TABS = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'cards', label: 'Cards', icon: Gamepad2 },
-    { id: 'profit', label: 'Профит', icon: Coins },
+    { id: 'profit', label: 'Profit', icon: Coins },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'prizes', label: 'Prizes', icon: Package },
     { id: 'quests', label: 'Quests', icon: Target },
@@ -21,9 +21,9 @@ type TabId = typeof TABS[number]['id']
 // Призы группируем по типу выдачи: у NFT есть склад и он может кончиться,
 // у токенов и шардов — нет. Порядок от «дорогого» к «расходному».
 const GROUPS = [
-    { type: 'nft', label: 'NFT-призы' },
+    { type: 'nft', label: 'NFT prizes' },
     { type: 'token', label: 'APE' },
-    { type: 'shard', label: 'Шарды' },
+    { type: 'shard', label: 'Shards' },
 ] as const
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -215,7 +215,7 @@ function OverviewTab() {
                             {data.maintenance ? 'Maintenance mode' : 'Site is live'}
                         </span>
                         <span className="text-[10px] text-white/40 ml-auto font-mono">
-                            {data.maintenance ? 'видно /coming-soon' : 'доступ открыт'}
+                            {data.maintenance ? '/coming-soon is shown' : 'public access'}
                         </span>
                     </div>
                 </Card>
@@ -226,7 +226,7 @@ function OverviewTab() {
                             {vaultApe != null ? `${fmt(vaultApe, 2)} APE` : '—'}
                         </span>
                         <span className="text-[10px] text-white/40 ml-auto font-mono">
-                            призовой волт{vault?.maxPrize ? ` · макс. приз ${vault.maxPrize}` : ''}
+                            prize vault{vault?.maxPrize ? ` · top prize ${vault.maxPrize}` : ''}
                         </span>
                     </div>
                 </Card>
@@ -239,7 +239,7 @@ function OverviewTab() {
                         <div className="flex-1">
                             <h3 className="text-sm font-black uppercase tracking-wider text-red-400 mb-1">SQL migration not applied</h3>
                             <p className="text-xs text-white/70">
-                                Аналитические RPC отсутствуют — итоги и графики будут пустыми, пока не выполнить{' '}
+                                Analytics RPCs are missing — totals and charts stay empty until you run{' '}
                                 <code className="font-mono text-[10px] bg-black/40 px-1.5 py-0.5 rounded">supabase/migrations/20260428_admin_analytics.sql</code>
                             </p>
                             <p className="text-[10px] text-white/40 font-mono mt-2">Missing: {data.migrationNeeded.join(', ')}</p>
@@ -250,41 +250,41 @@ function OverviewTab() {
 
             {/* За сутки — то, по чему видно, живёт ли игра */}
             <div>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">За 24 часа</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">Last 24 hours</h3>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <Card><Stat label="Спинов" value={fmt(data.cards.playsToday)} hint={`${fmt(data.cards.plays7d)} за 7 дней`} /></Card>
-                    <Card><Stat label="Выручка" value={`${fmt(data.cards.revenueApeToday, 2)} APE`} hint={`${fmt(data.cards.ticketsBoughtToday)} покупок`} accent="green" /></Card>
+                    <Card><Stat label="Spins" value={fmt(data.cards.playsToday)} hint={`${fmt(data.cards.plays7d)} in 7d`} /></Card>
+                    <Card><Stat label="Revenue" value={`${fmt(data.cards.revenueApeToday, 2)} APE`} hint={`${fmt(data.cards.ticketsBoughtToday)} purchases`} accent="green" /></Card>
                     <Card>
                         <Stat
-                            label="Ошибки выдачи"
+                            label="Failed payouts"
                             value={fmt(health?.stats?.cardsErrors24hCount ?? 0)}
-                            hint={(health?.stats?.cardsErrors24hCount ?? 0) > 0 ? 'смотри алерты выше' : 'всё доехало'}
+                            hint={(health?.stats?.cardsErrors24hCount ?? 0) > 0 ? 'see alerts above' : 'all delivered'}
                             accent={(health?.stats?.cardsErrors24hCount ?? 0) > 0 ? 'red' : 'green'}
                         />
                     </Card>
-                    <Card><Stat label="Новых игроков" value={fmt(last7Signups)} hint="за 7 дней" accent="blue" /></Card>
+                    <Card><Stat label="New players" value={fmt(last7Signups)} hint="in 7d" accent="blue" /></Card>
                 </div>
             </div>
 
             {/* Два графика: игроки и деньги. Остальные ничего не решали. */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <Card>
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-3">Игроков в день · 30 дней</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-3">Players per day · 30d</h3>
                     <Sparkline data={cardsDauSeries} accent="#3b82f6" />
                 </Card>
                 <Card>
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-3">Выручка, APE · 30 дней</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-3">Revenue, APE · 30d</h3>
                     <Sparkline data={revSeries} accent="#10b981" />
                 </Card>
             </div>
 
             {/* Итоги за всё время */}
             <div>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">За всё время</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-2">All time</h3>
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                    <Card><Stat label="Спинов" value={fmt(lt.total_card_plays)} hint={`${fmt(lt.total_card_errors)} ошибок`} /></Card>
-                    <Card><Stat label="Выручка" value={`${fmt(lt.total_card_revenue, 2)} APE`} hint={`${fmt(lt.total_card_purchases)} покупок`} accent="green" /></Card>
-                    <Card><Stat label="NFT выдано" value={fmt(lt.total_nfts_claimed)} accent="orange" /></Card>
+                    <Card><Stat label="Spins" value={fmt(lt.total_card_plays)} hint={`${fmt(lt.total_card_errors)} errors`} /></Card>
+                    <Card><Stat label="Revenue" value={`${fmt(lt.total_card_revenue, 2)} APE`} hint={`${fmt(lt.total_card_purchases)} purchases`} accent="green" /></Card>
+                    <Card><Stat label="NFTs handed out" value={fmt(lt.total_nfts_claimed)} accent="orange" /></Card>
                 </div>
             </div>
         </div>
@@ -294,7 +294,7 @@ function OverviewTab() {
 // ── Tab: Cards ────────────────────────────────────────────────────────────────
 
 /**
- * Экономика Glitch Cards. Приход — APE за билеты, расход — выплаченные APE
+ * Glitch Cards economics. Приход — APE за билеты, расход — выплаченные APE
  * плюс себестоимость выданных NFT. Батарейки и шарды мы чеканим сами, у них
  * себестоимости нет, поэтому в расход они не идут.
  */
@@ -322,14 +322,14 @@ function ProfitPanel() {
     return (
         <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Card><Stat label="Занесли игроки" value={`${fmt(t.spent, 0)} APE`} hint={`${fmt(t.tickets)} билетов`} accent="green" /></Card>
-                <Card><Stat label="Выплачено APE" value={`${fmt(t.apeWon, 0)} APE`} hint={`за ${fmt(t.plays)} спинов`} accent="orange" /></Card>
-                <Card><Stat label="Себестоимость NFT" value={`${fmt(t.nftCost, 0)} APE`} hint={`${fmt(t.nftWon)} выдано`} accent="orange" /></Card>
+                <Card><Stat label="Players paid in" value={`${fmt(t.spent, 0)} APE`} hint={`${fmt(t.tickets)} tickets`} accent="green" /></Card>
+                <Card><Stat label="APE paid out" value={`${fmt(t.apeWon, 0)} APE`} hint={`over ${fmt(t.plays)} spins`} accent="orange" /></Card>
+                <Card><Stat label="NFT cost" value={`${fmt(t.nftCost, 0)} APE`} hint={`${fmt(t.nftWon)} handed out`} accent="orange" /></Card>
                 <Card>
                     <Stat
-                        label="Профит"
+                        label="Profit"
                         value={`${t.profit >= 0 ? '' : '−'}${fmt(Math.abs(t.profit), 0)} APE`}
-                        hint={`маржа ${margin.toFixed(0)}%`}
+                        hint={`margin ${margin.toFixed(0)}%`}
                         accent={t.profit >= 0 ? 'green' : 'red'}
                     />
                 </Card>
@@ -338,17 +338,15 @@ function ProfitPanel() {
             {c.unpriced > 0 && (
                 <Card className="border-orange-500/30 bg-orange-500/5">
                     <p className="text-xs text-white/70">
-                        У <span className="font-mono text-orange-400">{c.unpriced}</span> из {c.claimedNfts} выданных NFT
-                        не проставлена цена приобретения — на столько же занижен расход, а профит выше реального.
-                        Цены ставятся в <span className="text-white">Prizes → Склад</span>, можно сразу пачкой.
+                        <span className="font-mono text-orange-400">{c.unpriced}</span> of {c.claimedNfts} handed-out NFTs have no acquisition price yet — the cost side is understated by exactly that much, so the profit above reads higher than it is. Prices are pulled in <span className="text-white">Prizes → Stock</span>.
                     </p>
                 </Card>
             )}
 
             <Card>
-                <h3 className="text-xs font-black uppercase tracking-widest mb-3">По игрокам · топ-100 по тратам</h3>
+                <h3 className="text-xs font-black uppercase tracking-widest mb-3">By player · top 100 by spend</h3>
                 <Table
-                    headers={['Кошелёк', 'Спинов', 'Билетов', 'Занёс', 'Выиграл APE', 'NFT', 'Себест. NFT', 'Профит нам']}
+                    headers={['Wallet', 'Spins', 'Tickets', 'Paid in', 'Won APE', 'NFTs', 'NFT cost', 'Our profit']}
                     rows={d.wallets.map((w: any) => [
                         <span key="w" className="font-mono text-[10px]">{w.wallet.slice(0, 10)}…{w.wallet.slice(-4)}</span>,
                         fmt(w.plays),
@@ -564,7 +562,7 @@ function PrizesTab() {
         if (!Object.keys(body).length) { setEditId(null); return }
         setSavingRow(true)
         try {
-            await patch(p.id, body, `${p.id}: ${Object.keys(body).join(', ')} обновлено`)
+            await patch(p.id, body, `${p.id}: ${Object.keys(body).join(', ')} updated`)
             setEditId(null)
         } catch (e: any) { flash('error', e.message) }
         finally { setSavingRow(false) }
@@ -601,7 +599,7 @@ function PrizesTab() {
             <span key="i" className="font-mono text-xs">{p.id}</span>,
 
             editing ? cell('name', 'w-40', false)
-                : (p.name || <span key="n" className="text-red-400/70 text-[11px]">— без названия —</span>),
+                : (p.name || <span key="n" className="text-red-400/70 text-[11px]">— no name —</span>),
 
             editing ? cell('drop_chance', 'w-20') : (
                 <span key="d" className="font-mono text-white/70">
@@ -618,7 +616,7 @@ function PrizesTab() {
 
             withStock ? (
                 <span key="s" className={`font-mono text-xs ${avail === 0 ? 'text-red-400' : 'text-white/60'}`}>
-                    {avail}<span className="text-white/25"> / выдано {claimed}</span>
+                    {avail}<span className="text-white/25"> / {claimed} out</span>
                 </span>
             ) : <span key="s" />,
 
@@ -626,17 +624,17 @@ function PrizesTab() {
 
             editing ? (
                 <div key="z" className="flex items-center gap-1">
-                    <button onClick={() => saveEdit(p)} disabled={savingRow} title="сохранить (Enter)"
+                    <button onClick={() => saveEdit(p)} disabled={savingRow} title="save (Enter)"
                         className="h-7 px-2 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white flex items-center">
                         {savingRow ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                     </button>
-                    <button onClick={() => setEditId(null)} title="отмена (Esc)"
+                    <button onClick={() => setEditId(null)} title="cancel (Esc)"
                         className="h-7 px-2 rounded-full border border-white/10 text-white/50 hover:text-white flex items-center">
                         <X size={12} />
                     </button>
                 </div>
             ) : (
-                <button key="z" onClick={() => startEdit(p)} title="редактировать" className="text-white/30 hover:text-white transition-colors">
+                <button key="z" onClick={() => startEdit(p)} title="edit" className="text-white/30 hover:text-white transition-colors">
                     <Pencil size={12} />
                 </button>
             ),
@@ -648,7 +646,7 @@ function PrizesTab() {
             <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-black uppercase tracking-widest">Prize catalogue</h2>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setShowStock(s => !s)} className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 border rounded-full flex items-center gap-1.5 transition-colors ${showStock ? 'bg-white text-black border-white' : 'text-white/60 hover:text-white border-white/10'}`}><Package size={12} /> Склад</button>
+                    <button onClick={() => setShowStock(s => !s)} className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 border rounded-full flex items-center gap-1.5 transition-colors ${showStock ? 'bg-white text-black border-white' : 'text-white/60 hover:text-white border-white/10'}`}><Package size={12} /> Stock</button>
                     <button onClick={() => setShowImport(s => !s)} className={`text-[10px] font-black uppercase tracking-widest px-3 py-2 border rounded-full flex items-center gap-1.5 transition-colors ${showImport ? 'bg-white text-black border-white' : 'text-white/60 hover:text-white border-white/10'}`}><LinkIcon size={12} /> Import by link</button>
                     <button onClick={() => setShowForm(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white px-3 py-2 bg-[#3b82f6] hover:bg-[#2c63c4] rounded-xl flex items-center gap-1.5"><Plus size={12} /> New prize</button>
                     <button onClick={load} className="text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /></button>
@@ -658,7 +656,7 @@ function PrizesTab() {
             {msg && <div className={`px-3 py-2 rounded-xl text-xs ${msg.kind === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>{msg.text}</div>}
 
             {showForm && <PrizeForm onClose={() => setShowForm(false)} onCreated={() => { setShowForm(false); load(); flash('success', 'Prize created') }} />}
-            {showImport && <LinkImportPanel prizes={prizes} onMsg={flash} />}
+            {showImport && <LinkImportPanel prizes={prizes} onMsg={flash} onChanged={load} />}
             {showStock && <StockPanel prizes={prizes} stock={stock} onMsg={flash} onChanged={load} />}
 
             {loading ? <Loading /> : err ? <ErrorBox msg={err} /> : (
@@ -675,17 +673,17 @@ function PrizesTab() {
                                     <div className="flex items-baseline gap-3">
                                         <h3 className="text-xs font-black uppercase tracking-widest">{g.label}</h3>
                                         <span className="text-[10px] font-mono text-white/35">
-                                            {rows.length} поз. · {totalWeight > 0 ? (share / totalWeight * 100).toFixed(1) : '0'}% барабана
+                                            {rows.length} items · {totalWeight > 0 ? (share / totalWeight * 100).toFixed(1) : '0'}% of wheel
                                         </span>
                                     </div>
                                     {g.type === 'nft' && (
                                         <span className={`text-[10px] font-mono ${stockTotal === 0 ? 'text-red-400' : 'text-white/35'}`}>
-                                            на складе: {stockTotal}
+                                            in stock: {stockTotal}
                                         </span>
                                     )}
                                 </div>
                                 <Table
-                                    headers={['ID', 'Name', 'Шанс', 'XP', 'Amount', g.type === 'nft' ? 'Склад' : '', 'Active', '']}
+                                    headers={['ID', 'Name', 'Chance', 'XP', 'Amount', g.type === 'nft' ? 'Stock' : '', 'Active', '']}
                                     rows={rows.map((p: any) => prizeRow(p, g.type === 'nft'))}
                                 />
                             </Card>
@@ -778,6 +776,7 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
     const [sel, setSel] = useState<Set<string>>(new Set())
     const [moveTo, setMoveTo] = useState('')
     const [priceAll, setPriceAll] = useState('')
+    const [pulling, setPulling] = useState(false)
     const [editing, setEditing] = useState<string | null>(null)
     const [nameDraft, setNameDraft] = useState('')
 
@@ -804,10 +803,10 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
     }
 
     const removeItem = async (id: string, label: string) => {
-        if (!window.confirm(`Удалить «${label}» со склада?`)) return
+        if (!window.confirm(`Remove “${label}” from stock?`)) return
         try {
             await jsonFetch(`/api/admin/inventory/${id}`, { method: 'DELETE' })
-            onMsg('success', `${label} удалён`); load(); onChanged()
+            onMsg('success', `${label} removed`); load(); onChanged()
         } catch (e: any) { onMsg('error', e.message) }
     }
 
@@ -818,12 +817,31 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                 method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids: [...sel], prize_type_id: moveTo }),
             })
-            onMsg('success', `Перенесено ${r.moved} → ${moveTo}`); load(); onChanged()
+            onMsg('success', `Moved ${r.moved} → ${moveTo}`); load(); onChanged()
         } catch (e: any) { onMsg('error', e.message) }
     }
 
-    // Партия NFT обычно приходит по одной цене, поэтому проставляем сразу всем
-    // выбранным — иначе на сотню позиций это сотня правок.
+    // Основной путь: тянем цену приобретения из OpenSea — последняя продажа
+    // перед передачей токена в призовой волт. Ручной ввод остаётся запасным
+    // вариантом для того, что попало к нам без продажи.
+    const pullPrices = async () => {
+        const ids = sel.size ? [...sel] : items.map((i: any) => i.id)
+        if (!ids.length) return
+        setPulling(true)
+        try {
+            const r = await jsonFetch('/api/admin/inventory/price', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: ids.slice(0, 100) }),
+            })
+            const why = (r.results ?? []).filter((x: any) => !x.ok).map((x: any) => x.reason)
+            const top = [...new Set(why)].slice(0, 2).join('; ')
+            onMsg(r.priced > 0 ? 'success' : 'error',
+                `Priced ${r.priced}, skipped ${r.skipped}${top ? ` — ${top}` : ''}`)
+            load(); onChanged()
+        } catch (e: any) { onMsg('error', e.message) }
+        finally { setPulling(false) }
+    }
+
     const priceSelected = async () => {
         const v = priceAll.trim()
         if (!sel.size || v === '') return
@@ -839,7 +857,7 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
             } catch { /* по одной: сбой на одной позиции не рушит всю партию */ }
         }
         onMsg(ok === sel.size ? 'success' : 'error',
-            `Цена проставлена у ${ok} из ${sel.size}`)
+            `Price set on ${ok} of ${sel.size}`)
         setPriceAll(''); load(); onChanged()
     }
 
@@ -850,7 +868,7 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
     return (
         <Card>
             <div className="flex flex-wrap items-center gap-2 mb-4">
-                <h3 className="text-xs font-black uppercase tracking-widest mr-2">Склад</h3>
+                <h3 className="text-xs font-black uppercase tracking-widest mr-2">Stock</h3>
                 {nftPrizes.map((p: any) => {
                     const n = stock[p.id]?.available ?? 0
                     return (
@@ -871,15 +889,15 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                         onChange={e => setStatus(e.target.value as any)}
                         className="bg-black/40 border border-white/10 rounded-full h-7 px-3 text-[10px] focus:outline-none focus:border-[#3b82f6]"
                     >
-                        <option value="available">в наличии</option>
-                        <option value="claimed">выдано</option>
-                        <option value="">все</option>
+                        <option value="available">in stock</option>
+                        <option value="claimed">handed out</option>
+                        <option value="">all</option>
                     </select>
                     <button
                         onClick={() => setSel(s => s.size === items.length ? new Set() : new Set(items.map((i: any) => i.id)))}
                         className="h-7 px-3 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold uppercase tracking-widest text-white/60 hover:text-white"
                     >
-                        {sel.size === items.length && items.length > 0 ? 'снять все' : 'выбрать все'}
+                        {sel.size === items.length && items.length > 0 ? 'clear all' : 'select all'}
                     </button>
                     <button onClick={load} className="text-[#666666] hover:text-white"><RefreshCcw size={12} /></button>
                 </div>
@@ -887,13 +905,13 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
 
             {sel.size > 0 && (
                 <div className="flex items-center gap-2 mb-3 p-2 rounded-xl bg-[#3b82f6]/10 border border-[#3b82f6]/25">
-                    <span className="text-[11px] font-bold">Выбрано: {sel.size}</span>
+                    <span className="text-[11px] font-bold">Selected: {sel.size}</span>
                     <select
                         value={moveTo}
                         onChange={e => setMoveTo(e.target.value)}
                         className="bg-black/40 border border-white/10 rounded-full h-7 px-3 text-[10px] focus:outline-none focus:border-[#3b82f6]"
                     >
-                        <option value="">— перенести в категорию —</option>
+                        <option value="">— move to category —</option>
                         {nftPrizes.filter((p: any) => p.id !== cat).map((p: any) => <option key={p.id} value={p.id}>{p.id}</option>)}
                     </select>
                     <button
@@ -901,31 +919,40 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                         disabled={!moveTo}
                         className="h-7 px-3 rounded-full bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 text-[10px] font-black uppercase tracking-widest"
                     >
-                        Перенести
+                        Move
                     </button>
 
                     <span className="w-px h-5 bg-white/10 mx-1" />
 
+                    <button
+                        onClick={pullPrices}
+                        disabled={pulling}
+                        className="h-7 px-3 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                    >
+                        {pulling ? <Loader2 size={11} className="animate-spin" /> : null}
+                        Pull prices from OpenSea
+                    </button>
+
                     <input
                         value={priceAll}
                         onChange={e => setPriceAll(e.target.value)}
-                        placeholder="цена, APE"
+                        placeholder="manual, APE"
                         className="w-24 font-mono bg-black/40 border border-white/10 rounded-full h-7 px-3 text-[10px] focus:outline-none focus:border-[#3b82f6] placeholder:text-white/25"
                     />
                     <button
                         onClick={priceSelected}
                         disabled={priceAll.trim() === ''}
-                        className="h-7 px-3 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-[10px] font-black uppercase tracking-widest"
+                        className="h-7 px-3 rounded-full border border-white/15 hover:bg-white/10 disabled:opacity-40 text-[10px] font-black uppercase tracking-widest"
                     >
-                        Проставить
+                        Set
                     </button>
 
-                    <button onClick={() => setSel(new Set())} className="ml-auto text-white/40 hover:text-white text-[10px] uppercase tracking-widest">сбросить</button>
+                    <button onClick={() => setSel(new Set())} className="ml-auto text-white/40 hover:text-white text-[10px] uppercase tracking-widest">clear</button>
                 </div>
             )}
 
             {loading ? <Loading /> : items.length === 0 ? (
-                <p className="text-center text-xs text-white/30 py-6">Пусто</p>
+                <p className="text-center text-xs text-white/30 py-6">Empty</p>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                     {items.map((it: any) => (
@@ -943,7 +970,7 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                                         value={nameDraft}
                                         onChange={e => setNameDraft(e.target.value)}
                                         onKeyDown={e => {
-                                            if (e.key === 'Enter') { patchItem(it.id, { name: nameDraft }, `${it.token_id}: имя обновлено`); setEditing(null) }
+                                            if (e.key === 'Enter') { patchItem(it.id, { name: nameDraft }, `${it.token_id}: name updated`); setEditing(null) }
                                             if (e.key === 'Escape') setEditing(null)
                                         }}
                                         onBlur={() => setEditing(null)}
@@ -954,7 +981,7 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                                         onClick={() => { setEditing(it.id); setNameDraft(it.name ?? '') }}
                                         className="text-xs text-left hover:text-[#3b82f6] transition-colors truncate block w-full"
                                     >
-                                        {it.name || <span className="text-red-400/70">— без названия —</span>}
+                                        {it.name || <span className="text-red-400/70">— no name —</span>}
                                     </button>
                                 )}
                                 <p className="text-[10px] font-mono text-white/30 truncate">
@@ -968,13 +995,13 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                             <div className="shrink-0 flex items-center gap-1">
                                 <input
                                     defaultValue={it.acquisition_ape ?? ''}
-                                    placeholder="цена"
+                                    placeholder="price"
                                     onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                                     onBlur={e => {
                                         const v = e.target.value.trim()
                                         const was = it.acquisition_ape == null ? '' : String(it.acquisition_ape)
                                         if (v === was) return
-                                        patchItem(it.id, { acquisition_ape: v === '' ? null : v }, `#${it.token_id}: цена ${v || '—'}`)
+                                        patchItem(it.id, { acquisition_ape: v === '' ? null : v }, `#${it.token_id}: price ${v || '—'}`)
                                     }}
                                     className={`w-16 font-mono bg-black/40 border rounded-lg h-7 px-2 text-[11px] text-right focus:outline-none focus:border-[#3b82f6] placeholder:text-white/20 ${it.acquisition_ape == null ? 'border-white/10' : 'border-emerald-500/30'}`}
                                 />
@@ -991,8 +1018,8 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
 
                             {it.status === 'claimed' ? (
                                 <button
-                                    onClick={() => patchItem(it.id, { status: 'available' }, `#${it.token_id} возвращён в пул`)}
-                                    title="вернуть в пул"
+                                    onClick={() => patchItem(it.id, { status: 'available' }, `#${it.token_id} returned to pool`)}
+                                    title="return to pool"
                                     className="shrink-0 text-white/25 hover:text-emerald-400 transition-colors"
                                 >
                                     <RefreshCcw size={12} />
@@ -1000,7 +1027,7 @@ function StockPanel({ prizes, stock, onMsg, onChanged }: {
                             ) : (
                                 <button
                                     onClick={() => removeItem(it.id, it.name || `#${it.token_id}`)}
-                                    title="удалить со склада"
+                                    title="remove from stock"
                                     className="shrink-0 text-white/25 hover:text-red-400 transition-colors"
                                 >
                                     <X size={12} />
@@ -1035,7 +1062,7 @@ interface ResolvedRow {
  * ли токен в призовом волте. Без этой проверки приз можно завести «на бумаге»,
  * и он отвалится уже у победителя — так в марте потерялись семь наград.
  */
-function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success' | 'error', t: string) => void }) {
+function LinkImportPanel({ prizes, onMsg, onChanged }: { prizes: any[]; onMsg: (k: 'success' | 'error', t: string) => void; onChanged: () => void }) {
     const nftPrizes = prizes.filter((p: any) => p.type === 'nft')
     const [raw, setRaw] = useState('')
     const [rows, setRows] = useState<ResolvedRow[]>([])
@@ -1060,7 +1087,7 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
             const bad = d.items.filter((r: ResolvedRow) => !r.ok).length
             const notInVault = d.items.filter((r: ResolvedRow) => r.ok && !r.inVault).length
             onMsg(bad || notInVault ? 'error' : 'success',
-                `Разобрано ${d.items.length}: ошибок ${bad}, не в волте ${notInVault}`)
+                `Resolved ${d.items.length}: ${bad} failed, ${notInVault} not in vault`)
         } catch (e: any) { onMsg('error', e.message) }
         finally { setBusy(false) }
     }
@@ -1089,10 +1116,13 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
             })
             const skipped = (d.skipped ?? []).length
             onMsg(skipped ? 'error' : 'success',
-                `Добавлено ${d.inserted}` + (skipped ? `, пропущено ${skipped}: ${d.skipped.map((s: any) => `#${s.token_id} (${s.reason})`).join(', ')}` : ''))
+                `Added ${d.inserted}` + (skipped ? `, skipped ${skipped}: ${d.skipped.map((s: any) => `#${s.token_id} (${s.reason})`).join(', ')}` : ''))
             if (d.inserted) {
                 const savedKeys = new Set(ready.map(r => `${r.contract}:${r.tokenId}`))
                 setRows(rs => rs.filter(r => !savedKeys.has(`${r.contract}:${r.tokenId}`)))
+                // Без этого каталог и склад оставались со старыми числами, и
+                // импорт выглядел так, будто ничего не добавилось.
+                onChanged()
             }
         } catch (e: any) { onMsg('error', e.message) }
         finally { setSaving(false) }
@@ -1103,7 +1133,7 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
             <h3 className="text-xs font-black uppercase tracking-widest mb-3">Inventory — import by link</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
-                <FormField label="Ссылки на NFT — по одной в строке (OpenSea, или просто 0xКонтракт/tokenId)">
+                <FormField label="NFT links — one per line (OpenSea, or plain 0xContract/tokenId)">
                     <textarea
                         value={raw}
                         onChange={e => setRaw(e.target.value)}
@@ -1113,7 +1143,7 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
                     />
                 </FormField>
                 <div className="flex flex-col gap-2">
-                    <FormField label="Категория по умолчанию">
+                    <FormField label="Default category">
                         <select
                             value={defaultPrize}
                             onChange={e => {
@@ -1131,7 +1161,7 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
                         className="h-10 px-4 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 rounded-xl text-[10px] uppercase font-black tracking-widest text-white flex items-center justify-center gap-2"
                     >
                         {busy ? <Loader2 size={12} className="animate-spin" /> : null}
-                        Разобрать {refs.length ? `(${refs.length})` : ''}
+                        Resolve {refs.length ? `(${refs.length})` : ''}
                     </button>
                 </div>
             </div>
@@ -1140,7 +1170,7 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
                 <div className="mt-4 space-y-2">
                     {vault && (
                         <p className="text-[10px] font-mono text-white/35">
-                            призовой волт: {vault}
+                            prize vault: {vault}
                         </p>
                     )}
                     {rows.map((r, i) => (
@@ -1159,7 +1189,7 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
                                 <input
                                     value={r.name ?? ''}
                                     onChange={e => setRow(i, { name: e.target.value })}
-                                    placeholder="имя не подтянулось — впиши"
+                                    placeholder="name not resolved — type it"
                                     className="w-full bg-transparent border-b border-white/10 focus:border-[#3b82f6] outline-none text-sm py-0.5 placeholder:text-white/25"
                                 />
                                 <p className="text-[10px] font-mono text-white/35 truncate mt-1">
@@ -1172,10 +1202,10 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
                                 {!r.ok ? (
                                     <span className="text-[10px] font-bold text-red-400">{r.error}</span>
                                 ) : !r.inVault ? (
-                                    <span className="text-[10px] font-bold text-red-400">НЕ в волте — не добавится</span>
+                                    <span className="text-[10px] font-bold text-red-400">not in vault — will not be added</span>
                                 ) : (
                                     <span className="text-[10px] font-bold text-emerald-400">
-                                        в волте{r.standard === 'erc1155' && r.vaultBalance ? ` ×${r.vaultBalance}` : ''}
+                                        in vault{r.standard === 'erc1155' && r.vaultBalance ? ` ×${r.vaultBalance}` : ''}
                                     </span>
                                 )}
                             </div>
@@ -1192,7 +1222,7 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
                             <button
                                 onClick={() => setRows(rs => rs.filter((_, j) => j !== i))}
                                 className="shrink-0 text-white/30 hover:text-white transition-colors"
-                                title="убрать"
+                                title="remove"
                             >
                                 <X size={14} />
                             </button>
@@ -1206,7 +1236,7 @@ function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success
                             className="px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 rounded-xl text-[10px] uppercase font-black tracking-widest text-white flex items-center gap-2"
                         >
                             {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                            Добавить {ready.length} из {rows.length}
+                            Add {ready.length} of {rows.length}
                         </button>
                     </div>
                 </div>
