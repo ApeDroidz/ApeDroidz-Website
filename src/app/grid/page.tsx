@@ -46,13 +46,17 @@ export default function GridPage() {
     const fetchMyDroids = useCallback(async () => {
         setIsLoading(true)
 
-        if (!account?.address) {
+        // DEBUG: ?owner=0x… для отладки без кошелька, только в dev
+        const debugOwner = process.env.NODE_ENV !== 'production'
+            ? new URLSearchParams(window.location.search).get('owner')
+            : null
+        if (!account?.address && !debugOwner) {
             setIsLoading(false)
             return
         }
 
         try {
-            const owner = account.address
+            const owner = debugOwner || account!.address
             const [droidRes, honoraryRes] = await Promise.all([
                 fetch(`/api/owned-droids?owner=${owner}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : {}).catch(() => ({})) as Promise<any>,
                 fetch(`/api/owned-honorary?owner=${owner}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : {}).catch(() => ({})) as Promise<any>,

@@ -193,7 +193,13 @@ const GridCell = ({
                 draggable={false}
                 className={`w-full h-full object-cover block transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
                 style={{ imageRendering: 'pixelated', display: 'block', margin: 0, padding: 0 }}
-                crossOrigin="anonymous"
+                /* Без crossOrigin. Пиксели отсюда никто не читает — выгрузка
+                   грузит свои копии картинок сама. А с ним ячейка ломалась:
+                   селектор уже положил этот URL в кеш обычным запросом, без
+                   CORS-заголовков, и запрос с crossOrigin переиспользовал тот
+                   же ответ и отклонял его. Совпадали именно те картинки, что
+                   в гриде и в селекторе одинаковы, — honorary и level 1;
+                   level 2 в гриде берёт гифку, поэтому запрос был свежий. */
             />
 
             {/* Drop target overlay */}
