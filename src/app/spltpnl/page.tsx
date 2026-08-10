@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertTriangle, BarChart3, BoxSelect, Coins, ExternalLink, Gamepad2, Loader2, LogOut, Package, Pencil, Plane, Plus, RefreshCcw, Search, ShieldAlert, Sparkles, Target, Trash2, Trophy, Users } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, BoxSelect, Coins, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, LogOut, Package, Pencil, Plane, Plus, RefreshCcw, Search, ShieldAlert, Sparkles, Target, Trash2, Trophy, Users, X } from 'lucide-react'
 
 // ── Types (loose — coming from server JSON) ───────────────────────────────────
 
@@ -744,6 +744,7 @@ function PrizesTab() {
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
     const [showInv, setShowInv] = useState(false)
+    const [showImport, setShowImport] = useState(false)
     const [msg, setMsg] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
 
     const load = useCallback(async () => {
@@ -776,6 +777,7 @@ function PrizesTab() {
             <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-black uppercase tracking-widest">Prize catalogue</h2>
                 <div className="flex items-center gap-2">
+                    <button onClick={() => setShowImport(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white px-3 py-2 border border-white/10 rounded-xl flex items-center gap-1.5"><LinkIcon size={12} /> Import by link</button>
                     <button onClick={() => setShowInv(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white px-3 py-2 border border-white/10 rounded-xl flex items-center gap-1.5"><BoxSelect size={12} /> Inventory</button>
                     <button onClick={() => setShowForm(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white px-3 py-2 bg-[#3b82f6] hover:bg-[#2c63c4] rounded-xl flex items-center gap-1.5"><Plus size={12} /> New prize</button>
                     <button onClick={load} className="text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /></button>
@@ -785,6 +787,7 @@ function PrizesTab() {
             {msg && <div className={`px-3 py-2 rounded-xl text-xs ${msg.kind === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>{msg.text}</div>}
 
             {showForm && <PrizeForm onClose={() => setShowForm(false)} onCreated={() => { setShowForm(false); load(); flash('success', 'Prize created') }} />}
+            {showImport && <LinkImportPanel prizes={prizes} onMsg={flash} />}
             {showInv && <InventoryPanel prizes={prizes} onMsg={flash} />}
 
             {loading ? <Loading /> : err ? <ErrorBox msg={err} /> : (
@@ -950,6 +953,207 @@ function InventoryPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success'
                     {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} {bulk ? `Insert ${count}` : 'Add'}
                 </button>
             </div>
+        </Card>
+    )
+}
+
+interface ResolvedRow {
+    ref: string
+    ok: boolean
+    error?: string
+    contract?: string
+    tokenId?: string
+    standard?: 'erc721' | 'erc1155'
+    name?: string
+    imageUrl?: string
+    vaultBalance?: number
+    inVault?: boolean
+    /** выбранная категория приза — заполняется в UI */
+    prizeId?: string
+}
+
+/**
+ * Импорт призов ссылками. Кидаешь пачку ссылок на NFT — по каждой
+ * подтягивается имя, картинка и стандарт токена, и сразу проверяется, лежит
+ * ли токен в призовом волте. Без этой проверки приз можно завести «на бумаге»,
+ * и он отвалится уже у победителя — так в марте потерялись семь наград.
+ */
+function LinkImportPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success' | 'error', t: string) => void }) {
+    const nftPrizes = prizes.filter((p: any) => p.type === 'nft')
+    const [raw, setRaw] = useState('')
+    const [rows, setRows] = useState<ResolvedRow[]>([])
+    const [vault, setVault] = useState('')
+    const [busy, setBusy] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const [defaultPrize, setDefaultPrize] = useState(nftPrizes[0]?.id ?? '')
+
+    const refs = raw.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean)
+
+    const resolve = async () => {
+        if (!refs.length) return
+        setBusy(true)
+        try {
+            const d = await jsonFetch('/api/admin/inventory/resolve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refs }),
+            })
+            setVault(d.vault)
+            setRows((d.items as ResolvedRow[]).map(r => ({ ...r, prizeId: defaultPrize })))
+            const bad = d.items.filter((r: ResolvedRow) => !r.ok).length
+            const notInVault = d.items.filter((r: ResolvedRow) => r.ok && !r.inVault).length
+            onMsg(bad || notInVault ? 'error' : 'success',
+                `Разобрано ${d.items.length}: ошибок ${bad}, не в волте ${notInVault}`)
+        } catch (e: any) { onMsg('error', e.message) }
+        finally { setBusy(false) }
+    }
+
+    const setRow = (i: number, patch: Partial<ResolvedRow>) =>
+        setRows(rs => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+
+    const ready = rows.filter(r => r.ok && r.inVault && r.prizeId && r.name)
+
+    const save = async () => {
+        if (!ready.length) return
+        setSaving(true)
+        try {
+            const d = await jsonFetch('/api/admin/inventory', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: ready.map(r => ({
+                        prize_type_id: r.prizeId,
+                        contract_address: r.contract,
+                        token_id: r.tokenId,
+                        name: r.name,
+                        image_url: r.imageUrl,
+                    })),
+                }),
+            })
+            const skipped = (d.skipped ?? []).length
+            onMsg(skipped ? 'error' : 'success',
+                `Добавлено ${d.inserted}` + (skipped ? `, пропущено ${skipped}: ${d.skipped.map((s: any) => `#${s.token_id} (${s.reason})`).join(', ')}` : ''))
+            if (d.inserted) {
+                const savedKeys = new Set(ready.map(r => `${r.contract}:${r.tokenId}`))
+                setRows(rs => rs.filter(r => !savedKeys.has(`${r.contract}:${r.tokenId}`)))
+            }
+        } catch (e: any) { onMsg('error', e.message) }
+        finally { setSaving(false) }
+    }
+
+    return (
+        <Card className="border-[#3b82f6]/30 bg-[#3b82f6]/5">
+            <h3 className="text-xs font-black uppercase tracking-widest mb-3">Inventory — import by link</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                <FormField label="Ссылки на NFT — по одной в строке (OpenSea, или просто 0xКонтракт/tokenId)">
+                    <textarea
+                        value={raw}
+                        onChange={e => setRaw(e.target.value)}
+                        rows={4}
+                        placeholder={'https://opensea.io/item/ape_chain/0x.../123\n0xabc...def/456'}
+                        className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#3b82f6] transition-colors placeholder:text-white/20"
+                    />
+                </FormField>
+                <div className="flex flex-col gap-2">
+                    <FormField label="Категория по умолчанию">
+                        <select
+                            value={defaultPrize}
+                            onChange={e => {
+                                setDefaultPrize(e.target.value)
+                                setRows(rs => rs.map(r => ({ ...r, prizeId: e.target.value })))
+                            }}
+                            className="bg-black/40 border border-white/10 rounded-xl h-10 px-3 text-sm focus:outline-none focus:border-[#3b82f6]"
+                        >
+                            {nftPrizes.map((p: any) => <option key={p.id} value={p.id}>{p.id}</option>)}
+                        </select>
+                    </FormField>
+                    <button
+                        onClick={resolve}
+                        disabled={busy || !refs.length}
+                        className="h-10 px-4 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-40 rounded-xl text-[10px] uppercase font-black tracking-widest text-white flex items-center justify-center gap-2"
+                    >
+                        {busy ? <Loader2 size={12} className="animate-spin" /> : null}
+                        Разобрать {refs.length ? `(${refs.length})` : ''}
+                    </button>
+                </div>
+            </div>
+
+            {rows.length > 0 && (
+                <div className="mt-4 space-y-2">
+                    {vault && (
+                        <p className="text-[10px] font-mono text-white/35">
+                            призовой волт: {vault}
+                        </p>
+                    )}
+                    {rows.map((r, i) => (
+                        <div
+                            key={`${r.ref}-${i}`}
+                            className={`flex items-center gap-3 p-2 rounded-xl border ${r.ok && r.inVault
+                                ? 'border-emerald-500/25 bg-emerald-500/5'
+                                : 'border-red-500/25 bg-red-500/5'}`}
+                        >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            {r.imageUrl
+                                ? <img src={r.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0 bg-black/40" />
+                                : <div className="w-12 h-12 rounded-lg bg-black/40 shrink-0" />}
+
+                            <div className="min-w-0 flex-1">
+                                <input
+                                    value={r.name ?? ''}
+                                    onChange={e => setRow(i, { name: e.target.value })}
+                                    placeholder="имя не подтянулось — впиши"
+                                    className="w-full bg-transparent border-b border-white/10 focus:border-[#3b82f6] outline-none text-sm py-0.5 placeholder:text-white/25"
+                                />
+                                <p className="text-[10px] font-mono text-white/35 truncate mt-1">
+                                    {r.contract ? `${r.contract.slice(0, 10)}…${r.contract.slice(-6)} #${r.tokenId}` : r.ref}
+                                    {r.standard ? ` · ${r.standard}` : ''}
+                                </p>
+                            </div>
+
+                            <div className="shrink-0 text-right">
+                                {!r.ok ? (
+                                    <span className="text-[10px] font-bold text-red-400">{r.error}</span>
+                                ) : !r.inVault ? (
+                                    <span className="text-[10px] font-bold text-red-400">НЕ в волте — не добавится</span>
+                                ) : (
+                                    <span className="text-[10px] font-bold text-emerald-400">
+                                        в волте{r.standard === 'erc1155' && r.vaultBalance ? ` ×${r.vaultBalance}` : ''}
+                                    </span>
+                                )}
+                            </div>
+
+                            <select
+                                value={r.prizeId ?? ''}
+                                onChange={e => setRow(i, { prizeId: e.target.value })}
+                                disabled={!r.ok}
+                                className="shrink-0 bg-black/40 border border-white/10 rounded-lg h-8 px-2 text-[11px] focus:outline-none focus:border-[#3b82f6] disabled:opacity-30"
+                            >
+                                {nftPrizes.map((p: any) => <option key={p.id} value={p.id}>{p.id}</option>)}
+                            </select>
+
+                            <button
+                                onClick={() => setRows(rs => rs.filter((_, j) => j !== i))}
+                                className="shrink-0 text-white/30 hover:text-white transition-colors"
+                                title="убрать"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    ))}
+
+                    <div className="flex justify-end pt-1">
+                        <button
+                            onClick={save}
+                            disabled={saving || !ready.length}
+                            className="px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 rounded-xl text-[10px] uppercase font-black tracking-widest text-white flex items-center gap-2"
+                        >
+                            {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                            Добавить {ready.length} из {rows.length}
+                        </button>
+                    </div>
+                </div>
+            )}
         </Card>
     )
 }

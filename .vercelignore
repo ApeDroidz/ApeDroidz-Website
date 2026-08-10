@@ -1,16 +1,20 @@
 # Локальные зеркала и дампы — в сборке не участвуют, но CLI грузит всё подряд
 # (в .gitignore они уже есть; здесь — чтобы не улетали при `vercel deploy`).
-R2
-metadata
-json_without_json
-backups
-shards.csv
-traits.txt
-3D
+#
+# Ведущий слэш обязателен! Без него шаблон совпадает с папкой такого имени на
+# ЛЮБОЙ глубине: строка `metadata` вырезала из деплоя src/app/api/metadata,
+# и метаданные NFT отдавали 404 всем маркетплейсам.
+/R2
+/metadata
+/json_without_json
+/backups
+/shards.csv
+/traits.txt
+/3D
 
 # Отдельный WS-сервер игры живёт на Railway, к Next-сборке отношения не имеет
-game-server
+/game-server
 
 # Мусор
-.next
-node_modules
+/.next
+/node_modules

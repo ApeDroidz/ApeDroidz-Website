@@ -68,6 +68,51 @@ export async function POST(req: Request) {
     let body: any
     try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
+    // ── Batch path: разнородные позиции, каждая со своим контрактом и id ──
+    // Этим ходит импорт по ссылкам: там токены из разных коллекций и
+    // подряд идущих id нет, поэтому bulk-путь ниже не подходит.
+    if (Array.isArray(body?.items)) {
+        const items = body.items as any[]
+        if (!items.length) return NextResponse.json({ error: 'items is empty' }, { status: 400 })
+        if (items.length > 50) return NextResponse.json({ error: 'too many items (max 50)' }, { status: 400 })
+
+        const rows: any[] = []
+        for (const [i, it] of items.entries()) {
+            const pid = String(it?.prize_type_id ?? '').trim()
+            const addr = String(it?.contract_address ?? '').trim().toLowerCase()
+            const tid = it?.token_id != null ? String(it.token_id) : ''
+            const nm = String(it?.name ?? '').trim()
+            if (!pid) return NextResponse.json({ error: `item ${i + 1}: prize_type_id required` }, { status: 400 })
+            if (!/^0x[0-9a-f]{40}$/.test(addr)) return NextResponse.json({ error: `item ${i + 1}: invalid contract_address` }, { status: 400 })
+            if (!tid) return NextResponse.json({ error: `item ${i + 1}: token_id required` }, { status: 400 })
+            if (!nm || nm.length > 128) return NextResponse.json({ error: `item ${i + 1}: invalid name` }, { status: 400 })
+            rows.push({
+                prize_type_id: pid,
+                contract_address: addr,
+                token_id: tid,
+                name: nm,
+                image_url: it?.image_url ? String(it.image_url).trim() : null,
+                status: 'available' as const,
+            })
+        }
+
+        // Дубли не должны валить всю пачку: заводим по одной и собираем отчёт.
+        const inserted: any[] = []
+        const skipped: { token_id: string; reason: string }[] = []
+        for (const row of rows) {
+            const { data, error } = await supabaseAdmin.from('nft_inventory').insert(row).select().single()
+            if (error) {
+                skipped.push({
+                    token_id: row.token_id,
+                    reason: (error as any).code === '23505' ? 'уже в инвентаре' : error.message,
+                })
+            } else {
+                inserted.push(data)
+            }
+        }
+        return NextResponse.json({ success: true, inserted: inserted.length, skipped, items: inserted })
+    }
+
     const prize_type_id = String(body?.prize_type_id ?? '').trim()
     const contract_address = String(body?.contract_address ?? '').trim().toLowerCase()
     const name = String(body?.name ?? '').trim()
