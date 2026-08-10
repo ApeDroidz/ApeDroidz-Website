@@ -30,7 +30,10 @@ const getAnimatedUrl = (item: NFTItem): string | null => {
     // Honorary is a separate collection with its own art: it has no levels, and
     // only the tokens that actually have a gif can animate.
     if (item.isHonorary) {
-        return item.metadata?.has_gif ? honoraryAnimatedUrl(tokenId) : null
+        // Как и в превью: путь из tokenId для honorary не существует — файлы
+        // названы по номеру арта. Берём URL, который отдал API.
+        if (!item.metadata?.has_gif) return null
+        return item.metadata?.image_animated || honoraryAnimatedUrl(tokenId)
     }
 
     const level = item.level || 1

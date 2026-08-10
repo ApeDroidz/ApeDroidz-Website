@@ -30,8 +30,13 @@ const getAnimatedUrl = (item: NFTItem): string | null => {
 
     // Honorary is a separate collection with its own art: it has no levels, and
     // only the tokens that actually have a gif can animate.
+    //
+    // Берём готовый URL из метаданных, а не собираем путь из tokenId: файлы
+    // honorary названы по номеру арта, а не токена, и лежат в webp — путь
+    // вида /gif/<tokenId>.gif отдаёт 404 для всей коллекции.
     if (item.isHonorary) {
-        return item.metadata?.has_gif ? honoraryAnimatedUrl(tokenId) : null
+        if (!item.metadata?.has_gif) return null
+        return item.metadata?.image_animated || honoraryAnimatedUrl(tokenId)
     }
 
     const level = item.level || 1
@@ -85,7 +90,16 @@ const GridCell = ({
     draggedDroid: NFTItem | null
 }) => {
     const [isLoaded, setIsLoaded] = useState(false)
+    const imgRef = useRef<HTMLImageElement>(null)
     const dropTargetBg = bgColor === ORANGE_BG ? '#FF8C33' : '#0369A1'
+
+    // Картинка из кеша успевает догрузиться до того, как React повесит onLoad —
+    // событие тогда не приходит вовсе, isLoaded остаётся false, и плитка живёт
+    // с opacity-0: NFT есть, но её не видно. Досматриваем состояние вручную.
+    useEffect(() => {
+        const img = imgRef.current
+        if (img?.complete && img.naturalWidth > 0) setIsLoaded(true)
+    })
 
     // Empty cell
     if (!droid) {
@@ -159,14 +173,22 @@ const GridCell = ({
                 <div className="absolute inset-0 animate-pulse" style={{ backgroundColor: bgColor }} />
             )}
             <img
+                ref={imgRef}
                 src={imageUrl}
                 alt={droid.name}
                 onLoad={() => setIsLoaded(true)}
                 onError={(e) => {
-                    // webp → png fallback for honorary droids
-                    if (droid.isHonorary && (e.target as HTMLImageElement).src.endsWith('.webp')) {
-                        (e.target as HTMLImageElement).src = imageUrl.replace('.webp', '.png')
-                    }
+                    // Любой сбой анимации откатываем на статику — как это давно
+                    // делает выгрузка. Раньше ветка ловила только `.webp`, и
+                    // упавший gif оставлял плитку навсегда прозрачной: isLoaded
+                    // не выставлялся, и на месте NFT висела заглушка.
+                    const img = e.target as HTMLImageElement
+                    const still = resolveImageUrl(droid.image)
+                    if (img.src !== still) { img.src = still; return }
+                    if (still.endsWith('.webp')) { img.src = still.replace('.webp', '.png'); return }
+                    // Дальше откатываться некуда — показываем что есть, иначе
+                    // ячейка останется пустой навсегда.
+                    setIsLoaded(true)
                 }}
                 draggable={false}
                 className={`w-full h-full object-cover block transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
