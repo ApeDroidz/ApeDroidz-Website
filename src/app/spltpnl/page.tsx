@@ -1115,8 +1115,23 @@ function LinkImportPanel({ prizes, onMsg, onChanged }: { prizes: any[]; onMsg: (
                 }),
             })
             const skipped = (d.skipped ?? []).length
+
+            // Сразу пробиваем цену приобретения по OpenSea: заводить позицию
+            // без неё бессмысленно — она не попадёт в расчёт себестоимости.
+            let pricedNote = ''
+            const newIds = (d.items ?? []).map((x: any) => x.id).filter(Boolean)
+            if (newIds.length) {
+                try {
+                    const pr = await jsonFetch('/api/admin/inventory/price', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: newIds }),
+                    })
+                    pricedNote = `, priced ${pr.priced}/${newIds.length}`
+                } catch { pricedNote = ', price lookup failed' }
+            }
+
             onMsg(skipped ? 'error' : 'success',
-                `Added ${d.inserted}` + (skipped ? `, skipped ${skipped}: ${d.skipped.map((s: any) => `#${s.token_id} (${s.reason})`).join(', ')}` : ''))
+                `Added ${d.inserted}${pricedNote}` + (skipped ? `, skipped ${skipped}: ${d.skipped.map((s: any) => `#${s.token_id} (${s.reason})`).join(', ')}` : ''))
             if (d.inserted) {
                 const savedKeys = new Set(ready.map(r => `${r.contract}:${r.tokenId}`))
                 setRows(rs => rs.filter(r => !savedKeys.has(`${r.contract}:${r.tokenId}`)))
