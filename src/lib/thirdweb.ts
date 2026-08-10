@@ -12,5 +12,11 @@ export const client = createThirdwebClient({
 });
 
 // === MAINNET (APECHAIN) ===
-// В v5 достаточно просто указать ID сети, всё остальное подтянется само
-export const apeChain = defineChain(33139);
+// Свой RPC, а не дефолтный шлюз thirdweb: шлюз режет по лимиту тарифа
+// (из-за него падали выдачи призов в Glitch Cards), а тяжёлые запросы вроде
+// eth_getLogs на странице минта он просто не тянул. Серверная половина живёт
+// в lib/apechain.ts; переопределяется через NEXT_PUBLIC_APECHAIN_RPC_URL.
+export const APECHAIN_RPC_URL =
+  process.env.NEXT_PUBLIC_APECHAIN_RPC_URL || "https://rpc.apechain.com/http";
+
+export const apeChain = defineChain({ id: 33139, rpc: APECHAIN_RPC_URL });

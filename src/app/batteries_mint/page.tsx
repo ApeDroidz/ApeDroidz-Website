@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { motion } from "framer-motion"
 import { useActiveAccount, ConnectButton, TransactionButton } from "thirdweb/react"
 import { Header } from "@/components/header"
 import { client, apeChain } from "@/lib/thirdweb"
 import { formatDistanceToNow } from "date-fns"
-import { getContract, readContract, getContractEvents } from "thirdweb"
-import { claimTo, getActiveClaimCondition, getClaimConditions, getOwnedNFTs, tokensClaimedEvent, nextTokenIdToMint, canClaim } from "thirdweb/extensions/erc721"
+import { getContract, readContract } from "thirdweb"
+import { claimTo, getActiveClaimCondition, getClaimConditions, getOwnedNFTs, nextTokenIdToMint, canClaim } from "thirdweb/extensions/erc721"
 import { getClaimParams } from "thirdweb/utils"
 import { Minus, Plus, Lock, ChevronDown, ChevronUp, CheckCircle, Loader2 } from "lucide-react"
 import { ProfileModal } from "@/components/profile-modal"
@@ -21,6 +21,13 @@ import holdersSnapshot from "./snapshot.json"
 import { batteryUrl } from "@/lib/media"
 
 const BATTERY_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BATTERY_CONTRACT_ADDRESS || ""
+
+const RPC_URL = process.env.NEXT_PUBLIC_APECHAIN_RPC_URL || "https://rpc.apechain.com/http"
+/** Сколько блоков назад ищем минты для блока «Recent activity». */
+const EVENT_LOOKBACK = 50_000
+/** keccak256("TokensClaimed(uint256,address,address,uint256,uint256)") */
+const TOKENS_CLAIMED_TOPIC =
+    "0xfa76a4010d9533e3e964f2930a65fb6042a12fa6ff5b08281837a10b0be7321e"
 
 // Create contract outside component to prevent infinite re-renders
 const batteryContract = BATTERY_CONTRACT_ADDRESS ? getContract({
@@ -153,6 +160,19 @@ export default function MintPage() {
     // Polling refs
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
     const lastBlockRef = useRef<bigint>(BigInt(0))
+
+    // Порядок показа фаз: сначала идущая сейчас, потом ближайшая будущая,
+    // и только затем закрытые — свежая выше старой. Контрактный порядок
+    // (Team → Holders → Public) прятал живую публичную фазу под двумя
+    // завершёнными. Исходный индекс тащим с собой: по нему берётся eligibility.
+    const orderedPhases = useMemo(() => {
+        const rank: Record<PhaseStatus, number> = { live: 0, upcoming: 1, finished: 2 }
+        return phases
+            .map((phase, idx) => ({ phase, idx }))
+            .sort((a, b) =>
+                rank[a.phase.status] - rank[b.phase.status] || b.idx - a.idx
+            )
+    }, [phases])
 
     // Eligibility state - keyed by phase index for per-phase tracking
     const [eligibility, setEligibility] = useState<Record<number, {
@@ -309,12 +329,49 @@ export default function MintPage() {
                 }
             }
 
-            // Fetch recent mint events
+            // Fetch recent mint events.
+            // Диапазон блоков обязателен: без fromBlock запрос уходит на всю
+            // историю цепочки, RPC отвечает "request timed out", ошибка гасится
+            // в catch ниже — и блок истории просто не появлялся.
             try {
-                const events = await getContractEvents({
-                    contract: contract!,
-                    events: [tokensClaimedEvent()],
+                const headRes = await fetch(RPC_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1 }),
                 })
+                const headJson = await headRes.json()
+                const head = BigInt(headJson?.result ?? "0x0")
+                // ~50k блоков ApeChain — это часы истории, а показываем всего 3 записи.
+                const fromBlock = head > BigInt(EVENT_LOOKBACK) ? head - BigInt(EVENT_LOOKBACK) : BigInt(0)
+
+                // Читаем логи напрямую. getContractEvents уводит запрос в
+                // индексер thirdweb (Insight), а этого контракта там нет —
+                // возвращался пустой список при живых событиях в цепочке.
+                const logsRes = await fetch(RPC_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        jsonrpc: "2.0", id: 1, method: "eth_getLogs",
+                        params: [{
+                            address: BATTERY_CONTRACT_ADDRESS,
+                            topics: [TOKENS_CLAIMED_TOPIC],
+                            fromBlock: `0x${fromBlock.toString(16)}`,
+                            toBlock: `0x${head.toString(16)}`,
+                        }],
+                    }),
+                })
+                const logsJson = await logsRes.json()
+                if (logsJson?.error) throw new Error(logsJson.error.message ?? 'eth_getLogs failed')
+
+                // TokensClaimed(uint256 indexed conditionId, address indexed claimer,
+                //               address indexed receiver, uint256 startTokenId, uint256 quantity)
+                const events = (logsJson?.result ?? []).map((log: any) => ({
+                    blockNumber: BigInt(log.blockNumber ?? '0x0'),
+                    args: {
+                        claimer: `0x${String(log.topics?.[2] ?? '').slice(-40)}`,
+                        quantityClaimed: BigInt(`0x${String(log.data ?? '0x').slice(66, 130) || '0'}`),
+                    },
+                }))
 
                 if (events.length > 0) {
                     // Update last processed block
@@ -335,7 +392,7 @@ export default function MintPage() {
                     try {
                         if (blockNum > 0) {
                             // Direct RPC call to get block time (getBlock not exported)
-                            const res = await fetch("https://rpc.apechain.com", {
+                            const res = await fetch(RPC_URL, {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
@@ -909,7 +966,7 @@ export default function MintPage() {
                                                 },
                                             }}
                                         >
-                                            {phases.map((phase, idx) => {
+                                            {orderedPhases.map(({ phase, idx }) => {
                                                 const isLive = phase.status === 'live';
                                                 const isFinished = phase.status === 'finished';
                                                 const isUpcoming = phase.status === 'upcoming';
