@@ -161,16 +161,16 @@ export default function MintPage() {
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
     const lastBlockRef = useRef<bigint>(BigInt(0))
 
-    // Порядок показа фаз: сначала идущая сейчас, потом ближайшая будущая,
-    // и только затем закрытые — свежая выше старой. Контрактный порядок
-    // (Team → Holders → Public) прятал живую публичную фазу под двумя
-    // завершёнными. Исходный индекс тащим с собой: по нему берётся eligibility.
+    // Порядок показа фаз: сначала идущая сейчас, потом ближайшая будущая, и
+    // только затем закрытые — в том порядке, в каком они шли (Holders, Team).
+    // Контрактный порядок прятал живую публичную фазу под двумя завершёнными.
+    // Исходный индекс тащим с собой: по нему берётся eligibility.
     const orderedPhases = useMemo(() => {
         const rank: Record<PhaseStatus, number> = { live: 0, upcoming: 1, finished: 2 }
         return phases
             .map((phase, idx) => ({ phase, idx }))
             .sort((a, b) =>
-                rank[a.phase.status] - rank[b.phase.status] || b.idx - a.idx
+                rank[a.phase.status] - rank[b.phase.status] || a.idx - b.idx
             )
     }, [phases])
 
@@ -187,31 +187,19 @@ export default function MintPage() {
 
     // Helper function to parse phase name from metadata
     const parsePhaseName = (metadata: string | undefined, fallbackIndex: number): string => {
-        // 3-phase fallback: 0 = Team Phase, 1 = ApeDroidz Holders, 2+ = Public Phase
+        // Условие #0 — бесплатное с аллоулистом и разным лимитом на кошелёк:
+        // это холдерский эйрдроп из FAQ (10 дроидов → 1 батарейка, 200+ → 30).
+        // Условие #1 — платное, 15 APE, тоже по аллоулисту: командная фаза.
+        // Ончейн-метадата у этих двух условий подписана наоборот, поэтому её
+        // здесь сознательно игнорируем — иначе счётчики «отминчено» у команды
+        // и холдеров меняются местами.
         const getDefaultName = (index: number) => {
-            if (index === 0) return "Team Phase"
-            if (index === 1) return "ApeDroidz Holders"
+            if (index === 0) return "ApeDroidz Holders"
+            if (index === 1) return "Team Phase"
             return "Public Phase"
         }
 
-        if (!metadata) return getDefaultName(fallbackIndex)
-
-        // Try to parse as JSON first
-        try {
-            const meta = JSON.parse(metadata)
-            if (meta.name && typeof meta.name === 'string') {
-                return meta.name
-            }
-        } catch {
-            // Not JSON
-        }
-
-        // If it's an IPFS link or other non-name string, use fallback
-        if (metadata.startsWith('ipfs://') || metadata.startsWith('http') || metadata.length > 50) {
-            return getDefaultName(fallbackIndex)
-        }
-
-        return metadata
+        return getDefaultName(fallbackIndex)
     }
 
     // Helper function to safely parse quantity limit (handles unlimited/max uint values)
@@ -515,7 +503,7 @@ export default function MintPage() {
                 console.log(`Phase ${phaseIndex} - claimedInThisPhase = ${claimedInThisPhase}`)
 
                 if (phaseIndex === 0) {
-                    // Team Phase
+                    // Условие #0 — холдерский эйрдроп (см. parsePhaseName)
                     if (isLive) {
                         try {
                             const claimParams = await getClaimParams({ contract: contract!, to: account.address, quantity: BigInt(1), type: "erc721" })
@@ -539,7 +527,7 @@ export default function MintPage() {
                         newEligibility[0] = { isEligible: false, batteriesAvailable: 0, batteriesMinted: 0 }
                     }
                 } else if (phaseIndex === 1) {
-                    // ApeDroidz Holders Phase
+                    // Условие #1 — командная фаза (см. parsePhaseName)
                     const walletAddress = account.address.toLowerCase()
                     const snapshotLimit = (holdersSnapshot as Record<string, number>)[walletAddress] || 0
                     console.log(`Phase 1 - Snapshot limit for ${walletAddress}: ${snapshotLimit}, Claimed: ${claimedInThisPhase}`)
@@ -1000,8 +988,8 @@ export default function MintPage() {
                                                                                 Upcoming
                                                                             </span>
                                                                         </div>
-                                                                        {/* Check Eligibility - ONLY for Phase 2 (Holders, idx === 1) */}
-                                                                        {idx === 1 && (
+                                                                        {/* Проверка доступа — только у холдерской фазы (условие #0) */}
+                                                                        {idx === 0 && (
                                                                             <button
                                                                                 onClick={() => handleCheckEligibility('holders')}
                                                                                 className="text-white/40 text-xs uppercase tracking-widest underline hover:text-white transition-colors cursor-pointer"
@@ -1084,8 +1072,8 @@ export default function MintPage() {
                                                                                 {isLive ? 'Live' : isFinished ? 'Ended' : 'Upcoming'}
                                                                             </span>
                                                                         </div>
-                                                                        {/* Check Eligibility button - show ONLY for Phase 2 (Holders), idx === 1 */}
-                                                                        {idx === 1 && (isLive || isUpcoming) && (
+                                                                        {/* Проверка доступа — только у холдерской фазы (условие #0) */}
+                                                                        {idx === 0 && (isLive || isUpcoming) && (
                                                                             <button
                                                                                 onClick={() => handleCheckEligibility('holders')}
                                                                                 className="text-white/40 text-xs uppercase tracking-widest underline hover:text-white transition-colors"
@@ -1330,7 +1318,7 @@ export default function MintPage() {
                 isOpen={isEligibilityOpen}
                 onClose={() => setIsEligibilityOpen(false)}
                 phaseType={eligibilityPhase}
-                isPhaseActive={eligibilityPhase === 'holders' ? phases[1]?.status === 'live' : phases[2]?.status === 'live'}
+                isPhaseActive={eligibilityPhase === 'holders' ? phases[0]?.status === 'live' : phases[2]?.status === 'live'}
             />
             <MintSuccessModal
                 isOpen={isMintSuccessOpen}
