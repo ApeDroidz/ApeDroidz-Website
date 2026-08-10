@@ -1,7 +1,41 @@
 import { NextResponse } from 'next/server'
 import { createHash } from 'crypto'
+import { privateKeyToAccount } from 'thirdweb/wallets'
+import { eth_getBalance, getRpcClient } from 'thirdweb/rpc'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
+import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain'
+
+/**
+ * Баланс призового волта Glitch Cards в APE.
+ *
+ * Мониторился только волт Glitch Flight, а этот — нет. Когда он опустел,
+ * каждый выигрыш APE отлетал с «insufficient funds», игрок терял спин, и
+ * узнали мы об этом лишь из жалобы. Порог считаем от самого дорогого
+ * активного APE-приза: если волт не покрывает даже его — это критично.
+ */
+async function prizeVaultStatus(): Promise<
+    { address: string; ape: number; maxPrize: number } | { error: string }
+> {
+    const pk = process.env.PRIZE_VAULT_PRIVATE_KEY
+    if (!pk) return { error: 'PRIZE_VAULT_PRIVATE_KEY not set' }
+    try {
+        const client = createServerThirdwebClient()
+        const account = privateKeyToAccount({ client, privateKey: pk })
+        const rpc = getRpcClient({ client, chain: apeChainServer })
+        const [wei, prizes] = await Promise.all([
+            eth_getBalance(rpc, { address: account.address as `0x${string}` }),
+            supabaseAdmin.from('prize_types').select('amount').eq('type', 'token').eq('is_active', true),
+        ])
+        const maxPrize = Math.max(
+            0,
+            ...(prizes.data ?? []).map((p: any) => Number(p.amount) || 0)
+        )
+        return { address: account.address, ape: Number(wei) / 1e18, maxPrize }
+    } catch (e: any) {
+        return { error: e?.message ?? 'vault check failed' }
+    }
+}
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -200,6 +234,30 @@ export async function GET(req: Request) {
             })
         }
 
+        // ── призовой волт Cards: хватает ли APE на выплаты ─────────────────
+        const vault = await prizeVaultStatus()
+        if ('error' in vault) {
+            pushAlert({
+                severity: 'warning',
+                kind: 'prize_vault_unreadable',
+                message: `Cards prize vault balance could not be read: ${vault.error}`,
+            })
+        } else if (vault.maxPrize > 0 && vault.ape < vault.maxPrize) {
+            pushAlert({
+                severity: 'critical',
+                kind: 'prize_vault_empty',
+                message: `Cards prize vault holds ${vault.ape.toFixed(2)} APE — not enough for the ${vault.maxPrize} APE prize. Every APE win is failing right now.`,
+                detail: { address: vault.address, ape: vault.ape, maxPrize: vault.maxPrize },
+            })
+        } else if (vault.maxPrize > 0 && vault.ape < vault.maxPrize * 5) {
+            pushAlert({
+                severity: 'warning',
+                kind: 'prize_vault_low',
+                message: `Cards prize vault holds ${vault.ape.toFixed(2)} APE — under five payouts of the ${vault.maxPrize} APE top prize. Top it up.`,
+                detail: { address: vault.address, ape: vault.ape, maxPrize: vault.maxPrize },
+            })
+        }
+
         // ── inventory rollbacks (NFT transfers that failed) ────────────────
         if ((recentRollbacks.data ?? []).length > 0) {
             pushAlert({
@@ -217,6 +275,7 @@ export async function GET(req: Request) {
             ),
             stats: {
                 vaultLimits: vaultRow.data ?? null,
+                prizeVault: 'error' in vault ? { error: vault.error } : vault,
                 pendingInvestigationCount: pendingInvest.data?.length ?? 0,
                 stuckWithdrawalsCount: stuckPending.data?.length ?? 0,
                 cardsErrors24hCount: errorsRecent.data?.length ?? 0,
