@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertTriangle, BarChart3, BoxSelect, Coins, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, LogOut, Package, Pencil, Plane, Plus, RefreshCcw, Search, ShieldAlert, Sparkles, Target, Trash2, Trophy, Users, X } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Check, Coins, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, LogOut, Package, Pencil, Plus, RefreshCcw, Search, ShieldAlert, Sparkles, Target, Trash2, Users, X } from 'lucide-react'
 
 // ── Types (loose — coming from server JSON) ───────────────────────────────────
 
@@ -11,14 +11,20 @@ type Window = '24h' | '7d' | '30d' | 'all'
 const TABS = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'cards', label: 'Cards', icon: Gamepad2 },
-    { id: 'flight', label: 'Flight', icon: Plane },
-    { id: 'season', label: 'Season 2', icon: Trophy },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'prizes', label: 'Prizes', icon: Package },
     { id: 'quests', label: 'Quests', icon: Target },
     { id: 'health', label: 'Health', icon: ShieldAlert },
 ] as const
 type TabId = typeof TABS[number]['id']
+
+// Призы группируем по типу выдачи: у NFT есть склад и он может кончиться,
+// у токенов и шардов — нет. Порядок от «дорогого» к «расходному».
+const GROUPS = [
+    { type: 'nft', label: 'NFT-призы' },
+    { type: 'token', label: 'APE' },
+    { type: 'shard', label: 'Шарды' },
+] as const
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -459,282 +465,7 @@ function CardsTab() {
 
 // ── Tab: Flight ───────────────────────────────────────────────────────────────
 
-function FlightTab() {
-    const [win, setWin] = useState<Window>('24h')
-    const [data, setData] = useState<any>(null)
-    const [err, setErr] = useState('')
-    const [loading, setLoading] = useState(true)
-    const [drillWallet, setDrillWallet] = useState<string | null>(null)
-    const [drillData, setDrillData]     = useState<any>(null)
-    const [drillLoading, setDrillLoading] = useState(false)
-
-    const load = useCallback(async () => {
-        setLoading(true); setErr('')
-        try { setData(await jsonFetch(`/api/admin/stats/flight?window=${win}`)) }
-        catch (e: any) { setErr(e.message) }
-        finally { setLoading(false) }
-    }, [win])
-    useEffect(() => { load() }, [load])
-
-    // Open the per-wallet drill-down modal. Reuses the same /admin/stats/users
-    // endpoint that powers UsersTab's WalletDrillDown so we don't duplicate
-    // the rendering logic.
-    const openDrill = useCallback(async (wallet: string) => {
-        setDrillWallet(wallet)
-        setDrillData(null)
-        setDrillLoading(true)
-        try { setDrillData(await jsonFetch(`/api/admin/stats/users?wallet=${wallet}`)) }
-        catch (e: any) { setDrillData({ error: e.message }) }
-        finally { setDrillLoading(false) }
-    }, [])
-    const closeDrill = () => { setDrillWallet(null); setDrillData(null) }
-
-    // Helper: wallet button used in every flight table for drill-down.
-    const walletLink = (w: string) => (
-        <button
-            onClick={() => openDrill(w)}
-            className="font-mono text-[#3b82f6] hover:underline cursor-pointer"
-            title="Open wallet detail"
-        >
-            {shortWallet(w)}
-        </button>
-    )
-
-    return (
-        <div className="flex flex-col gap-4">
-            <WindowSwitcher value={win} onChange={setWin} onRefresh={load} />
-            {loading && !data ? <Loading /> : err ? <ErrorBox msg={err} /> : data && (
-                <>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <Card><Stat label="Rounds" value={fmt(data.rounds)} /></Card>
-                        <Card><Stat label="Bets" value={fmt(data.betsCount)} hint={`${fmt(data.uniquePlayers)} players · avg ${fmt(data.volume.avgBet, 2)}`} accent="blue" /></Card>
-                        <Card><Stat label="Volume" value={`${fmt(data.volume.totalBets, 2)} APE`} hint={`Payout ${fmt(data.volume.totalPayout, 2)}`} /></Card>
-                        <Card>
-                            <Stat
-                                label="House edge realised"
-                                value={`${fmt(data.volume.houseEdgeRealised, 2)} APE`}
-                                hint={`${data.volume.edgePct.toFixed(2)}% of volume · win rate ${data.outcome.winRate?.toFixed(1)}%`}
-                                accent={data.volume.houseEdgeRealised >= 0 ? 'green' : 'red'}
-                            />
-                        </Card>
-                    </div>
-
-                    {/* ── Vault liability ─────────────────────────────── */}
-                    {data.liability && (
-                        <Card title="Vault liability (snapshot — independent of window)" className="border-yellow-500/20 bg-yellow-500/5">
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-                                <Stat label="Total APE owed" value={`${fmt(data.liability.total_balance, 4)} APE`} accent="orange" />
-                                <Stat label="Players holding APE" value={fmt(data.liability.players)} />
-                                <Stat label="Largest single balance" value={`${fmt(data.liability.max_balance, 4)} APE`} />
-                                <Stat label="Mean balance" value={`${fmt(data.liability.mean_balance, 4)} APE`} />
-                            </div>
-                            <p className="text-[9px] text-white/30 mt-3 font-mono">Compare with vault wallet's actual balance on-chain to verify solvency.</p>
-                        </Card>
-                    )}
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                        <Card title="Outcome">
-                            <div className="flex flex-col gap-2 mt-2">
-                                <div className="flex items-center justify-between"><span className="text-emerald-400 text-sm font-bold">Winners</span><span className="font-mono">{fmt(data.outcome.winners)}</span></div>
-                                <div className="flex items-center justify-between"><span className="text-red-400 text-sm font-bold">Losers</span><span className="font-mono">{fmt(data.outcome.losers)}</span></div>
-                            </div>
-                        </Card>
-                        <Card title="Money flow">
-                            <div className="flex flex-col gap-2 mt-2 text-sm">
-                                <div className="flex items-center justify-between"><span className="text-white/50">Deposits</span><span className="font-mono text-emerald-400">+{fmt(data.money.deposits, 2)}</span></div>
-                                <div className="flex items-center justify-between"><span className="text-white/50">Withdrawals</span><span className="font-mono text-red-400">−{fmt(data.money.withdrawals, 2)}</span></div>
-                                <div className="border-t border-white/10 pt-2 flex items-center justify-between font-bold"><span>Net</span><span className={`font-mono ${data.money.net >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{data.money.net >= 0 ? '+' : ''}{fmt(data.money.net, 2)}</span></div>
-                            </div>
-                        </Card>
-                        <Card title="Queue" className={(data.queue.pendingInvestigation.length > 0 || data.queue.pendingWithdrawals.length > 5) ? 'border-orange-500/30' : ''}>
-                            <div className="flex flex-col gap-2 mt-2 text-sm">
-                                <div className="flex items-center justify-between"><span className="text-white/50">Pending withdrawals</span><span className={`font-mono font-bold ${data.queue.pendingWithdrawals.length > 5 ? 'text-orange-400' : 'text-white/60'}`}>{data.queue.pendingWithdrawals.length}</span></div>
-                                <div className="flex items-center justify-between"><span className="text-white/50">Pending investigation</span><span className={`font-mono font-bold ${data.queue.pendingInvestigation.length > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{data.queue.pendingInvestigation.length}</span></div>
-                            </div>
-                        </Card>
-                    </div>
-
-                    {/* Unified per-player P/L — gross profit + gross loss +
-                        net in one row, sorted by net desc. Click wallet to
-                        drill into their full Flight history. */}
-                    <Card title={`Player P/L (${(data.playerPnl ?? []).length} players, window)`}>
-                        <Table
-                            headers={['Wallet', 'Plays', 'W/L', 'Volume', 'Won', 'Lost', 'Net']}
-                            rows={(data.playerPnl ?? []).slice(0, 30).map((r: any) => [
-                                walletLink(r.wallet_address),
-                                <span key="n" className="font-mono text-white/60">{fmt(r.plays)}</span>,
-                                <span key="wl" className="font-mono text-[10px] text-white/50">{r.wins}/{r.losses}</span>,
-                                <span key="v" className="font-mono text-white/50">{fmt(r.volume, 2)}</span>,
-                                <span key="g" className="font-mono text-emerald-400/80">+{fmt(r.gross_profit, 2)}</span>,
-                                <span key="l" className="font-mono text-red-400/80">−{fmt(r.gross_loss, 2)}</span>,
-                                <span key="net" className={`font-mono font-bold ${Number(r.net) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                    {Number(r.net) >= 0 ? '+' : ''}{fmt(r.net, 2)}
-                                </span>,
-                            ])}
-                        />
-                        <p className="text-[9px] text-white/30 mt-3 font-mono">
-                            Won = sum of profit on winning rounds. Lost = sum of bet on losing rounds. Net = Won − Lost. Sorted by net descending.
-                        </p>
-                    </Card>
-
-                    {/* ── Recent / live bets ─────────────────────────────── */}
-                    <Card title={`Recent bets (last ${(data.recentActivity ?? []).length})`}>
-                        <Table
-                            headers={['Wallet', 'Bet', 'Cashout', 'Profit', 'When']}
-                            rows={(data.recentActivity ?? []).slice(0, 30).map((r: any) => {
-                                const won = r.cashout_at != null
-                                return [
-                                    walletLink(r.wallet_address),
-                                    <span key="b" className="font-mono">{fmt(r.bet_amount, 2)}</span>,
-                                    won
-                                        ? <span key="c" className="font-mono text-[#00FF94]">{Number(r.cashout_at).toFixed(2)}x</span>
-                                        : <span key="c" className="font-mono text-red-400/70">crashed</span>,
-                                    won
-                                        ? <span key="p" className="font-mono text-emerald-400">+{fmt(r.profit, 4)}</span>
-                                        : <span key="p" className="font-mono text-red-400">−{fmt(r.bet_amount, 2)}</span>,
-                                    <span key="t" className="text-white/40 text-[10px]">{new Date(r.created_at).toLocaleTimeString()}</span>,
-                                ]
-                            })}
-                        />
-                    </Card>
-
-                    {/* ── Crash histogram ─────────────────────────────── */}
-                    {data.crashHistogram && data.crashHistogram.length > 0 && (
-                        <Card title="Crash-point distribution (provably fair audit)">
-                            <Histogram
-                                data={data.crashHistogram.map((b: any) => ({ label: b.bucket.replace('x', ''), value: Number(b.cnt) }))}
-                                accent="#f97316"
-                                height={120}
-                            />
-                            <p className="text-[9px] text-white/30 mt-3 font-mono">Buckets: 1.00-1.09x · 1.10-1.49x · 1.50-1.99x · 2.00-2.99x · 3-5x · 5-10x · 10-20x · 20+x</p>
-                        </Card>
-                    )}
-
-                    {data.queue.pendingInvestigation.length > 0 && (
-                        <Card title="🚨 Pending investigation — review needed" className="border-red-500/30">
-                            <Table headers={['Wallet', 'Type', 'Amount', 'TX', 'Created']} rows={data.queue.pendingInvestigation.map((r: any) => [
-                                walletLink(r.wallet_address),
-                                <span key="ty" className="text-[10px] uppercase tracking-widest text-white/50">{r.type}</span>,
-                                <span key="a" className="font-mono">{fmt(r.amount, 4)}</span>,
-                                r.tx_hash ? <a key="t" href={`https://apescan.io/tx/${r.tx_hash}`} target="_blank" rel="noreferrer" className="font-mono text-[#3b82f6] hover:underline">{r.tx_hash.slice(0, 12)}…</a> : <span key="t" className="text-white/30">—</span>,
-                                new Date(r.created_at).toLocaleString(),
-                            ])} />
-                        </Card>
-                    )}
-                </>
-            )}
-
-            {/* Drill-down modal — opened by clicking any wallet in the tab */}
-            {drillWallet && (
-                <div className="fixed inset-0 z-[9000] flex items-start justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={closeDrill}>
-                    <div className="relative w-full max-w-5xl mt-4" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-[10px] uppercase font-black tracking-widest text-white/50">
-                                Wallet detail · {shortWallet(drillWallet)}
-                            </span>
-                            <button onClick={closeDrill} className="px-3 h-8 text-[10px] uppercase tracking-widest font-bold text-white/60 hover:text-white border border-white/15 rounded-lg">
-                                Close
-                            </button>
-                        </div>
-                        {drillLoading
-                            ? <Card><div className="py-8 text-center text-white/40 text-xs font-mono">Loading…</div></Card>
-                            : drillData?.error
-                                ? <ErrorBox msg={drillData.error} />
-                                : drillData
-                                    ? <WalletDrillDown data={drillData} />
-                                    : <Card>No data.</Card>}
-                    </div>
-                </div>
-            )}
-        </div>
-    )
-}
-
 // ── Tab: Season ───────────────────────────────────────────────────────────────
-
-function SeasonTab() {
-    const [data, setData] = useState<any>(null)
-    const [err, setErr] = useState('')
-    const [loading, setLoading] = useState(true)
-    const load = useCallback(async () => {
-        setLoading(true); setErr('')
-        try { setData(await jsonFetch('/api/admin/stats/season')) }
-        catch (e: any) { setErr(e.message) }
-        finally { setLoading(false) }
-    }, [])
-    useEffect(() => { load() }, [load])
-
-    return (
-        <div className="flex flex-col gap-4">
-            <div className="flex justify-end">
-                <button onClick={load} className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /> Refresh</button>
-            </div>
-            {loading && !data ? <Loading /> : err ? <ErrorBox msg={err} /> : data && (
-                <>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        <Card><Stat label="Total S2 XP" value={fmt(data.totalSeasonXp)} accent="blue" /></Card>
-                        <Card><Stat label="Registered" value={fmt(data.registeredUsers)} /></Card>
-                        <Card><Stat label="DAU 24h" value={fmt(data.dau.last24h)} hint={`7d: ${fmt(data.dau.last7d)}, 30d: ${fmt(data.dau.last30d)}`} /></Card>
-                        <Card><Stat label="Quests today" value={fmt(data.questsToday.total)} hint={`${fmt(data.questsToday.xpDistributed)} XP given`} accent="green" /></Card>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        <Card title="Quests today — breakdown">
-                            <div className="flex flex-col gap-2 mt-2">
-                                {data.questsToday.breakdown.length === 0 && <p className="text-xs text-white/30">No quests claimed today</p>}
-                                {data.questsToday.breakdown.map((row: any) => (
-                                    <Bar key={row.quest} label={row.quest} value={row.count} max={data.questsToday.breakdown[0]?.count ?? 1} accent="#10b981" />
-                                ))}
-                            </div>
-                        </Card>
-
-                        <Card title={`Streaks — week ${data.streaksThisWeek.weekMonday}`}>
-                            <div className="flex flex-col gap-2 mt-2">
-                                {data.streaksThisWeek.distribution.length === 0 && <p className="text-xs text-white/30">No streak claims this week</p>}
-                                {data.streaksThisWeek.distribution.map((row: any) => (
-                                    <Bar key={row.day} label={`Day ${row.day}`} value={row.count} max={data.streaksThisWeek.distribution[0]?.count ?? 1} accent="#f97316" />
-                                ))}
-                            </div>
-                        </Card>
-                    </div>
-
-                    {/* ── XP tier distribution + 7d XP trend ───────────────── */}
-                    {(data.xpTiers && data.xpTiers.length > 0) && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                            <Card title="XP tier distribution (all-time)">
-                                <Histogram
-                                    data={data.xpTiers.map((t: any) => ({ label: t.tier, value: Number(t.cnt) }))}
-                                    accent="#3b82f6"
-                                    height={120}
-                                />
-                                <p className="text-[9px] text-white/30 mt-3 font-mono">Each bar = users at that XP range. Wider top tiers = strong engagement.</p>
-                            </Card>
-
-                            <Card title="XP distributed via quests (last 7d)">
-                                {data.xpDistributedTrend7d && data.xpDistributedTrend7d.length > 0 ? (
-                                    <>
-                                        <Sparkline data={data.xpDistributedTrend7d.map((d: any) => Number(d.xp))} accent="#10b981" />
-                                        <div className="text-[10px] text-white/30 font-mono mt-2">7d total: {fmt(data.xpDistributedTrend7d.reduce((s: number, d: any) => s + Number(d.xp), 0))} XP</div>
-                                    </>
-                                ) : <p className="text-xs text-white/30">No data</p>}
-                            </Card>
-                        </div>
-                    )}
-
-                    <Card title="Top 50 leaderboard">
-                        <Table headers={['#', 'Wallet', 'XP', 'Plays', 'Last seen']} rows={data.top50.map((r: any, i: number) => [
-                            <span key="r" className="font-mono text-white/40">{i + 1}</span>,
-                            <span key="w" className="font-mono text-white">{shortWallet(r.wallet_address)}</span>,
-                            <span key="x" className="font-mono text-[#3b82f6] font-bold">{fmt(r.season_xp)}</span>,
-                            <span key="p" className="font-mono text-white/40">{fmt(r.games_played)}</span>,
-                            <span key="t" className="font-mono text-[10px] text-white/30">{r.updated_at ? new Date(r.updated_at).toLocaleDateString() : '—'}</span>,
-                        ])} />
-                    </Card>
-                </>
-            )}
-        </div>
-    )
-}
 
 // ── Tab: Prizes ───────────────────────────────────────────────────────────────
 
@@ -743,13 +474,23 @@ function PrizesTab() {
     const [err, setErr] = useState('')
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
-    const [showInv, setShowInv] = useState(false)
     const [showImport, setShowImport] = useState(false)
     const [msg, setMsg] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
 
+    const [stock, setStock] = useState<Record<string, Record<string, number>>>({})
+
     const load = useCallback(async () => {
         setLoading(true); setErr('')
-        try { setPrizes((await jsonFetch('/api/admin/prizes')).prizes ?? []) }
+        try {
+            const [p, s] = await Promise.all([
+                jsonFetch('/api/admin/prizes'),
+                // Склад грузим отдельно и не роняем страницу, если он не ответил:
+                // каталог полезен и без остатков.
+                jsonFetch('/api/admin/inventory?summary=1').catch(() => ({ counts: {} })),
+            ])
+            setPrizes(p.prizes ?? [])
+            setStock(s.counts ?? {})
+        }
         catch (e: any) { setErr(e.message) }
         finally { setLoading(false) }
     }, [])
@@ -760,16 +501,127 @@ function PrizesTab() {
         window.setTimeout(() => setMsg(null), 3500)
     }
 
+    const patch = useCallback(async (id: string, body: Record<string, any>, note: string) => {
+        await jsonFetch(`/api/admin/prizes/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        })
+        flash('success', note)
+        load()
+    }, [load])
+
     const toggleActive = async (id: string, active: boolean) => {
+        try { await patch(id, { is_active: active }, `${id} → ${active ? 'active' : 'disabled'}`) }
+        catch (e: any) { flash('error', e.message) }
+    }
+
+    // Построчное редактирование: в правку уходят только изменённые поля,
+    // чтобы случайно не перезаписать то, что админ не трогал.
+    const [editId, setEditId] = useState<string | null>(null)
+    const [draft, setDraft] = useState<Record<string, string>>({})
+    const [savingRow, setSavingRow] = useState(false)
+
+    const startEdit = (p: any) => {
+        setEditId(p.id)
+        setDraft({
+            name: String(p.name ?? ''),
+            type: String(p.type ?? ''),
+            drop_chance: String(p.drop_chance ?? ''),
+            xp_reward: String(p.xp_reward ?? 0),
+            amount: p.amount == null ? '' : String(p.amount),
+        })
+    }
+
+    const saveEdit = async (p: any) => {
+        const body: Record<string, any> = {}
+        if (draft.name !== String(p.name ?? '')) body.name = draft.name
+        if (draft.type !== String(p.type ?? '')) body.type = draft.type
+        if (draft.drop_chance !== String(p.drop_chance ?? '')) body.drop_chance = Number(draft.drop_chance)
+        if (draft.xp_reward !== String(p.xp_reward ?? 0)) body.xp_reward = Number(draft.xp_reward)
+        const amountNow = p.amount == null ? '' : String(p.amount)
+        if (draft.amount !== amountNow) body.amount = draft.amount === '' ? null : draft.amount
+
+        if (!Object.keys(body).length) { setEditId(null); return }
+        setSavingRow(true)
         try {
-            await jsonFetch(`/api/admin/prizes/${encodeURIComponent(id)}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_active: active }),
-            })
-            flash('success', `${id} → ${active ? 'active' : 'disabled'}`)
-            load()
+            await patch(p.id, body, `${p.id}: ${Object.keys(body).join(', ')} обновлено`)
+            setEditId(null)
         } catch (e: any) { flash('error', e.message) }
+        finally { setSavingRow(false) }
+    }
+
+    // Сумма весов активных призов — по ней считается реальный шанс выпадения.
+    // Само поле drop_chance это вес, а не проценты: 0.32 при сумме 0.927 —
+    // это 34.5%, и держать это в уме при правке невозможно.
+    const totalWeight = prizes
+        .filter((p: any) => p.is_active)
+        .reduce((s: number, p: any) => s + Number(p.drop_chance || 0), 0)
+
+    const prizeRow = (p: any, withStock: boolean) => {
+        const editing = editId === p.id
+        const cell = (field: string, width: string, mono = true) => (
+            <input
+                key={field}
+                value={draft[field] ?? ''}
+                onChange={e => setDraft(d => ({ ...d, [field]: e.target.value }))}
+                onKeyDown={e => {
+                    if (e.key === 'Enter') saveEdit(p)
+                    if (e.key === 'Escape') setEditId(null)
+                }}
+                className={`${width} ${mono ? 'font-mono' : ''} bg-black/50 border border-[#3b82f6]/40 rounded-lg h-7 px-2 text-xs focus:outline-none focus:border-[#3b82f6]`}
+            />
+        )
+        const avail = stock[p.id]?.available ?? 0
+        const claimed = stock[p.id]?.claimed ?? 0
+        const pct = totalWeight > 0 && p.is_active
+            ? (Number(p.drop_chance || 0) / totalWeight * 100)
+            : 0
+
+        return [
+            <span key="i" className="font-mono text-xs">{p.id}</span>,
+
+            editing ? cell('name', 'w-40', false)
+                : (p.name || <span key="n" className="text-red-400/70 text-[11px]">— без названия —</span>),
+
+            editing ? cell('drop_chance', 'w-20') : (
+                <span key="d" className="font-mono text-white/70">
+                    {pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%'}
+                    <span className="text-white/25 ml-1.5">({p.drop_chance})</span>
+                </span>
+            ),
+
+            editing ? cell('xp_reward', 'w-16')
+                : <span key="x" className="font-mono text-[#3b82f6]">{p.xp_reward ?? 0}</span>,
+
+            editing ? cell('amount', 'w-16')
+                : <span key="a" className="font-mono text-white/50">{p.amount ?? '—'}</span>,
+
+            withStock ? (
+                <span key="s" className={`font-mono text-xs ${avail === 0 ? 'text-red-400' : 'text-white/60'}`}>
+                    {avail}<span className="text-white/25"> / выдано {claimed}</span>
+                </span>
+            ) : <span key="s" />,
+
+            <button key="ac" onClick={() => toggleActive(p.id, !p.is_active)} className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${p.is_active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-white/30 border border-white/10'}`}>{p.is_active ? 'Active' : 'Disabled'}</button>,
+
+            editing ? (
+                <div key="z" className="flex items-center gap-1">
+                    <button onClick={() => saveEdit(p)} disabled={savingRow} title="сохранить (Enter)"
+                        className="h-7 px-2 rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white flex items-center">
+                        {savingRow ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                    </button>
+                    <button onClick={() => setEditId(null)} title="отмена (Esc)"
+                        className="h-7 px-2 rounded-full border border-white/10 text-white/50 hover:text-white flex items-center">
+                        <X size={12} />
+                    </button>
+                </div>
+            ) : (
+                <button key="z" onClick={() => startEdit(p)} title="редактировать" className="text-white/30 hover:text-white transition-colors">
+                    <Pencil size={12} />
+                </button>
+            ),
+        ]
     }
 
     return (
@@ -778,7 +630,6 @@ function PrizesTab() {
                 <h2 className="text-sm font-black uppercase tracking-widest">Prize catalogue</h2>
                 <div className="flex items-center gap-2">
                     <button onClick={() => setShowImport(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white px-3 py-2 border border-white/10 rounded-xl flex items-center gap-1.5"><LinkIcon size={12} /> Import by link</button>
-                    <button onClick={() => setShowInv(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white px-3 py-2 border border-white/10 rounded-xl flex items-center gap-1.5"><BoxSelect size={12} /> Inventory</button>
                     <button onClick={() => setShowForm(s => !s)} className="text-[10px] font-black uppercase tracking-widest text-white px-3 py-2 bg-[#3b82f6] hover:bg-[#2c63c4] rounded-xl flex items-center gap-1.5"><Plus size={12} /> New prize</button>
                     <button onClick={load} className="text-[10px] font-bold uppercase tracking-widest text-[#666666] hover:text-white"><RefreshCcw size={12} /></button>
                 </div>
@@ -788,21 +639,38 @@ function PrizesTab() {
 
             {showForm && <PrizeForm onClose={() => setShowForm(false)} onCreated={() => { setShowForm(false); load(); flash('success', 'Prize created') }} />}
             {showImport && <LinkImportPanel prizes={prizes} onMsg={flash} />}
-            {showInv && <InventoryPanel prizes={prizes} onMsg={flash} />}
 
             {loading ? <Loading /> : err ? <ErrorBox msg={err} /> : (
-                <Card>
-                    <Table headers={['ID', 'Name', 'Type', 'Drop %', 'XP', 'Amount', 'Active', '']} rows={prizes.map((p: any) => [
-                        <span key="i" className="font-mono text-xs">{p.id}</span>,
-                        p.name,
-                        <span key="t" className="text-[10px] uppercase tracking-widest text-white/50">{p.type}</span>,
-                        <span key="d" className="font-mono text-white/70">{p.drop_chance}</span>,
-                        <span key="x" className="font-mono text-[#3b82f6]">{p.xp_reward ?? 0}</span>,
-                        <span key="a" className="font-mono text-white/50">{p.amount ?? '—'}</span>,
-                        <button key="ac" onClick={() => toggleActive(p.id, !p.is_active)} className={`text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${p.is_active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-white/30 border border-white/10'}`}>{p.is_active ? 'Active' : 'Disabled'}</button>,
-                        <span key="z" />,
-                    ])} />
-                </Card>
+                <div className="flex flex-col gap-4">
+                    {GROUPS.map(g => {
+                        const rows = prizes.filter((p: any) => p.type === g.type)
+                        if (!rows.length) return null
+                        const share = rows.filter((p: any) => p.is_active)
+                            .reduce((s: number, p: any) => s + Number(p.drop_chance || 0), 0)
+                        const stockTotal = rows.reduce((s: number, p: any) => s + (stock[p.id]?.available ?? 0), 0)
+                        return (
+                            <Card key={g.type}>
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-baseline gap-3">
+                                        <h3 className="text-xs font-black uppercase tracking-widest">{g.label}</h3>
+                                        <span className="text-[10px] font-mono text-white/35">
+                                            {rows.length} поз. · {totalWeight > 0 ? (share / totalWeight * 100).toFixed(1) : '0'}% барабана
+                                        </span>
+                                    </div>
+                                    {g.type === 'nft' && (
+                                        <span className={`text-[10px] font-mono ${stockTotal === 0 ? 'text-red-400' : 'text-white/35'}`}>
+                                            на складе: {stockTotal}
+                                        </span>
+                                    )}
+                                </div>
+                                <Table
+                                    headers={['ID', 'Name', 'Шанс', 'XP', 'Amount', g.type === 'nft' ? 'Склад' : '', 'Active', '']}
+                                    rows={rows.map((p: any) => prizeRow(p, g.type === 'nft'))}
+                                />
+                            </Card>
+                        )
+                    })}
+                </div>
             )}
         </div>
     )
@@ -868,94 +736,6 @@ function PrizeForm({ onClose, onCreated }: { onClose: () => void; onCreated: () 
     )
 }
 
-function InventoryPanel({ prizes, onMsg }: { prizes: any[]; onMsg: (k: 'success' | 'error', t: string) => void }) {
-    const [prizeId, setPrizeId] = useState(prizes.find((p: any) => p.type === 'nft')?.id ?? '')
-    const [contract, setContract] = useState('')
-    const [name, setName] = useState('')
-    const [imageUrl, setImageUrl] = useState('')
-    const [bulk, setBulk] = useState(false)
-    const [tokenId, setTokenId] = useState('')
-    const [count, setCount] = useState('1')
-    const [startId, setStartId] = useState('')
-    const [busy, setBusy] = useState(false)
-
-    const suggestNext = useCallback(async () => {
-        if (!prizeId) return
-        try {
-            const url = new URL('/api/admin/inventory', window.location.origin)
-            url.searchParams.set('next', '1')
-            url.searchParams.set('prize_type_id', prizeId)
-            if (contract) url.searchParams.set('contract', contract)
-            const d = await jsonFetch(url.toString())
-            if (bulk) setStartId(d.nextTokenId)
-            else setTokenId(d.nextTokenId)
-            onMsg('success', `Next token_id = ${d.nextTokenId} (current max ${d.currentMax}, ${d.count} existing)`)
-        } catch (e: any) { onMsg('error', e.message) }
-    }, [prizeId, contract, bulk, onMsg])
-
-    const submit = async () => {
-        if (!prizeId || !contract || !name) return
-        setBusy(true)
-        try {
-            const body: any = { prize_type_id: prizeId, contract_address: contract.trim(), name: name.trim(), image_url: imageUrl || undefined }
-            if (bulk) {
-                body.count = Number(count)
-                if (startId) body.startTokenId = Number(startId)
-            } else {
-                body.token_id = tokenId
-            }
-            const r = await jsonFetch('/api/admin/inventory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-            onMsg('success', bulk ? `Inserted ${r.inserted} items` : 'Item added')
-            setTokenId(''); setStartId('')
-        } catch (e: any) { onMsg('error', e.message) }
-        finally { setBusy(false) }
-    }
-
-    return (
-        <Card className="border-emerald-500/30 bg-emerald-500/5">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-black uppercase tracking-widest">Inventory — add NFT</h3>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-white/50 flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={bulk} onChange={e => setBulk(e.target.checked)} /> Bulk
-                </label>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FormField label="Prize">
-                    <select value={prizeId} onChange={e => setPrizeId(e.target.value)} className="bg-black/40 border border-white/10 rounded-xl h-10 px-3 text-sm focus:outline-none focus:border-emerald-400">
-                        <option value="">— select —</option>
-                        {prizes.filter((p: any) => p.type === 'nft').map((p: any) => <option key={p.id} value={p.id}>{p.id}</option>)}
-                    </select>
-                </FormField>
-                <FormField label="Contract address (0x…)" value={contract} onChange={setContract} placeholder="0x..." />
-                <FormField label="Name (auto-suffix #id if missing)" value={name} onChange={setName} placeholder="Epic Droid" className="sm:col-span-2" />
-                <FormField label="Image URL" value={imageUrl} onChange={setImageUrl} placeholder="https://..." className="sm:col-span-2" />
-                {!bulk ? (
-                    <FormField label="Token ID">
-                        <div className="flex items-center gap-2">
-                            <input value={tokenId} onChange={e => setTokenId(e.target.value)} className="flex-1 bg-black/40 border border-white/10 rounded-xl h-10 px-3 text-sm focus:outline-none focus:border-emerald-400" placeholder="42" />
-                            <button onClick={suggestNext} className="h-10 px-3 text-[10px] font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl">auto-fill next</button>
-                        </div>
-                    </FormField>
-                ) : (
-                    <>
-                        <FormField label="Count" value={count} onChange={setCount} placeholder="10" />
-                        <FormField label="Start token ID (blank = auto)">
-                            <div className="flex items-center gap-2">
-                                <input value={startId} onChange={e => setStartId(e.target.value)} className="flex-1 bg-black/40 border border-white/10 rounded-xl h-10 px-3 text-sm focus:outline-none focus:border-emerald-400" placeholder="auto" />
-                                <button onClick={suggestNext} className="h-10 px-3 text-[10px] font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl">auto</button>
-                            </div>
-                        </FormField>
-                    </>
-                )}
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-                <button onClick={submit} disabled={busy || !prizeId || !contract || !name} className="px-4 h-9 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 rounded-xl text-[10px] uppercase font-black tracking-widest text-white flex items-center gap-2">
-                    {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} {bulk ? `Insert ${count}` : 'Add'}
-                </button>
-            </div>
-        </Card>
-    )
-}
 
 interface ResolvedRow {
     ref: string
@@ -1754,7 +1534,9 @@ function Table({ headers, rows }: { headers: string[]; rows: React.ReactNode[][]
             <table className="w-full text-[11px]">
                 <thead>
                     <tr className="text-left">
-                        {headers.map(h => <th key={h} className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 pb-2 px-2">{h}</th>)}
+                        {/* ключ по индексу: пустые заголовки у колонок-действий
+                            иначе дают одинаковый ключ и React ругается */}
+                        {headers.map((h, i) => <th key={i} className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 pb-2 px-2">{h}</th>)}
                     </tr>
                 </thead>
                 <tbody>
@@ -1784,8 +1566,6 @@ export default function SpltpnlPage() {
         switch (tab) {
             case 'overview': return <OverviewTab />
             case 'cards':    return <CardsTab />
-            case 'flight':   return <FlightTab />
-            case 'season':   return <SeasonTab />
             case 'users':    return <UsersTab />
             case 'prizes':   return <PrizesTab />
             case 'quests':   return <QuestsTab />

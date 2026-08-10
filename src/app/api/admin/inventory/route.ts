@@ -40,6 +40,33 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ nextTokenId: String(nextId), currentMax: maxId, count: ids.length })
         }
 
+        // Сводка по складу: сколько чего в наличии и сколько уже выдано.
+        // Считаем на стороне БД по каждому статусу — иначе пришлось бы тащить
+        // все 1200+ строк только ради чисел, а PostgREST всё равно режет по 1000.
+        if (url.searchParams.get('summary') === '1') {
+            const { data: prizeRows, error: prizeErr } = await supabaseAdmin
+                .from('prize_types').select('id').eq('type', 'nft')
+            if (prizeErr) throw prizeErr
+
+            const ids = (prizeRows ?? []).map((r: any) => r.id)
+            const statuses = ['available', 'claimed', 'reserved'] as const
+            const counts: Record<string, Record<string, number>> = {}
+
+            await Promise.all(ids.flatMap((pid: string) =>
+                statuses.map(async (st) => {
+                    const { count } = await supabaseAdmin
+                        .from('nft_inventory')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('prize_type_id', pid)
+                        .eq('status', st)
+                    counts[pid] ??= {}
+                    counts[pid][st] = count ?? 0
+                })
+            ))
+
+            return NextResponse.json({ counts }, { headers: { 'cache-control': 'no-store' } })
+        }
+
         let q = supabaseAdmin.from('nft_inventory')
             .select('id, prize_type_id, contract_address, token_id, name, image_url, status, winner_wallet, won_at')
             .order('token_id', { ascending: true })
