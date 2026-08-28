@@ -31,8 +31,6 @@ interface NavItem {
   external?: boolean;
   /** пункт виден, но ещё не открыт — показываем бейдж Soon и не даём кликнуть */
   soon?: boolean;
-  /** пункт кликабелен, но ведёт на заглушку — бейдж есть, ссылка работает */
-  badge?: string;
 }
 
 interface NavGroup {
@@ -51,7 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
     key: "staking",
     label: "Staking",
     items: [
-      { href: "/staking/lifetime", label: "Lifetime Lock", badge: "Soon" },
+      { href: "/staking/lifetime", label: "Lifetime Lock", soon: true },
       { href: "/staking/work", label: "Working", soon: true },
     ],
   },
@@ -233,15 +231,10 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                               key={item.href}
                               href={item.href}
                               onClick={() => setOpenMenu(null)}
-                              className={`${cls} flex items-center justify-between gap-4 whitespace-nowrap`}
+                              className={cls}
                               role="menuitem"
                             >
                               {item.label}
-                              {item.badge && (
-                                <span className="text-[8px] font-black uppercase tracking-widest border border-white/12 text-white/40 rounded px-1.5 py-0.5">
-                                  {item.badge}
-                                </span>
-                              )}
                             </Link>
                           );
                         })}
@@ -437,18 +430,8 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                                     <ArrowUpRight size={15} className="shrink-0 opacity-40" />
                                   </a>
                                 ) : (
-                                  <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    onClick={closeMenu}
-                                    className={`${cls} justify-between gap-3`}
-                                  >
+                                  <Link key={item.href} href={item.href} onClick={closeMenu} className={cls}>
                                     {item.label}
-                                    {item.badge && (
-                                      <span className="text-[8px] font-black uppercase tracking-widest border border-white/12 text-white/40 rounded px-1.5 py-0.5">
-                                        {item.badge}
-                                      </span>
-                                    )}
                                   </Link>
                                 );
                               })}
