@@ -553,7 +553,7 @@ export function ControlPanel({
                 {/* TICKETS */}
                 <div className="flex flex-col pr-2">
                     {isFetchingState ? (
-                        <Loader2 className="w-5 h-5 animate-spin text-white/30 mb-2" />
+                        <Loader2 className="w-5 h-5 animate-spin text-white icon-dim-30 mb-2" />
                     ) : (
                         <span className="font-mono text-[22px] font-extrabold text-white leading-none tracking-tight mb-2">{balance}</span>
                     )}
@@ -565,7 +565,7 @@ export function ControlPanel({
                 {/* SHARDS */}
                 <div className="flex flex-col px-4">
                     {isLoadingStats ? (
-                        <Loader2 className="w-5 h-5 animate-spin text-white/30 mb-2" />
+                        <Loader2 className="w-5 h-5 animate-spin text-white icon-dim-30 mb-2" />
                     ) : (
                         <span className="font-mono text-[22px] font-extrabold text-white leading-none tracking-tight mb-2">{shards !== null ? shards : 0}</span>
                     )}
@@ -580,7 +580,7 @@ export function ControlPanel({
                 {/* RANK */}
                 <div className="flex flex-col pl-4 text-left">
                     {isLoadingStats ? (
-                        <Loader2 className="w-5 h-5 animate-spin text-white/30 mb-2" />
+                        <Loader2 className="w-5 h-5 animate-spin text-white icon-dim-30 mb-2" />
                     ) : (
                         <span className="font-mono text-[22px] font-extrabold text-white leading-none tracking-tight mb-2">{myRank > 0 ? `#${myRank}` : '--'}</span>
                     )}
@@ -888,7 +888,7 @@ export function ControlPanel({
                                 <div ref={winnersSentinelRef} className="h-1" />
                                 {isLoadingMoreWinners && (
                                     <div className="flex justify-center py-2">
-                                        <Loader2 className="w-4 h-4 animate-spin text-white/20" />
+                                        <Loader2 className="w-4 h-4 animate-spin text-white icon-dim-20" />
                                     </div>
                                 )}
                             </div>
@@ -963,7 +963,7 @@ export function ControlPanel({
 
                         {isLoadingHistory ? (
                             <div className="flex items-center justify-center py-6">
-                                <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+                                <Loader2 className="w-5 h-5 animate-spin text-white icon-dim-30" />
                             </div>
                         ) : historyData.length === 0 ? (
                             <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">
@@ -1071,7 +1071,7 @@ export function ControlPanel({
                                     <div ref={historySentinelRef} className="h-1" />
                                     {isLoadingMoreHistory && (
                                         <div className="flex justify-center py-2">
-                                            <Loader2 className="w-4 h-4 animate-spin text-white/20" />
+                                            <Loader2 className="w-4 h-4 animate-spin text-white icon-dim-20" />
                                         </div>
                                     )}
                                 </div>

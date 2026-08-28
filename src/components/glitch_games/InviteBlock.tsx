@@ -52,10 +52,10 @@ export function InviteBlock({ wallet }: InviteBlockProps) {
                 className="flex items-center justify-between cursor-pointer"
             >
                 <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-white/50" />
+                    <Users className="w-4 h-4 text-white icon-dim-50" />
                     <span className="text-xs font-black uppercase tracking-widest text-white/70">Invite & Earn</span>
                 </div>
-                <ChevronDown className={`w-3.5 h-3.5 text-white/30 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-white icon-dim-30 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </button>
 
             {isOpen && (
@@ -69,7 +69,7 @@ export function InviteBlock({ wallet }: InviteBlockProps) {
                         <p className="text-[10px] text-white/25 text-center py-2">Connect wallet to get your invite link</p>
                     ) : isLoading ? (
                         <div className="flex justify-center py-3">
-                            <Loader2 className="w-4 h-4 animate-spin text-white/30" />
+                            <Loader2 className="w-4 h-4 animate-spin text-white icon-dim-30" />
                         </div>
                     ) : info ? (
                         <>

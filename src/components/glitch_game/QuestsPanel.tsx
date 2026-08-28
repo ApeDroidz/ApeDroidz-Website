@@ -691,7 +691,7 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
 
                                     if (state.claimed) return (
                                         <div key={key} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.015] border border-white/[0.04]">
-                                            <Gamepad2 className="w-3 h-3 flex-shrink-0 text-white/15" />
+                                            <Gamepad2 className="w-3 h-3 flex-shrink-0 text-white icon-dim-15" />
                                             <span className="text-[10px] font-bold flex-1 leading-none text-white/20">{qLabel}</span>
                                             <span className={`text-[10px] font-black flex items-center gap-1 transition-colors duration-700 ${isFresh ? 'text-green-400' : 'text-white/20'}`}>
                                                 {isFresh && <CheckCircle className="w-3 h-3" />}
@@ -714,7 +714,7 @@ export function QuestsPanel({ onQuestClaimed }: { onQuestClaimed?: () => void })
                                             }`}
                                         >
                                             <div className="flex items-center gap-2">
-                                                <Gamepad2 className={`w-3.5 h-3.5 flex-shrink-0 ${ready ? 'text-[#0069FF]/70' : 'text-white/20'}`} />
+                                                <Gamepad2 className={`w-3.5 h-3.5 flex-shrink-0 ${ready ? 'text-[#0069FF]/70' : 'text-white icon-dim-20'}`} />
                                                 <span className="text-[10px] font-bold flex-1 leading-none text-white/60">{qLabel}</span>
                                                 <span className={`text-[9px] font-mono font-bold ${ready ? 'text-[#0069FF]' : 'text-white/30'}`}>
                                                     {progress}/{required}

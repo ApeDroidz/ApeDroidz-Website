@@ -21,7 +21,7 @@ function CreatorCard({ creator, index }: { creator: Creator; index: number }) {
           <span className={`${LABEL_CLASS} text-white/30`}>{creator.role}</span>
         </div>
         {creator.url && (
-          <ArrowUpRight size={18} className="text-white/25 group-hover:text-white transition-colors shrink-0" />
+          <ArrowUpRight size={18} className="text-white icon-dim-25 group-hover:text-white transition-colors shrink-0" />
         )}
       </div>
 

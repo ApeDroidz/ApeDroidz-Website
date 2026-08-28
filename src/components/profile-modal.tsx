@@ -372,7 +372,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
 
                                                                     <div className="flex items-center gap-2">
                                                                         <h2 className="text-xl font-black text-white uppercase tracking-tighter leading-none truncate">{currentUsername || shortAddress}</h2>
-                                                                        <button onClick={() => { setNewName(currentUsername || ""); setIsEditingName(true) }} className="no-capture cursor-pointer p-1 hover:bg-white/5 rounded-full transition-colors shrink-0"><Pencil size={12} className="text-white/20 hover:text-[#3b82f6]" /></button>
+                                                                        <button onClick={() => { setNewName(currentUsername || ""); setIsEditingName(true) }} className="no-capture cursor-pointer p-1 hover:bg-white/5 rounded-full transition-colors shrink-0"><Pencil size={12} className="text-white icon-dim-20 hover:text-[#3b82f6]" /></button>
                                                                     </div>
                                                                     <p className="text-[9px] font-mono text-white/20 mt-1 uppercase tracking-[0.2em] leading-none truncate">{shortAddress}</p>
                                                                 </div>
@@ -434,7 +434,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                                             <span className={`text-sm font-bold ${xHandle ? "text-white/40 group-hover/x:text-white" : "text-white/30 group-hover/x:text-white"}`}>
                                                                                 {xHandle || "Link Account"}
                                                                             </span>
-                                                                            <Pencil size={12} className="text-white/10 group-hover/x:text-white transition-colors" />
+                                                                            <Pencil size={12} className="text-white icon-dim-10 group-hover/x:text-white transition-colors" />
                                                                         </button>
                                                                     </div>
                                                                 )}
@@ -452,7 +452,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                                 <>
                                                                     <div className="flex items-center flex-wrap gap-2 lg:gap-3">
                                                                         <h2 className="text-2xl lg:text-3xl font-black text-white uppercase tracking-tighter leading-none truncate">{currentUsername || shortAddress}</h2>
-                                                                        <button onClick={() => { setNewName(currentUsername || ""); setIsEditingName(true) }} className="no-capture cursor-pointer p-1.5 hover:bg-white/5 rounded-full transition-colors shrink-0"><Pencil size={14} className="text-white/20 hover:text-[#3b82f6]" /></button>
+                                                                        <button onClick={() => { setNewName(currentUsername || ""); setIsEditingName(true) }} className="no-capture cursor-pointer p-1.5 hover:bg-white/5 rounded-full transition-colors shrink-0"><Pencil size={14} className="text-white icon-dim-20 hover:text-[#3b82f6]" /></button>
                                                                         <span className="text-[11px] font-mono text-white/30 uppercase tracking-[0.2em] leading-none truncate ml-2">{shortAddress}</span>
                                                                     </div>
                                                                 </>

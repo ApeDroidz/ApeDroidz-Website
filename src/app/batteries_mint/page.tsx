@@ -1011,7 +1011,7 @@ export default function MintPage() {
                                                                                 </p>
                                                                             ) : isEligibilityLoading ? (
                                                                                 <div className="flex items-center gap-2 mt-1">
-                                                                                    <Loader2 className="w-3 h-3 animate-spin text-white/50" />
+                                                                                    <Loader2 className="w-3 h-3 animate-spin text-white icon-dim-50" />
                                                                                     <span className="text-white/30 text-xs font-mono uppercase">Checking...</span>
                                                                                 </div>
                                                                             ) : phaseEligibility?.isEligible ? (
@@ -1114,7 +1114,7 @@ export default function MintPage() {
                                                                                     </p>
                                                                                 ) : isEligibilityLoading ? (
                                                                                     <div className="flex items-center gap-2">
-                                                                                        <Loader2 className="w-3 h-3 animate-spin text-white/50" />
+                                                                                        <Loader2 className="w-3 h-3 animate-spin text-white icon-dim-50" />
                                                                                         <span className="text-white/30 text-xs font-mono uppercase">Checking...</span>
                                                                                     </div>
                                                                                 ) : phaseEligibility?.isEligible ? (
@@ -1136,7 +1136,7 @@ export default function MintPage() {
                                                                                     </p>
                                                                                 ) : isEligibilityLoading ? (
                                                                                     <div className="flex items-center gap-2">
-                                                                                        <Loader2 className="w-3 h-3 animate-spin text-white/50" />
+                                                                                        <Loader2 className="w-3 h-3 animate-spin text-white icon-dim-50" />
                                                                                         <span className="text-white/30 text-xs font-mono uppercase">Checking...</span>
                                                                                     </div>
                                                                                 ) : phaseEligibility?.isEligible ? (
@@ -1291,7 +1291,7 @@ export default function MintPage() {
                                                             {openFaq === index ? (
                                                                 <ChevronUp size={20} className="text-white/40" />
                                                             ) : (
-                                                                <ChevronDown size={20} className="text-white/40" />
+                                                                <ChevronDown size={20} className="text-white icon-dim-40" />
                                                             )}
                                                         </button>
                                                         {openFaq === index && (

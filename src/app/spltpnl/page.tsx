@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertTriangle, BarChart3, Check, Coins, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, LogOut, Package, Pencil, Plus, RefreshCcw, Search, Sparkles, Target, Trash2, Users, X } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Check, Coins, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, Lock, LogOut, Package, Pencil, Plus, RefreshCcw, Search, Sparkles, Target, Trash2, Users, X } from 'lucide-react'
+import { LockerTab } from './locker-tab'
 
 // ── Types (loose — coming from server JSON) ───────────────────────────────────
 
@@ -15,6 +16,7 @@ const TABS = [
     { id: 'users', label: 'Users', icon: Users },
     { id: 'prizes', label: 'Prizes', icon: Package },
     { id: 'quests', label: 'Quests', icon: Target },
+    { id: 'locker', label: 'Locker', icon: Lock },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -144,7 +146,7 @@ function Histogram({ data, accent = '#3b82f6', height = 80, formatVal }: { data:
 }
 
 function Loading() {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-white/30" /></div>
+    return <div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-white icon-dim-30" /></div>
 }
 function ErrorBox({ msg }: { msg: string }) {
     return <div className="px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs">{msg}</div>
@@ -221,7 +223,7 @@ function OverviewTab() {
                 </Card>
                 <Card className={vaultApe != null && vaultLow ? 'border-red-500/30 bg-red-500/5' : ''}>
                     <div className="flex items-center gap-3">
-                        <Coins size={14} className={vaultLow ? 'text-red-400' : 'text-white/40'} />
+                        <Coins size={14} className={vaultLow ? 'text-red-400' : 'text-white icon-dim-40'} />
                         <span className="text-sm font-black uppercase tracking-wider">
                             {vaultApe != null ? `${fmt(vaultApe, 2)} APE` : '—'}
                         </span>
@@ -1817,6 +1819,7 @@ export default function SpltpnlPage() {
             case 'users':    return <UsersTab />
             case 'prizes':   return <PrizesTab />
             case 'quests':   return <QuestsTab />
+            case 'locker':   return <LockerTab />
         }
     }, [tab])
 

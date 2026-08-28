@@ -506,7 +506,7 @@ function FlightHistorySection({ wallet, refreshTrigger }: { wallet?: string; ref
             {tab === 'pilots' && (
                 <div className="flex flex-col gap-2 relative min-h-[100px]">
                     {pilotsLoading ? (
-                        <div className="flex items-center justify-center py-8"><Loader2 size={16} className="animate-spin text-white/30" /></div>
+                        <div className="flex items-center justify-center py-8"><Loader2 size={16} className="animate-spin text-white icon-dim-30" /></div>
                     ) : pilots.length === 0 ? (
                         <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">No flights yet</div>
                     ) : (
@@ -541,7 +541,7 @@ function FlightHistorySection({ wallet, refreshTrigger }: { wallet?: string; ref
                     {!wallet ? (
                         <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">Connect wallet</div>
                     ) : flightsLoading ? (
-                        <div className="flex items-center justify-center py-8"><Loader2 size={16} className="animate-spin text-white/30" /></div>
+                        <div className="flex items-center justify-center py-8"><Loader2 size={16} className="animate-spin text-white icon-dim-30" /></div>
                     ) : flights.length === 0 ? (
                         <div className="text-center py-6 text-[10px] font-bold tracking-widest text-white/20 uppercase">No flights yet</div>
                     ) : (

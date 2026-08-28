@@ -29,6 +29,10 @@ interface NavItem {
   label: string;
   /** внешняя ссылка — открываем в новой вкладке, не через next/link */
   external?: boolean;
+  /** пункт виден, но ещё не открыт — показываем бейдж Soon и не даём кликнуть */
+  soon?: boolean;
+  /** пункт кликабелен, но ведёт на заглушку — бейдж есть, ссылка работает */
+  badge?: string;
 }
 
 interface NavGroup {
@@ -38,7 +42,19 @@ interface NavGroup {
 }
 
 // Единый источник навигации для десктопа и мобильного меню.
+//
+// Порядок здесь — это порядок на экране: Dashboard → Staking → Upgrade → Tools →
+// Glitch Cards → Links. Раньше прямые ссылки и группы рисовались двумя отдельными
+// списками, из-за чего порядок нельзя было задать, только подстроить рендер.
 const NAV_GROUPS: NavGroup[] = [
+  {
+    key: "staking",
+    label: "Staking",
+    items: [
+      { href: "/staking/lifetime", label: "Lifetime Lock", badge: "Soon" },
+      { href: "/staking/work", label: "Working", soon: true },
+    ],
+  },
   {
     key: "upgrade",
     label: "Upgrade",
@@ -70,6 +86,20 @@ const NAV_GROUPS: NavGroup[] = [
 const DIRECT_LINKS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/glitch_games/cards", label: "Glitch Cards" },
+];
+
+type NavEntry = { kind: "link"; item: NavItem } | { kind: "group"; group: NavGroup };
+
+const byKey = (key: string) => NAV_GROUPS.find((g) => g.key === key)!;
+
+/** The single ordered navigation the user asked for, desktop and mobile alike. */
+const NAV_ORDER: NavEntry[] = [
+  { kind: "link", item: DIRECT_LINKS[0] },          // Dashboard
+  { kind: "group", group: byKey("staking") },       // Staking → Lifetime Lock / Working
+  { kind: "group", group: byKey("upgrade") },       // Upgrade
+  { kind: "group", group: byKey("tools") },         // Tools
+  { kind: "link", item: DIRECT_LINKS[1] },          // Glitch Cards
+  { kind: "group", group: byKey("links") },         // Links
 ];
 
 // Общая «стеклянная» плашка — тот же фрейм, что у панелей дашборда.
@@ -131,13 +161,16 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
 
           {/* Навигация по центру */}
           <div ref={navRef} className="hidden lg:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
-            {DIRECT_LINKS.map((item) => (
-              <Link key={item.href} href={item.href} className={linkClass(isActive(item.href))}>
-                {item.label}
-              </Link>
-            ))}
+            {NAV_ORDER.map((entry) => {
+              if (entry.kind === "link") {
+                return (
+                  <Link key={entry.item.href} href={entry.item.href} className={linkClass(isActive(entry.item.href))}>
+                    {entry.item.label}
+                  </Link>
+                );
+              }
 
-            {NAV_GROUPS.map((group) => {
+              const group = entry.group;
               const open = openMenu === group.key;
               return (
                 <div key={group.key} className="relative">
@@ -163,10 +196,25 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                       >
                         {group.items.map((item) => {
                           const cls = `block px-3.5 py-2.5 rounded-xl text-sm transition-colors ${
-                            !item.external && isActive(item.href)
+                            !item.external && !item.soon && isActive(item.href)
                               ? "bg-white/10 text-white"
                               : "text-white/70 hover:bg-white/[0.07] hover:text-white"
                           }`;
+                          if (item.soon) {
+                            return (
+                              <div
+                                key={`${item.href}-${item.label}`}
+                                className="flex items-center justify-between gap-4 px-3.5 py-2.5 rounded-xl text-sm text-white/25 cursor-not-allowed whitespace-nowrap"
+                                role="menuitem"
+                                aria-disabled
+                              >
+                                {item.label}
+                                <span className="text-[8px] font-black uppercase tracking-widest border border-white/12 rounded px-1.5 py-0.5">
+                                  Soon
+                                </span>
+                              </div>
+                            );
+                          }
                           return item.external ? (
                             <a
                               key={item.href}
@@ -185,10 +233,15 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                               key={item.href}
                               href={item.href}
                               onClick={() => setOpenMenu(null)}
-                              className={cls}
+                              className={`${cls} flex items-center justify-between gap-4 whitespace-nowrap`}
                               role="menuitem"
                             >
                               {item.label}
+                              {item.badge && (
+                                <span className="text-[8px] font-black uppercase tracking-widest border border-white/12 text-white/40 rounded px-1.5 py-0.5">
+                                  {item.badge}
+                                </span>
+                              )}
                             </Link>
                           );
                         })}
@@ -199,15 +252,6 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
               );
             })}
 
-            <Link
-              href={pathname === "/" ? "#staking" : "/#staking"}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-white/40 hover:text-white hover:bg-white/[0.07] transition-colors"
-            >
-              Staking
-              <span className="text-[8px] font-black uppercase tracking-widest border border-white/15 text-white/40 rounded px-1.5 py-0.5">
-                Soon
-              </span>
-            </Link>
           </div>
 
           {/* Профиль + кошелёк справа */}
@@ -318,18 +362,24 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                   </div>
                 )}
 
-                {/* Dashboard идёт первым, Glitch Cards — после групп */}
-                <Link
-                  href="/dashboard"
-                  onClick={closeMenu}
-                  className={`flex items-center h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors ${
-                    isActive("/dashboard") ? "bg-white/10 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
-                  }`}
-                >
-                  Dashboard
-                </Link>
+                {/* Same NAV_ORDER as desktop, so the two menus can never drift apart */}
+                {NAV_ORDER.map((entry) => {
+                  if (entry.kind === "link") {
+                    return (
+                      <Link
+                        key={entry.item.href}
+                        href={entry.item.href}
+                        onClick={closeMenu}
+                        className={`flex items-center h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors ${
+                          isActive(entry.item.href) ? "bg-white/10 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
+                        }`}
+                      >
+                        {entry.item.label}
+                      </Link>
+                    );
+                  }
 
-                {NAV_GROUPS.map((group) => {
+                  const group = entry.group;
                   const open = openMobileGroup === group.key;
                   return (
                     <div key={group.key} className="flex flex-col gap-1.5">
@@ -341,7 +391,7 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                         aria-expanded={open}
                       >
                         <span className="flex-1 text-left">{group.label}</span>
-                        <ChevronDown size={16} className={`text-white/50 transition-transform ${open ? "rotate-180" : ""}`} />
+                        <ChevronDown size={16} className={`text-white icon-dim-50 transition-transform ${open ? "rotate-180" : ""}`} />
                       </button>
 
                       <AnimatePresence initial={false}>
@@ -356,10 +406,24 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                             <div className="flex flex-col gap-1.5 pl-3">
                               {group.items.map((item) => {
                                 const cls = `flex items-center h-[44px] px-4 rounded-xl text-sm transition-colors ${
-                                  !item.external && isActive(item.href)
+                                  !item.external && !item.soon && isActive(item.href)
                                     ? "bg-[#3b82f6]/10 text-white border border-[#3b82f6]/30"
                                     : "bg-white/[0.03] text-white/70 hover:bg-white/10"
                                 }`;
+                                if (item.soon) {
+                                  return (
+                                    <div
+                                      key={`${item.href}-${item.label}`}
+                                      className="flex items-center justify-between gap-3 h-[44px] px-4 rounded-xl text-sm bg-white/[0.02] text-white/25"
+                                      aria-disabled
+                                    >
+                                      {item.label}
+                                      <span className="text-[8px] font-black uppercase tracking-widest border border-white/12 rounded px-1.5 py-0.5">
+                                        Soon
+                                      </span>
+                                    </div>
+                                  );
+                                }
                                 return item.external ? (
                                   <a
                                     key={item.href}
@@ -373,8 +437,18 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                                     <ArrowUpRight size={15} className="shrink-0 opacity-40" />
                                   </a>
                                 ) : (
-                                  <Link key={item.href} href={item.href} onClick={closeMenu} className={cls}>
+                                  <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={closeMenu}
+                                    className={`${cls} justify-between gap-3`}
+                                  >
                                     {item.label}
+                                    {item.badge && (
+                                      <span className="text-[8px] font-black uppercase tracking-widest border border-white/12 text-white/40 rounded px-1.5 py-0.5">
+                                        {item.badge}
+                                      </span>
+                                    )}
                                   </Link>
                                 );
                               })}
@@ -385,27 +459,6 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     </div>
                   );
                 })}
-
-                <Link
-                  href="/glitch_games/cards"
-                  onClick={closeMenu}
-                  className={`flex items-center h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors ${
-                    isActive("/glitch_games/cards") ? "bg-white/10 text-white" : "bg-white/5 text-white/70 hover:bg-white/10"
-                  }`}
-                >
-                  Glitch Cards
-                </Link>
-
-                <Link
-                  href={pathname === "/" ? "#staking" : "/#staking"}
-                  onClick={closeMenu}
-                  className="flex items-center h-[50px] px-4 rounded-2xl bg-white/5 text-sm text-white/70 hover:bg-white/10 transition-colors"
-                >
-                  <span className="flex-1">Staking</span>
-                  <span className="text-[8px] font-black uppercase tracking-widest border border-white/15 text-white/40 rounded px-1.5 py-0.5">
-                    Soon
-                  </span>
-                </Link>
 
                 <div className="h-px bg-white/10 my-3" />
 

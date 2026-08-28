@@ -377,3 +377,34 @@
   .gt-sizer { visibility: visible; }
   .gt-band, .gt-ghost { display: none; }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Icon dimming — use these, never a fractional text colour on an SVG.
+
+   Lucide icons are several separately stroked <path> elements. Give one a
+   colour that already carries alpha (`text-white/30`) and each path is
+   composited on its own, so wherever two strokes cross the alpha compounds
+   and the overlap shows as a darker seam — the icon looks broken and
+   "doubled". Painting at full alpha and fading the whole element instead
+   rasterises the icon once, then applies opacity uniformly.
+
+   Wrong:  <Lock className="text-white/30" />
+   Right:  <Lock className="text-white icon-dim-30" />   (or Tailwind opacity-30)
+
+   Text is unaffected — this only matters for multi-path SVGs.
+   ────────────────────────────────────────────────────────────────────────── */
+.icon-dim-10 { opacity: 0.10; }
+.icon-dim-15 { opacity: 0.15; }
+.icon-dim-20 { opacity: 0.20; }
+.icon-dim-25 { opacity: 0.25; }
+.icon-dim-30 { opacity: 0.30; }
+.icon-dim-35 { opacity: 0.35; }
+.icon-dim-40 { opacity: 0.40; }
+.icon-dim-50 { opacity: 0.50; }
+.icon-dim-60 { opacity: 0.60; }
+.icon-dim-70 { opacity: 0.70; }
+.icon-dim-80 { opacity: 0.80; }
+
+/* There is no CSS-only rescue for an icon that is *given* an alpha colour —
+   the compositing happens per path and nothing downstream can merge it. The
+   fix has to be at the call site, which is why these utilities exist. */

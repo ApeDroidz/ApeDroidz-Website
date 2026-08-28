@@ -32,7 +32,7 @@ export function WeeklyQuestsBlock({ quests, isHolder, wallet, onQuestClaimed }: 
                     <span className="text-[9px] font-bold text-white/25 uppercase tracking-widest">
                         {completed}/{quests.length} done
                     </span>
-                    <ChevronDown className={`w-3.5 h-3.5 text-white/30 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 text-white icon-dim-30 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                 </div>
             </button>
 

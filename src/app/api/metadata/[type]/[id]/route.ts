@@ -166,9 +166,26 @@ export async function GET(
       // Both therefore reflect the saved default; the extra image_pixel /
       // image_animated / display_view fields the site used to publish were
       // non-standard noise and moved to /api/owned-droids.
+      // Permanently locked droids say so in the name and description.
+      //
+      // Deliberately NOT a trait: marketplace rarity engines score the `attributes` array, so a
+      // "Locked" trait held by part of the collection would rewrite every droid's rarity rank.
+      // Name and description are not scored, so the status is visible to a buyer without moving
+      // anyone's rank.
+      const { data: lock } = await supabaseAdmin
+        .from('locker_locks')
+        .select('token_id')
+        .eq('token_id', tokenId)
+        .maybeSingle();
+      const isLockedForever = Boolean(lock);
+
+      const baseDescription = droid.description || "3333 glitch-born Droidz on ApeChain.";
+
       const metadata: Record<string, any> = {
-        name: `ApeDroid #${droid.token_id}`,
-        description: droid.description || "3333 glitch-born Droidz on ApeChain.",
+        name: isLockedForever ? `ApeDroid #${droid.token_id} — Locked Forever` : `ApeDroid #${droid.token_id}`,
+        description: isLockedForever
+          ? `${baseDescription}\n\nThis droid has been permanently locked by its holder. It can never be transferred or sold again — any listing for it will fail.`
+          : baseDescription,
         image: bustImage(effectiveView === 'animated' ? animatedUrl : pixelUrl),
         animation_url: viewerUrl,
         external_url: "https://apedroidz.com/dashboard",

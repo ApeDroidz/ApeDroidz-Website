@@ -51,7 +51,7 @@ function Droid3DCTAComponent() {
 
                         <ArrowRight
                             size={16}
-                            className="text-white/40 flex-shrink-0 group-hover:text-[#3b82f6] group-hover:translate-x-0.5 transition-all"
+                            className="text-white icon-dim-40 flex-shrink-0 group-hover:text-[#3b82f6] group-hover:translate-x-0.5 transition-all"
                         />
 
                         {/* 3D version — placeholder until the renders land */}

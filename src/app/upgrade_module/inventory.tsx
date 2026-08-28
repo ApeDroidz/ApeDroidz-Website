@@ -22,6 +22,22 @@ interface InventoryProps {
   collectionSwitch?: { value: string; options: { key: string; label: string }[]; onChange: (key: string) => void }
   /** Honorary has no levels, so the level filter is meaningless there. */
   hideFilter?: boolean
+  /**
+   * Multi-select mode (Locker). When present it takes over from `selectedId`: a card is selected
+   * if its id is in here, and `onSelect` is called with the clicked item to toggle it. Left
+   * undefined everywhere else, so single-select callers are untouched.
+   */
+  selectedIds?: string[]
+  /** Ids that cannot be picked — Locker uses it for droids already locked forever. */
+  disabledIds?: string[]
+  /** Short label shown across a disabled card, e.g. "LOCKED". */
+  disabledLabel?: string
+  /**
+   * Optional badge rendered bottom-left on each card — Staking uses it to show the droid's
+   * multiplier, so the value is visible where the choice is made instead of in a separate legend.
+   * Return null to leave a card unbadged.
+   */
+  cardBadge?: (item: NFTItem) => { label: string } | null
 }
 
 type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER'
@@ -63,7 +79,10 @@ const InventoryCard = ({
   onSelect,
   onDetailClick,
   type,
-  showDetails = true
+  showDetails = true,
+  isDisabled = false,
+  disabledLabel,
+  badge,
 }: {
   item: NFTItem
   isSelected: boolean
@@ -71,6 +90,9 @@ const InventoryCard = ({
   onSelect: (item: NFTItem | null) => void
   onDetailClick?: (item: NFTItem) => void
   showDetails?: boolean
+  isDisabled?: boolean
+  disabledLabel?: string
+  badge?: { label: string } | null
 }) => {
   const tokenNumber = item.name.match(/#(\d+)/)?.[1] || item.id.replace(/[^0-9]/g, '') || item.id
   const displayId = `#${tokenNumber}`
@@ -91,13 +113,23 @@ const InventoryCard = ({
 
   return (
     <div
-      onClick={() => onSelect(isSelected ? null : item)}
+      onClick={() => { if (!isDisabled) onSelect(isSelected ? null : item); }}
       onDoubleClick={() => { if (onDetailClick) onDetailClick(item); }}
-      className={`group relative aspect-square rounded-xl overflow-hidden cursor-pointer transition-all duration-300 border-2 ${borderColor} ${!isSelected && 'hover:bg-white/5'} bg-black`}
+      className={`group relative aspect-square rounded-xl overflow-hidden transition-all duration-300 border-2 ${isDisabled ? 'border-white/10 cursor-not-allowed' : `cursor-pointer ${borderColor} ${!isSelected && 'hover:bg-white/5'}`} bg-black`}
     >
       {/* 1. СКЕЛЕТ (Показывается пока грузится) */}
       {!isLoaded && (
         <div className="absolute inset-0 bg-white/5 animate-pulse" />
+      )}
+
+      {/* DISABLED VEIL — already locked forever, nothing to pick here */}
+      {isDisabled && (
+        <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-1 pointer-events-none">
+          <Lock size={16} className="text-white icon-dim-70" />
+          {disabledLabel && (
+            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/70">{disabledLabel}</span>
+          )}
+        </div>
       )}
 
       {/* 2. КАРТИНКА (Нативный IMG для надежности) */}
@@ -113,6 +145,15 @@ const InventoryCard = ({
       <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-white font-bold border border-white/10 z-20 pointer-events-none">
         {displayId}
       </div>
+
+      {/* MULTIPLIER — same plate as the id badge above it, always white. Tinting it per
+          level made the value fight the artwork underneath; the level colour lives on the
+          count rings in the panel, where it means something. */}
+      {badge && (
+        <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono font-bold text-white border border-white/10 z-20 pointer-events-none">
+          {badge.label}
+        </div>
+      )}
 
       {/* КНОПКА ДЕТАЛЕЙ - VISIBLE ON SELECTION OR HOVER */}
       {showDetails && <button
@@ -209,7 +250,7 @@ const FilterDropdown = ({ options, activeFilter, onSelect }: { options: any[], a
   )
 }
 
-export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false, showDetails = true, droidGridClassName, collectionSwitch, hideFilter = false }: InventoryProps) {
+export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false, showDetails = true, droidGridClassName, collectionSwitch, hideFilter = false, selectedIds, disabledIds, disabledLabel, cardBadge }: InventoryProps) {
   const [activeDroidFilter, setActiveDroidFilter] = useState<DroidFilter>('ALL')
   const [activeBatteryFilter, setActiveBatteryFilter] = useState<BatteryFilter>('ALL')
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -382,11 +423,14 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
               <InventoryCard
                 key={item.id}
                 item={item}
-                isSelected={selectedId === item.id}
+                isSelected={selectedIds ? selectedIds.includes(item.id) : selectedId === item.id}
                 type={type}
                 onSelect={onSelect}
                 onDetailClick={onDetailClick}
                 showDetails={showDetails}
+                isDisabled={disabledIds?.includes(item.id)}
+                disabledLabel={disabledLabel}
+                badge={cardBadge ? cardBadge(item) : null}
               />
             ))
           )}

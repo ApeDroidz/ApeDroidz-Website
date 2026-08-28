@@ -660,6 +660,12 @@ export async function GET(
           var direct = new Image();
           direct.onload = function () {
             if (reqId !== loadSeq) { URL.revokeObjectURL(url); return; }
+            // Detach before swapping: assigning art.src re-fires THIS handler, which
+            // would schedule another swap 400ms later, and so on forever. Every swap
+            // restarts the GIF from frame 0, so an animated droid never got past its
+            // second frame — it read as frantic flicker rather than a 760ms loop.
+            art.onload = null;
+            art.onerror = null;
             art.src = src;
             URL.revokeObjectURL(url);
           };

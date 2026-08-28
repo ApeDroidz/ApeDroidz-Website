@@ -50,3 +50,13 @@ next-env.d.ts
 
 # Локальная 3D-мастерская (Blender), в репозиторий не идёт
 3D/
+
+# Foundry (contracts/) — deps are fetched, artifacts are built
+/contracts/lib/
+/contracts/out/
+/contracts/cache/
+/contracts/broadcast/
+
+# Output of scripts/export-locked-droidz.mjs — regenerate, never commit
+lock-snapshot.csv
+lock-snapshot.json

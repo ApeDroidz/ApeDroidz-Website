@@ -30,7 +30,7 @@ function DroidCard({ droid }: { droid: MarqueeDroid }) {
       />
       <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-3 py-2.5 bg-gradient-to-t from-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <span className="font-mono text-xs text-white/80">#{id}</span>
-        <ArrowUpRight size={14} className="text-white/80" />
+        <ArrowUpRight size={14} className="text-white icon-dim-80" />
       </div>
     </a>
   )

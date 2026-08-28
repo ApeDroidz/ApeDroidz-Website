@@ -76,7 +76,7 @@ export function GlitchGamesPanel({ wallet, onOpenLeaderboard, onDashboardLoaded 
         return (
             <div className="flex flex-col items-center justify-center min-h-[240px] py-12 px-4 text-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-                    <Wallet className="w-5 h-5 text-white/20" />
+                    <Wallet className="w-5 h-5 text-white icon-dim-20" />
                 </div>
                 <p className="text-sm font-bold text-white/30 uppercase tracking-widest">Connect wallet to track progress</p>
             </div>

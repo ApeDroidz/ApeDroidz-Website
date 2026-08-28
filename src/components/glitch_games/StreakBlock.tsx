@@ -125,7 +125,7 @@ export function StreakBlock({ streak, isHolder, wallet, onClaimed }: StreakBlock
                             ) : isActiveToday ? (
                                 <Zap className="w-3.5 h-3.5 text-orange-400" />
                             ) : isPendingToday ? (
-                                <Zap className="w-3.5 h-3.5 text-white/40" />
+                                <Zap className="w-3.5 h-3.5 text-white icon-dim-40" />
                             ) : isPastUnclaimed ? (
                                 <CheckCircle className="w-3.5 h-3.5 text-white/15" />
                             ) : (
