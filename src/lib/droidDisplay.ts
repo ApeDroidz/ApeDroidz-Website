@@ -47,8 +47,9 @@ export function buildDroidDisplay(row: Partial<DroidRow> & { token_id: number })
   const isSuper = !!row.is_super
   const level = row.level || 1
 
-  let levelString = String(level)
-  if (level >= 2) levelString = isSuper ? '2 SUPER' : '2'
+  // Same snake_case shape the metadata route publishes — see the note there.
+  let levelString = `lvl_${level}`
+  if (level >= 2) levelString = isSuper ? 'lvl_2_super' : 'lvl_2'
 
   const cleanAttributes = (row.traits || []).filter((attr: any) => {
     const tType = attr?.trait_type?.toLowerCase?.() || ''

@@ -112,9 +112,12 @@ export async function GET(
       const isSuper = !!droid.is_super;
       const currentLevel = droid.level || 1;
 
-      let levelString = String(currentLevel);
+      // snake_case like every other trait value in the collection
+      // ("apechain_blue", "iron_angel") — keeps the level layer readable to
+      // marketplace filters without a space or capitals of its own.
+      let levelString = `lvl_${currentLevel}`;
       if (currentLevel >= 2) {
-        levelString = isSuper ? "2 SUPER" : "2";
+        levelString = isSuper ? "lvl_2_super" : "lvl_2";
       }
 
       const cleanAttributes = (droid.traits || []).filter((attr: any) => {
