@@ -17,46 +17,48 @@ export interface MarqueeDroid {
 
 // EDIT ME: подборка для ленты. Все показываем как LVL 2 (обычный, синий фон) —
 // на сами NFT это не влияет, это только визуальная унификация лендинга.
-// Порядок подобран так, чтобы у соседей не совпадали шляпа/одежда.
+// Обе строки крутят 3D-рендеры; пиксельная анимация каждого проявляется по
+// наведению. Порядок подобран так, чтобы у соседей (в т.ч. на стыке петли) не
+// совпадали корпус, шляпа, одежда и глаза.
 export const MARQUEE_ROW_A: MarqueeDroid[] = [
-  { id: 2585, super: false },
-  { id: 2548, super: false },
-  { id: 353, super: false },
-  { id: 2583, super: false },
-  { id: 23, super: false },
-  { id: 3204, super: false },
-  { id: 1900, super: false },
-  { id: 833, super: false },
-  { id: 1909, super: false },
-  { id: 2, super: false },
-  { id: 1816, super: false },
-  { id: 2742, super: false },
-  { id: 2783, super: false },
-  { id: 2322, super: false },
-  { id: 3276, super: false },
-  { id: 27, super: false },
-  { id: 716, super: false },
-  { id: 728, super: false },
-]
-
-export const MARQUEE_ROW_B: MarqueeDroid[] = [
-  { id: 672, super: false },
-  { id: 1038, super: false },
-  { id: 1890, super: false },
-  { id: 873, super: false },
-  { id: 2778, super: false },
-  { id: 1984, super: false },
-  { id: 857, super: false },
-  { id: 2984, super: false },
-  { id: 3, super: false },
-  { id: 1249, super: false },
-  { id: 439, super: false },
   { id: 77, super: false },
+  { id: 873, super: false },
+  { id: 4, super: false },
+  { id: 728, super: false },
+  { id: 2585, super: false },
+  { id: 1909, super: false },
+  { id: 1984, super: false },
+  { id: 3276, super: false },
+  { id: 2322, super: false },
   { id: 685, super: false },
   { id: 2701, super: false },
   { id: 1, super: false },
+  { id: 716, super: false },
+  { id: 23, super: false },
+  { id: 3204, super: false },
+  { id: 833, super: false },
+  { id: 1890, super: false },
+  { id: 1816, super: false },
+]
+
+export const MARQUEE_ROW_B: MarqueeDroid[] = [
+  { id: 439, super: false },
+  { id: 672, super: false },
+  { id: 1900, super: false },
+  { id: 2984, super: false },
+  { id: 857, super: false },
+  { id: 1249, super: false },
+  { id: 27, super: false },
+  { id: 2548, super: false },
+  { id: 2783, super: false },
+  { id: 3, super: false },
+  { id: 1038, super: false },
+  { id: 2, super: false },
+  { id: 2583, super: false },
+  { id: 2742, super: false },
   { id: 841, super: false },
-  { id: 4, super: false },
+  { id: 353, super: false },
+  { id: 2778, super: false },
   { id: 2448, super: false },
 ]
 
