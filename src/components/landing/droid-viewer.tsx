@@ -1,12 +1,12 @@
 "use client"
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react"
-import { Canvas, useThree } from "@react-three/fiber"
+import { Canvas } from "@react-three/fiber"
 import { Environment, OrbitControls, useAnimations, useGLTF } from "@react-three/drei"
 import * as THREE from "three"
-import { SkeletonUtils, type OrbitControls as OrbitControlsImpl } from "three-stdlib"
+import { type OrbitControls as OrbitControlsImpl } from "three-stdlib"
 import { Crosshair, Footprints, Hand, Loader2, Minus, Music, Pause, Play, Plus, Radio, RotateCcw, Shuffle, Zap } from "lucide-react"
-import { droidMmlUrl, droidModelUrl } from "@/lib/media"
+import { AvatarLights, useAssembledAvatar, useDroidAvatar } from "@/components/droid-avatar"
 import { LABEL_CLASS } from "./ui"
 
 const MAX_ID = 3333
@@ -24,42 +24,14 @@ const MOVES = [
 
 type MoveId = (typeof MOVES)[number]["id"]
 
-/** Центрирует и вписывает модель по высоте кадра (габариты GLB заранее неизвестны). */
-function FittedModel({ url, move, onMoveEnd }: { url: string; move: MoveId | null; onMoveEnd: () => void }) {
-  const { scene } = useGLTF(url)
-  const invalidate = useThree((s) => s.invalidate)
+/** Модель токена плюс клипы движений: сборка и вписывание в кадр — общие. */
+function FittedModel({ urls, move, onMoveEnd }: { urls: string[]; move: MoveId | null; onMoveEnd: () => void }) {
+  const prepared = useAssembledAvatar(urls)
   const groupRef = useRef<THREE.Group>(null)
-
-  const prepared = useMemo(() => {
-    // SkeletonUtils.clone: обычный clone не переносит привязку костей,
-    // из-за чего клипы движений не проигрываются.
-    const root = SkeletonUtils.clone(scene) as THREE.Object3D
-    root.updateWorldMatrix(true, true)
-
-    // Габариты считаем ТОЛЬКО по мешам: кости и пустые узлы у этих GLB
-    // раздувают Box3.setFromObject и модель уезжает из кадра.
-    const box = new THREE.Box3()
-    root.traverse((o: THREE.Object3D) => {
-      const mesh = o as THREE.Mesh
-      if (!mesh.isMesh || !mesh.geometry) return
-      mesh.geometry.computeBoundingBox()
-      const bb = mesh.geometry.boundingBox
-      if (bb) box.union(bb.clone().applyMatrix4(mesh.matrixWorld))
-    })
-
-    const size = box.getSize(new THREE.Vector3())
-    const center = box.getCenter(new THREE.Vector3())
-    const scale = 2.2 / (size.y || 1)   // видимая высота кадра ≈ 2.65 юнита
-    root.scale.setScalar(scale)
-    root.position.set(-center.x * scale, -center.y * scale, -center.z * scale)
-    return root
-  }, [scene])
 
   // Клипы лежат в отдельных GLB и делят скелет с моделью токена.
   const clips = useAnimationClips()
   const { actions } = useAnimations(clips, groupRef)
-
-  useEffect(() => { invalidate() }, [prepared, invalidate])
 
   useEffect(() => {
     if (!move) return
@@ -101,9 +73,9 @@ function useAnimationClips(): THREE.AnimationClip[] {
 }
 
 function ViewerCanvas({
-  url, controlsRef, move, onMoveEnd, spin,
+  urls, controlsRef, move, onMoveEnd, spin,
 }: {
-  url: string
+  urls: string[]
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>
   move: MoveId | null
   onMoveEnd: () => void
@@ -111,13 +83,9 @@ function ViewerCanvas({
 }) {
   return (
     <Canvas camera={{ position: [0, 0.1, 4.2], fov: 35 }} gl={{ antialias: true, alpha: true }} dpr={[1, 2]}>
-      {/* Свет не зависит от HDRI со стороннего CDN — см. hero-scene */}
-      <ambientLight intensity={1.1} />
-      <hemisphereLight args={["#ffffff", "#202028", 1.2]} />
-      <directionalLight position={[5, 8, 6]} intensity={2.2} />
-      <directionalLight position={[-6, 4, 5]} intensity={1} color="#8fa2ff" />
+      <AvatarLights />
       <Suspense fallback={null}>
-        <FittedModel url={url} move={move} onMoveEnd={onMoveEnd} />
+        <FittedModel urls={urls} move={move} onMoveEnd={onMoveEnd} />
       </Suspense>
       <Suspense fallback={null}>
         <Environment preset="city" />
@@ -142,10 +110,9 @@ export function DroidViewer() {
   const [mounted, setMounted] = useState(false)
   const [tokenId, setTokenId] = useState(DEFAULT_ID)
   const [input, setInput] = useState(String(DEFAULT_ID))
-  const [error, setError] = useState<string | null>(null)
-  const [loadingId, setLoadingId] = useState<number | null>(DEFAULT_ID)
-  const [progress, setProgress] = useState(0)
-  const [modelUrl, setModelUrl] = useState<string | null>(null)
+  // Ввод и загрузка ошибаются по-разному: «введите число от 1 до 3333» живёт
+  // здесь, а отказ загрузки приходит из хука.
+  const [inputError, setInputError] = useState<string | null>(null)
   const [move, setMove] = useState<MoveId | null>(null)
   const [spin, setSpin] = useState(true)
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
@@ -181,122 +148,73 @@ export function DroidViewer() {
     return () => io.disconnect()
   }, [mounted])
 
-  // Путь к модели берём из MML-обёртки (то же поле, что в метаданных NFT),
-  // и тянем файл сами — чтобы показать реальный прогресс, а не спиннер вслепую.
-  useEffect(() => {
-    if (!mounted) return
-    let cancelled = false
-    setLoadingId(tokenId)
-    setProgress(0)
-    setError(null)
-    setModelUrl(null)
-
-    const run = async () => {
-      let glb = droidModelUrl(tokenId)
-      try {
-        const mml = await fetch(droidMmlUrl(tokenId))
-        if (mml.ok) {
-          const src = (await mml.text()).match(/src=["']([^"']+\.glb)["']/i)?.[1]
-          if (src) glb = src
-        }
-      } catch {
-        /* MML недоступен — остаёмся на прямом пути к GLB */
-      }
-      if (cancelled) return
-
-      try {
-        const res = await fetch(glb)
-        if (!res.ok) throw new Error(String(res.status))
-        const total = Number(res.headers.get("content-length")) || 0
-        const reader = res.body?.getReader()
-        if (!reader) throw new Error("no stream")
-
-        const chunks: Uint8Array[] = []
-        let received = 0
-        for (;;) {
-          const { done, value } = await reader.read()
-          if (done) break
-          if (value) {
-            chunks.push(value)
-            received += value.length
-            if (!cancelled && total) setProgress(Math.min(99, Math.round((received / total) * 100)))
-          }
-        }
-        if (cancelled) return
-        // отдаём модели готовый blob — второй раз по сети она не пойдёт
-        const url = URL.createObjectURL(new Blob(chunks as BlobPart[], { type: "model/gltf-binary" }))
-        setProgress(100)
-        setModelUrl(url)
-        setLoadingId(null)
-      } catch {
-        if (!cancelled) {
-          setError(`Droid #${tokenId} has no 3D model yet`)
-          setLoadingId(null)
-        }
-      }
-    }
-    run()
-    return () => { cancelled = true }
-  }, [tokenId, mounted])
+  // Аватар берём из живого MML токена — того самого документа, что читает
+  // Otherside: тело плюс отдельный GLB на каждый надетый слой, все из R2.
+  const { urls: modelUrls, progress, error: loadError, loadingId } = useDroidAvatar(tokenId, mounted)
+  const error = inputError ?? loadError
 
   const submit = (raw: string) => {
     const n = parseInt(raw.replace(/\D/g, ""), 10)
     if (!n || n < 1 || n > MAX_ID) {
-      setError(`Enter a number between 1 and ${MAX_ID}`)
+      setInputError(`Enter a number between 1 and ${MAX_ID}`)
       return
     }
-    setError(null)
+    setInputError(null)
     setTokenId(n)
   }
 
   const randomId = () => {
     const n = 1 + Math.floor(Math.random() * MAX_ID)
     setInput(String(n))
+    setInputError(null)
     setTokenId(n)
   }
 
   return (
     <div ref={wrapRef} className="w-full rounded-2xl border border-white/10 bg-[#0a0a0a]/90 backdrop-blur-xl overflow-hidden">
-      {/* Строка управления */}
+      {/* Строка управления. Главное действие — случайный дроид: номер своего
+          токена знает только владелец, а посмотреть «хоть какого-нибудь»
+          хочется каждому. Поэтому белая кнопка ему, а ввод номера с Load —
+          второстепенный путь и приглушён. */}
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-        <span className={`${LABEL_CLASS} text-white/30 hidden md:block`}>Droid</span>
+        <button
+          type="button"
+          onClick={randomId}
+          className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white text-black font-black uppercase tracking-widest text-[10px] px-5 py-2.5 hover:bg-[#0069FF] hover:text-white transition-colors cursor-pointer"
+        >
+          <Shuffle size={13} />
+          Random droid
+        </button>
+
         <form
           onSubmit={(e) => { e.preventDefault(); submit(input) }}
-          className="flex items-center gap-2 flex-1 min-w-0"
+          className="flex items-center gap-1.5 ml-auto min-w-0"
         >
-          <div className="flex items-center gap-1 flex-1 min-w-0 rounded-lg border border-white/10 bg-black/60 px-3 py-2 focus-within:border-white/30 transition-colors">
-            <span className="font-mono text-sm text-white/30">#</span>
+          <div className="flex items-center gap-1 w-[92px] sm:w-[110px] min-w-0 rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 focus-within:border-white/25 transition-colors">
+            <span className="font-mono text-xs text-white/25">#</span>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               inputMode="numeric"
               placeholder={`1–${MAX_ID}`}
               aria-label="Droid token id"
-              className="w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/20"
+              className="w-full bg-transparent font-mono text-xs text-white/75 outline-none placeholder:text-white/15"
             />
           </div>
           <button
             type="submit"
-            className="shrink-0 rounded-full bg-white text-black font-black uppercase tracking-widest text-[10px] px-5 py-2.5 hover:bg-[#0069FF] hover:text-white transition-colors"
+            className="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white/45 hover:text-white hover:border-white/25 transition-colors cursor-pointer"
           >
             Load
           </button>
         </form>
-        <button
-          type="button"
-          onClick={randomId}
-          title="Random droid"
-          className="shrink-0 rounded-lg border border-white/10 p-2.5 text-white/50 hover:text-white hover:border-white/30 transition-colors"
-        >
-          <Shuffle size={14} />
-        </button>
       </div>
 
       {/* Сцена */}
       <div className="relative aspect-[4/5] sm:aspect-square lg:aspect-[5/4] w-full">
-        {mounted && modelUrl ? (
+        {mounted && modelUrls ? (
           <ViewerCanvas
-            url={modelUrl}
+            urls={modelUrls}
             controlsRef={controlsRef}
             move={move}
             onMoveEnd={() => setMove(null)}

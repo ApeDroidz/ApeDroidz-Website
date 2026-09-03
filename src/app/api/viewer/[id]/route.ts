@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { droidStaticUrl, droidAnimatedUrl, honoraryStaticUrl, honoraryAnimatedUrl } from '@/lib/media'
+import { droidStaticUrl, droidAnimatedUrl, droid3dPfpUrl, honoraryStaticUrl, honoraryAnimatedUrl } from '@/lib/media'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -8,8 +8,9 @@ export const revalidate = 0
 const VIEWS = ['pixel', 'animated', 'pfp3d', 'fullbody', 'model3d'] as const
 type ViewKey = typeof VIEWS[number]
 
-// 3D assets are not uploaded yet — keep the switches visible but locked.
-const LOCKED_VIEWS: ViewKey[] = ['pfp3d', 'fullbody', 'model3d']
+// Full-body renders are not produced yet — that switch stays visible but locked.
+// The 3D PFP bust and the interactive model are live for every token.
+const LOCKED_VIEWS: ViewKey[] = ['fullbody']
 
 // Honorary is a separate ERC-1155 collection: no levels, no 3D renders, and the
 // animated version exists only for the tokens that have a gif.
@@ -81,11 +82,11 @@ export async function GET(
       { key: 'animated', label: 'Animated', locked: false },
     ]
     : [
-      { key: 'pixel', label: 'Pixel', locked: false },
+      { key: 'pfp3d', label: '3D PFP', locked: false },
       { key: 'animated', label: 'Animated', locked: false },
-      { key: 'pfp3d', label: 'PFP', locked: true },
+      { key: 'pixel', label: 'Pixel', locked: false },
+      { key: 'model3d', label: '3D', locked: false },
       { key: 'fullbody', label: 'Full Body', locked: true },
-      { key: 'model3d', label: '3D', locked: true },
     ]
 
   // Honorary tokens without a gif still get an Animated switch — it shows the
@@ -96,6 +97,14 @@ export async function GET(
   const animatedUrl = isHonorary
     ? (hasGif ? honoraryAnimatedUrl(tokenId) : honoraryStaticUrl(honoraryArtId))
     : droidAnimatedUrl(tokenId, isSuper)
+  // Blue bust for level 1 and standard level 2, orange for SUPER — the same
+  // split the pixel sets use. Honorary is a different collection with no 3D.
+  const pfp3dUrl = isHonorary ? null : droid3dPfpUrl(tokenId, level, isSuper)
+  // Интерактивная модель — отдельная страница с three.js: здесь голый HTML без
+  // React, а собирать аватар из MML руками на ванильном загрузчике значило бы
+  // держать вторую копию той же логики. Внутри — тот же документ, что читает
+  // Otherside.
+  const model3dUrl = isHonorary ? null : `${origin}/embed/model/${tokenId}`
 
   // Animated is a locked teaser when the token cannot actually have it.
   const animatedLocked = isHonorary ? !hasGif : level < 2
@@ -126,7 +135,9 @@ export async function GET(
     views: viewDefs,
     initialView,
     animatedLocked,
-    assets: { pixel: pixelUrl, animated: animatedUrl },
+    assets: pfp3dUrl
+      ? { pfp3d: pfp3dUrl, pixel: pixelUrl, animated: animatedUrl, model3d: model3dUrl }
+      : { pixel: pixelUrl, animated: animatedUrl },
     embed: isEmbed,
     cta,
   }
@@ -255,6 +266,17 @@ export async function GET(
     -webkit-user-drag: none;
   }
   #art.visible { opacity: 1; }
+  /* Интерактивная модель показывается вместо картинки, поверх той же области */
+  #model {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: none;
+    background: transparent;
+  }
+  #model.visible { display: block; }
   /* Locked teaser: black & white and blurred. The animation still reads as
      motion, the artwork detail does not. */
   #art-wrap.locked #art { filter: grayscale(1) blur(12px) brightness(0.72); }
@@ -451,6 +473,7 @@ export async function GET(
 
   <div id="art-wrap">
     <img id="art" alt="${isHonorary ? `Honorary DRD#${tokenId}` : `ApeDroid #${tokenId}`}" draggable="false" />
+    <iframe id="model" title="ApeDroid #${tokenId} 3D model" loading="lazy"></iframe>
   </div>
 
   <div id="lock-overlay">
@@ -573,6 +596,7 @@ export async function GET(
 
   function retry() {
     showError(false);
+    if (currentView === 'model3d') { reloadModel(); return; }
     switchView(currentView, true);
   }
 
@@ -584,8 +608,52 @@ export async function GET(
     } catch (e) { /* cross-origin parent — ignore */ }
   }
 
+  // Интерактивная модель живёт в своём iframe. Страница внутри качает части
+  // аватара и шлёт сюда проценты — заполняем ими ТОТ ЖЕ логотип, что и на
+  // картинках, чтобы вкладка 3D не выбивалась вторым индикатором. Адрес
+  // ставится при первом открытии вкладки: до этого three.js не грузится вовсе.
+  var modelReady = false;
+  var modelWatchdog = null;
+
+  function showModel(on) {
+    var frame = document.getElementById('model');
+    if (!frame) return;
+    document.getElementById('art').style.display = on ? 'none' : '';
+    frame.classList.toggle('visible', !!on);
+    clearTimeout(modelWatchdog);
+    if (!on) return;
+
+    if (CFG.assets.model3d && frame.getAttribute('src') !== CFG.assets.model3d) {
+      modelReady = false;
+      frame.setAttribute('src', CFG.assets.model3d);
+    }
+    // Возврат на уже загруженную модель — сразу показываем её, без индикатора:
+    // iframe жив и повторных процентов не пришлёт.
+    if (modelReady) { showLoader(false); return; }
+    showLoader(true);
+    setProgress(0);
+    // Тот же принцип, что у сторожа картинок: зависшая загрузка не должна
+    // оставить индикатор крутиться вечно внутри чужого iframe.
+    modelWatchdog = setTimeout(function () {
+      if (currentView === 'model3d' && !modelReady) showError(true);
+    }, 45000);
+  }
+
+  function reloadModel() {
+    var frame = document.getElementById('model');
+    if (!frame || !CFG.assets.model3d) return;
+    modelReady = false;
+    var sep = CFG.assets.model3d.indexOf('?') === -1 ? '?' : '&';
+    frame.setAttribute('src', CFG.assets.model3d + sep + 'r=' + Date.now());
+    showLoader(true);
+    setProgress(0);
+  }
+
   function switchView(view, force) {
-    if (!force && view === currentView && document.getElementById('art').src) {
+    var isModel = view === 'model3d';
+    var shown = isModel ? !!document.getElementById('model').getAttribute('src')
+                        : !!document.getElementById('art').src;
+    if (!force && view === currentView && shown) {
       // still notify so an embedding page can sync its Save button on load
       notifyParent(view);
       return;
@@ -594,7 +662,10 @@ export async function GET(
     setActiveButton(view);
     applyLock(view);
     showError(false);
-    loadArt(view);
+    // Отменяем возможную догрузку картинки: её onload иначе снял бы модель.
+    if (isModel) loadSeq++;
+    showModel(isModel);
+    if (!isModel) loadArt(view);
     notifyParent(view);
   }
 
@@ -642,6 +713,7 @@ export async function GET(
       if (!ctype || ctype === 'application/octet-stream') {
         ctype = src.indexOf('.gif') !== -1 ? 'image/gif'
               : src.indexOf('.webp') !== -1 ? 'image/webp'
+              : src.indexOf('.jpg') !== -1 ? 'image/jpeg'
               : 'image/png';
       }
       var url = URL.createObjectURL(new Blob(chunks, { type: ctype }));
@@ -708,7 +780,30 @@ export async function GET(
   // The on-site dashboard can drive the viewer through postMessage.
   window.addEventListener('message', function (e) {
     var d = e && e.data;
-    if (d && d.type === 'apedroidz:setView' && CFG.assets[d.view] && isOpenView(d.view)) {
+    if (!d) return;
+
+    // Прогресс сборки модели — только из нашего же iframe, чтобы страница-
+    // хозяин (маркетплейс) не могла подделать состояние загрузки.
+    var frame = document.getElementById('model');
+    if (frame && e.source === frame.contentWindow) {
+      if (d.type === 'apedroidz:modelProgress') {
+        if (currentView === 'model3d') setProgress((d.value || 0) / 100);
+        return;
+      }
+      if (d.type === 'apedroidz:modelReady') {
+        modelReady = true;
+        clearTimeout(modelWatchdog);
+        if (currentView === 'model3d') { setProgress(1); showLoader(false); }
+        return;
+      }
+      if (d.type === 'apedroidz:modelError') {
+        clearTimeout(modelWatchdog);
+        if (currentView === 'model3d') showError(true);
+        return;
+      }
+    }
+
+    if (d.type === 'apedroidz:setView' && CFG.assets[d.view] && isOpenView(d.view)) {
       switchView(d.view);
     }
   });

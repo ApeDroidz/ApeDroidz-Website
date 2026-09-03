@@ -101,9 +101,13 @@ export async function GET(request: NextRequest) {
         id: String(tokenId),
         tokenId: String(tokenId),
         name: d.name,
-        image: d.image, // the droid's saved default view (pixel or animated)
+        // The droid's saved default view. For the 3D bust that is the 512px
+        // thumb, not the 2048px JPEG behind `image_3d` — these URLs paint
+        // inventory cards, and a wall of 2.3 MB renders is pure waste.
+        image: d.display_view === 'pfp3d' ? d.image_3d_thumb : d.image,
         image_pixel: d.image_pixel,
         image_animated: d.image_animated,
+        image_3d: d.image_3d_thumb,
         level: d.level,
         is_super: d.is_super,
         display_view: d.display_view,

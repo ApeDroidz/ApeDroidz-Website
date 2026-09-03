@@ -20,8 +20,8 @@ const thirdwebClient = createThirdwebClient({
 const DROID_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DROID_CONTRACT_ADDRESS || ''
 const HONORARY_CONTRACT = '0x427ff4b908c4ba7bc1d689bacac280a0435b2514'
 
-const UNLOCKED_VIEWS = ['pixel', 'animated'] as const
-const LOCKED_VIEWS = ['pfp3d', 'fullbody'] as const
+const UNLOCKED_VIEWS = ['pixel', 'animated', 'pfp3d'] as const
+const LOCKED_VIEWS = ['fullbody', 'model3d'] as const
 
 /**
  * POST /api/display-pref
@@ -32,7 +32,8 @@ const LOCKED_VIEWS = ['pfp3d', 'fullbody'] as const
  * Gating:
  *  - 'pixel'    → any level
  *  - 'animated' → level 2+ only (level 1 sees an Upgrade CTA instead)
- *  - 'pfp3d' / 'fullbody' → rejected until 3D assets ship
+ *  - 'pfp3d'    → any level of the base collection; honorary has no 3D render
+ *  - 'fullbody' / 'model3d' → rejected until those assets ship
  *
  * Auth: wallet session cookie; ownership verified on-chain.
  */
@@ -87,6 +88,9 @@ export async function POST(req: Request) {
                 .maybeSingle()
             if (fetchError || !row) {
                 return NextResponse.json({ error: 'Honorary droid not found' }, { status: 404 })
+            }
+            if (view === 'pfp3d') {
+                return NextResponse.json({ error: 'Honorary droidz have no 3D render' }, { status: 400 })
             }
             if (view === 'animated' && !row.has_gif) {
                 return NextResponse.json(

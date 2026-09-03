@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { droidStaticUrl, droidAnimatedWebpUrl, batteryUrl } from '@/lib/media'
+import { droidStaticUrl, droidAnimatedWebpUrl, droid3dPfpUrl, droidOthersideMmlUrl, batteryUrl } from '@/lib/media'
 import { buildHonoraryDisplay } from '@/lib/droidDisplay'
+import { lmntItem, buildLmntMetadata } from '@/lib/lmnt'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -50,6 +51,20 @@ export async function GET(
     // on-chain, which marketplaces prefer over anything declared here.
     if (raw.toLowerCase() === 'collection') {
       const site = 'https://apedroidz.com';
+
+      // LMNT — отдельная коллекция предметов, не дроиды. Её карточка описывает
+      // каталог вещей, а не персонажей, поэтому ветка своя.
+      if (type === 'lmnt') {
+        return NextResponse.json({
+          name: 'LMNT\u2122 by ApeDroidz',
+          description:
+            'Limited item drops for ApeDroidz. Every LMNT item lives in the droid\u2019s own on-chain inventory, so it changes hands with the droid and never on its own.',
+          image: `${site}/collection-avatar.png`,
+          banner_image_url: `${site}/og-image.png`,
+          external_link: site,
+        }, { headers: corsHeaders });
+      }
+
       const isHonoraryCollection = type === 'honorary';
       return NextResponse.json({
         name: isHonoraryCollection ? 'ApeDroidz Honorary' : 'ApeDroidz',
@@ -126,14 +141,16 @@ export async function GET(
       });
 
       // ── Display preference (holder-saved default view) ──────────────────
-      // 'pixel' | 'animated' saved on the site dashboard; NULL → level-based
-      // default (L2+ animated, L1 pixel). Read defensively so metadata keeps
-      // working before the display_pref migration is applied.
-      const displayPref = ['pixel', 'animated'].includes(droid.display_pref) ? droid.display_pref : null;
-      const effectiveView: 'pixel' | 'animated' =
-        displayPref === 'animated' && currentLevel >= 2 ? 'animated'
-          : displayPref === 'pixel' ? 'pixel'
-            : currentLevel >= 2 ? 'animated' : 'pixel';
+      // 'pixel' | 'animated' | 'pfp3d' saved on the site dashboard; NULL →
+      // level-based default (L2+ animated, L1 pixel). Read defensively so
+      // metadata keeps working before the display_pref migration is applied.
+      const displayPref = ['pixel', 'animated', 'pfp3d'].includes(droid.display_pref) ? droid.display_pref : null;
+      // The 3D bust exists for every token, so only 'animated' is level-gated.
+      const effectiveView: 'pixel' | 'animated' | 'pfp3d' =
+        displayPref === 'pfp3d' ? 'pfp3d'
+          : displayPref === 'animated' && currentLevel >= 2 ? 'animated'
+            : displayPref === 'pixel' ? 'pixel'
+              : currentLevel >= 2 ? 'animated' : 'pixel';
 
       // Variant assets live on Cloudflare R2 (assets.apedroidz.com), addressed
       // by token id. Pixel = STATIC png, animated = GIF. See lib/media.
@@ -141,6 +158,8 @@ export async function GET(
       // WebP, not GIF: marketplaces autoplay animated WebP in the image slot,
       // whereas a GIF there shows a frozen frame that only animates on hover.
       const animatedUrl = droidAnimatedWebpUrl(tokenId, isSuper);
+      // 3D bust render — blue background for L1 and standard L2, orange for SUPER.
+      const url3d = droid3dPfpUrl(tokenId, currentLevel, isSuper);
 
       // Cache-bust HTTP image URLs by level/super-state AND chosen view.
       // Marketplaces (OpenSea, Magic Eden) cache assets by absolute URL — the
@@ -150,7 +169,8 @@ export async function GET(
       // it would keep serving the old thumbnail.
       const prefMs = Date.parse(droid.display_pref_updated_at || '');
       const prefTag = Number.isFinite(prefMs) ? `-${Math.floor(prefMs / 1000).toString(36)}` : '';
-      const bustVersion = `${currentLevel}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}${prefTag}`;
+      const viewTag = effectiveView === 'animated' ? 'a' : effectiveView === 'pfp3d' ? 'd' : 'p';
+      const bustVersion = `${currentLevel}${isSuper ? 's' : ''}${viewTag}${prefTag}`;
       const bustImage = (url: string | undefined | null): string => {
         if (!url) return '';
         const sep = url.includes('?') ? '&' : '?';
@@ -189,10 +209,18 @@ export async function GET(
         description: isLockedForever
           ? `${baseDescription}\n\nThis droid has been permanently locked by its holder. It can never be transferred or sold again — any listing for it will fail.`
           : baseDescription,
-        image: bustImage(effectiveView === 'animated' ? animatedUrl : pixelUrl),
+        image: bustImage(
+          effectiveView === 'animated' ? animatedUrl
+            : effectiveView === 'pfp3d' ? url3d
+              : pixelUrl,
+        ),
         animation_url: viewerUrl,
         external_url: "https://apedroidz.com/dashboard",
-        mml: droid.mml_url,
+        // Otherside читает это поле. Адрес один на токен и навсегда: документ
+        // собирается на запрос из трейтов и уровня, поэтому апгрейд до level 2
+        // сам добавляет кроссовки. Старое droid.mml_url вело на запечённую
+        // модель целиком на GCS — она отстала от переработанных трейтов.
+        mml: droidOthersideMmlUrl(tokenId),
         attributes: [
           ...cleanAttributes,
           { trait_type: "level", value: levelString }
@@ -231,6 +259,18 @@ export async function GET(
           { trait_type: "Type", value: bType }
         ]
       }, { headers: corsHeaders });
+    }
+
+    // === LMNT — предметы (ERC-1155) ===
+    // Каталог статический и живёт в src/lib/lmnt.ts: у вещи нет состояния,
+    // которое стоило бы держать в БД. Уровень дроида здесь ни при чём — вещь
+    // одинакова у всех, кто ею владеет.
+    if (type === 'lmnt') {
+      const item = lmntItem(tokenId);
+      if (!item) {
+        return NextResponse.json({ error: `Unknown LMNT item: ${tokenId}` }, { status: 404, headers: corsHeaders });
+      }
+      return NextResponse.json(buildLmntMetadata(item), { headers: corsHeaders });
     }
 
     return NextResponse.json({ error: `Unknown type: ${type}` }, { status: 404, headers: corsHeaders });

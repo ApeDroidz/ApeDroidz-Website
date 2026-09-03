@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useActiveAccount } from "thirdweb/react"
@@ -19,6 +19,31 @@ const LEVEL_TRAIT_KEYS = ['level', 'rank value', 'upgrade level']
 
 type ViewKey = 'pixel' | 'animated' | 'pfp3d' | 'fullbody' | 'model3d'
 type Collection = 'droidz' | 'honorary'
+
+// Вид, в котором показывается ВЕСЬ список справа. Standard — как сейчас: у
+// каждого дроида та картинка, что реально стоит у него в метаданных. Остальные
+// перекрашивают список целиком, чтобы холдер увидел свою коллекцию в одном
+// стиле, ничего при этом не сохраняя.
+type StyleKey = 'standard' | 'pfp3d' | 'pixel' | 'animated' | 'fullbody'
+
+const STYLE_OPTIONS: { label: string; value: StyleKey; locked?: boolean }[] = [
+  { label: 'Standard style', value: 'standard' },
+  { label: '3D PFP', value: 'pfp3d' },
+  { label: 'Pixel', value: 'pixel' },
+  { label: 'Animated', value: 'animated' },
+  { label: 'Full Body', value: 'fullbody', locked: true },
+]
+
+/** Картинка карточки для выбранного стиля. Standard и всё, чего у токена нет
+ *  (у honorary, например, нет 3D), падают на сохранённый вид из метаданных. */
+const styledImage = (item: NFTItem, style: StyleKey): string | undefined => {
+  const m = item.metadata || {}
+  const variant = style === 'pixel' ? m.image_pixel
+    : style === 'animated' ? m.image_animated
+      : style === 'pfp3d' ? m.image_3d
+        : null
+  return variant || item.image
+}
 
 // Per-wallet droid cache TTL — avoids re-hitting the indexer on every
 // remount / navigation between pages within a session.
@@ -55,6 +80,7 @@ export default function DashboardPage() {
   // View currently shown inside the embedded previewer (synced via postMessage)
   const [currentView, setCurrentView] = useState<ViewKey>('pixel')
   const [savedView, setSavedView] = useState<ViewKey | null>(null)
+  const [listStyle, setListStyle] = useState<StyleKey>('standard')
   const [isSaving, setIsSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
 
@@ -119,6 +145,7 @@ export default function DashboardPage() {
           // Kept so saving a new default can repaint the card without a refetch.
           image_pixel: d.image_pixel,
           image_animated: d.image_animated,
+          image_3d: d.image_3d,
         },
       }))
       setDroids(loadedDroids)
@@ -177,11 +204,19 @@ export default function DashboardPage() {
     if (item) {
       const dv = item.metadata?.display_view
       const initial: ViewKey = dv === 'animated' ? 'animated' : dv === 'pixel' ? 'pixel'
-        : getDroidLevel(item) >= 2 ? 'animated' : 'pixel'
+        : dv === 'pfp3d' ? 'pfp3d'
+          : getDroidLevel(item) >= 2 ? 'animated' : 'pixel'
       setCurrentView(initial)
       setSavedView(initial)
     }
   }
+
+  // Список показывается в выбранном стиле. Сохранённый вид токена при этом не
+  // меняется — это только просмотр, поэтому подменяем картинку на лету.
+  const styledDroids = useMemo(
+    () => (listStyle === 'standard' ? droids : droids.map((d) => ({ ...d, image: styledImage(d, listStyle) || d.image }))),
+    [droids, listStyle],
+  )
 
   const selectedLevel = getDroidLevel(selectedDroid)
   const isHonorary = collection === 'honorary'
@@ -191,6 +226,9 @@ export default function DashboardPage() {
     isHonorary ? !selectedDroid?.metadata?.has_gif : selectedLevel < 2
   )
   const isCurrentSaved = savedView === currentView && !needsUpgradeForCurrent
+  // PFP в метаданных — это картинка. Интерактивную модель и фул-боди туда не
+  // положить, поэтому на этих вкладках кнопке сохранения нечего делать.
+  const isSaveableView = currentView === 'pixel' || currentView === 'animated' || currentView === 'pfp3d'
 
   // === SAVE YOUR PFP ===
   const handleSaveDefault = async () => {
@@ -228,7 +266,9 @@ export default function DashboardPage() {
       setDroids(prev => {
         const next = prev.map(d => {
           if (d.id !== selectedDroid.id) return d
-          const variant = currentView === 'animated' ? d.metadata?.image_animated : d.metadata?.image_pixel
+          const variant = currentView === 'animated' ? d.metadata?.image_animated
+            : currentView === 'pfp3d' ? d.metadata?.image_3d
+              : d.metadata?.image_pixel
           return variant
             ? { ...d, image: variant, metadata: { ...d.metadata, display_view: currentView } }
             : d
@@ -247,7 +287,7 @@ export default function DashboardPage() {
 
       // Say plainly whether the marketplace nudge went through, instead of
       // promising an automatic refresh that may have silently failed.
-      const variant = currentView === 'animated' ? 'Animated' : 'Pixel'
+      const variant = currentView === 'animated' ? 'Animated' : currentView === 'pfp3d' ? '3D PFP' : 'Pixel'
       setToastState({
         isOpen: true, type: 'success', title: 'PFP saved',
         message: data?.marketplaceRefreshed === false
@@ -295,7 +335,7 @@ export default function DashboardPage() {
             {/* Header — размеры и верстка как в апгрейд-модуле (по центру) */}
             <div className="w-full max-w-[1200px] px-4 mt-4 mb-4 md:mb-6 z-20 text-center flex-shrink-0">
               <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] mb-2">
-                Choose Your PFP
+                Choose Your PFP Style
               </h1>
               <p className="text-gray-400 text-xs md:text-sm font-mono leading-relaxed max-w-2xl mx-auto px-4">
                 Pick the render that represents your droid — it&apos;s what OpenSea and other marketplaces will display.
@@ -325,7 +365,16 @@ export default function DashboardPage() {
             {/* SAVE YOUR PFP — nothing to act on until a droid is picked */}
             <div className="flex-shrink-0 mt-4 relative w-full max-w-[520px] mx-auto">
               <AnimatePresence mode="wait">
-                {!selectedDroid ? null : needsUpgradeForCurrent ? (
+                {!selectedDroid ? null : !isSaveableView ? (
+                  <motion.div
+                    key="not-a-pfp"
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                    className="w-full h-12 flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 text-white/50 font-black uppercase tracking-wider text-sm"
+                  >
+                    <Lock size={16} />
+                    Interactive view — not a PFP
+                  </motion.div>
+                ) : needsUpgradeForCurrent ? (
                   // Locked. On the base collection this is actionable — upgrading
                   // is something the holder can do right now. Honorary has no
                   // self-serve path, so it only states what unlocks it.
@@ -404,7 +453,15 @@ export default function DashboardPage() {
                   onChange: (k) => handleSwitchCollection(k as Collection),
                 }}
                 hideFilter={isHonorary}
-                items={droids}
+                styleFilter={{
+                  value: listStyle,
+                  // У honorary нет 3D-рендера — вариант виден, но заперт.
+                  options: isHonorary
+                    ? STYLE_OPTIONS.map((o) => (o.value === 'pfp3d' ? { ...o, locked: true } : o))
+                    : STYLE_OPTIONS,
+                  onChange: (v) => setListStyle(v as StyleKey),
+                }}
+                items={styledDroids}
                 selectedId={selectedDroid?.id}
                 onSelect={handleSelectDroid}
                 type="droid"

@@ -23,6 +23,13 @@ interface InventoryProps {
   /** Honorary has no levels, so the level filter is meaningless there. */
   hideFilter?: boolean
   /**
+   * Второй фильтр рядом с уровнем — им дашборд перекрашивает весь список в один
+   * стиль (3D PFP / Pixel / Animated), чтобы холдер видел свою коллекцию целиком
+   * в выбранном виде, а не вперемешку. Сами картинки подменяет вызывающая
+   * сторона, здесь только выпадашка.
+   */
+  styleFilter?: { value: string; options: { label: string; value: string; locked?: boolean }[]; onChange: (value: string) => void }
+  /**
    * Multi-select mode (Locker). When present it takes over from `selectedId`: a card is selected
    * if its id is in here, and `onSelect` is called with the clicked item to toggle it. Left
    * undefined everywhere else, so single-select callers are untouched.
@@ -250,7 +257,7 @@ const FilterDropdown = ({ options, activeFilter, onSelect }: { options: any[], a
   )
 }
 
-export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false, showDetails = true, droidGridClassName, collectionSwitch, hideFilter = false, selectedIds, disabledIds, disabledLabel, cardBadge }: InventoryProps) {
+export function Inventory({ title, items, selectedId, onSelect, onDetailClick, onRefresh, type, singleRow = false, isLoading = false, showDetails = true, droidGridClassName, collectionSwitch, hideFilter = false, styleFilter, selectedIds, disabledIds, disabledLabel, cardBadge }: InventoryProps) {
   const [activeDroidFilter, setActiveDroidFilter] = useState<DroidFilter>('ALL')
   const [activeBatteryFilter, setActiveBatteryFilter] = useState<BatteryFilter>('ALL')
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -338,8 +345,11 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
       <div className="flex flex-col gap-2 mb-4 flex-shrink-0 relative z-40 lg:flex-row lg:justify-between lg:items-center">
 
         {/* MOBILE FILTER (Above Title) */}
-        <div className={`lg:hidden self-start mb-1 ${hideFilter ? 'hidden' : ''}`}>
-          {type === 'droid' ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />) : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />)}
+        <div className={`lg:hidden self-start mb-1 flex items-center gap-1 ${hideFilter && !styleFilter ? 'hidden' : ''}`}>
+          {styleFilter && (<FilterDropdown options={styleFilter.options} activeFilter={styleFilter.value} onSelect={styleFilter.onChange} />)}
+          {!hideFilter && (type === 'droid'
+            ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />)
+            : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />))}
         </div>
 
         <div className="flex items-center gap-2">
@@ -383,8 +393,11 @@ export function Inventory({ title, items, selectedId, onSelect, onDetailClick, o
         </div>
 
         {/* DESKTOP FILTER */}
-        <div className={`relative z-40 self-end lg:self-auto hidden ${hideFilter ? '' : 'lg:block'}`}>
-          {type === 'droid' ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />) : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />)}
+        <div className={`relative z-40 self-end lg:self-auto hidden items-center gap-1 ${hideFilter && !styleFilter ? '' : 'lg:flex'}`}>
+          {styleFilter && (<FilterDropdown options={styleFilter.options} activeFilter={styleFilter.value} onSelect={styleFilter.onChange} />)}
+          {!hideFilter && (type === 'droid'
+            ? (<FilterDropdown options={droidOptions} activeFilter={activeDroidFilter} onSelect={setActiveDroidFilter} />)
+            : (<FilterDropdown options={batteryOptions} activeFilter={activeBatteryFilter} onSelect={setActiveBatteryFilter} />))}
         </div>
       </div>
 

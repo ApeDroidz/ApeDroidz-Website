@@ -1,7 +1,10 @@
 // Shared display-resolution logic for droids, used by /api/metadata/batch and
 // /api/owned-droids so the image/level/view rules live in exactly one place.
 
-import { droidStaticUrl, droidAnimatedWebpUrl, honoraryStaticUrl, honoraryAnimatedWebpUrl } from './media'
+import {
+  droidStaticUrl, droidAnimatedWebpUrl, droid3dPfpUrl, droid3dPfpThumbUrl,
+  honoraryStaticUrl, honoraryAnimatedWebpUrl,
+} from './media'
 
 export type DroidRow = {
   token_id: number
@@ -12,14 +15,19 @@ export type DroidRow = {
   display_pref_updated_at?: string | null
 }
 
+export type DroidView = 'pixel' | 'animated' | 'pfp3d'
+
 export type DroidDisplay = {
   name: string
   image: string
   image_pixel: string
   image_animated: string
+  image_3d: string
+  /** 512px WebP of the 3D bust — for cards and grids; `image_3d` is 2048px. */
+  image_3d_thumb: string
   level: number
   is_super: boolean
-  display_view: 'pixel' | 'animated'
+  display_view: DroidView
   attributes: { trait_type: string; value: string }[]
 }
 
@@ -57,26 +65,37 @@ export function buildDroidDisplay(row: Partial<DroidRow> & { token_id: number })
   })
 
   const pref = row.display_pref
-  const displayPref = pref === 'pixel' || pref === 'animated' ? pref : null
-  const effectiveView: 'pixel' | 'animated' =
-    displayPref === 'animated' && level >= 2 ? 'animated'
-      : displayPref === 'pixel' ? 'pixel'
-        : level >= 2 ? 'animated' : 'pixel'
+  const displayPref: DroidView | null =
+    pref === 'pixel' || pref === 'animated' || pref === 'pfp3d' ? pref : null
+  // The 3D bust exists for every token, so it needs no level gate — only
+  // 'animated' does. No preference falls back to the level-based default.
+  const effectiveView: DroidView =
+    displayPref === 'pfp3d' ? 'pfp3d'
+      : displayPref === 'animated' && level >= 2 ? 'animated'
+        : displayPref === 'pixel' ? 'pixel'
+          : level >= 2 ? 'animated' : 'pixel'
 
   // Pixel = STATIC png. For anything rendered directly as an image (metadata,
   // dashboard cards) the animation is WebP: it autoplays and is ~20x lighter
   // than the GIF. The GIF stays for the previewer and downloads.
   const pixelUrl = droidStaticUrl(tokenId, level, isSuper)
   const animatedUrl = droidAnimatedWebpUrl(tokenId, isSuper)
+  const url3d = droid3dPfpUrl(tokenId, level, isSuper)
+  const url3dThumb = droid3dPfpThumbUrl(tokenId, level, isSuper)
 
-  const bustVersion = `${level}${isSuper ? 's' : ''}${effectiveView === 'animated' ? 'a' : 'p'}${prefStamp(row.display_pref_updated_at)}`
+  const viewTag = effectiveView === 'animated' ? 'a' : effectiveView === 'pfp3d' ? 'd' : 'p'
+  const bustVersion = `${level}${isSuper ? 's' : ''}${viewTag}${prefStamp(row.display_pref_updated_at)}`
   const bust = (url: string) => `${url}?v=${bustVersion}`
+
+  const chosen = effectiveView === 'animated' ? animatedUrl : effectiveView === 'pfp3d' ? url3d : pixelUrl
 
   return {
     name: `ApeDroid #${tokenId}`,
-    image: bust(effectiveView === 'animated' ? animatedUrl : pixelUrl),
+    image: bust(chosen),
     image_pixel: bust(pixelUrl),
     image_animated: bust(animatedUrl),
+    image_3d: bust(url3d),
+    image_3d_thumb: bust(url3dThumb),
     level,
     is_super: isSuper,
     display_view: effectiveView,

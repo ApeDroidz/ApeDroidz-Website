@@ -60,3 +60,7 @@ next-env.d.ts
 # Output of scripts/export-locked-droidz.mjs — regenerate, never commit
 lock-snapshot.csv
 lock-snapshot.json
+
+# рабочие исходники 3D-апдейта: сотни мегабайт GLB, живут локально
+/updates */
+/traits.txt

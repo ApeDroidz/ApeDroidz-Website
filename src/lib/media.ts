@@ -9,6 +9,9 @@
 //   apedroidz/pixel-media/lvl_2_gif/<id>.gif        L2 animated      (blue bg)
 //   apedroidz/pixel-media/lvl_2_super_gif/<id>.gif  L2 SUPER animated(orange bg)
 //   apedroidz/pixel-media/lvl_2_super_png/<id>.png  L2 SUPER static  (orange bg)
+//   apedroidz/3D-media/3D-PFP/lvl_1-lvl_2/<id>.jpg      3D bust, L1 + std L2 (blue bg)
+//   apedroidz/3D-media/3D-PFP/lvl_2-super/<id>.jpg      3D bust, SUPER       (orange bg)
+//   apedroidz/3D-media/3D-PFP-512/<same>/<id>.webp      512px thumbs of both
 //   apedroidz_honorary/png/<id>.png                 honorary static
 //   apedroidz_honorary/gif/<id>.gif                 honorary animated
 //   batteries/<name>.webp|.gif
@@ -19,11 +22,17 @@
 // back to its level-1 art: right background, just no upgrade kicks. Showing the
 // super render there would be plain wrong (orange bg on a blue droid).
 // When a `lvl_2_png` set is uploaded, use it in droidStaticUrl below.
+// Канонический домен сайта — на него ссылается поле mml в метаданных NFT.
+export const SITE_BASE = (
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://apedroidz.com'
+).replace(/\/+$/, '')
+
 export const MEDIA_BASE = (
   process.env.NEXT_PUBLIC_MEDIA_URL || 'https://assets.apedroidz.com'
 ).replace(/\/+$/, '')
 
 const PIXEL_MEDIA = `${MEDIA_BASE}/apedroidz/pixel-media`
+const PFP_3D = `${MEDIA_BASE}/apedroidz/3D-media/3D-PFP`
 const HONORARY = `${MEDIA_BASE}/apedroidz_honorary`
 
 /** Static ("pixel") art for a droid. */
@@ -46,6 +55,18 @@ export const droidAnimatedUrl = (tokenId: string | number, isSuper: boolean): st
  *  hover. The previewer keeps serving the GIF so "save image" yields a GIF. */
 export const droidAnimatedWebpUrl = (tokenId: string | number, isSuper: boolean): string =>
   `${PIXEL_MEDIA}/${isSuper ? 'lvl_2_super_webp' : 'lvl_2_webp'}/${tokenId}.webp`
+
+/** 3D bust render ("3D PFP") — one 2048px JPEG per token, two background sets.
+ *  Blue covers level 1 AND standard level 2: the bust crops above the knees, so
+ *  the level-2 sneakers are out of frame and a separate std-L2 set would be a
+ *  pixel-identical duplicate. SUPER gets its own orange-background render. */
+export const droid3dPfpUrl = (tokenId: string | number, level: number, isSuper: boolean): string =>
+  `${PFP_3D}/${level >= 2 && isSuper ? 'lvl_2-super' : 'lvl_1-lvl_2'}/${tokenId}.jpg`
+
+/** 512px WebP of the same render (~40 KB vs ~2.3 MB). For grids and marquees —
+ *  anywhere the image is displayed small and the full JPEG would be waste. */
+export const droid3dPfpThumbUrl = (tokenId: string | number, level: number, isSuper: boolean): string =>
+  `${PFP_3D}-512/${level >= 2 && isSuper ? 'lvl_2-super' : 'lvl_1-lvl_2'}/${tokenId}.webp`
 
 export const honoraryStaticUrl = (tokenId: string | number): string =>
   `${HONORARY}/png/${tokenId}.png`
@@ -71,6 +92,18 @@ export const droidModelUrl = (tokenId: string | number): string =>
 /** MML-обёртка из метаданных NFT: <m-character src="…glb"> */
 export const droidMmlUrl = (tokenId: string | number): string =>
   `${MODEL_BASE}/mml/${tokenId}.mml`
+
+/** MML-аватар для Otherside. Один адрес на токен и навсегда: документ
+ *  собирается на лету из БД, поэтому апгрейд до level 2 добавляет в него
+ *  кроссовки, а будущий гардероб — купленную одежду, и ссылка в метаданных
+ *  при этом не меняется. Сама сборка — в src/lib/mml.ts.
+ *
+ *  ВАЖНО: это НЕ то же, что droidMmlUrl выше. Тот указывает на запечённую
+ *  модель целиком на GCS и нужен превьюеру лендинга, который читает из MML
+ *  единственную ссылку на GLB. Otherside-версия ссылается на 5-6 файлов, и
+ *  превьюер её не поймёт. */
+export const droidOthersideMmlUrl = (tokenId: string | number): string =>
+  `${SITE_BASE}/api/mml/${tokenId}.mml`
 
 export const batteryUrl = (isSuper: boolean, ext: 'webp' | 'gif' = 'webp'): string =>
   `${MEDIA_BASE}/batteries/${isSuper ? 'super' : 'standart'}_battery.${ext}`
