@@ -23,8 +23,10 @@
 // super render there would be plain wrong (orange bg on a blue droid).
 // When a `lvl_2_png` set is uploaded, use it in droidStaticUrl below.
 // Канонический домен сайта — на него ссылается поле mml в метаданных NFT.
+// Именно www, а не голый apedroidz.com: апекс отвечает 307 на www, а гарантий,
+// что читатель MML (Otherside и прочие) пойдёт за редиректом, у нас нет.
 export const SITE_BASE = (
-  process.env.NEXT_PUBLIC_SITE_URL || 'https://apedroidz.com'
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://www.apedroidz.com'
 ).replace(/\/+$/, '')
 
 export const MEDIA_BASE = (
