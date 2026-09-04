@@ -8,9 +8,15 @@ export const revalidate = 0
 const VIEWS = ['pixel', 'animated', 'pfp3d', 'fullbody', 'model3d'] as const
 type ViewKey = typeof VIEWS[number]
 
-// Full-body renders are not produced yet — that switch stays visible but locked.
-// The 3D PFP bust and the interactive model are live for every token.
-const LOCKED_VIEWS: ViewKey[] = ['fullbody']
+// Виды, закрытые в превьюере. Full Body просто ещё не отрисован.
+// 3D-бюст и интерактивная модель ГОТОВЫ и лежат в проде — они заперты здесь
+// намеренно, до вечернего релиза с анонсом. Открыть = убрать ключ отсюда,
+// больше ничего трогать не нужно: и порядок вкладок, и адреса ассетов, и
+// метадата с новым MML уже в релизном виде.
+const LOCKED_VIEWS: ViewKey[] = ['pfp3d', 'model3d', 'fullbody']
+
+const viewDef = (key: ViewKey, label: string) =>
+  ({ key, label, locked: LOCKED_VIEWS.includes(key) })
 
 // Honorary is a separate ERC-1155 collection: no levels, no 3D renders, and the
 // animated version exists only for the tokens that have a gif.
@@ -78,15 +84,15 @@ export async function GET(
   // Which switches to show, and which of them are dead ends for this token.
   const viewDefs = isHonorary
     ? [
-      { key: 'pixel', label: 'Pixel', locked: false },
-      { key: 'animated', label: 'Animated', locked: false },
+      viewDef('pixel', 'Pixel'),
+      viewDef('animated', 'Animated'),
     ]
     : [
-      { key: 'pfp3d', label: '3D PFP', locked: false },
-      { key: 'animated', label: 'Animated', locked: false },
-      { key: 'pixel', label: 'Pixel', locked: false },
-      { key: 'model3d', label: '3D', locked: false },
-      { key: 'fullbody', label: 'Full Body', locked: true },
+      viewDef('pfp3d', '3D PFP'),
+      viewDef('animated', 'Animated'),
+      viewDef('pixel', 'Pixel'),
+      viewDef('model3d', '3D'),
+      viewDef('fullbody', 'Full Body'),
     ]
 
   // Honorary tokens without a gif still get an Animated switch — it shows the
@@ -110,7 +116,7 @@ export async function GET(
   const animatedLocked = isHonorary ? !hasGif : level < 2
 
   const fallbackView: ViewKey = (isHonorary ? hasGif : level >= 2) ? 'animated' : 'pixel'
-  const openViews = viewDefs.filter(v => !v.locked).map(v => v.key)
+  const openViews: string[] = viewDefs.filter(v => !v.locked).map(v => v.key)
   const savedView: ViewKey = (displayPref && openViews.includes(displayPref)) ? displayPref as ViewKey : fallbackView
   const initialView: ViewKey = (requestedView && openViews.includes(requestedView))
     ? requestedView as ViewKey
