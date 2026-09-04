@@ -68,12 +68,13 @@ export function buildDroidDisplay(row: Partial<DroidRow> & { token_id: number })
   const displayPref: DroidView | null =
     pref === 'pixel' || pref === 'animated' || pref === 'pfp3d' ? pref : null
   // The 3D bust exists for every token, so it needs no level gate — only
-  // 'animated' does. No preference falls back to the level-based default.
+  // 'animated' does. No preference means the 3D bust: it is the collection's
+  // standard look. An explicit choice by the holder always wins over it.
   const effectiveView: DroidView =
     displayPref === 'pfp3d' ? 'pfp3d'
       : displayPref === 'animated' && level >= 2 ? 'animated'
         : displayPref === 'pixel' ? 'pixel'
-          : level >= 2 ? 'animated' : 'pixel'
+          : 'pfp3d'
 
   // Pixel = STATIC png. For anything rendered directly as an image (metadata,
   // dashboard cards) the animation is WebP: it autoplays and is ~20x lighter

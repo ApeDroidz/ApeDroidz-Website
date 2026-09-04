@@ -146,11 +146,14 @@ export async function GET(
       // metadata keeps working before the display_pref migration is applied.
       const displayPref = ['pixel', 'animated', 'pfp3d'].includes(droid.display_pref) ? droid.display_pref : null;
       // The 3D bust exists for every token, so only 'animated' is level-gated.
+      // No saved preference now means the 3D bust — it is the collection's
+      // standard look. Pixel and animated stay one click away in the previewer,
+      // and a holder who picks one keeps it: an explicit choice always wins.
       const effectiveView: 'pixel' | 'animated' | 'pfp3d' =
         displayPref === 'pfp3d' ? 'pfp3d'
           : displayPref === 'animated' && currentLevel >= 2 ? 'animated'
             : displayPref === 'pixel' ? 'pixel'
-              : currentLevel >= 2 ? 'animated' : 'pixel';
+              : 'pfp3d';
 
       // Variant assets live on Cloudflare R2 (assets.apedroidz.com), addressed
       // by token id. Pixel = STATIC png, animated = GIF. See lib/media.

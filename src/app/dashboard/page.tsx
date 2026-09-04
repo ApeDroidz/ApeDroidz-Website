@@ -202,10 +202,13 @@ export default function DashboardPage() {
     setSelectedDroid(item)
     setJustSaved(false)
     if (item) {
+      // Тот же дефолт, что и в метаданных: без сохранённого выбора это 3D-бюст.
+      // У honorary своего 3D нет, там дефолт остаётся уровневым.
       const dv = item.metadata?.display_view
       const initial: ViewKey = dv === 'animated' ? 'animated' : dv === 'pixel' ? 'pixel'
         : dv === 'pfp3d' ? 'pfp3d'
-          : getDroidLevel(item) >= 2 ? 'animated' : 'pixel'
+          : collection === 'honorary' ? (item.metadata?.has_gif ? 'animated' : 'pixel')
+            : 'pfp3d'
       setCurrentView(initial)
       setSavedView(initial)
     }

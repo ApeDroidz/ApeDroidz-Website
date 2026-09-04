@@ -8,12 +8,9 @@ export const revalidate = 0
 const VIEWS = ['pixel', 'animated', 'pfp3d', 'fullbody', 'model3d'] as const
 type ViewKey = typeof VIEWS[number]
 
-// Виды, закрытые в превьюере. Full Body просто ещё не отрисован.
-// 3D-бюст и интерактивная модель ГОТОВЫ и лежат в проде — они заперты здесь
-// намеренно, до вечернего релиза с анонсом. Открыть = убрать ключ отсюда,
-// больше ничего трогать не нужно: и порядок вкладок, и адреса ассетов, и
-// метадата с новым MML уже в релизном виде.
-const LOCKED_VIEWS: ViewKey[] = ['pfp3d', 'model3d', 'fullbody']
+// Full-body renders are not produced yet — that switch stays visible but locked.
+// The 3D PFP bust and the interactive model are open since the 3D release.
+const LOCKED_VIEWS: ViewKey[] = ['fullbody']
 
 const viewDef = (key: ViewKey, label: string) =>
   ({ key, label, locked: LOCKED_VIEWS.includes(key) })
@@ -115,7 +112,12 @@ export async function GET(
   // Animated is a locked teaser when the token cannot actually have it.
   const animatedLocked = isHonorary ? !hasGif : level < 2
 
-  const fallbackView: ViewKey = (isHonorary ? hasGif : level >= 2) ? 'animated' : 'pixel'
+  // 3D-бюст — вид по умолчанию для всей коллекции: он есть у каждого токена и
+  // не зависит от уровня. Пиксель и анимация никуда не делись, но теперь это
+  // осознанный выбор холдера, а не то, что достаётся молча. У honorary 3D нет.
+  const fallbackView: ViewKey = isHonorary
+    ? (hasGif ? 'animated' : 'pixel')
+    : 'pfp3d'
   const openViews: string[] = viewDefs.filter(v => !v.locked).map(v => v.key)
   const savedView: ViewKey = (displayPref && openViews.includes(displayPref)) ? displayPref as ViewKey : fallbackView
   const initialView: ViewKey = (requestedView && openViews.includes(requestedView))
