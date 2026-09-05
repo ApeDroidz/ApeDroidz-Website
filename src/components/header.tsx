@@ -36,18 +36,22 @@ interface NavItem {
 interface NavGroup {
   key: string;
   label: string;
+  /** вся вкладка ещё не открыта — бейдж Soon на самом заголовке группы */
+  soon?: boolean;
   items: NavItem[];
 }
 
 // Единый источник навигации для десктопа и мобильного меню.
 //
-// Порядок здесь — это порядок на экране: Dashboard → Staking → Upgrade → Tools →
-// Glitch Cards → Links. Раньше прямые ссылки и группы рисовались двумя отдельными
-// списками, из-за чего порядок нельзя было задать, только подстроить рендер.
+// Порядок здесь — это порядок на экране: Dashboard → Upgrade → Tools →
+// Glitch Cards → Links → Staking. Раньше прямые ссылки и группы рисовались двумя
+// отдельными списками, из-за чего порядок нельзя было задать, только подстроить
+// рендер. Staking стоит последним и помечен Soon: внутри обе страницы закрыты.
 const NAV_GROUPS: NavGroup[] = [
   {
     key: "staking",
     label: "Staking",
+    soon: true,
     items: [
       { href: "/staking/lifetime", label: "Lifetime Lock", soon: true },
       { href: "/staking/work", label: "Working", soon: true },
@@ -59,13 +63,13 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/upgrade_module", label: "Upgrade Module" },
       { href: "/batteries_mint", label: "Mint Batteries" },
+      { href: "/merge_mechanism", label: "Merge Mechanism" },
     ],
   },
   {
     key: "tools",
     label: "Tools",
     items: [
-      { href: "/merge_mechanism", label: "Merge Mechanism" },
       { href: "/grid", label: "Grid Maker" },
     ],
   },
@@ -93,11 +97,11 @@ const byKey = (key: string) => NAV_GROUPS.find((g) => g.key === key)!;
 /** The single ordered navigation the user asked for, desktop and mobile alike. */
 const NAV_ORDER: NavEntry[] = [
   { kind: "link", item: DIRECT_LINKS[0] },          // Dashboard
-  { kind: "group", group: byKey("staking") },       // Staking → Lifetime Lock / Working
-  { kind: "group", group: byKey("upgrade") },       // Upgrade
+  { kind: "group", group: byKey("upgrade") },       // Upgrade → Module / Batteries / Merge
   { kind: "group", group: byKey("tools") },         // Tools
   { kind: "link", item: DIRECT_LINKS[1] },          // Glitch Cards
   { kind: "group", group: byKey("links") },         // Links
+  { kind: "group", group: byKey("staking") },       // Staking (Soon) — последним
 ];
 
 // Общая «стеклянная» плашка — тот же фрейм, что у панелей дашборда.
@@ -179,6 +183,11 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                     aria-expanded={open}
                   >
                     {group.label}
+                    {group.soon && (
+                      <span className="text-[8px] font-black uppercase tracking-widest border border-white/12 rounded px-1 py-0.5 text-white/40">
+                        Soon
+                      </span>
+                    )}
                     <ChevronDown size={13} className={`transition-transform ${open ? "rotate-180" : ""}`} />
                   </button>
 
@@ -384,6 +393,11 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                         aria-expanded={open}
                       >
                         <span className="flex-1 text-left">{group.label}</span>
+                        {group.soon && (
+                          <span className="mr-2 text-[8px] font-black uppercase tracking-widest border border-white/12 rounded px-1.5 py-0.5 text-white/40">
+                            Soon
+                          </span>
+                        )}
                         <ChevronDown size={16} className={`text-white icon-dim-50 transition-transform ${open ? "rotate-180" : ""}`} />
                       </button>
 

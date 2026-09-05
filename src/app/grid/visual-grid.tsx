@@ -3,64 +3,18 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { NFTItem } from "@/app/upgrade_module/page"
-import { droidAnimatedUrl, honoraryAnimatedUrl } from "@/lib/media"
-import { resolveImageUrl } from "@/lib/utils"
 import { GridFooter } from "./grid-footer"
+import {
+    BLUE_BG, ORANGE_BG, DARK_BG, GridStyle,
+    is3d, getAnimatedUrl, getStillUrl, getPixelUrl, gridBackground, calculateGridDimensions,
+} from "./grid-art"
 
 interface VisualGridProps {
     droids: NFTItem[]
     gridOrder: string[]
     onReorder: (newOrder: string[]) => void
     gridRef: React.RefObject<HTMLDivElement | null>
-}
-
-const BLUE_BG = '#0247AF'
-const ORANGE_BG = '#FF6C00'
-
-// Check if droid is super
-const isSuper = (item: NFTItem): boolean => {
-    return (item.batteryType === 'Super') || !!item.metadata?.attributes?.some((a: any) =>
-        (a.trait_type === "upgrade level" && a.value?.toLowerCase().includes("super")) ||
-        (a.trait_type === "background" && a.value === "apechain_orange")
-    )
-}
-
-const getAnimatedUrl = (item: NFTItem): string | null => {
-    const tokenId = item.tokenId || item.id
-
-    // Honorary is a separate collection with its own art: it has no levels, and
-    // only the tokens that actually have a gif can animate.
-    //
-    // Берём готовый URL из метаданных, а не собираем путь из tokenId: файлы
-    // honorary названы по номеру арта, а не токена, и лежат в webp — путь
-    // вида /gif/<tokenId>.gif отдаёт 404 для всей коллекции.
-    if (item.isHonorary) {
-        if (!item.metadata?.has_gif) return null
-        return item.metadata?.image_animated || honoraryAnimatedUrl(tokenId)
-    }
-
-    const level = item.level || 1
-    if (level < 2) return null
-    return droidAnimatedUrl(tokenId, isSuper(item))
-}
-
-// Calculate optimal grid dimensions for N items (minimum 2)
-const calculateGridDimensions = (count: number): { cols: number; rows: number } => {
-    if (count < 2) return { cols: 2, rows: 1 }
-    if (count === 2) return { cols: 2, rows: 1 }
-    if (count === 3) return { cols: 3, rows: 1 }
-    if (count === 4) return { cols: 2, rows: 2 }
-    if (count === 5) return { cols: 3, rows: 2 }
-    if (count === 6) return { cols: 3, rows: 2 }
-    if (count <= 9) return { cols: 3, rows: 3 }
-    if (count <= 12) return { cols: 4, rows: 3 }
-    if (count <= 16) return { cols: 4, rows: 4 }
-    if (count <= 20) return { cols: 5, rows: 4 }
-    if (count <= 25) return { cols: 5, rows: 5 }
-
-    const cols = Math.ceil(Math.sqrt(count))
-    const rows = Math.ceil(count / cols)
-    return { cols, rows }
+    style: GridStyle
 }
 
 // Grid cell with animations
@@ -75,11 +29,13 @@ const GridCell = ({
     onDragEnd,
     isDragging,
     isDropTarget,
-    draggedDroid
+    draggedDroid,
+    style,
 }: {
     droid: NFTItem | null
     index: number
     bgColor: string
+    style: GridStyle
     onDragStart: (index: number) => void
     onDragEnter: (index: number) => void
     onDragOver: (e: React.DragEvent) => void
@@ -91,7 +47,7 @@ const GridCell = ({
 }) => {
     const [isLoaded, setIsLoaded] = useState(false)
     const imgRef = useRef<HTMLImageElement>(null)
-    const dropTargetBg = bgColor === ORANGE_BG ? '#FF8C33' : '#0369A1'
+    const dropTargetBg = bgColor === ORANGE_BG ? '#FF8C33' : bgColor === DARK_BG ? '#262626' : '#0369A1'
 
     // Картинка из кеша успевает догрузиться до того, как React повесит onLoad —
     // событие тогда не приходит вовсе, isLoaded остаётся false, и плитка живёт
@@ -124,10 +80,10 @@ const GridCell = ({
                         className="w-3/4 h-3/4 rounded-lg overflow-hidden"
                     >
                         <img
-                            src={resolveImageUrl(draggedDroid.image)}
+                            src={getStillUrl(draggedDroid, style)}
                             alt="Preview"
                             className="w-full h-full object-cover opacity-60"
-                            style={{ imageRendering: 'pixelated' }}
+                            style={{ imageRendering: is3d(draggedDroid, style) ? 'auto' : 'pixelated' }}
                         />
                     </motion.div>
                 ) : (
@@ -137,8 +93,11 @@ const GridCell = ({
         )
     }
 
-    const animatedUrl = getAnimatedUrl(droid)
-    const imageUrl = animatedUrl || resolveImageUrl(droid.image)
+    const animatedUrl = getAnimatedUrl(droid, style)
+    const imageUrl = animatedUrl || getStillUrl(droid, style)
+    // Бюст — фотореалистичный рендер, ему нужна обычная интерполяция;
+    // пикселизация нужна только пиксель-арту.
+    const rendering = is3d(droid, style) ? 'auto' : 'pixelated'
 
     return (
         <motion.div
@@ -182,17 +141,20 @@ const GridCell = ({
                     // делает выгрузка. Раньше ветка ловила только `.webp`, и
                     // упавший gif оставлял плитку навсегда прозрачной: isLoaded
                     // не выставлялся, и на месте NFT висела заглушка.
+                    // Порядок отката: анимация → актуальная статика → пиксель.
                     const img = e.target as HTMLImageElement
-                    const still = resolveImageUrl(droid.image)
-                    if (img.src !== still) { img.src = still; return }
-                    if (still.endsWith('.webp')) { img.src = still.replace('.webp', '.png'); return }
+                    const still = getStillUrl(droid, style)
+                    const pixel = getPixelUrl(droid)
+                    if (img.src !== still && img.src !== pixel) { img.src = still; return }
+                    if (img.src === still && pixel !== still) { img.src = pixel; return }
+                    if (/\.webp(\?|$)/.test(img.src)) { img.src = img.src.replace(/\.webp(\?|$)/, '.png$1'); return }
                     // Дальше откатываться некуда — показываем что есть, иначе
                     // ячейка останется пустой навсегда.
                     setIsLoaded(true)
                 }}
                 draggable={false}
                 className={`w-full h-full object-cover block transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-                style={{ imageRendering: 'pixelated', display: 'block', margin: 0, padding: 0 }}
+                style={{ imageRendering: rendering, display: 'block', margin: 0, padding: 0 }}
                 /* Без crossOrigin. Пиксели отсюда никто не читает — выгрузка
                    грузит свои копии картинок сама. А с ним ячейка ломалась:
                    селектор уже положил этот URL в кеш обычным запросом, без
@@ -228,7 +190,7 @@ const GridCell = ({
     )
 }
 
-export function VisualGrid({ droids, gridOrder, onReorder, gridRef }: VisualGridProps) {
+export function VisualGrid({ droids, gridOrder, onReorder, gridRef, style }: VisualGridProps) {
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
     const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
     const containerRef = useRef<HTMLDivElement>(null)
@@ -249,14 +211,8 @@ export function VisualGrid({ droids, gridOrder, onReorder, gridRef }: VisualGrid
         return () => window.removeEventListener('resize', updateSize)
     }, [])
 
-    // Check if majority are super (>50%)
-    const isSuperMajority = useMemo(() => {
-        if (droids.length === 0) return false
-        const superCount = droids.filter(d => isSuper(d)).length
-        return superCount > droids.length / 2
-    }, [droids])
-
-    const bgColor = isSuperMajority ? ORANGE_BG : BLUE_BG
+    // Тёмный под 3D-бюстами, оранжевый под SUPER, иначе синий — по большинству.
+    const bgColor = useMemo(() => gridBackground(droids, style), [droids, style])
 
     // Calculate dimensions based on droids count
     const { cols, rows } = useMemo(() => calculateGridDimensions(droids.length), [droids.length])
@@ -424,6 +380,7 @@ export function VisualGrid({ droids, gridOrder, onReorder, gridRef }: VisualGrid
                             isDragging={draggedIndex === index}
                             isDropTarget={dropTargetIndex === index}
                             draggedDroid={draggedDroid}
+                            style={style}
                         />
                     ))}
                 </div>
@@ -437,4 +394,4 @@ export function VisualGrid({ droids, gridOrder, onReorder, gridRef }: VisualGrid
     )
 }
 
-export { calculateGridDimensions, isSuper, BLUE_BG, ORANGE_BG }
+export { BLUE_BG, ORANGE_BG, DARK_BG }

@@ -11,6 +11,7 @@ import { VisualGrid } from "./visual-grid"
 import { GridDownloadButton } from "./grid-download-button"
 import { ProfileModal } from "@/components/profile-modal"
 import { resolveImageUrl } from "@/lib/utils"
+import { GridStyle, supportsStyle } from "./grid-art"
 
 
 // Type reuse
@@ -38,6 +39,10 @@ export default function GridPage() {
     const [gridOrder, setGridOrder] = useState<string[]>([])
     const [isLoading, setIsLoading] = useState(true)
 
+    // Стиль всего грида — как в дашборде. `standard` даёт каждому дроиду его
+    // собственный сохранённый вид, остальные перекрашивают грид целиком.
+    const [gridStyle, setGridStyle] = useState<GridStyle>('standard')
+
     const [isProfileOpen, setIsProfileOpen] = useState(false)
     const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'leaderboard'>('profile')
 
@@ -62,28 +67,44 @@ export default function GridPage() {
                 fetch(`/api/owned-honorary?owner=${owner}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : {}).catch(() => ({})) as Promise<any>,
             ])
 
-            // Grids render the static art — GIF frames are extracted separately
-            // by the download button when it builds an animated grid.
+            // В грид идёт актуальный PFP дроида — тот вид, что холдер сохранил в
+            // дашборде (или дефолт коллекции, 3D-бюст). `image` от API уже
+            // разрешён с учётом этого; display_view говорит гриду, что это —
+            // пиксель, 3D или анимация. GIF-кадры для анимации выгрузка
+            // достаёт сама, а пиксельная статика остаётся запасным вариантом.
             const loadedDroids: NFTItem[] = (droidRes?.droids || []).map((d: any) => ({
                 id: d.id,
                 tokenId: d.tokenId,
                 name: d.name,
-                image: resolveImageUrl(d.image_pixel || d.image),
+                image: resolveImageUrl(d.image),
                 type: 'droid' as const,
                 level: d.level ?? 1,
-                metadata: { attributes: d.attributes, is_super: d.is_super },
+                metadata: {
+                    attributes: d.attributes,
+                    is_super: d.is_super,
+                    display_view: d.display_view,
+                    image_pixel: d.image_pixel,
+                    image_animated: d.image_animated,
+                    image_3d: d.image_3d,
+                },
             }))
 
             const loadedHonorary: NFTItem[] = (honoraryRes?.droids || []).map((d: any) => ({
                 id: d.id,
                 tokenId: d.tokenId,
                 name: d.name,
-                image: resolveImageUrl(d.image_pixel || d.image),
+                image: resolveImageUrl(d.image),
                 type: 'droid' as const,
                 level: 1,
                 // has_gif drives whether this one can animate — honorary art is
                 // per-token, only some of them were animated.
-                metadata: { attributes: d.attributes, has_gif: d.has_gif, image_animated: d.image_animated },
+                metadata: {
+                    attributes: d.attributes,
+                    has_gif: d.has_gif,
+                    image_animated: d.image_animated,
+                    image_pixel: d.image_pixel,
+                    display_view: d.display_view,
+                },
                 isHonorary: true,
             }))
 
@@ -99,6 +120,21 @@ export default function GridPage() {
     useEffect(() => {
         fetchMyDroids()
     }, [fetchMyDroids])
+
+    // Смена стиля выкидывает из грида тех, у кого такого арта нет: список их
+    // тоже прячет, и иначе дроид остался бы в гриде без возможности его снять.
+    useEffect(() => {
+        setSelectedDroids(prev => {
+            const kept = prev.filter(d => supportsStyle(d, gridStyle))
+            return kept.length === prev.length ? prev : kept
+        })
+    }, [gridStyle])
+
+    // Порядок ячеек всегда следует за выбором — чистим осиротевшие id.
+    useEffect(() => {
+        const ids = new Set(selectedDroids.map(d => d.id))
+        setGridOrder(order => (order.every(id => ids.has(id)) ? order : order.filter(id => ids.has(id))))
+    }, [selectedDroids])
 
 
 
@@ -165,6 +201,7 @@ export default function GridPage() {
                                 gridOrder={gridOrder}
                                 onReorder={handleReorder}
                                 gridRef={gridRef}
+                                style={gridStyle}
                             />
                         </div>
 
@@ -172,6 +209,7 @@ export default function GridPage() {
                         <GridDownloadButton
                             droids={selectedDroids}
                             gridOrder={gridOrder}
+                            style={gridStyle}
                         />
                     </div>
 
@@ -185,6 +223,8 @@ export default function GridPage() {
                                 onSelectAll={handleSelectAll}
                                 onRefresh={fetchMyDroids}
                                 isLoading={isLoading}
+                                style={gridStyle}
+                                onStyleChange={setGridStyle}
                             />
                         </div>
                     </div>

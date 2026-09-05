@@ -213,7 +213,7 @@ const MintPromoCard = () => {
           </h3>
 
           {/* Button */}
-          <div className="h-7 md:h-7 w-full px-3 md:px-4 flex items-center justify-center gap-1 bg-white text-black rounded-md font-black uppercase tracking-wide text-[10px] md:text-[10px] transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white shadow-lg">
+          <div className="h-7 md:h-7 w-full px-3 md:px-4 flex items-center justify-center gap-1 bg-white text-black rounded-full font-black uppercase tracking-wide text-[10px] md:text-[10px] transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white shadow-lg">
             Mint →
           </div>
 

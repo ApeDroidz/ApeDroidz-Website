@@ -2,10 +2,10 @@
 
 import { useState, useMemo, useEffect, useRef } from "react"
 import { NFTItem } from "@/app/upgrade_module/page"
-import { resolveImageUrl } from "@/lib/utils"
 import { RefreshCcw, Check, ChevronDown, Lock } from "lucide-react"
+import { GridStyle, GRID_STYLE_OPTIONS, getStillUrl, is3d, supportsStyle } from "./grid-art"
 
-type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER'
+type DroidFilter = 'ALL' | 'LVL 1' | 'LVL 2' | 'LVL 2 SUPER' | 'HONORARY'
 
 interface GridDroidSelectorProps {
     droids: NFTItem[]
@@ -14,10 +14,12 @@ interface GridDroidSelectorProps {
     onSelectAll: (filteredDroids: NFTItem[]) => void
     onRefresh?: () => Promise<void> | void
     isLoading?: boolean
+    style: GridStyle
+    onStyleChange: (style: GridStyle) => void
 }
 
 // === FILTER DROPDOWN (reused from dashboard) ===
-const FilterDropdown = ({ options, activeFilter, onSelect }: { options: any[], activeFilter: string, onSelect: (val: any) => void }) => {
+const FilterDropdown = ({ options, activeFilter, onSelect, width = "w-36" }: { options: any[], activeFilter: string, onSelect: (val: any) => void, width?: string }) => {
     const [isOpen, setIsOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -37,19 +39,19 @@ const FilterDropdown = ({ options, activeFilter, onSelect }: { options: any[], a
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] uppercase font-bold tracking-wider text-white/70 transition-all hover:bg-white/10 border border-white/10"
+                className="cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] uppercase font-bold tracking-wider text-white/70 transition-all hover:bg-white/10"
             >
                 {activeLabel}
                 <ChevronDown size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
-                <div className="absolute top-full right-0 mt-2 w-36 bg-[#0a0a0a] border border-white/20 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col py-1">
+                <div className={`absolute top-full right-0 mt-2 ${width} bg-[#0a0a0a] border border-white/20 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col py-1`}>
                     {options.map((opt) => (
                         <button
                             key={opt.value}
                             disabled={opt.locked}
                             onClick={() => { if (!opt.locked) { onSelect(opt.value); setIsOpen(false) } }}
-                            className={`flex items-center justify-between px-4 py-2 text-[10px] uppercase font-bold tracking-wider text-left transition-colors w-full ${opt.locked ? 'opacity-40 cursor-not-allowed text-white/50' : 'hover:bg-white/10 cursor-pointer text-white'} ${activeFilter === opt.value ? 'bg-white/5 text-blue-400' : ''} ${opt.color === 'orange' ? 'text-orange-400 hover:text-orange-300' : ''}`}
+                            className={`flex items-center justify-between px-4 py-2 text-[10px] uppercase font-bold tracking-wider text-left transition-colors w-full ${opt.locked ? 'opacity-40 cursor-not-allowed text-white/50' : 'hover:bg-white/10 cursor-pointer text-white'} ${activeFilter === opt.value ? 'bg-white/5 text-blue-400' : ''} ${opt.color === 'orange' ? 'text-orange-400 hover:text-orange-300' : ''} ${opt.color === 'amber' ? 'text-[#F59E0B] hover:text-[#FBBF24]' : ''}`}
                         >
                             <span className="flex items-center gap-2">{opt.locked && <Lock size={10} />}{opt.label}</span>
                             {activeFilter === opt.value && <Check size={12} />}
@@ -66,14 +68,27 @@ const GridDroidCard = ({
     item,
     isSelected,
     onToggle,
+    style,
 }: {
     item: NFTItem
     isSelected: boolean
     onToggle: (item: NFTItem) => void
+    style: GridStyle
 }) => {
     const tokenNumber = item.name.match(/#(\d+)/)?.[1] || item.id.replace(/[^0-9]/g, '') || item.id
     const displayId = `#${tokenNumber}`
     const [isLoaded, setIsLoaded] = useState(false)
+    const imgRef = useRef<HTMLImageElement>(null)
+    // Карточка показывает ровно то, что уедет в грид: выбранный стиль, а без
+    // него — сохранённый вид дроида.
+    const imageUrl = getStillUrl(item, style)
+
+    // Кешированная картинка успевает догрузиться до того, как React повесит
+    // onLoad — тогда события нет вовсе и плитка остаётся прозрачной.
+    useEffect(() => {
+        const img = imgRef.current
+        if (img?.complete && img.naturalWidth > 0) setIsLoaded(true)
+    })
 
     let borderColor = "border-white/20 hover:border-white/50"
     if (isSelected) {
@@ -91,15 +106,18 @@ const GridDroidCard = ({
                 <div className="absolute inset-0 bg-white/5 animate-pulse" />
             )}
             <img
-                src={item.isHonorary ? item.image : resolveImageUrl(item.image)}
+                ref={imgRef}
+                src={imageUrl}
                 alt={item.name}
                 onLoad={() => setIsLoaded(true)}
                 onError={(e) => {
                     // webp → png fallback for honorary droids
-                    if (item.isHonorary && (e.target as HTMLImageElement).src.endsWith('.webp')) {
-                        (e.target as HTMLImageElement).src = item.image.replace('.webp', '.png')
+                    const img = e.target as HTMLImageElement
+                    if (item.isHonorary && /\.webp(\?|$)/.test(img.src)) {
+                        img.src = img.src.replace(/\.webp(\?|$)/, '.png$1')
                     }
                 }}
+                style={{ imageRendering: is3d(item, style) ? 'auto' : 'pixelated' }}
                 className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
                 loading="lazy"
             />
@@ -128,7 +146,9 @@ export function GridDroidSelector({
     onToggleSelect,
     onSelectAll,
     onRefresh,
-    isLoading = false
+    isLoading = false,
+    style,
+    onStyleChange,
 }: GridDroidSelectorProps) {
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [activeFilter, setActiveFilter] = useState<DroidFilter>('ALL')
@@ -142,27 +162,36 @@ export function GridDroidSelector({
 
     const selectedIds = useMemo(() => new Set(selectedDroids.map(d => d.id)), [selectedDroids])
 
-    // Filter droids
+    // Фильтр списка. Стиль отсекает тех, у кого такого арта просто нет —
+    // honorary без 3D, первый уровень без анимации: иначе они молча уезжали бы
+    // в другой вид и грид выходил бы смешанным.
     const filteredDroids = useMemo(() => {
         return droids.filter(item => {
+            if (!supportsStyle(item, style)) return false
+
+            if (activeFilter === 'ALL') return true
+            if (activeFilter === 'HONORARY') return !!item.isHonorary
+            // Уровни — только про базовую коллекцию: у honorary уровней нет.
+            if (item.isHonorary) return false
+
             const level = item.level || 1
-            const isSuper = item.metadata?.attributes?.some((a: any) =>
+            const isSuperDroid = item.metadata?.attributes?.some((a: any) =>
                 (a.trait_type === "upgrade level" && a.value?.includes("super")) ||
                 (a.trait_type === "background" && a.value === "apechain_orange")
             )
-            if (activeFilter === 'ALL') return true
             if (activeFilter === 'LVL 1') return level === 1
-            if (activeFilter === 'LVL 2') return level === 2 && !isSuper
-            if (activeFilter === 'LVL 2 SUPER') return level === 2 && isSuper
+            if (activeFilter === 'LVL 2') return level === 2 && !isSuperDroid
+            if (activeFilter === 'LVL 2 SUPER') return level === 2 && isSuperDroid
             return true
         })
-    }, [droids, activeFilter])
+    }, [droids, activeFilter, style])
 
     const filterOptions = [
         { label: 'All Droidz', value: 'ALL' },
         { label: 'Level 1', value: 'LVL 1' },
         { label: 'Level 2', value: 'LVL 2' },
         { label: 'Level 2 Super', value: 'LVL 2 SUPER', color: 'orange' },
+        { label: 'Honorary', value: 'HONORARY', color: 'amber' },
     ]
 
     const loadingSkeletons = Array.from({ length: 8 })
@@ -171,7 +200,7 @@ export function GridDroidSelector({
     return (
         <div className="flex flex-col h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-3 md:p-4 relative">
             {/* Header */}
-            <div className="flex items-center justify-between mb-3 flex-shrink-0 relative z-30">
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-3 flex-shrink-0 relative z-30">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold tracking-wider text-white/90 uppercase">Your Droidz</h3>
                     <span className="text-[10px] text-white/40 font-mono">({filteredDroids.length})</span>
@@ -188,7 +217,15 @@ export function GridDroidSelector({
                         </button>
                     )}
                 </div>
-                <FilterDropdown options={filterOptions} activeFilter={activeFilter} onSelect={setActiveFilter} />
+                <div className="flex items-center gap-2">
+                    <FilterDropdown
+                        options={GRID_STYLE_OPTIONS}
+                        activeFilter={style}
+                        onSelect={onStyleChange}
+                        width="w-40"
+                    />
+                    <FilterDropdown options={filterOptions} activeFilter={activeFilter} onSelect={setActiveFilter} />
+                </div>
             </div>
 
             {/* Selected count */}
@@ -205,6 +242,10 @@ export function GridDroidSelector({
                         loadingSkeletons.map((_, i) => (
                             <div key={i} className="aspect-square rounded-lg overflow-hidden border-2 border-white/10 bg-white/5 animate-pulse" />
                         ))
+                    ) : filteredDroids.length === 0 ? (
+                        <div className="col-span-4 py-8 text-center text-[10px] uppercase tracking-widest text-white/30">
+                            {droids.length === 0 ? 'No droidz found' : 'Nothing in this style'}
+                        </div>
                     ) : (
                         filteredDroids.map((item) => (
                             <GridDroidCard
@@ -212,6 +253,7 @@ export function GridDroidSelector({
                                 item={item}
                                 isSelected={selectedIds.has(item.id)}
                                 onToggle={onToggleSelect}
+                                style={style}
                             />
                         ))
                     )}

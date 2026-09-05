@@ -1,45 +1,55 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
+import { layoutFooterLogos } from "./grid-art"
+
 interface GridFooterProps {
     height?: number
     bgColor?: string
 }
 
 export function GridFooter({ height, bgColor = '#0247AF' }: GridFooterProps) {
-    // Calculate logo sizes based on footer height
-    // Logos should be about 35-40% of footer height
-    const logoHeight = height ? Math.min(height * 0.35, 28) : undefined
-    const logo2Height = height ? Math.min(height * 0.40, 32) : undefined
+    const ref = useRef<HTMLDivElement>(null)
+    const [width, setWidth] = useState(0)
+
+    // Раскладка считается от реальной ширины подвала — та же математика, что у
+    // выгрузки, поэтому скачанная картинка повторяет превью.
+    useEffect(() => {
+        const measure = () => setWidth(ref.current?.offsetWidth || 0)
+        measure()
+        window.addEventListener('resize', measure)
+        return () => window.removeEventListener('resize', measure)
+    }, [height])
+
+    const layout = width > 0 && height ? layoutFooterLogos(width, height) : null
 
     return (
         <div
-            className="w-full h-full flex items-center justify-center gap-3 md:gap-5 transition-colors duration-500"
+            ref={ref}
+            className="w-full h-full flex items-center justify-center transition-colors duration-500"
             style={{
                 backgroundColor: bgColor,
                 height: height || 'auto',
-                padding: height ? 0 : '1.5rem 1rem'
+                gap: layout ? `${layout.gap}px` : undefined,
+                padding: height ? 0 : '1.5rem 1rem',
             }}
         >
-            {/* Logos - scale with footer height */}
-            <img
-                src="/Apechain.svg"
-                alt="ApeChain"
-                className={height ? '' : 'h-5 md:h-6'}
-                style={{
-                    filter: 'brightness(0) invert(1)',
-                    height: logoHeight ? `${logoHeight}px` : undefined,
-                    width: 'auto'
-                }}
-            />
-            <img
-                src="/full-logo.svg"
-                alt="ApeDroidz"
-                className={height ? 'brightness-0 invert' : 'h-6 md:h-7 brightness-0 invert'}
-                style={{
-                    height: logo2Height ? `${logo2Height}px` : undefined,
-                    width: 'auto'
-                }}
-            />
+            {layout
+                ? layout.items.map((logo) => (
+                    <img
+                        key={logo.src}
+                        src={logo.src}
+                        alt={logo.alt}
+                        draggable={false}
+                        style={{
+                            // Лого приходят в разных цветах — красим все в белый.
+                            filter: 'brightness(0) invert(1)',
+                            height: `${logo.height}px`,
+                            width: `${logo.width}px`,
+                        }}
+                    />
+                ))
+                : null}
         </div>
     )
 }
