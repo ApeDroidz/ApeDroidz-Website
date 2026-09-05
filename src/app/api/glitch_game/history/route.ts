@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { droid3dPrizeImages } from '@/lib/prizeArt';
 
 const PAGE_SIZE = 20;
 
@@ -63,10 +64,12 @@ export async function GET(req: Request) {
                 .select('token_id, name, image_url, contract_address')
                 .in('token_id', nftTokenIds);
 
+            const busts = await droid3dPrizeImages(nftItems || []);
             nftItems?.forEach((item: any) => {
                 nftDetailMap.set(String(item.token_id), {
                     name: item.name,
-                    image_url: item.image_url,
+                    // Дроид — 3D-бюстом; остальные коллекции как лежат в базе.
+                    image_url: busts.get(String(item.token_id)) || item.image_url,
                     contract_address: item.contract_address,
                 });
             });

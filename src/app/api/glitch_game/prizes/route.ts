@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase"
+import { droid3dPrizeImages } from "@/lib/prizeArt"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -66,6 +67,14 @@ export async function GET() {
                     console.warn(`[Prizes API] Stockout for category: ${category.id}, omitting from wheel.`)
                 }
             }
+        }
+
+        // Дроиды на карточках показываются 3D-бюстом, а не пиксельным артом из
+        // старого хранилища — см. lib/prizeArt.
+        const busts = await droid3dPrizeImages(finalPrizes)
+        for (const prize of finalPrizes as any[]) {
+            const bust = busts.get(String(prize.token_id))
+            if (bust) prize.image_url = bust
         }
 
         return NextResponse.json({ prizes: finalPrizes })

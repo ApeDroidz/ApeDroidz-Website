@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { droid3dPrizeImages } from '@/lib/prizeArt';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -76,12 +77,14 @@ export async function GET(req: Request) {
                 .select('token_id, name, image_url, contract_address')
                 .in('token_id', tokenIds);
 
+            const busts = await droid3dPrizeImages(nftItems || []);
             (nftItems || []).forEach((item: any) => {
                 const tid = String(item.token_id);
                 const contract = (item.contract_address || '').toLowerCase();
                 const detail = {
                     name: item.name,
-                    image_url: item.image_url,
+                    // Дроид — 3D-бюстом; остальные коллекции как лежат в базе.
+                    image_url: busts.get(tid) || item.image_url,
                     contract_address: item.contract_address || '',
                     token_id: tid,
                 };

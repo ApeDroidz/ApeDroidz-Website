@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase';
+import { droid3dPrizeImages } from '@/lib/prizeArt'
 import { getContract, prepareTransaction, toWei } from 'thirdweb';
 import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain';
 import { detectTokenStandard } from '@/lib/tokenStandard';
@@ -273,13 +274,20 @@ export async function POST(req: Request) {
             if (error) console.warn('[ReferralProgress] Cards update failed:', error.message)
         });
 
+        // Выигранный дроид показывается 3D-бюстом — тем же, что на карточке.
+        let wonImageUrl = inventoryItem ? inventoryItem.image_url : (finalPrize.image_url ?? '')
+        if (inventoryItem) {
+            const busts = await droid3dPrizeImages([inventoryItem])
+            wonImageUrl = busts.get(String(inventoryItem.token_id)) || wonImageUrl
+        }
+
         return NextResponse.json({
             success: true,
             prize: {
                 id: finalPrize.id,
                 name: inventoryItem ? inventoryItem.name : (finalPrize.name ?? 'Unknown Prize'),
                 type: finalPrize.type,
-                imageUrl: inventoryItem ? inventoryItem.image_url : (finalPrize.image_url ?? ''),
+                imageUrl: wonImageUrl,
                 nftTokenId,
             },
             xp_gained: xpGained,
