@@ -12,7 +12,6 @@ import { OthersideSection } from "@/components/landing/otherside-section"
 import { StakingSection } from "@/components/landing/staking-section"
 import { TeamSection } from "@/components/landing/team-section"
 import { Footer } from "@/components/footer"
-import { Droid3DCTA } from "@/components/droid-3d-cta"
 
 export default function Home() {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -60,8 +59,10 @@ export default function Home() {
         <Footer />
       </div>
 
-      {/* Угловой баннер про 3D — вернулся после релиза рендеров */}
-      <Droid3DCTA />
+      {/* Углового баннера про 3D здесь больше нет: ту же мысль теперь несёт
+          сам герой — заголовок «ApeDroidz 3D Collection is Live», кнопка
+          «Check Your Droidz» и подборка дроидов в кадре. Сам компонент цел,
+          лежит в components/droid-3d-cta.tsx — вернуть можно одной строкой. */}
 
       {/* Profile Modal */}
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} initialTab={profileInitialTab} />

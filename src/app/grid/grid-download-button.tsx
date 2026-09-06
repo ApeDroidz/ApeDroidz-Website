@@ -17,38 +17,48 @@ interface GridDownloadButtonProps {
 const CANVAS_SIZE = 1200
 const FRAME_DELAY = 190
 
-const loadImage = (src: string, timeoutMs = 20000): Promise<HTMLImageElement> => {
-    return new Promise((resolve, reject) => {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        const timer = setTimeout(() => {
-            img.src = ''
-            reject(new Error(`Image load timeout: ${src}`))
-        }, timeoutMs)
-        img.onload = () => {
-            clearTimeout(timer)
-            resolve(img)
-        }
-        img.onerror = () => {
-            clearTimeout(timer)
-            reject(new Error(`Image load failed: ${src}`))
-        }
-        img.src = src
-    })
+/** Грузит картинку через fetch + blob, а не подставляя адрес прямо в <img>.
+ *
+ *  Прямой путь ломался ровно на 3D-гридах. Превью и список кладут те же адреса
+ *  в кеш ОБЫЧНЫМ запросом, без CORS-заголовков (там пиксели никто не читает,
+ *  и crossOrigin нарочно не ставится). Выгрузке же crossOrigin нужен — иначе
+ *  холст становится «грязным». Браузер переиспользует закешированный ответ,
+ *  отклоняет его как непригодный для CORS, и картинка не грузится вовсе.
+ *
+ *  Blob-адрес свой и same-origin: ни кеша, ни CORS, ни грязного холста.
+ *  Созданные адреса складываем в `keep`, чтобы освободить их одним махом
+ *  после отрисовки — освобождать сразу после onload рискованно. */
+const loadImage = async (src: string, keep: string[], timeoutMs = 20000): Promise<HTMLImageElement> => {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+    try {
+        const res = await fetch(src, { signal: ctrl.signal, cache: 'no-cache' })
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${src}`)
+        const blobUrl = URL.createObjectURL(await res.blob())
+        keep.push(blobUrl)
+        return await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image()
+            img.onload = () => resolve(img)
+            img.onerror = () => reject(new Error(`Image decode failed: ${src}`))
+            img.src = blobUrl
+        })
+    } finally {
+        clearTimeout(timer)
+    }
 }
 
 // Storage stores some art as .png and some as .webp (honorary = png only).
 // Try the given URL, then the other extension, so a single naming mismatch
 // never drops a cell from the canvas/GIF.
-const loadImageWithFallback = async (src: string, timeoutMs = 20000): Promise<HTMLImageElement> => {
+const loadImageWithFallback = async (src: string, keep: string[], timeoutMs = 20000): Promise<HTMLImageElement> => {
     try {
-        return await loadImage(src, timeoutMs)
+        return await loadImage(src, keep, timeoutMs)
     } catch (err) {
         if (src.includes('.webp')) {
-            return await loadImage(src.replace('.webp', '.png'), timeoutMs)
+            return await loadImage(src.replace('.webp', '.png'), keep, timeoutMs)
         }
         if (src.includes('.png')) {
-            return await loadImage(src.replace('.png', '.webp'), timeoutMs)
+            return await loadImage(src.replace('.png', '.webp'), keep, timeoutMs)
         }
         throw err
     }
@@ -112,12 +122,20 @@ export function GridDownloadButton({ droids, gridOrder, style }: GridDownloadBut
         setProgress(0)
         setStatusText("Preparing...")
 
+        // Blob-адреса всех загруженных картинок: освобождаем разом в конце,
+        // когда холст уже отрисован.
+        const blobUrls: string[] = []
+
         try {
             // Dynamic imports — browser-only libs that break SSR
             // @ts-ignore
             const { default: GIF } = await import('gif.js');
             // @ts-ignore
             const { default: gifFrames } = await import('gif-frames');
+            // Формат выбирается по содержимому: хотя бы один анимированный
+            // дроид — GIF, иначе обычный PNG. Гнать статичный грид через
+            // GIF-кодировщик незачем: файл тяжелее, палитра беднее, а бюсты
+            // с их градиентами от 256 цветов заметно грязнятся.
             const animatedDroids = droids.filter(d => getAnimatedUrl(d, style) !== null)
             const hasAnimations = animatedDroids.length > 0
             const MAX_FRAMES = 4
@@ -133,7 +151,7 @@ export function GridDownloadButton({ droids, gridOrder, style }: GridDownloadBut
                     : [getStillUrl(droid, style), getPixelUrl(droid)]
                 let lastErr: unknown
                 for (const url of [...new Set(candidates)]) {
-                    try { return await loadImageWithFallback(url) } catch (err) { lastErr = err }
+                    try { return await loadImageWithFallback(url, blobUrls) } catch (err) { lastErr = err }
                 }
                 throw lastErr
             }
@@ -176,7 +194,7 @@ export function GridDownloadButton({ droids, gridOrder, style }: GridDownloadBut
             const logoImages = new Map<string, HTMLImageElement>()
             await Promise.all(FOOTER_LOGOS.map(async (logo) => {
                 try {
-                    logoImages.set(logo.src, await loadImage(logo.src))
+                    logoImages.set(logo.src, await loadImage(logo.src, blobUrls))
                 } catch (err) {
                     console.warn(`[grid] logo load failed: ${logo.src}`, err)
                 }
@@ -402,6 +420,7 @@ export function GridDownloadButton({ droids, gridOrder, style }: GridDownloadBut
             const msg = error instanceof Error ? error.message : String(error)
             setStatusText(`Error: ${msg.slice(0, 60)}`)
         } finally {
+            for (const url of blobUrls) URL.revokeObjectURL(url)
             setTimeout(() => {
                 setIsGenerating(false)
                 setProgress(0)

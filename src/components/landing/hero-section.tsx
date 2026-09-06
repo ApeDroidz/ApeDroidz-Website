@@ -151,16 +151,16 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
               animate={headlinePlay ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
               transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-              className="block font-normal tracking-tight text-[9.6vw]"
+              className="block font-normal tracking-tight text-[7.4vw]"
             >
-              Formed in
+              ApeDroidz 3D
             </motion.span>
 
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
               {headlineDone ? (
-                <GlitchText text="The Glitch" className="font-bold tracking-tight text-[9.6vw]" />
+                <GlitchText text="Collection is Live" className="font-bold tracking-tight text-[7.4vw]" />
               ) : (
-                <span className="block font-bold tracking-tight text-[9.6vw]">The Glitch</span>
+                <span className="block font-bold tracking-tight text-[7.4vw]">Collection is Live</span>
               )}
             </GlitchReveal>
           </h1>
@@ -171,18 +171,21 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 18, filter: "blur(6px)" }}
               animate={headlinePlay ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
               transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-              className="block font-normal tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]"
+              className="block font-normal tracking-tight text-[clamp(2rem,5.2vw,4.9rem)]"
             >
-              Formed in
+              ApeDroidz 3D
             </motion.span>
 
             {/* «The Glitch» — появляется глитчем и продолжает подрагивать */}
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
+              {/* Обе строки одного кегля. Он ниже прежнего: «Collection is
+                  Live» длиннее старой «The Glitch» и на средних ширинах
+                  наезжала бы на дроида справа. */}
               {headlineDone ? (
-                <GlitchText text="The Glitch" className="font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]" />
+                <GlitchText text="Collection is Live" className="font-bold tracking-tight text-[clamp(2rem,5.2vw,4.9rem)]" />
               ) : (
-                <span className="block font-bold tracking-tight text-[clamp(2.4rem,6.8vw,6.4rem)]">
-                  The Glitch
+                <span className="block font-bold tracking-tight text-[clamp(2rem,5.2vw,4.9rem)]">
+                  Collection is Live
                 </span>
               )}
             </GlitchReveal>
@@ -197,7 +200,7 @@ export function HeroSection() {
             className="mt-8 md:mt-10 pointer-events-auto [&_a]:px-6 [&_a]:py-3.5 md:[&_a]:px-9 md:[&_a]:py-4 [&_a]:text-xs md:[&_a]:text-sm"
           >
             <Link href="/dashboard" className={ACCENT_BTN}>
-              Go to Dashboard <ArrowUpRight size={16} />
+              Check Your Droidz <ArrowUpRight size={16} />
             </Link>
           </motion.div>
 

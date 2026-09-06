@@ -139,6 +139,16 @@ function DissolveBurst() {
   return on ? <GlitchBurst /> : null
 }
 
+/** Глитч на подмене дроида — тот же бёрст, что на появлении и растворении. */
+function SwapBurst() {
+  const [on, setOn] = useState(false)
+  useFrame(() => {
+    const active = droidFocus.swap > 0
+    setOn((prev) => (prev === active ? prev : active))
+  })
+  return on ? <GlitchBurst /> : null
+}
+
 /** Срабатывает ровно один раз, когда Suspense-boundary (GLB + HDRI) разрезолвился. */
 function ReadySignal({ onReady }: { onReady: () => void }) {
   useEffect(() => { onReady() }, [onReady])
@@ -208,6 +218,7 @@ export function HeroScene({ phase, scrollProgress, active, burst, onReady, onPro
 
         {burst && phase === "materialize" && <GlitchBurst />}
         {burst && phase === "ready" && <DissolveBurst />}
+        {burst && phase === "ready" && <SwapBurst />}
       </Canvas>
     </div>
   )

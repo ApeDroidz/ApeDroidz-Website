@@ -407,25 +407,44 @@ export default function DashboardPage() {
                     </motion.button>
                   )
                 ) : (
-                  <motion.button
+                  <motion.div
                     key="save"
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                    onClick={handleSaveDefault}
-                    disabled={isSaving || isCurrentSaved}
-                    className={`w-full h-12 flex items-center justify-center gap-2 font-black uppercase tracking-wider rounded-full transition-all text-sm shadow-lg ${
-                      isCurrentSaved
-                        ? 'bg-white/10 text-white/60 border border-white/15 cursor-default'
-                        : 'bg-white text-black hover:bg-[#0069FF] hover:text-white cursor-pointer'
-                    }`}
+                    className="w-full flex items-stretch gap-2"
                   >
-                    {isSaving ? (
-                      <><Loader2 size={18} className="animate-spin" /> Saving…</>
-                    ) : justSaved || isCurrentSaved ? (
-                      <><Check size={18} /> {justSaved ? 'Saved' : 'Current PFP'}</>
-                    ) : (
-                      <><Save size={18} /> Save your PFP</>
+                    <button
+                      onClick={handleSaveDefault}
+                      disabled={isSaving || isCurrentSaved}
+                      className={`flex-1 min-w-0 h-12 flex items-center justify-center gap-2 font-black uppercase tracking-wider rounded-full transition-all text-sm shadow-lg ${
+                        isCurrentSaved
+                          ? 'bg-white/10 text-white/60 border border-white/15 cursor-default'
+                          : 'bg-white text-black hover:bg-[#0069FF] hover:text-white cursor-pointer'
+                      }`}
+                    >
+                      {isSaving ? (
+                        <><Loader2 size={18} className="animate-spin" /> Saving…</>
+                      ) : justSaved || isCurrentSaved ? (
+                        <><Check size={18} /> {justSaved ? 'Saved' : 'Current PFP'}</>
+                      ) : (
+                        <><Save size={18} /> Save your PFP</>
+                      )}
+                    </button>
+
+                    {/* Первый уровень: рядом со сохранением — путь на апгрейд.
+                        Вид тут любой, в том числе 3D: бюст есть у всех, но
+                        дроид от этого не перестаёт быть неапгрейднутым.
+                        У honorary уровней нет, поэтому кнопки нет. */}
+                    {!isHonorary && selectedLevel < 2 && (
+                      <button
+                        onClick={() => router.push(`/upgrade_module?select=${selectedDroid.tokenId}`)}
+                        title={`Upgrade Droid #${selectedDroid.tokenId}`}
+                        className="flex-shrink-0 h-12 px-5 flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 text-white font-black uppercase tracking-wider text-sm transition-all hover:bg-white/10 hover:border-white/40 cursor-pointer"
+                      >
+                        <ChevronsUp size={18} />
+                        Upgrade
+                      </button>
                     )}
-                  </motion.button>
+                  </motion.div>
                 )}
               </AnimatePresence>
               {selectedDroid && (

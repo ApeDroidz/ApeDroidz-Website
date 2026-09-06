@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, X } from "lucide-react"
 import Link from "next/link"
 import { droidStaticUrl, droid3dPfpThumbUrl } from "@/lib/media"
 import { MARQUEE_ROW_A, MARQUEE_ROW_B, MarqueeDroid } from "@/lib/landing-data"
@@ -21,6 +21,10 @@ const POOL: MarqueeDroid[] = [...MARQUEE_ROW_A, ...MARQUEE_ROW_B]
 /** Сколько дроид держится в кадре. */
 const SWAP_MS = 3500
 
+// Закрытый баннер не возвращается. Ключ с версией: поменяем содержимое —
+// поднимем номер, и баннер снова покажется тем, кто закрыл прошлый.
+const DISMISS_KEY = 'apedroidz.cta3d.dismissed.v1' 
+
 // ?v=1 — часть 512px превью успели запросить, пока заливка в R2 ещё шла, и
 // Cloudflare закэшировал 404 на год. Метка даёт другой ключ кэша; та же, что в
 // ленте коллекции, иначе картинки грузились бы дважды.
@@ -31,6 +35,27 @@ const pixelUrl = (d: MarqueeDroid) => droidStaticUrl(d.id, 1, false)
 
 function Droid3DCTAComponent() {
     const [index, setIndex] = useState(0)
+    const [isDismissed, setIsDismissed] = useState(false)
+
+    // Решение читаем уже на клиенте: обращение к localStorage при рендере
+    // разошлось бы с разметкой сервера. Баннер и так выезжает с задержкой в
+    // секунду, поэтому закрывшие его мелькания не увидят.
+    useEffect(() => {
+        try {
+            if (localStorage.getItem(DISMISS_KEY) === '1') setIsDismissed(true)
+        } catch {
+            // приватный режим или запрет на хранилище — просто показываем баннер
+        }
+    }, [])
+
+    const dismiss = () => {
+        setIsDismissed(true)
+        try {
+            localStorage.setItem(DISMISS_KEY, '1')
+        } catch {
+            // не сохранилось — закроется только до перезагрузки
+        }
+    }
 
     // Стартовая позиция случайная, но выбирается уже на клиенте: посчитать её
     // при рендере значило бы разойтись с разметкой сервера.
@@ -39,21 +64,26 @@ function Droid3DCTAComponent() {
     }, [])
 
     useEffect(() => {
+        // Закрытый баннер не рисуется — крутить подборку и греть картинки незачем.
+        if (isDismissed) return
         const timer = setInterval(() => setIndex((i) => (i + 1) % POOL.length), SWAP_MS)
         return () => clearInterval(timer)
-    }, [])
+    }, [isDismissed])
 
     // Следующая пара подгружается заранее, иначе смена ловится глазом как
     // пустая плитка.
     useEffect(() => {
+        if (isDismissed) return
         const next = POOL[(index + 1) % POOL.length]
         for (const src of [pixelUrl(next), bustUrl(next)]) {
             const img = new Image()
             img.src = src
         }
-    }, [index])
+    }, [index, isDismissed])
 
     const droid = POOL[index]
+
+    if (isDismissed) return null
 
     return (
         <motion.div
@@ -63,6 +93,19 @@ function Droid3DCTAComponent() {
             className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 md:bottom-8 md:left-8 z-40 w-[190px] sm:w-[240px] md:w-[340px]"
             style={{ isolation: "isolate", willChange: "transform" }}
         >
+            {/* Крестик стоит СНАРУЖИ ссылки: кнопка внутри ссылки — и клик по
+                ней заодно уводил бы на дашборд, и вложенные интерактивные
+                элементы недопустимы в разметке. Заодно он не обрезается
+                скруглением карточки, у которой overflow-hidden. */}
+            <button
+                type="button"
+                onClick={dismiss}
+                aria-label="Close"
+                className="absolute -top-2 -right-2 z-10 grid place-items-center w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-white/15 bg-[#0a0a0a] text-white/50 shadow-lg cursor-pointer transition-colors duration-200 hover:bg-white hover:text-black hover:border-white"
+            >
+                <X size={12} strokeWidth={2.5} />
+            </button>
+
             <Link
                 href="/dashboard"
                 className="group block relative overflow-hidden rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-[0_0_40px_rgba(0,0,0,0.6)] hover:border-white/20 transition-colors duration-300"
