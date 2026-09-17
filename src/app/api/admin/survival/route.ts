@@ -1,0 +1,94 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/adminAuth'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+const headers = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' }
+
+/**
+ * GET /api/admin/survival — everything the Droidz Survival tab shows, in one payload:
+ * the numbers (players, runs by verdict, activity), the season board, the journal's
+ * warnings and errors, the rejected runs (each one a suspicion with a reason), the
+ * wallets caught cheating (rejected ≥ 1, with their ban state), and the beta allowlist.
+ * All derived from the tables; nothing here is a stored figure that can drift.
+ */
+export async function GET(request: NextRequest) {
+    const denied = await requireAdmin(request)
+    if (denied) return denied
+    if (!supabaseAdmin) return NextResponse.json({ error: 'Database unavailable' }, { status: 500, headers })
+    const db = supabaseAdmin
+    const dayAgo = new Date(Date.now() - 86_400_000).toISOString()
+    const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
+
+    const count = async (table: string, f?: (q: any) => any) => {
+        let q = db.from(table).select('*', { count: 'exact', head: true })
+        if (f) q = f(q)
+        const { count: n } = await q
+        return n ?? 0
+    }
+    const [players, players24, runsAll, runs24, finished, rejected, voided, started, runs7, live, board, events, rejectedRuns, cheaters, allowlist, recent, profiles] = await Promise.all([
+        count('survival_players'),
+        count('survival_players', (q) => q.gte('last_seen', dayAgo)),
+        count('survival_runs'),
+        count('survival_runs', (q) => q.gte('started_at', dayAgo)),
+        count('survival_runs', (q) => q.eq('status', 'finished')),
+        count('survival_runs', (q) => q.eq('status', 'rejected')),
+        count('survival_runs', (q) => q.eq('status', 'void')),
+        count('survival_runs', (q) => q.eq('status', 'started')),
+        count('survival_runs', (q) => q.gte('started_at', weekAgo)),
+        db.from('survival_seasons').select('id, name, status, starts_at, ends_at').eq('status', 'live').limit(1).maybeSingle(),
+        db.from('survival_board').select('*').order('rank', { ascending: true }).limit(20),
+        db.from('survival_events').select('id, at, wallet, source, level, kind, message, data, run_id, client_version')
+            .in('level', ['warn', 'error']).order('at', { ascending: false }).limit(150),
+        db.from('survival_runs').select('id, wallet, status, reject_reason, flags, score, wave, kills, started_at, finished_at, server_duration_ms, client_duration_ms, client_version, hero')
+            .in('status', ['rejected']).order('started_at', { ascending: false }).limit(200),
+        Promise.resolve(null),
+        db.from('survival_allowlist').select('wallet, status, note, added_at, revoked_at').order('added_at', { ascending: false }),
+        db.from('survival_runs').select('id, wallet, status, reject_reason, score, wave, kills, started_at, hero, client_version')
+            .order('started_at', { ascending: false }).limit(60),
+        db.from('survival_profiles').select('wallet, coins, runs, best_score, selected_hero, updated_at').order('updated_at', { ascending: false }).limit(200),
+    ])
+
+    // Cheaters without the RPC (it may not exist): group the rejected runs by wallet here.
+    let caught: Array<{ wallet: string; rejected: number; last: string; reasons: string[]; banned: boolean; ban_reason: string | null }> = []
+    if (Array.isArray(cheaters)) {
+        caught = cheaters as typeof caught
+    } else {
+        const byWallet = new Map<string, { rejected: number; last: string; reasons: Set<string> }>()
+        for (const r of (rejectedRuns.data ?? []) as Array<{ wallet: string; reject_reason: string | null; started_at: string }>) {
+            const cur = byWallet.get(r.wallet) ?? { rejected: 0, last: r.started_at, reasons: new Set<string>() }
+            cur.rejected += 1
+            if (r.started_at > cur.last) cur.last = r.started_at
+            if (r.reject_reason) cur.reasons.add(r.reject_reason)
+            byWallet.set(r.wallet, cur)
+        }
+        const wallets = [...byWallet.keys()]
+        const { data: bans } = wallets.length
+            ? await db.from('survival_players').select('wallet, banned, ban_reason').in('wallet', wallets)
+            : { data: [] as Array<{ wallet: string; banned: boolean; ban_reason: string | null }> }
+        const banOf = new Map<string, { wallet: string; banned: boolean; ban_reason: string | null }>(
+            ((bans ?? []) as Array<{ wallet: string; banned: boolean; ban_reason: string | null }>).map((b) => [b.wallet, b]))
+        caught = wallets.map((w) => ({
+            wallet: w, rejected: byWallet.get(w)!.rejected, last: byWallet.get(w)!.last,
+            reasons: [...byWallet.get(w)!.reasons], banned: banOf.get(w)?.banned ?? false, ban_reason: banOf.get(w)?.ban_reason ?? null,
+        })).sort((a, b) => b.rejected - a.rejected)
+    }
+
+    // Wallets that pulse but rarely finish, and long-open tickets, are a softer signal.
+    return NextResponse.json({
+        generatedAt: new Date().toISOString(),
+        season: live.data ?? null,
+        stats: {
+            players, players24, runsAll, runs24, runs7, finished, rejected, voided, started,
+            rejectRate: runsAll ? rejected / runsAll : 0,
+        },
+        board: board.data ?? [],
+        events: events.data ?? [],
+        suspicious: rejectedRuns.data ?? [],
+        cheaters: caught,
+        allowlist: allowlist.data ?? [],
+        recentRuns: recent.data ?? [],
+        profiles: profiles.data ?? [],
+    }, { headers })
+}

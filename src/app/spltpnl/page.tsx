@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, AlertTriangle, BarChart3, Check, Coins, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, Lock, LogOut, Package, Pencil, Plus, RefreshCcw, Search, Sparkles, Target, Trash2, Users, X } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, Check, Coins, Crosshair, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, Lock, LogOut, Package, Pencil, Plus, RefreshCcw, Search, Sparkles, Target, Trash2, Users, X } from 'lucide-react'
 import { LockerTab } from './locker-tab'
+import { SurvivalTab } from './survival-tab'
 
 // ── Types (loose — coming from server JSON) ───────────────────────────────────
 
@@ -17,6 +18,7 @@ const TABS = [
     { id: 'prizes', label: 'Prizes', icon: Package },
     { id: 'quests', label: 'Quests', icon: Target },
     { id: 'locker', label: 'Locker', icon: Lock },
+    { id: 'survival', label: 'Droidz Survival', icon: Crosshair },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -1820,6 +1822,7 @@ export default function SpltpnlPage() {
             case 'prizes':   return <PrizesTab />
             case 'quests':   return <QuestsTab />
             case 'locker':   return <LockerTab />
+            case 'survival': return <SurvivalTab />
         }
     }, [tab])
 

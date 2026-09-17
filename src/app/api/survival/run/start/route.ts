@@ -3,8 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer, readBody } from '@/lib/survivalRuns'
 import { RUN_TTL_MS } from '@/lib/survivalEnvelope'
 
-/** The game's clan list (game: src/config/clans.ts). Keep the two in step. */
-const CLANS = ['Ape Church', 'ApeDroidz', 'balloons', 'BAYC', 'FLINGERS', 'Geez on Ape', 'Gobs on Ape', 'JNKYZ', 'KODA', 'NightGlyders', 'Trenchers']
 
 /**
  * POST /api/survival/run/start  { hero, weapon, clientVersion }
@@ -31,7 +29,11 @@ export async function POST(req: NextRequest) {
 
     // The player row: first seen / last seen, the clan they fly (optional, from the game's
     // own list — anything else is stored as none), and the ban flag.
-    const clan = typeof body.clan === 'string' && CLANS.includes(body.clan) ? body.clan : null
+    let clan: string | null = null
+    if (typeof body.clan === 'string' && body.clan) {
+        const { data: known } = await supabaseAdmin.from('survival_clans').select('name').eq('active', true).eq('name', body.clan.slice(0, 40)).maybeSingle()
+        clan = known ? (known as { name: string }).name : null
+    }
     const { data: player, error: pErr } = await supabaseAdmin
         .from('survival_players')
         .upsert({ wallet: caller.wallet, last_seen: new Date().toISOString(), clan }, { onConflict: 'wallet' })

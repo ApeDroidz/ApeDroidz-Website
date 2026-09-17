@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, ints, loadRun, noServer, readBody } from '@/lib/survivalRuns'
 import { checkFinish } from '@/lib/survivalEnvelope'
+import { logEvent } from '@/lib/survivalLog'
 
 /**
  * POST /api/survival/run/finish  { runId, wave, kills, score, durationMs }
@@ -54,6 +55,14 @@ export async function POST(req: NextRequest) {
         .eq('id', run.id)
     if (error) { console.error('[survival/run/finish]', error.message); return noServer() }
 
+    if (check.verdict !== 'ok' || check.flags.length) {
+        logEvent({
+            level: check.verdict === 'cheat' ? 'warn' : 'info',
+            kind: check.verdict === 'cheat' ? 'run.rejected' : check.verdict === 'void' ? 'run.void' : 'run.flagged',
+            wallet: caller.wallet, runId: run.id, message: check.reason ?? check.flags.join(','),
+            data: { claim: n, serverDurationMs, lastPulse: run.last_pulse_wave, pulses: run.pulse_count, flags: check.flags },
+        })
+    }
     if (check.verdict !== 'ok') {
         return NextResponse.json({ ok: true, verdict: check.verdict === 'cheat' ? 'rejected' : 'void', reason: check.reason, message: check.message })
     }

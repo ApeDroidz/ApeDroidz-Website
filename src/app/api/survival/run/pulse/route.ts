@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, ints, loadRun, noServer, readBody } from '@/lib/survivalRuns'
 import { checkPulse } from '@/lib/survivalEnvelope'
+import { logEvent } from '@/lib/survivalLog'
 
 /**
  * POST /api/survival/run/pulse  { runId, wave, kills, score }
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
     const check = checkPulse(prev, { wave: n.wave, kills: n.kills, score: n.score }, elapsed)
 
     if (check.verdict === 'cheat') {
+        logEvent({ level: 'warn', kind: 'run.rejected', wallet: caller.wallet, runId: run.id, message: check.reason, data: { pulse: n, prev, elapsed } })
         await supabaseAdmin.from('survival_runs')
             .update({ status: 'rejected', reject_reason: check.reason, finished_at: new Date().toISOString() })
             .eq('id', run.id)
