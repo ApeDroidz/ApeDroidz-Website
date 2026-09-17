@@ -8,6 +8,7 @@ import { Header } from '@/components/header'
 import { DigitalBackground } from '@/components/digital-background'
 import { ProfileModal } from '@/components/profile-modal'
 import { useGlitchSession } from '@/hooks/useGlitchSession'
+import { GlitchText } from '@/components/glitch/glitch-text'
 
 /**
  * Droidz Survival — closed beta.
@@ -83,24 +84,30 @@ export default function DroidzSurvivalPage() {
 
     return (
         <div className="relative min-h-screen bg-black text-white overflow-x-hidden">
-            <DigitalBackground />
+            {/* Fixed behind everything, like the staking page: bare, the background is a
+                block that fills a whole screen and pushes the gate a viewport down. */}
+            <div className="fixed inset-0 z-0 opacity-40 pointer-events-none mix-blend-lighten"><DigitalBackground /></div>
             <Header onOpenProfile={() => setIsProfileOpen(true)} />
 
-            <main className="relative z-10 mx-auto max-w-6xl px-4 pt-28 pb-16 sm:pt-32">
+            <main className="relative z-10 mx-auto max-w-6xl px-4 pt-24 pb-16 sm:pt-28">
+                {/* The heading is the site's own — the same black uppercase with the glitch bands
+                    the dashboard and the staking page wear — and the gate card sits right under
+                    it, so the wallet state is the first thing on screen, not a scroll away. */}
                 <motion.div
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                    className="mb-8 text-center"
+                    className="mb-6 text-center"
                 >
                     <p className="font-mono text-xs uppercase tracking-[0.3em] text-white/40">
                         Closed Beta
                     </p>
-                    <h1 className="mt-2 text-4xl font-bold uppercase tracking-tight sm:text-5xl">
-                        Droidz Survival
+                    <h1 className="mx-auto mt-3 max-w-4xl text-4xl font-black uppercase leading-none tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] sm:text-6xl">
+                        <GlitchText text="Droidz Survival" />
                     </h1>
                     <p className="mt-3 font-mono text-xs uppercase tracking-widest text-white/40">
                         Pixel roguelite · Survive the waves
+                        {authedWallet && gate !== 'allowed' ? ` · ${short(authedWallet)}` : ''}
                     </p>
                 </motion.div>
 
