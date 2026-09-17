@@ -104,9 +104,11 @@ const rows = (await client.query('select status, reject_reason from survival_run
 ok('runs are stored with their verdicts', rows.some((r) => r.status === 'finished') && rows.some((r) => r.status === 'rejected' && r.reject_reason === 'score_over_cap') && rows.some((r) => r.status === 'void'), JSON.stringify(rows))
 const best = (await client.query('select score from survival_season_best where wallet = $1', [WALLET])).rows
 ok('only the accepted run reached the season board', best.length === 1 && best[0].score === 120, JSON.stringify(best))
-// clean up: this wallet is ours and never played
+// clean up: this wallet is ours and never played — the journal lines too, or the panel keeps
+// showing rejected runs whose rows are gone
 await client.query('delete from survival_season_best where wallet = $1', [WALLET])
 await client.query('delete from survival_runs where wallet = $1', [WALLET])
+await client.query('delete from survival_events where wallet = $1', [WALLET])
 await client.query('delete from survival_players where wallet = $1', [WALLET])
 await client.end()
 

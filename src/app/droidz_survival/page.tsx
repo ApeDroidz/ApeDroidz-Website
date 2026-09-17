@@ -34,6 +34,8 @@ const CONTACT = 'https://x.com/splitform'
 const GAME_SRC = '/droidz_survival/play/index.html'
 /** Where a paid continue / run sends its APE. Server-verified against the same address (api/survival/pay). */
 const TREASURY = process.env.NEXT_PUBLIC_SURVIVAL_TREASURY_WALLET ?? '0x1DcF1d22A1dbDd20AE875beDEEe3A259b1D608db'
+/** Flip to true (or set NEXT_PUBLIC_SURVIVAL_PAY_FOR_REAL=1) when the contracts are in. */
+const PAY_FOR_REAL = process.env.NEXT_PUBLIC_SURVIVAL_PAY_FOR_REAL === '1'
 
 
 type Gate = 'loading' | 'connect' | 'verify' | 'denied' | 'allowed' | 'error'
@@ -52,13 +54,21 @@ export default function DroidzSurvivalPage() {
 
     // The paid door. The game (an iframe on our own origin) looks for `window.DroidzPay`
     // and offers CONTINUE for 1 APE only when it is there. We install it on the frame's
-    // window: the transfer goes from the player's wallet to the treasury through the site's
-    // thirdweb session, and the hash is verified server-side before the game hears "yes".
+    // window. FOR THE BETA IT IS A STUB (the owner, 18.09: «пока вместо реальных оплат
+    // ставим заглушку — реальные смарт-контракты подставим позже»): it says yes after a
+    // beat and charges nothing; the game shows the continue as free. The real door is
+    // written and waiting — the thirdweb transfer to the treasury plus the on-chain
+    // check in /api/survival/pay — behind PAY_FOR_REAL.
     const installPay = useCallback(() => {
         const win = frameRef.current?.contentWindow as (Window & { DroidzPay?: unknown }) | null
         if (!win) return
         win.DroidzPay = {
+            stub: !PAY_FOR_REAL,
             charge: async (kind: 'continue' | 'run', amountApe: number): Promise<boolean> => {
+                if (!PAY_FOR_REAL) {
+                    await new Promise((r) => setTimeout(r, 500))
+                    return true
+                }
                 try {
                     const tx = prepareTransaction({ chain: apeChain, client, to: TREASURY, value: toWei(String(amountApe)) })
                     const result = await sendTx(tx)

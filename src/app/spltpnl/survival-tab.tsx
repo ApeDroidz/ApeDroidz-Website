@@ -15,19 +15,26 @@ import { AlertTriangle, Ban, Check, Loader2, Plus, RefreshCcw, ShieldCheck, Tras
 type Payload = {
     generatedAt: string
     season: { id: string; name: string; status: string; starts_at: string; ends_at: string } | null
-    stats: { players: number; players24: number; runsAll: number; runs24: number; runs7: number; finished: number; rejected: number; voided: number; started: number; rejectRate: number }
+    stats: {
+        players: number; players24: number; banned: number; runsAll: number; runs24: number; runs7: number; finished: number; rejected: number; voided: number; started: number
+        rejectRate: number; cheatWallets: number; avgScore: number; avgWave: number; avgKills: number
+        payments: { count: number; ape: number; confirmed: number; confirmedApe: number }
+    }
     board: Array<{ rank: number; wallet_short: string; display_name: string | null; score: number; wave: number; kills: number; runs_count: number; achieved_at: string }>
     events: Array<{ id: number; at: string; wallet: string | null; source: string; level: string; kind: string; message: string; data: Record<string, unknown>; run_id: string | null; client_version: string | null }>
     suspicious: Array<{ id: string; wallet: string; status: string; reject_reason: string | null; flags: string[]; score: number; wave: number; kills: number; started_at: string; server_duration_ms: number | null; client_duration_ms: number | null; client_version: string | null; hero: string | null }>
     cheaters: Array<{ wallet: string; rejected: number; last: string; reasons: string[]; banned: boolean; ban_reason: string | null }>
-    allowlist: Array<{ wallet: string; status: string; note: string | null; added_at: string; revoked_at: string | null }>
+    allowlist: Array<{ wallet: string; status: 'active' | 'revoked'; note: string | null; added_by: string | null; added_at: string; revoked_at: string | null }>
     recentRuns: Array<{ id: string; wallet: string; status: string; reject_reason: string | null; score: number; wave: number; kills: number; started_at: string; hero: string | null; client_version: string | null }>
     profiles: Array<{ wallet: string; coins: number; runs: number; best_score: number; selected_hero: string | null; updated_at: string }>
+    problems: string[]
 }
 type Clan = { slug: string; name: string; opensea_slug: string | null; chain: string | null; contract: string | null; image_url: string | null; active: boolean }
 
 const short = (w: string | null | undefined) => (w ? `${w.slice(0, 6)}…${w.slice(-4)}` : '—')
 const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString() : '—')
+const day = (iso: string | null | undefined) => (iso ? new Date(iso).toISOString().slice(0, 10) : '—')
+const ape = (n: number) => `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })} APE`
 const secs = (ms: number | null | undefined) => (ms == null ? '—' : `${Math.round(ms / 1000)}s`)
 
 async function api(url: string, init?: RequestInit) {
@@ -59,6 +66,11 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 }
 
 const LEVEL: Record<string, string> = { error: 'text-red-400', warn: 'text-orange-400', info: 'text-white/60', debug: 'text-white/30' }
+const LEVEL_FILTERS: Array<{ id: 'all' | 'problems' | 'errors'; label: string; keep: (level: string) => boolean }> = [
+    { id: 'all', label: 'All', keep: () => true },
+    { id: 'problems', label: 'Warn + error', keep: (l) => l === 'warn' || l === 'error' },
+    { id: 'errors', label: 'Errors', keep: (l) => l === 'error' },
+]
 
 export function SurvivalTab() {
     const [data, setData] = useState<Payload | null>(null)
@@ -70,7 +82,9 @@ export function SurvivalTab() {
     const [note, setNote] = useState('')
     const [clanSlug, setClanSlug] = useState('')
     const [clanName, setClanName] = useState('')
+    const [clanChain, setClanChain] = useState('ape_chain')
     const [openEvent, setOpenEvent] = useState<number | null>(null)
+    const [levelFilter, setLevelFilter] = useState<'all' | 'problems' | 'errors'>('all')
 
     const load = useCallback(async () => {
         setLoading(true); setError(null)
@@ -89,6 +103,8 @@ export function SurvivalTab() {
     if (loading && !data) return <div className="flex items-center gap-2 text-white/40 text-sm py-10"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
     if (!data) return <div className="text-red-400 text-sm py-10">{error ?? 'No data'}</div>
     const s = data.stats
+    const keep = LEVEL_FILTERS.find((f) => f.id === levelFilter)?.keep ?? (() => true)
+    const events = data.events.filter((e) => keep(e.level))
 
     return (
         <div className="space-y-5">
@@ -99,14 +115,18 @@ export function SurvivalTab() {
                 <button onClick={() => void load()} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white"><RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
             </div>
             {error && <div className="text-red-400 text-xs font-mono">{error}</div>}
+            {data.problems?.length > 0 && <div className="text-orange-400 text-xs font-mono">Some queries failed: {data.problems.join(' · ')}</div>}
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <Stat label="Players" value={s.players} />
+                <Stat label="Players (banned)" value={`${s.players} (${s.banned})`} />
                 <Stat label="Active 24h" value={s.players24} accent="text-[#3b82f6]" />
                 <Stat label="Runs (24h / 7d / all)" value={`${s.runs24} / ${s.runs7} / ${s.runsAll}`} />
                 <Stat label="Accepted" value={s.finished} accent="text-emerald-400" />
-                <Stat label="Rejected" value={`${s.rejected} (${(s.rejectRate * 100).toFixed(1)}%)`} accent={s.rejected ? 'text-red-400' : 'text-white'} />
+                <Stat label="Rejected (wallets)" value={`${s.rejected} (${(s.rejectRate * 100).toFixed(1)}%) · ${s.cheatWallets}`} accent={s.rejected ? 'text-red-400' : 'text-white'} />
                 <Stat label="Void / open" value={`${s.voided} / ${s.started}`} />
+                <Stat label="Avg wave · score · kills" value={s.finished ? `${s.avgWave} · ${s.avgScore} · ${s.avgKills}` : '—'} />
+                <Stat label="Payments (confirmed)" value={`${s.payments.count} (${s.payments.confirmed})`} />
+                <Stat label="Paid in (confirmed)" value={`${ape(s.payments.ape)} (${ape(s.payments.confirmedApe)})`} accent="text-[#3b82f6]" />
             </div>
 
             <div className="grid lg:grid-cols-2 gap-5">
@@ -121,19 +141,20 @@ export function SurvivalTab() {
                     )}
                 </Section>
 
-                <Section title="Beta access" hint={`${data.allowlist.filter((a) => a.status === 'active').length} active`}>
+                <Section title="Beta access" hint={`${data.allowlist.filter((a) => a.status === 'active').length} active of ${data.allowlist.length}`}>
                     <form className="flex flex-col sm:flex-row gap-2 mb-3" onSubmit={(e) => { e.preventDefault(); if (!wallet) return; void act('allow', () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', wallet, note }) })).then(() => { setWallet(''); setNote('') }) }}>
                         <input value={wallet} onChange={(e) => setWallet(e.target.value)} placeholder="0x… wallet" className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#3b82f6]" />
                         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="note (who / where from)" className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#3b82f6]" />
                         <button type="submit" disabled={busy === 'allow'} className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#3b82f6] text-[10px] font-black uppercase tracking-widest disabled:opacity-50"><Plus className="h-3.5 w-3.5" /> Add</button>
                     </form>
                     <div className="max-h-64 overflow-auto divide-y divide-white/5">
+                        {data.allowlist.length === 0 && <div className="text-white/30 text-xs">The list is empty.</div>}
                         {data.allowlist.map((a) => (
                             <div key={a.wallet} className="flex items-center gap-3 py-1.5 text-xs">
                                 {a.status === 'active' ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" /> : <Ban className="h-3.5 w-3.5 text-white/25 flex-shrink-0" />}
-                                <span className={`font-mono ${a.status === 'active' ? '' : 'text-white/30 line-through'}`}>{short(a.wallet)}</span>
-                                <span className="text-white/40 flex-1 truncate">{a.note ?? ''}</span>
-                                <span className="text-white/25 font-mono text-[10px]">{when(a.added_at).slice(0, 10)}</span>
+                                <span className={`font-mono ${a.status === 'active' ? '' : 'text-white/30 line-through'}`} title={a.wallet}>{short(a.wallet)}</span>
+                                <span className="text-white/40 flex-1 truncate">{a.note ?? ''}{a.added_by ? <span className="text-white/25"> · {a.added_by}</span> : null}</span>
+                                <span className="text-white/25 font-mono text-[10px]" title={a.revoked_at ? `revoked ${when(a.revoked_at)}` : `added ${when(a.added_at)}`}>{a.revoked_at ? `revoked ${day(a.revoked_at)}` : day(a.added_at)}</span>
                                 {a.status === 'active'
                                     ? <button onClick={() => void act(a.wallet, () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'revoke', wallet: a.wallet }) }))} className="text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-red-400">Revoke</button>
                                     : <button onClick={() => void act(a.wallet, () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', wallet: a.wallet, note: a.note }) }))} className="text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-emerald-400">Restore</button>}
@@ -158,9 +179,13 @@ export function SurvivalTab() {
                     )}
                 </Section>
 
-                <Section title="Clans" hint="collection PFP from OpenSea">
-                    <form className="flex flex-col sm:flex-row gap-2 mb-3" onSubmit={(e) => { e.preventDefault(); if (!clanSlug) return; void act('clan', () => api('/api/admin/survival/clans', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', openseaSlug: clanSlug, name: clanName }) })).then(() => { setClanSlug(''); setClanName('') }) }}>
-                        <input value={clanSlug} onChange={(e) => setClanSlug(e.target.value)} placeholder="opensea slug (e.g. boredapeyachtclub)" className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#3b82f6]" />
+                <Section title="Clans" hint="name, slug and PFP resolved from the contract via OpenSea">
+                    <form className="flex flex-col sm:flex-row gap-2 mb-3" onSubmit={(e) => { e.preventDefault(); const v = clanSlug.trim(); if (!v) return; const isContract = /^0x[0-9a-fA-F]{40}$/.test(v); void act('clan', () => api('/api/admin/survival/clans', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(isContract ? { action: 'add', contract: v, chain: clanChain, name: clanName } : { action: 'add', openseaSlug: v, name: clanName }) })).then(() => { setClanSlug(''); setClanName('') }) }}>
+                        <input value={clanSlug} onChange={(e) => setClanSlug(e.target.value)} placeholder="0x… collection contract (or an OpenSea slug)" className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#3b82f6]" />
+                        <select value={clanChain} onChange={(e) => setClanChain(e.target.value)} className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#3b82f6] text-white/80" title="Chain of the contract">
+                            <option value="ape_chain">ApeChain (33139)</option>
+                            <option value="ethereum">Ethereum (1)</option>
+                        </select>
                         <input value={clanName} onChange={(e) => setClanName(e.target.value)} placeholder="name (optional, from OpenSea otherwise)" className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#3b82f6]" />
                         <button type="submit" disabled={busy === 'clan'} className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#3b82f6] text-[10px] font-black uppercase tracking-widest disabled:opacity-50"><Plus className="h-3.5 w-3.5" /> Add</button>
                     </form>
@@ -171,8 +196,9 @@ export function SurvivalTab() {
                             <span className="text-white/30 font-mono text-[10px] truncate flex-1">{c.opensea_slug} · {c.chain ?? '—'} {c.contract ? short(c.contract) : ''}</span>
                             <button onClick={() => void act(c.slug, () => api('/api/admin/survival/clans', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'refresh', slug: c.slug }) }))} className="text-white/40 hover:text-white" title="Re-read OpenSea"><RefreshCcw className="h-3.5 w-3.5" /></button>
                             {c.active
-                                ? <button onClick={() => void act(c.slug, () => api('/api/admin/survival/clans', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'remove', slug: c.slug }) }))} className="text-white/40 hover:text-red-400" title="Remove"><Trash2 className="h-3.5 w-3.5" /></button>
-                                : <button onClick={() => void act(c.slug, () => api('/api/admin/survival/clans', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'restore', slug: c.slug }) }))} className="text-white/40 hover:text-emerald-400" title="Restore"><Check className="h-3.5 w-3.5" /></button>}
+                                ? <button onClick={() => void act(c.slug, () => api('/api/admin/survival/clans', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'remove', slug: c.slug }) }))} className="text-white/40 hover:text-orange-400" title="Hide from the picker (keeps the row)"><Ban className="h-3.5 w-3.5" /></button>
+                                : <button onClick={() => void act(c.slug, () => api('/api/admin/survival/clans', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'restore', slug: c.slug }) }))} className="text-white/40 hover:text-emerald-400" title="Show in the picker again"><Check className="h-3.5 w-3.5" /></button>}
+                            <button onClick={() => { if (!window.confirm(`Delete clan "${c.name}" for good?`)) return; setClans((prev) => prev.filter((x) => x.slug !== c.slug)); void act(c.slug, () => api('/api/admin/survival/clans', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'delete', slug: c.slug }) })) }} className="text-white/40 hover:text-red-400" title="Delete — the row is removed"><Trash2 className="h-3.5 w-3.5" /></button>
                         </div>
                     ))}</div>
                 </Section>
@@ -191,9 +217,14 @@ export function SurvivalTab() {
                 )}
             </Section>
 
-            <Section title="Journal — warnings and errors" hint="client + server, newest first">
-                {data.events.length === 0 ? <div className="text-white/30 text-xs">Quiet.</div> : (
-                    <div className="overflow-auto max-h-96 divide-y divide-white/5">{data.events.map((e) => (
+            <Section title="Journal" hint={`client + server, newest first · ${events.length} of ${data.events.length}`}>
+                <div className="flex items-center gap-1 mb-3">
+                    {LEVEL_FILTERS.map((f) => (
+                        <button key={f.id} onClick={() => setLevelFilter(f.id)} className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${levelFilter === f.id ? 'border-[#3b82f6] text-white bg-[#3b82f6]/20' : 'border-white/10 text-white/40 hover:text-white'}`}>{f.label}</button>
+                    ))}
+                </div>
+                {events.length === 0 ? <div className="text-white/30 text-xs">Quiet.</div> : (
+                    <div className="overflow-auto max-h-96 divide-y divide-white/5">{events.map((e) => (
                         <div key={e.id} className="py-1.5 text-xs">
                             <button onClick={() => setOpenEvent(openEvent === e.id ? null : e.id)} className="w-full text-left flex items-center gap-3">
                                 <span className="font-mono text-white/30 w-36 flex-shrink-0">{when(e.at)}</span>
