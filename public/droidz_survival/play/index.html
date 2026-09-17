@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0a0f1e" />
+    <title>Droidz Survival</title>
+    <style>
+      /* Inter, bundled (assets/fonts): the readable face for descriptions,
+         paired with the DRD_SRV pixel face for headings and buttons. */
+      @font-face { font-family: 'Inter'; font-weight: 500; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v1/assets/fonts/Inter-500.woff2') format('woff2'); }
+      @font-face { font-family: 'Inter'; font-weight: 700; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v1/assets/fonts/Inter-700.woff2') format('woff2'); }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0a0f1e;
+        overflow: hidden;
+        /* prevent iOS touch callouts/scroll while playing */
+        overscroll-behavior: none;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #game {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #game canvas {
+        display: block;
+        image-rendering: pixelated;
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-CJpLTTiP.js"></script>
+  </head>
+  <body>
+    <div id="game"></div>
+  </body>
+</html>

@@ -1,0 +1,255 @@
+'use client'
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
+import { useActiveAccount } from 'thirdweb/react'
+import { Loader2, Lock, ShieldCheck, Maximize2 } from 'lucide-react'
+import { Header } from '@/components/header'
+import { DigitalBackground } from '@/components/digital-background'
+import { ProfileModal } from '@/components/profile-modal'
+import { useGlitchSession } from '@/hooks/useGlitchSession'
+
+/**
+ * Droidz Survival — closed beta.
+ *
+ * Four states, and the page is only ever in one of them:
+ *
+ *   connect   no wallet                     → the Header's Connect Wallet button is the action
+ *   verify    wallet, but no signature yet  → one signMessage; a connected wallet is a claim,
+ *                                             a signed session is proof, and the allowlist is
+ *                                             worth nothing if it can be satisfied by typing
+ *                                             someone else's address
+ *   denied    verified, not on the list     → say so plainly and say who to ask
+ *   allowed   verified and on the list      → the game
+ *
+ * The gate is enforced server-side too: /api/survival/access reads the signed session, checks
+ * survival_allowlist, and mints the cookie without which the middleware will not serve a single
+ * file of the build under /droidz_survival/play. This page cannot let anyone in on its own.
+ */
+
+const CONTACT = 'https://x.com/splitform'
+const GAME_SRC = '/droidz_survival/play/index.html'
+
+type Gate = 'loading' | 'connect' | 'verify' | 'denied' | 'allowed' | 'error'
+
+export default function DroidzSurvivalPage() {
+    const account = useActiveAccount()
+    const { authedWallet, ensureLogin, error: sessionError } = useGlitchSession()
+
+    const [gate, setGate] = useState<Gate>('loading')
+    const [signing, setSigning] = useState(false)
+    const [message, setMessage] = useState<string | null>(null)
+    const [isProfileOpen, setIsProfileOpen] = useState(false)
+
+    const frameRef = useRef<HTMLIFrameElement>(null)
+
+    const checkAccess = useCallback(async () => {
+        try {
+            const res = await fetch('/api/survival/access', { credentials: 'include', cache: 'no-store' })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) {
+                setGate('error')
+                setMessage(data?.error ?? 'Access check failed')
+                return
+            }
+            if (data.state === 'allowed') { setGate('allowed'); return }
+            if (data.state === 'denied') { setGate('denied'); return }
+            setGate('verify')
+        } catch {
+            setGate('error')
+            setMessage('Could not reach the access service')
+        }
+    }, [])
+
+    // Re-run the whole gate whenever the connected or the verified wallet changes: switching
+    // accounts in the wallet must not leave the previous account's game on screen.
+    useEffect(() => {
+        if (!account?.address) { setGate('connect'); return }
+        setGate('loading')
+        checkAccess()
+    }, [account?.address, authedWallet, checkAccess])
+
+    const verify = useCallback(async () => {
+        setSigning(true)
+        setMessage(null)
+        const ok = await ensureLogin()
+        setSigning(false)
+        if (!ok) { setMessage(sessionError ?? 'Signature required to continue'); return }
+        setGate('loading')
+        await checkAccess()
+    }, [ensureLogin, sessionError, checkAccess])
+
+    const short = (w: string) => `${w.slice(0, 6)}…${w.slice(-4)}`
+
+    return (
+        <div className="relative min-h-screen bg-black text-white overflow-x-hidden">
+            <DigitalBackground />
+            <Header onOpenProfile={() => setIsProfileOpen(true)} />
+
+            <main className="relative z-10 mx-auto max-w-6xl px-4 pt-28 pb-16 sm:pt-32">
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    className="mb-8 text-center"
+                >
+                    <p className="font-mono text-xs uppercase tracking-[0.3em] text-white/40">
+                        Closed Beta
+                    </p>
+                    <h1 className="mt-2 text-4xl font-bold uppercase tracking-tight sm:text-5xl">
+                        Droidz Survival
+                    </h1>
+                    <p className="mt-3 font-mono text-xs uppercase tracking-widest text-white/40">
+                        Pixel roguelite · Survive the waves
+                    </p>
+                </motion.div>
+
+                {gate === 'allowed' ? (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.985 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                        <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_0_60px_rgba(0,105,255,0.12)]">
+                            <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-2">
+                                <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-white/40">
+                                    <ShieldCheck className="h-3.5 w-3.5 icon-dim-50" />
+                                    Beta access · {authedWallet ? short(authedWallet) : ''}
+                                </span>
+                                <button
+                                    onClick={() => frameRef.current?.requestFullscreen?.()}
+                                    className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-white/40 transition-colors hover:text-white"
+                                >
+                                    <Maximize2 className="h-3.5 w-3.5 icon-dim-50" />
+                                    Fullscreen
+                                </button>
+                            </div>
+                            {/* 16:9 — the Phaser canvas is 1280×720 and letterboxes itself inside. */}
+                            <div className="relative aspect-video w-full bg-[#112030]">
+                                <iframe
+                                    ref={frameRef}
+                                    src={GAME_SRC}
+                                    title="Droidz Survival"
+                                    className="absolute inset-0 h-full w-full border-0"
+                                    allow="fullscreen; autoplay; gamepad"
+                                />
+                            </div>
+                        </div>
+                        <p className="mt-4 text-center font-mono text-[11px] uppercase tracking-widest text-white/30">
+                            Arrows / WASD move · C attack · Space jump · Enter confirm · Esc back
+                        </p>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.45, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+                        className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center backdrop-blur-sm sm:p-10"
+                    >
+                        {gate === 'loading' && (
+                            <>
+                                <Loader2 className="mx-auto h-7 w-7 animate-spin text-white icon-dim-50" />
+                                <p className="mt-5 font-mono text-xs uppercase tracking-widest text-white/40">
+                                    Checking access…
+                                </p>
+                            </>
+                        )}
+
+                        {gate === 'connect' && (
+                            <>
+                                <Lock className="mx-auto h-7 w-7 text-white icon-dim-50" />
+                                <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
+                                    Connect your wallet
+                                </h2>
+                                <p className="mt-3 text-sm leading-relaxed text-white/50">
+                                    Droidz Survival is in closed beta. Connect your wallet to check
+                                    whether you are on the early access list.
+                                </p>
+                                <p className="mt-6 font-mono text-[11px] uppercase tracking-widest text-white/30">
+                                    Use the Connect Wallet button above
+                                </p>
+                            </>
+                        )}
+
+                        {gate === 'verify' && (
+                            <>
+                                <ShieldCheck className="mx-auto h-7 w-7 text-white icon-dim-50" />
+                                <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
+                                    Verify your wallet
+                                </h2>
+                                <p className="mt-3 text-sm leading-relaxed text-white/50">
+                                    Sign a message to prove the wallet is yours. It is free, there is
+                                    no transaction, and nothing leaves your wallet.
+                                </p>
+                                <button
+                                    onClick={verify}
+                                    disabled={signing}
+                                    className="mt-7 inline-flex h-[46px] items-center justify-center gap-2 rounded-full bg-white px-8 text-sm font-bold text-black transition-all duration-300 hover:bg-[#0069FF] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {signing && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    {signing ? 'Waiting for signature…' : 'Sign to continue'}
+                                </button>
+                            </>
+                        )}
+
+                        {gate === 'denied' && (
+                            <>
+                                <Lock className="mx-auto h-7 w-7 text-white icon-dim-50" />
+                                <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
+                                    Not on the beta list
+                                </h2>
+                                <p className="mt-3 text-sm leading-relaxed text-white/50">
+                                    Sorry — this wallet does not have early access to Droidz Survival
+                                    yet. The beta is opening in waves.
+                                </p>
+                                {authedWallet && (
+                                    <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-white/30">
+                                        {short(authedWallet)}
+                                    </p>
+                                )}
+                                <a
+                                    href={CONTACT}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-7 inline-flex h-[46px] items-center justify-center rounded-full bg-white px-8 text-sm font-bold text-black transition-all duration-300 hover:bg-[#0069FF] hover:text-white"
+                                >
+                                    Ask @splitform for access
+                                </a>
+                                <p className="mt-5 text-xs leading-relaxed text-white/30">
+                                    Got access on a different wallet? Switch accounts and this page
+                                    will re-check on its own.
+                                </p>
+                            </>
+                        )}
+
+                        {gate === 'error' && (
+                            <>
+                                <Lock className="mx-auto h-7 w-7 text-white icon-dim-50" />
+                                <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
+                                    Access check failed
+                                </h2>
+                                <p className="mt-3 text-sm leading-relaxed text-white/50">
+                                    {message ?? 'Something went wrong on our side.'}
+                                </p>
+                                <button
+                                    onClick={() => { setGate('loading'); checkAccess() }}
+                                    className="mt-7 inline-flex h-[46px] items-center justify-center rounded-full bg-white px-8 text-sm font-bold text-black transition-all duration-300 hover:bg-[#0069FF] hover:text-white"
+                                >
+                                    Try again
+                                </button>
+                            </>
+                        )}
+
+                        {message && gate !== 'error' && (
+                            <p className="mt-5 font-mono text-[11px] uppercase tracking-widest text-red-400/70">
+                                {message}
+                            </p>
+                        )}
+                    </motion.div>
+                )}
+            </main>
+
+            <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+        </div>
+    )
+}

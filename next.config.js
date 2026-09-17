@@ -62,6 +62,13 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // The game's JS chunks are content-hashed by Vite: safe to cache for a year, and it
+        // keeps the beta-gate middleware from running on every revisit. index.html keeps
+        // the default (revalidate), so a new build is picked up on the next load.
+        source: "/droidz_survival/play/assets/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
         source: "/api/:path*",
         headers: [
           { key: "Access-Control-Allow-Credentials", value: "true" },

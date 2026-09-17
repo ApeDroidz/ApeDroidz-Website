@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ADMIN_COOKIE_NAME, isAdminTokenValid, isMaintenanceModeEnabled } from '@/lib/adminAuth'
+import { PLAY_COOKIE_NAME, readPlayToken } from '@/lib/survivalAccess'
 
 /**
  * Combined middleware:
@@ -9,7 +10,12 @@ import { ADMIN_COOKIE_NAME, isAdminTokenValid, isMaintenanceModeEnabled } from '
  *      and API routes return 503. Always-allowed paths: /coming-soon and
  *      its assets, /api/admin/*, /api/sys/debug.
  *
- *   2. RATE LIMITER — for /api/flight/*. Financial endpoints (/deposit,
+ *   2. SURVIVAL BETA GATE — /droidz_survival/play/* (the game build itself) needs a valid
+ *      `survival_play` cookie, minted by /api/survival/access for an allowlisted wallet that
+ *      has signed in. Without it the request is sent back to the landing page, which explains
+ *      why. The landing page itself is public — it has to be, or there is nowhere to connect.
+ *
+ *   3. RATE LIMITER — for /api/flight/*. Financial endpoints (/deposit,
  *      /withdraw) are keyed by wallet address (X-Wallet-Address header) so
  *      a bad actor cannot bypass by rotating IPs.
  *
@@ -76,6 +82,11 @@ const LIMITS: Record<string, Limit> = {
     '/api/flight/verify-ws-auth':       { max: 120, windowMs: 60_000 },
     '/api/flight/deposit':              { max: 10,  windowMs: 60_000,  keyBy: 'wallet' },
     '/api/flight/withdraw':             { max: 5,   windowMs: 60_000,  keyBy: 'wallet' },
+    // Droidz Survival run tickets: a human starts a run every few minutes and pulses once a
+    // wave. These are per-IP backstops; the per-wallet hourly cap lives in the start route.
+    '/api/survival/run/start':          { max: 30,  windowMs: 60_000 },
+    '/api/survival/run/pulse':          { max: 60,  windowMs: 60_000 },
+    '/api/survival/run/finish':         { max: 30,  windowMs: 60_000 },
 }
 
 function getKey(pathname: string, req: NextRequest, limit: Limit): string {
@@ -143,7 +154,21 @@ export async function middleware(req: NextRequest) {
         }
     }
 
-    // ── 2. Rate limiter (passthrough if not configured for this path) ────────
+    // ── 2. Droidz Survival beta gate ─────────────────────────────────────────
+    // Only the build under /play is gated; /droidz_survival itself is the door.
+    if (pathname.startsWith('/droidz_survival/play')) {
+        const wallet = await readPlayToken(req.cookies.get(PLAY_COOKIE_NAME)?.value)
+        if (!wallet) {
+            const url = req.nextUrl.clone()
+            url.pathname = '/droidz_survival'
+            url.search = ''
+            // Redirect, not rewrite: the game loads its own assets by relative path, and a
+            // rewrite would leave the browser thinking it is still inside /play.
+            return NextResponse.redirect(url)
+        }
+    }
+
+    // ── 3. Rate limiter (passthrough if not configured for this path) ────────
     const rl = rateLimit(req)
     if (rl) return rl
 
@@ -155,5 +180,9 @@ export const config = {
     // /coming-soon (and its login form) can load fonts, JS, images, etc.
     matcher: [
         '/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:png|jpg|jpeg|gif|webp|svg|mp4|mp3|MP3|webm|wav|ogg|woff|woff2|ttf|eot|ico|json|txt|map)).*)',
+        // The game build is matched separately and WITHOUT the asset-extension escape hatch:
+        // its sprite sheets and atlases are .png and .json, and the pattern above would wave
+        // every one of them straight past the beta gate.
+        '/droidz_survival/play/:path*',
     ],
 }
