@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { useActiveAccount } from 'thirdweb/react'
+import { useActiveAccount, useSendTransaction } from 'thirdweb/react'
+import { prepareTransaction, toWei } from 'thirdweb'
+import { client, apeChain } from '@/lib/thirdweb'
 import { Loader2, Lock, ShieldCheck, Maximize2 } from 'lucide-react'
 import { Header } from '@/components/header'
 import { DigitalBackground } from '@/components/digital-background'
@@ -30,6 +32,9 @@ import { GlitchText } from '@/components/glitch/glitch-text'
 
 const CONTACT = 'https://x.com/splitform'
 const GAME_SRC = '/droidz_survival/play/index.html'
+/** Where a paid continue / run sends its APE. Server-verified against the same address (api/survival/pay). */
+const TREASURY = process.env.NEXT_PUBLIC_SURVIVAL_TREASURY_WALLET ?? '0x1DcF1d22A1dbDd20AE875beDEEe3A259b1D608db'
+
 
 type Gate = 'loading' | 'connect' | 'verify' | 'denied' | 'allowed' | 'error'
 
@@ -43,6 +48,39 @@ export default function DroidzSurvivalPage() {
     const [isProfileOpen, setIsProfileOpen] = useState(false)
 
     const frameRef = useRef<HTMLIFrameElement>(null)
+    const { mutateAsync: sendTx } = useSendTransaction()
+
+    // The paid door. The game (an iframe on our own origin) looks for `window.DroidzPay`
+    // and offers CONTINUE for 1 APE only when it is there. We install it on the frame's
+    // window: the transfer goes from the player's wallet to the treasury through the site's
+    // thirdweb session, and the hash is verified server-side before the game hears "yes".
+    const installPay = useCallback(() => {
+        const win = frameRef.current?.contentWindow as (Window & { DroidzPay?: unknown }) | null
+        if (!win) return
+        win.DroidzPay = {
+            charge: async (kind: 'continue' | 'run', amountApe: number): Promise<boolean> => {
+                try {
+                    const tx = prepareTransaction({ chain: apeChain, client, to: TREASURY, value: toWei(String(amountApe)) })
+                    const result = await sendTx(tx)
+                    await new Promise((r) => setTimeout(r, 3000))
+                    for (let attempt = 0; attempt < 4; attempt++) {
+                        const res = await fetch('/api/survival/pay', {
+                            method: 'POST', credentials: 'include',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ txHash: result.transactionHash, kind }),
+                        })
+                        const data = await res.json().catch(() => ({}))
+                        if (data?.ok === true) return true
+                        if (data?.state !== 'not_found') return false
+                        await new Promise((r) => setTimeout(r, 2500)) // the node has not seen it yet
+                    }
+                    return false
+                } catch {
+                    return false
+                }
+            },
+        }
+    }, [sendTx])
 
     const checkAccess = useCallback(async () => {
         try {
@@ -135,6 +173,7 @@ export default function DroidzSurvivalPage() {
                             <div className="relative aspect-video w-full bg-[#112030]">
                                 <iframe
                                     ref={frameRef}
+                                    onLoad={installPay}
                                     src={GAME_SRC}
                                     title="Droidz Survival"
                                     className="absolute inset-0 h-full w-full border-0"
