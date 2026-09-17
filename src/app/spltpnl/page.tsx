@@ -10,17 +10,28 @@ import { SurvivalTab } from './survival-tab'
 
 type Window = '24h' | '7d' | '30d' | 'all'
 
+// One top-level tab per game, the way Droidz Survival has one: everything that is Glitch
+// Cards data (spins, the cards economy, prizes and inventory, quests / streaks / XP) lives as
+// sub-tabs under "Glitch Cards". Overview (site-wide + health), Users (a wallet across every
+// game) and Locker (staking) are not one game's data and stay on top.
 const TABS = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'cards', label: 'Cards', icon: Gamepad2 },
-    { id: 'profit', label: 'Profit', icon: Coins },
     { id: 'users', label: 'Users', icon: Users },
-    { id: 'prizes', label: 'Prizes', icon: Package },
-    { id: 'quests', label: 'Quests', icon: Target },
+    { id: 'glitch', label: 'Glitch Cards', icon: Gamepad2 },
     { id: 'locker', label: 'Locker', icon: Lock },
     { id: 'survival', label: 'Droidz Survival', icon: Crosshair },
 ] as const
 type TabId = typeof TABS[number]['id']
+
+const GLITCH_TABS = [
+    { id: 'cards', label: 'Cards', icon: Gamepad2 },
+    { id: 'profit', label: 'Profit', icon: Coins },
+    { id: 'prizes', label: 'Prizes', icon: Package },
+    { id: 'quests', label: 'Quests', icon: Target },
+] as const
+type GlitchTabId = typeof GLITCH_TABS[number]['id']
+const isGlitchTab = (id: string): id is GlitchTabId => GLITCH_TABS.some(t => t.id === id)
+const isTopTab = (id: string): id is TabId => TABS.some(t => t.id === id)
 
 // Призы группируем по типу выдачи: у NFT есть склад и он может кончиться,
 // у токенов и шардов — нет. Порядок от «дорогого» к «расходному».
@@ -1802,10 +1813,56 @@ function Table({ headers, rows }: { headers: string[]; rows: React.ReactNode[][]
     )
 }
 
+// ── Glitch Cards: one tab, four panels ────────────────────────────────────────
+
+function GlitchCardsTab({ sub, setSub }: { sub: GlitchTabId; setSub: (id: GlitchTabId) => void }) {
+    const body = useMemo(() => {
+        switch (sub) {
+            case 'cards':  return <CardsTab />
+            case 'profit': return <ProfitPanel />
+            case 'prizes': return <PrizesTab />
+            case 'quests': return <QuestsTab />
+        }
+    }, [sub])
+    return (
+        <div>
+            <nav className="flex overflow-x-auto gap-1 mb-5 border-b border-white/10">
+                {GLITCH_TABS.map(t => {
+                    const Icon = t.icon
+                    const active = sub === t.id
+                    return (
+                        <button key={t.id} onClick={() => setSub(t.id)} className={`flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 -mb-px whitespace-nowrap transition-colors ${active ? 'text-white border-[#3b82f6]' : 'text-white/40 border-transparent hover:text-white/70'}`}>
+                            <Icon size={12} /> {t.label}
+                        </button>
+                    )
+                })}
+            </nav>
+            <AnimatePresence mode="wait">
+                <motion.div key={sub} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                    {body}
+                </motion.div>
+            </AnimatePresence>
+        </div>
+    )
+}
+
 // ── Page shell ────────────────────────────────────────────────────────────────
 
+/**
+ * The tab is state, not the URL, so there are no deep links to keep; `?tab=` is still honoured
+ * once after mount as a courtesy (after mount, not in the initializer, so the server and the
+ * client render the same first frame), and the pre-grouping ids (cards / profit / prizes /
+ * quests) land on the right panel inside Glitch Cards.
+ */
 export default function SpltpnlPage() {
-    const [tab, setTab] = useState<TabId>('overview')
+    const [{ tab, sub }, setTabs] = useState<{ tab: TabId; sub: GlitchTabId }>({ tab: 'overview', sub: 'cards' })
+    const setTab = useCallback((id: TabId) => setTabs(prev => ({ ...prev, tab: id })), [])
+    const setSub = useCallback((id: GlitchTabId) => setTabs({ tab: 'glitch', sub: id }), [])
+    useEffect(() => {
+        const want = new URLSearchParams(window.location.search).get('tab') ?? ''
+        if (isGlitchTab(want)) setSub(want)
+        else if (isTopTab(want)) setTab(want)
+    }, [setSub, setTab])
 
     const logout = async () => {
         if (!confirm('Logout from admin?')) return
@@ -1816,15 +1873,12 @@ export default function SpltpnlPage() {
     const TabBody = useMemo(() => {
         switch (tab) {
             case 'overview': return <OverviewTab />
-            case 'cards':    return <CardsTab />
-            case 'profit':   return <ProfitPanel />
             case 'users':    return <UsersTab />
-            case 'prizes':   return <PrizesTab />
-            case 'quests':   return <QuestsTab />
+            case 'glitch':   return <GlitchCardsTab sub={sub} setSub={setSub} />
             case 'locker':   return <LockerTab />
             case 'survival': return <SurvivalTab />
         }
-    }, [tab])
+    }, [tab, sub, setSub])
 
     return (
         <div className="min-h-screen flex flex-col">
