@@ -20,7 +20,7 @@ const headers = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age
  */
 const AGG_LIMIT = 10_000
 
-type AllowRow = { wallet: string; note: string | null; added_by: string | null; added_at: string; revoked_at: string | null }
+type AllowRow = { wallet: string; note: string | null; added_by: string | null; added_at: string; revoked_at: string | null; expires_at: string | null }
 type RejectedRow = { wallet: string; reject_reason: string | null; started_at: string }
 type BanRow = { wallet: string; banned: boolean; ban_reason: string | null }
 
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
             .order('at', { ascending: false }).limit(200),
         db.from('survival_runs').select('id, wallet, status, reject_reason, flags, score, wave, kills, started_at, finished_at, server_duration_ms, client_duration_ms, client_version, hero')
             .eq('status', 'rejected').order('started_at', { ascending: false }).limit(200),
-        db.from('survival_allowlist').select('wallet, note, added_by, added_at, revoked_at').order('added_at', { ascending: false }),
+        db.from('survival_allowlist').select('wallet, note, added_by, added_at, revoked_at, expires_at').order('added_at', { ascending: false }),
         db.from('survival_runs').select('id, wallet, status, reject_reason, score, wave, kills, started_at, hero, client_version')
             .order('started_at', { ascending: false }).limit(60),
         db.from('survival_profiles').select('wallet, coins, runs, best_score, selected_hero, updated_at').order('updated_at', { ascending: false }).limit(200),
@@ -119,7 +119,11 @@ export async function GET(request: NextRequest) {
         events: events.data ?? [],
         suspicious: rejectedRuns.data ?? [],
         cheaters: caught,
-        allowlist: ((allowlist.data ?? []) as AllowRow[]).map((a) => ({ ...a, status: a.revoked_at ? 'revoked' : 'active' })),
+        // revoked beats expired: a revoked wallet stays revoked whatever its clock says.
+        allowlist: ((allowlist.data ?? []) as AllowRow[]).map((a) => ({
+            ...a,
+            status: a.revoked_at ? 'revoked' : a.expires_at && new Date(a.expires_at).getTime() <= Date.now() ? 'expired' : 'active',
+        })),
         recentRuns: recent.data ?? [],
         profiles: profiles.data ?? [],
         problems,

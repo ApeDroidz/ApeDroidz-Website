@@ -77,12 +77,17 @@ function getSecret(): string | null {
 
 // ── Play token ────────────────────────────────────────────────────────────────
 
-/** Mint the signed play cookie for an allowlisted wallet. Null if the secret is missing. */
-export async function createPlayToken(wallet: string): Promise<string | null> {
+/**
+ * Mint the signed play cookie for an allowlisted wallet. Null if the secret is missing.
+ * `until` — the wallet's access expiry (survival_allowlist.expires_at), if it has one: the
+ * cookie never outlives the access, so a timed beta closes on the minute, not up to PLAY_TTL later.
+ */
+export async function createPlayToken(wallet: string, until?: Date | null): Promise<string | null> {
     const secret = getSecret()
     if (!secret) return null
+    const exp = until ? Math.min(Date.now() + PLAY_TTL_MS, until.getTime()) : Date.now() + PLAY_TTL_MS
     const payload = bytesToBase64Url(
-        new TextEncoder().encode(JSON.stringify({ w: wallet.toLowerCase(), exp: Date.now() + PLAY_TTL_MS })),
+        new TextEncoder().encode(JSON.stringify({ w: wallet.toLowerCase(), exp })),
     )
     return `${payload}.${await hmacSha256(secret, payload)}`
 }

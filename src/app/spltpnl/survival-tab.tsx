@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Ban, Check, Loader2, Plus, RefreshCcw, ShieldCheck, Trash2, Users } from 'lucide-react'
+import { AlertTriangle, Ban, Check, Clock, Loader2, Plus, RefreshCcw, ShieldCheck, Trash2, Users } from 'lucide-react'
+import { ACCESS_DURATIONS, DEFAULT_ACCESS_DURATION } from '@/lib/survivalDurations'
 
 /**
  * Droidz Survival — the game's own tab in the panel (the owner, 18.09.2026): what is
@@ -24,7 +25,7 @@ type Payload = {
     events: Array<{ id: number; at: string; wallet: string | null; source: string; level: string; kind: string; message: string; data: Record<string, unknown>; run_id: string | null; client_version: string | null }>
     suspicious: Array<{ id: string; wallet: string; status: string; reject_reason: string | null; flags: string[]; score: number; wave: number; kills: number; started_at: string; server_duration_ms: number | null; client_duration_ms: number | null; client_version: string | null; hero: string | null }>
     cheaters: Array<{ wallet: string; rejected: number; last: string; reasons: string[]; banned: boolean; ban_reason: string | null }>
-    allowlist: Array<{ wallet: string; status: 'active' | 'revoked'; note: string | null; added_by: string | null; added_at: string; revoked_at: string | null }>
+    allowlist: Array<{ wallet: string; status: 'active' | 'expired' | 'revoked'; note: string | null; added_by: string | null; added_at: string; revoked_at: string | null; expires_at: string | null }>
     recentRuns: Array<{ id: string; wallet: string; status: string; reject_reason: string | null; score: number; wave: number; kills: number; started_at: string; hero: string | null; client_version: string | null }>
     profiles: Array<{ wallet: string; coins: number; runs: number; best_score: number; selected_hero: string | null; updated_at: string }>
     problems: string[]
@@ -80,6 +81,7 @@ export function SurvivalTab() {
     const [busy, setBusy] = useState<string | null>(null)
     const [wallet, setWallet] = useState('')
     const [note, setNote] = useState('')
+    const [duration, setDuration] = useState(DEFAULT_ACCESS_DURATION)
     const [clanSlug, setClanSlug] = useState('')
     const [clanName, setClanName] = useState('')
     const [clanChain, setClanChain] = useState('ape_chain')
@@ -142,23 +144,35 @@ export function SurvivalTab() {
                     )}
                 </Section>
 
-                <Section title="Beta access" hint={`${data.allowlist.filter((a) => a.status === 'active').length} active of ${data.allowlist.length}`}>
-                    <form className="flex flex-col sm:flex-row gap-2 mb-3" onSubmit={(e) => { e.preventDefault(); if (!wallet) return; void act('allow', () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', wallet, note }) })).then(() => { setWallet(''); setNote('') }) }}>
+                <Section title="Beta access" hint={`${data.allowlist.filter((a) => a.status === 'active').length} active · ${data.allowlist.filter((a) => a.status === 'expired').length} expired · ${data.allowlist.length} total`}>
+                    {/* Timed access (owner, 19.09): the duration picked here is what Add and
+                        Activate grant. An expired wallet stays on the list, grey, until it is
+                        activated again — the gate itself closes on the minute (the play cookie
+                        is capped at expires_at). */}
+                    <form className="flex flex-col sm:flex-row gap-2 mb-3" onSubmit={(e) => { e.preventDefault(); if (!wallet) return; void act('allow', () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', wallet, note, duration }) })).then(() => { setWallet(''); setNote('') }) }}>
                         <input value={wallet} onChange={(e) => setWallet(e.target.value)} placeholder="0x… wallet" className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#3b82f6]" />
                         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="note (who / where from)" className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#3b82f6]" />
+                        <select value={duration} onChange={(e) => setDuration(e.target.value)} title="How long the access lasts" className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none focus:border-[#3b82f6]">
+                            {ACCESS_DURATIONS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+                        </select>
                         <button type="submit" disabled={busy === 'allow'} className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#3b82f6] text-[10px] font-black uppercase tracking-widest disabled:opacity-50"><Plus className="h-3.5 w-3.5" /> Add</button>
                     </form>
                     <div className="max-h-64 overflow-auto divide-y divide-white/5">
                         {data.allowlist.length === 0 && <div className="text-white/30 text-xs">The list is empty.</div>}
                         {data.allowlist.map((a) => (
-                            <div key={a.wallet} className="flex items-center gap-3 py-1.5 text-xs">
-                                {a.status === 'active' ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" /> : <Ban className="h-3.5 w-3.5 text-white/25 flex-shrink-0" />}
-                                <span className={`font-mono ${a.status === 'active' ? '' : 'text-white/30 line-through'}`} title={a.wallet}>{short(a.wallet)}</span>
+                            <div key={a.wallet} className={`flex items-center gap-3 py-1.5 text-xs ${a.status === 'active' ? '' : 'opacity-60'}`}>
+                                {a.status === 'active' ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                                    : a.status === 'expired' ? <Clock className="h-3.5 w-3.5 text-amber-400/70 flex-shrink-0" />
+                                    : <Ban className="h-3.5 w-3.5 text-white/25 flex-shrink-0" />}
+                                <span className={`font-mono ${a.status === 'active' ? '' : a.status === 'expired' ? 'text-white/40' : 'text-white/30 line-through'}`} title={a.wallet}>{short(a.wallet)}</span>
                                 <span className="text-white/40 flex-1 truncate">{a.note ?? ''}{a.added_by ? <span className="text-white/25"> · {a.added_by}</span> : null}</span>
-                                <span className="text-white/25 font-mono text-[10px]" title={a.revoked_at ? `revoked ${when(a.revoked_at)}` : `added ${when(a.added_at)}`}>{a.revoked_at ? `revoked ${day(a.revoked_at)}` : day(a.added_at)}</span>
+                                <span className={`font-mono text-[10px] ${a.status === 'expired' ? 'text-amber-400/70' : 'text-white/25'}`}
+                                    title={a.revoked_at ? `revoked ${when(a.revoked_at)}` : a.expires_at ? `${a.status === 'expired' ? 'expired' : 'until'} ${when(a.expires_at)} · added ${when(a.added_at)}` : `added ${when(a.added_at)} · no expiry`}>
+                                    {a.revoked_at ? `revoked ${day(a.revoked_at)}` : a.expires_at ? `${a.status === 'expired' ? 'expired' : 'until'} ${when(a.expires_at)}` : 'forever'}
+                                </span>
                                 {a.status === 'active'
                                     ? <button onClick={() => void act(a.wallet, () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'revoke', wallet: a.wallet }) }))} className="text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-red-400">Revoke</button>
-                                    : <button onClick={() => void act(a.wallet, () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', wallet: a.wallet, note: a.note }) }))} className="text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-emerald-400">Restore</button>}
+                                    : <button title={`Activate for ${ACCESS_DURATIONS.find((d) => d.key === duration)?.label ?? duration} (the picker above)`} onClick={() => void act(a.wallet, () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', wallet: a.wallet, note: a.note, duration }) }))} className="text-[9px] font-black uppercase tracking-widest text-emerald-400/70 hover:text-emerald-300">Activate</button>}
                             </div>
                         ))}
                     </div>

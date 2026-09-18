@@ -5,7 +5,8 @@
  * not a public document — which means there is no UI for it and this is the way in.
  *
  *   node --env-file=.env.local scripts/survival-allowlist.mjs list
- *   node --env-file=.env.local scripts/survival-allowlist.mjs add 0xabc… "Vitalik, from Discord"
+ *   node --env-file=.env.local scripts/survival-allowlist.mjs add 0xabc… "Vitalik, from Discord" [7d]
+ *     (duration: 1h 3h 6h 12h 24h 2d 3d 5d 7d 2w 1mo 3mo 1y forever — default forever)
  *   node --env-file=.env.local scripts/survival-allowlist.mjs add-file wallets.txt "Wave 1"
  *   node --env-file=.env.local scripts/survival-allowlist.mjs revoke 0xabc…
  *   node --env-file=.env.local scripts/survival-allowlist.mjs restore 0xabc…
@@ -29,35 +30,45 @@ const norm = (w) => {
     return lower
 }
 
-async function add(wallets, note) {
+const DURATION_S = { '1h': 3600, '3h': 10800, '6h': 21600, '12h': 43200, '24h': 86400, '2d': 172800, '3d': 259200, '5d': 432000, '7d': 604800, '2w': 1209600, '1mo': 2592000, '3mo': 7776000, '1y': 31536000, forever: null }
+const expiry = (key) => {
+    if (key === undefined) return null
+    if (!(key in DURATION_S)) throw new Error(`unknown duration: ${key} (${Object.keys(DURATION_S).join(' ')})`)
+    return DURATION_S[key] === null ? null : new Date(Date.now() + DURATION_S[key] * 1000).toISOString()
+}
+
+async function add(wallets, note, duration) {
+    const expires_at = expiry(duration)
     const rows = await client.query(
-        `insert into survival_allowlist (wallet, note, added_by)
-         select unnest($1::text[]), $2, $3
+        `insert into survival_allowlist (wallet, note, added_by, expires_at)
+         select unnest($1::text[]), $2, $3, $4::timestamptz
          on conflict (wallet) do update set
              revoked_at = null,
+             expires_at = excluded.expires_at,
              note = coalesce(excluded.note, survival_allowlist.note)
          returning wallet`,
-        [wallets, note ?? null, process.env.USER ?? 'cli'])
-    console.log(`✓ ${rows.rowCount} wallet(s) on the list`)
+        [wallets, note ?? null, process.env.USER ?? 'cli', expires_at])
+    console.log(`✓ ${rows.rowCount} wallet(s) on the list${expires_at ? ` until ${expires_at}` : ' (no expiry)'}`)
 }
 
 try {
     switch (cmd) {
         case 'list': {
             const { rows } = await client.query(
-                `select wallet, note, added_at, revoked_at from survival_allowlist order by added_at desc`)
+                `select wallet, note, added_at, revoked_at, expires_at from survival_allowlist order by added_at desc`)
             if (!rows.length) { console.log('The allowlist is empty.'); break }
             console.table(rows.map((r) => ({
                 wallet: r.wallet,
-                status: r.revoked_at ? 'REVOKED' : 'active',
+                status: r.revoked_at ? 'REVOKED' : r.expires_at && new Date(r.expires_at) <= new Date() ? 'EXPIRED' : 'active',
+                until: r.expires_at ? new Date(r.expires_at).toISOString().slice(0, 16).replace('T', ' ') : 'forever',
                 note: r.note ?? '',
                 added: r.added_at.toISOString().slice(0, 10),
             })))
-            console.log(`${rows.filter((r) => !r.revoked_at).length} active of ${rows.length}`)
+            console.log(`${rows.filter((r) => !r.revoked_at && !(r.expires_at && new Date(r.expires_at) <= new Date())).length} active of ${rows.length}`)
             break
         }
         case 'add':
-            await add([norm(rest[0])], rest[1])
+            await add([norm(rest[0])], rest[1], rest[2])
             break
         case 'add-file': {
             // One address per line; blank lines and #-comments ignored.
