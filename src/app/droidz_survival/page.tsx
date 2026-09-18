@@ -11,6 +11,7 @@ import { DigitalBackground } from '@/components/digital-background'
 import { ProfileModal } from '@/components/profile-modal'
 import { useGlitchSession } from '@/hooks/useGlitchSession'
 import { GlitchText } from '@/components/glitch/glitch-text'
+import { DISCORD_URL, OPENSEA_COLLECTION_URL } from '@/lib/socials'
 
 /**
  * Droidz Survival — closed beta.
@@ -30,7 +31,10 @@ import { GlitchText } from '@/components/glitch/glitch-text'
  * file of the build under /droidz_survival/play. This page cannot let anyone in on its own.
  */
 
-const CONTACT = 'https://x.com/splitform'
+// Beta access = a droid + a ticket (owner, 18.09): the collection on OpenSea and the
+// Discord, not a DM to the founder (whose handle was misspelt here anyway — @split0rm).
+// Kept for the error state's "tell us" link; the founder's handle is @split0rm, not @splitform.
+const CONTACT = 'https://x.com/split0rm'
 const GAME_SRC = '/droidz_survival/play/index.html'
 /** Where a paid continue / run sends its APE. Server-verified against the same address (api/survival/pay). */
 const TREASURY = process.env.NEXT_PUBLIC_SURVIVAL_TREASURY_WALLET ?? '0x1DcF1d22A1dbDd20AE875beDEEe3A259b1D608db'
@@ -255,22 +259,33 @@ export default function DroidzSurvivalPage() {
                                     Not on the beta list
                                 </h2>
                                 <p className="mt-3 text-sm leading-relaxed text-white/50">
-                                    Sorry — this wallet does not have early access to Droidz Survival
-                                    yet. The beta is opening in waves.
+                                    This wallet does not have early access to Droidz Survival yet.
+                                    To get in: hold an ApeDroid, then open a ticket in the Discord —
+                                    the beta is opening in waves.
                                 </p>
                                 {authedWallet && (
                                     <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-white/30">
                                         {short(authedWallet)}
                                     </p>
                                 )}
-                                <a
-                                    href={CONTACT}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-7 inline-flex h-[46px] items-center justify-center rounded-full bg-white px-8 text-sm font-bold text-black transition-all duration-300 hover:bg-[#0069FF] hover:text-white"
-                                >
-                                    Ask @splitform for access
-                                </a>
+                                <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                                    <a
+                                        href={OPENSEA_COLLECTION_URL}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-[46px] items-center justify-center rounded-full bg-white px-8 text-sm font-bold text-black transition-all duration-300 hover:bg-[#0069FF] hover:text-white"
+                                    >
+                                        Get an ApeDroid on OpenSea
+                                    </a>
+                                    <a
+                                        href={DISCORD_URL}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-[46px] items-center justify-center rounded-full border border-white/20 px-8 text-sm font-bold text-white transition-all duration-300 hover:border-white/60"
+                                    >
+                                        Open a ticket in Discord
+                                    </a>
+                                </div>
                                 <p className="mt-5 text-xs leading-relaxed text-white/30">
                                     Got access on a different wallet? Switch accounts and this page
                                     will re-check on its own.
