@@ -33,8 +33,6 @@ import { DISCORD_URL, OPENSEA_COLLECTION_URL } from '@/lib/socials'
 
 // Beta access = a droid + a ticket (owner, 18.09): the collection on OpenSea and the
 // Discord, not a DM to the founder (whose handle was misspelt here anyway — @split0rm).
-// Kept for the error state's "tell us" link; the founder's handle is @split0rm, not @splitform.
-const CONTACT = 'https://x.com/split0rm'
 const GAME_SRC = '/droidz_survival/play/index.html'
 /** Where a paid continue / run sends its APE. Server-verified against the same address (api/survival/pay). */
 const TREASURY = process.env.NEXT_PUBLIC_SURVIVAL_TREASURY_WALLET ?? '0x1DcF1d22A1dbDd20AE875beDEEe3A259b1D608db'
