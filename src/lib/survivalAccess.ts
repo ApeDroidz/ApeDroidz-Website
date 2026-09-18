@@ -21,7 +21,13 @@
  */
 
 export const PLAY_COOKIE_NAME = 'survival_play'
-export const PLAY_PATH = '/droidz_survival'
+/**
+ * '/' and not '/droidz_survival': the cookie has to reach /api/survival/* too — scoped to
+ * the game's path it never left the page, every run/profile call answered 401
+ * `no_access`, and the analytics stayed empty (18.09). It is httpOnly and HMAC-signed,
+ * so the wider path costs nothing.
+ */
+export const PLAY_PATH = '/'
 const PLAY_TTL_MS = 6 * 60 * 60 * 1000
 
 // ── Base64url + HMAC, Edge-safe (no Buffer, no node:crypto) ───────────────────

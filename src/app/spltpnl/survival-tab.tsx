@@ -16,7 +16,7 @@ type Payload = {
     generatedAt: string
     season: { id: string; name: string; status: string; starts_at: string; ends_at: string } | null
     stats: {
-        players: number; players24: number; banned: number; runsAll: number; runs24: number; runs7: number; finished: number; rejected: number; voided: number; started: number
+        online: number; playing: number; players: number; players24: number; banned: number; runsAll: number; runs24: number; runs7: number; finished: number; rejected: number; voided: number; started: number
         rejectRate: number; cheatWallets: number; avgScore: number; avgWave: number; avgKills: number
         payments: { count: number; ape: number; confirmed: number; confirmedApe: number }
     }
@@ -118,6 +118,7 @@ export function SurvivalTab() {
             {data.problems?.length > 0 && <div className="text-orange-400 text-xs font-mono">Some queries failed: {data.problems.join(' · ')}</div>}
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <Stat label="Online now (in a run)" value={`${s.online} (${s.playing})`} accent="text-emerald-400" />
                 <Stat label="Players (banned)" value={`${s.players} (${s.banned})`} />
                 <Stat label="Active 24h" value={s.players24} accent="text-[#3b82f6]" />
                 <Stat label="Runs (24h / 7d / all)" value={`${s.runs24} / ${s.runs7} / ${s.runsAll}`} />

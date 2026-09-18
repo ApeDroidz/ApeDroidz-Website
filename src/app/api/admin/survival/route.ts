@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
     const db = supabaseAdmin
     const dayAgo = new Date(Date.now() - 86_400_000).toISOString()
     const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
+    const minutesAgo = new Date(Date.now() - 3 * 60_000).toISOString()
     const problems: string[] = []
     const note = (label: string) => (r: { error: { message: string } | null }) => { if (r.error) problems.push(`${label}: ${r.error.message}`) }
 
@@ -48,7 +49,9 @@ export async function GET(request: NextRequest) {
     const seasonId = (live.data as { id: string } | null)?.id ?? null
     const bySeason = (q: any) => (seasonId ? q.eq('season_id', seasonId) : q)
 
-    const [players, players24, banned, runsAll, runs24, finished, rejected, voided, started, runs7, board, events, rejectedRuns, allowlist, recent, profiles, finishedRows, payments] = await Promise.all([
+    const [online, playing, players, players24, banned, runsAll, runs24, finished, rejected, voided, started, runs7, board, events, rejectedRuns, allowlist, recent, profiles, finishedRows, payments] = await Promise.all([
+        count('survival_players', (q) => q.gte('last_seen', minutesAgo)),
+        count('survival_runs', (q) => q.eq('status', 'started').gte('last_pulse_at', minutesAgo)),
         count('survival_players'),
         count('survival_players', (q) => q.gte('last_seen', dayAgo)),
         count('survival_players', (q) => q.eq('banned', true)),
@@ -106,7 +109,7 @@ export async function GET(request: NextRequest) {
         generatedAt: new Date().toISOString(),
         season: live.data ?? null,
         stats: {
-            players, players24, banned, runsAll, runs24, runs7, finished, rejected, voided, started,
+            online, playing, players, players24, banned, runsAll, runs24, runs7, finished, rejected, voided, started,
             rejectRate: runsAll ? rejected / runsAll : 0,
             cheatWallets: wallets.length,
             avgScore: Math.round(avg('score')), avgWave: Math.round(avg('wave') * 10) / 10, avgKills: Math.round(avg('kills')),

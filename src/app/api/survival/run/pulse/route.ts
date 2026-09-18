@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, verdict: 'rejected', reason: check.reason, message: check.message })
     }
 
+    // The pulse is the player's heartbeat: last_seen follows it, so "online now" in the
+    // panel is simply who pulsed in the last few minutes.
+    void supabaseAdmin.from('survival_players').update({ last_seen: new Date().toISOString() }).eq('wallet', caller.wallet)
     const { error } = await supabaseAdmin.from('survival_runs')
         .update({
             last_pulse_at: new Date().toISOString(), last_pulse_wave: n.wave, last_pulse_kills: n.kills,
