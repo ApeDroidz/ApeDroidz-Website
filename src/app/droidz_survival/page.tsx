@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { useActiveAccount, useSendTransaction } from 'thirdweb/react'
 import { prepareTransaction, toWei } from 'thirdweb'
 import { client, apeChain } from '@/lib/thirdweb'
-import { Loader2, Lock, ShieldCheck, Maximize2 } from 'lucide-react'
+import { Loader2, Lock, ShieldCheck, Maximize2, Volume2, VolumeX } from 'lucide-react'
 import { Header } from '@/components/header'
 import { DigitalBackground } from '@/components/digital-background'
 import { ProfileModal } from '@/components/profile-modal'
@@ -139,29 +139,10 @@ export default function DroidzSurvivalPage() {
             <div className="fixed inset-0 z-0 opacity-40 pointer-events-none mix-blend-lighten"><DigitalBackground /></div>
             <Header onOpenProfile={() => setIsProfileOpen(true)} />
 
-            <main className="relative z-10 mx-auto max-w-6xl px-4 pt-24 pb-16 sm:pt-28">
-                {/* The heading is the site's own — the same black uppercase with the glitch bands
-                    the dashboard and the staking page wear — and the gate card sits right under
-                    it, so the wallet state is the first thing on screen, not a scroll away. */}
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                    className="mb-6 text-center"
-                >
-                    <p className="font-mono text-xs uppercase tracking-[0.3em] text-white/40">
-                        Closed Beta
-                    </p>
-                    <h1 className="mx-auto mt-3 max-w-4xl text-4xl font-black uppercase leading-none tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] sm:text-6xl">
-                        <GlitchText text="Droidz Survival" />
-                    </h1>
-                    <p className="mt-3 font-mono text-xs uppercase tracking-widest text-white/40">
-                        Pixel roguelite · Survive the waves
-                        {authedWallet && gate !== 'allowed' ? ` · ${short(authedWallet)}` : ''}
-                    </p>
-                </motion.div>
-
+            <main className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-center px-4 pb-10 pt-24 sm:pt-28">
                 {gate === 'allowed' ? (
+                    <>
+                        <Heading sub={'Pixel roguelite · Survive the waves'} />
                     <motion.div
                         initial={{ opacity: 0, scale: 0.985 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -197,13 +178,25 @@ export default function DroidzSurvivalPage() {
                             Arrows / WASD move · C attack · Space jump · Enter confirm · Esc back
                         </p>
                     </motion.div>
+                    </>
                 ) : (
-                    <motion.div
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.45, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
-                        className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center backdrop-blur-sm sm:p-10"
-                    >
+                    /* The beta screen, one viewport (owner, 19.09): the announce on the left,
+                       the door on the right — heading, video and the wallet state all in view
+                       without a scroll on a desktop; the two stack on a phone. */
+                    <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-12">
+                        <div className="min-w-0">
+                            <Heading
+                                align="left"
+                                sub={`Pixel roguelite · Survive the waves${authedWallet ? ` · ${short(authedWallet)}` : ''}`}
+                            />
+                            <BetaAnnounce />
+                        </div>
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.45, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+                            className="rounded-2xl border border-white/10 bg-white/[0.03] p-7 text-center backdrop-blur-sm sm:p-9"
+                        >
                         {gate === 'loading' && (
                             <>
                                 <Loader2 className="mx-auto h-7 w-7 animate-spin text-white icon-dim-50" />
@@ -314,11 +307,86 @@ export default function DroidzSurvivalPage() {
                                 {message}
                             </p>
                         )}
-                    </motion.div>
+                        </motion.div>
+                    </div>
                 )}
             </main>
 
             <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
         </div>
+    )
+}
+
+/** The page's own heading: the site's black uppercase with the glitch bands. */
+function Heading({ sub, align = 'center' }: { sub: string; align?: 'center' | 'left' }) {
+    const left = align === 'left'
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className={`mb-5 ${left ? 'text-center lg:text-left' : 'text-center'}`}
+        >
+            <p className="font-mono text-xs uppercase tracking-[0.3em] text-white/40">Closed Beta</p>
+            <h1 className={`mt-3 max-w-4xl text-4xl font-black uppercase leading-none tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] sm:text-5xl xl:text-6xl ${left ? 'mx-auto lg:mx-0' : 'mx-auto'}`}>
+                <GlitchText text="Droidz Survival" />
+            </h1>
+            <p className="mt-3 font-mono text-xs uppercase tracking-widest text-white/40">{sub}</p>
+        </motion.div>
+    )
+}
+
+/**
+ * The beta announce (owner, 19.09) — on R2 next to the game's media, H.264 so every
+ * browser plays it (the source is HEVC, which Chrome on Windows and Android will not).
+ * Starts muted on its own, loops; one button turns the sound on. No native chrome —
+ * the frame is the same glass as the rest of the page.
+ */
+const ANNOUNCE_SRC = 'https://assets.apedroidz.com/apedroidz/droidz-survival/media/beta-announce.mp4'
+const ANNOUNCE_POSTER = 'https://assets.apedroidz.com/apedroidz/droidz-survival/media/beta-announce-poster.jpg'
+
+function BetaAnnounce() {
+    const ref = useRef<HTMLVideoElement>(null)
+    const [muted, setMuted] = useState(true)
+    const toggle = () => {
+        const v = ref.current
+        if (!v) return
+        v.muted = !v.muted
+        setMuted(v.muted)
+        if (!v.muted) { v.currentTime = 0; void v.play() }
+    }
+    return (
+        <motion.div
+            initial={{ opacity: 0, scale: 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_0_60px_rgba(0,105,255,0.14)]"
+        >
+            <div className="relative aspect-video w-full">
+                <video
+                    ref={ref}
+                    src={ANNOUNCE_SRC}
+                    poster={ANNOUNCE_POSTER}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    onClick={toggle}
+                    className="absolute inset-0 h-full w-full cursor-pointer object-cover"
+                />
+            </div>
+            <span className="pointer-events-none absolute left-3 top-3 rounded-full border border-white/15 bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-white/70 backdrop-blur">
+                Beta announce
+            </span>
+            <button
+                onClick={toggle}
+                aria-label={muted ? 'Turn the sound on' : 'Mute'}
+                className="absolute bottom-3 right-3 flex h-9 items-center gap-2 rounded-full border border-white/15 bg-black/50 px-3 font-mono text-[10px] uppercase tracking-widest text-white/80 backdrop-blur transition-colors hover:bg-white hover:text-black"
+            >
+                {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                {muted ? 'Sound on' : 'Mute'}
+            </button>
+        </motion.div>
     )
 }
