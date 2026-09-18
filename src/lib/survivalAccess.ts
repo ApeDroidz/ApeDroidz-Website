@@ -28,6 +28,17 @@ export const PLAY_COOKIE_NAME = 'survival_play'
  * so the wider path costs nothing.
  */
 export const PLAY_PATH = '/'
+
+/**
+ * The Season screen is not open yet: the game hides it for everyone except the
+ * wallets here (owner, 19.09: «скрыть сезон для всех, кроме …»). Served to the
+ * game as `features.season` on GET /api/survival/profile — the game never sees
+ * the wallet itself, only the verdict.
+ */
+const SEASON_PREVIEW_WALLETS = new Set(['0x3c4e3fdb4a8820561a450430f590ea30e1a04954'])
+export function seasonVisibleFor(wallet: string): boolean {
+    return SEASON_PREVIEW_WALLETS.has(wallet.toLowerCase())
+}
 const PLAY_TTL_MS = 6 * 60 * 60 * 1000
 
 // ── Base64url + HMAC, Edge-safe (no Buffer, no node:crypto) ───────────────────

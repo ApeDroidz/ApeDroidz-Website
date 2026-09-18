@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer, readBody } from '@/lib/survivalRuns'
 import { logEvent } from '@/lib/survivalLog'
+import { seasonVisibleFor } from '@/lib/survivalAccess'
 
 /**
  * The player's progress, on the server.
  *
- *   GET  /api/survival/profile                → { ok, state, season: { seasonId, season, daily } | null }
+ *   GET  /api/survival/profile                → { ok, state, season: { seasonId, season, daily } | null,
+ *                                                  features: { season } — what the game may show this wallet }
  *                                              or { ok: true, state: null } for a wallet with none yet
  *   PUT  /api/survival/profile { state, seasonId, season, daily, clientVersion }
  *
@@ -40,7 +42,7 @@ export async function GET(req: NextRequest) {
         season = { seasonId: live.id, season: ps?.season ?? null, daily: ps?.daily ?? null }
     }
     return NextResponse.json(
-        { ok: true, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season },
+        { ok: true, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, features: { season: seasonVisibleFor(caller.wallet) } },
         { headers: { 'cache-control': 'no-store' } },
     )
 }
