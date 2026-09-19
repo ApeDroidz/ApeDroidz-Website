@@ -14,7 +14,8 @@ import { createPlayToken, PLAY_COOKIE_NAME, PLAY_COOKIE_OPTIONS } from '@/lib/su
  * Reply shapes, all HTTP 200 so the page can render a state rather than an error:
  *   { state: 'unverified' }              — connected but no signature yet
  *   { state: 'denied',  wallet }         — verified, not on the list
- *   { state: 'allowed', wallet }         — verified and on the list; play cookie set
+ *   { state: 'allowed', wallet, until } — verified and on the list; play cookie set.
+ *                                          `until` is the access expiry (ISO) or null = no expiry
  */
 export async function GET(req: NextRequest) {
     const session = readSessionFromRequest(req)
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
     }
 
     const res = NextResponse.json(
-        { state: 'allowed', wallet: session.wallet },
+        { state: 'allowed', wallet: session.wallet, until: until ? until.toISOString() : null },
         { headers: { 'cache-control': 'no-store' } },
     )
     res.cookies.set(PLAY_COOKIE_NAME, token, PLAY_COOKIE_OPTIONS)

@@ -53,6 +53,9 @@ export default function DroidzSurvivalPage() {
     const [gate, setGate] = useState<Gate>('loading')
     const [signing, setSigning] = useState(false)
     const [message, setMessage] = useState<string | null>(null)
+    /** Access expiry from /api/survival/access: an ISO instant, null = no expiry, undefined = unknown. */
+    const [until, setUntil] = useState<string | null | undefined>(undefined)
+    const [now, setNow] = useState(() => Date.now())
     const [isProfileOpen, setIsProfileOpen] = useState(false)
 
     const frameRef = useRef<HTMLIFrameElement>(null)
@@ -107,7 +110,7 @@ export default function DroidzSurvivalPage() {
                 setMessage(data?.error ?? 'Access check failed')
                 return
             }
-            if (data.state === 'allowed') { setGate('allowed'); return }
+            if (data.state === 'allowed') { setUntil(typeof data.until === 'string' ? data.until : null); setGate('allowed'); return }
             if (data.state === 'denied') { setGate('denied'); return }
             setGate('verify')
         } catch {
@@ -115,6 +118,22 @@ export default function DroidzSurvivalPage() {
             setMessage('Could not reach the access service')
         }
     }, [])
+
+    // The «time left» line ticks once a minute while the game is up; when the access
+    // runs out the gate re-checks itself and the door closes (the play cookie is
+    // capped at the same instant server-side, so the build stops being served too).
+    useEffect(() => {
+        if (gate !== 'allowed') return
+        const id = setInterval(() => setNow(Date.now()), 60_000)
+        return () => clearInterval(id)
+    }, [gate])
+    useEffect(() => {
+        if (gate !== 'allowed' || !until) return
+        const ms = new Date(until).getTime() - Date.now()
+        if (ms <= 0) { setGate('loading'); void checkAccess(); return }
+        const id = setTimeout(() => { setGate('loading'); void checkAccess() }, Math.min(ms, 2 ** 31 - 1))
+        return () => clearTimeout(id)
+    }, [gate, until, checkAccess])
 
     // Re-run the whole gate whenever the connected or the verified wallet changes: switching
     // accounts in the wallet must not leave the previous account's game on screen.
@@ -154,9 +173,10 @@ export default function DroidzSurvivalPage() {
                     >
                         <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_0_60px_rgba(0,105,255,0.12)]">
                             <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-2">
-                                <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-white/40">
+                                <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-white/40" title={until ? `until ${new Date(until).toLocaleString()}` : 'no expiry'}>
                                     <ShieldCheck className="h-3.5 w-3.5 icon-dim-50" />
-                                    Beta access · {authedWallet ? short(authedWallet) : ''}
+                                    Beta access open · {until === null ? 'forever' : until ? `${timeLeft(new Date(until).getTime() - now)} left` : ''}
+                                    {authedWallet ? <span className="hidden sm:inline text-white/25">· {short(authedWallet)}</span> : null}
                                 </span>
                                 <button
                                     onClick={() => frameRef.current?.requestFullscreen?.()}
@@ -329,6 +349,15 @@ export default function DroidzSurvivalPage() {
             <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
         </div>
     )
+}
+
+/** «3 d 4 h», «5 h 12 m», «8 m» — what is left of a timed beta access, owner's wording: сколько осталось до конца. */
+function timeLeft(ms: number): string {
+    const m = Math.max(0, Math.floor(ms / 60_000))
+    const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60
+    if (d >= 1) return `${d} d ${h} h`
+    if (h >= 1) return `${h} h ${mm} m`
+    return `${mm} m`
 }
 
 /** The page's own heading: the site's black uppercase with the glitch bands. */

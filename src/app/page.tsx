@@ -12,6 +12,7 @@ import { OthersideSection } from "@/components/landing/otherside-section"
 import { StakingSection } from "@/components/landing/staking-section"
 import { TeamSection } from "@/components/landing/team-section"
 import { Footer } from "@/components/footer"
+import { SurvivalCTA } from "@/components/survival-cta"
 
 export default function Home() {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -58,6 +59,9 @@ export default function Home() {
         <TeamSection />
         <Footer />
       </div>
+
+      {/* Угловой баннер: бета Droidz Survival открыта (владелец, 19.09) */}
+      <SurvivalCTA />
 
       {/* Углового баннера про 3D здесь больше нет: ту же мысль теперь несёт
           сам герой — заголовок «ApeDroidz 3D Collection is Live», кнопка
