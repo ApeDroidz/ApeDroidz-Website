@@ -190,8 +190,10 @@ export default function DroidzSurvivalPage() {
                                     Fullscreen
                                 </button>
                             </div>
-                            {/* 16:9 — the Phaser canvas is 1280×720 and letterboxes itself inside. */}
-                            <div className="relative aspect-video w-full bg-[#112030]">
+                            {/* 16:9 — the Phaser canvas is 1280×720 and letterboxes itself inside.
+                                The cover sits behind the frame so the box is the poster, not a
+                                grey slab, for the second or two the build takes to arrive. */}
+                            <div className="relative aspect-video w-full bg-[#0a0f1e] bg-cover bg-bottom" style={{ backgroundImage: 'url(/droidz_survival/DS_Beta_cover.jpg)' }}>
                                 <iframe
                                     ref={frameRef}
                                     onLoad={installPay}
