@@ -103,8 +103,10 @@ function SurvivalCTAComponent() {
 
                 {/* ── Text & CTA ────────────────────────────────────────────── */}
                 <div className="flex flex-col gap-1.5 px-2 pb-2 pt-1.5 sm:gap-2 sm:px-3 sm:pb-3 sm:pt-2">
-                    <h3 className="text-[15px] sm:text-[19px] md:text-[22px] font-black text-white leading-[0.92] tracking-tight uppercase">
-                        Beta<br />
+                    {/* Одной строкой (владелец, 19.09). whitespace-nowrap, чтобы узкая
+                        карточка на телефоне не переносила «is Live» обратно вниз. */}
+                    <h3 className="whitespace-nowrap text-[15px] sm:text-[19px] md:text-[22px] font-black text-white leading-none tracking-tight uppercase">
+                        Beta{' '}
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white">
                             is Live
                         </span>
