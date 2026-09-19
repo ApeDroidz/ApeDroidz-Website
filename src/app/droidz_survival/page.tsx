@@ -6,7 +6,7 @@ import { useActiveAccount, useSendTransaction, ConnectButton } from 'thirdweb/re
 import { createWallet } from 'thirdweb/wallets'
 import { prepareTransaction, toWei } from 'thirdweb'
 import { client, apeChain } from '@/lib/thirdweb'
-import { Loader2, Lock, ShieldCheck, Maximize2, Volume2, VolumeX } from 'lucide-react'
+import { Loader2, Lock, ShieldCheck, Maximize2, Volume2, VolumeX, Play } from 'lucide-react'
 import { Header } from '@/components/header'
 import { DigitalBackground } from '@/components/digital-background'
 import { ProfileModal } from '@/components/profile-modal'
@@ -56,6 +56,9 @@ export default function DroidzSurvivalPage() {
     /** Access expiry from /api/survival/access: an ISO instant, null = no expiry, undefined = unknown. */
     const [until, setUntil] = useState<string | null | undefined>(undefined)
     const [now, setNow] = useState(() => Date.now())
+    /** The game is up only after PLAY (owner, 19.09): with access the page still opens on the
+     *  same screen as for everyone — announce, door card with «access open» and a Play button. */
+    const [playing, setPlaying] = useState(false)
     const [isProfileOpen, setIsProfileOpen] = useState(false)
 
     const frameRef = useRef<HTMLIFrameElement>(null)
@@ -138,6 +141,7 @@ export default function DroidzSurvivalPage() {
     // Re-run the whole gate whenever the connected or the verified wallet changes: switching
     // accounts in the wallet must not leave the previous account's game on screen.
     useEffect(() => {
+        setPlaying(false)
         if (!account?.address) { setGate('connect'); return }
         setGate('loading')
         checkAccess()
@@ -163,7 +167,7 @@ export default function DroidzSurvivalPage() {
             <Header onOpenProfile={() => setIsProfileOpen(true)} />
 
             <main className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-center px-4 pb-10 pt-24 sm:pt-28">
-                {gate === 'allowed' ? (
+                {gate === 'allowed' && playing ? (
                     <>
                         <Heading sub={'Pixel roguelite · Survive the waves'} />
                     <motion.div
@@ -315,6 +319,33 @@ export default function DroidzSurvivalPage() {
                                     Got access on a different wallet? Switch accounts and this page
                                     will re-check on its own.
                                 </p>
+                            </>
+                        )}
+
+                        {gate === 'allowed' && (
+                            <>
+                                <ShieldCheck className="mx-auto h-7 w-7 text-emerald-400" />
+                                <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
+                                    Beta access open
+                                </h2>
+                                <p className="mt-3 text-sm leading-relaxed text-white/50">
+                                    {until === null
+                                        ? 'This wallet has early access to Droidz Survival with no expiry.'
+                                        : until
+                                            ? `This wallet has early access to Droidz Survival for ${timeLeft(new Date(until).getTime() - now)} more.`
+                                            : 'This wallet has early access to Droidz Survival.'}
+                                </p>
+                                <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-white/30" title={until ? `until ${new Date(until).toLocaleString()}` : 'no expiry'}>
+                                    {until === null ? 'Access · forever' : until ? `Access until ${new Date(until).toLocaleString()}` : ''}
+                                    {authedWallet ? ` · ${short(authedWallet)}` : ''}
+                                </p>
+                                <button
+                                    onClick={() => setPlaying(true)}
+                                    className="mt-7 inline-flex h-[46px] items-center justify-center gap-2 rounded-full bg-white px-10 text-sm font-bold text-black transition-all duration-300 hover:bg-[#0069FF] hover:text-white"
+                                >
+                                    <Play className="h-4 w-4" fill="currentColor" />
+                                    Play
+                                </button>
                             </>
                         )}
 
