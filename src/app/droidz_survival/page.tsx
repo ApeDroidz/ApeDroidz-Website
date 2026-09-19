@@ -6,7 +6,7 @@ import { useActiveAccount, useSendTransaction, ConnectButton } from 'thirdweb/re
 import { createWallet } from 'thirdweb/wallets'
 import { prepareTransaction, toWei } from 'thirdweb'
 import { client, apeChain } from '@/lib/thirdweb'
-import { Loader2, Lock, ShieldCheck, Maximize2, Volume2, VolumeX, Play } from 'lucide-react'
+import { Loader2, Lock, ShieldCheck, Maximize2, Minimize2, Volume2, VolumeX, Play } from 'lucide-react'
 import { Header } from '@/components/header'
 import { DigitalBackground } from '@/components/digital-background'
 import { ProfileModal } from '@/components/profile-modal'
@@ -166,16 +166,16 @@ export default function DroidzSurvivalPage() {
             <div className="fixed inset-0 z-0 opacity-40 pointer-events-none mix-blend-lighten"><DigitalBackground /></div>
             <Header onOpenProfile={() => setIsProfileOpen(true)} />
 
-            <main className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-center px-4 pb-10 pt-24 sm:pt-28">
+            <main className="relative z-10 mx-auto flex min-h-[100svh] w-full flex-col justify-center px-4 pb-10 pt-24 sm:pt-28">
                 {gate === 'allowed' && playing ? (
-                    <>
+                    <div className="mx-auto w-full max-w-6xl">
                         <Heading sub={'Pixel roguelite · Survive the waves'} />
                     <motion.div
                         initial={{ opacity: 0, scale: 0.985 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                     >
-                        <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_0_60px_rgba(0,105,255,0.12)]">
+                        <div className="overflow-hidden rounded-2xl border border-white/10 bg-black">
                             <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-2">
                                 <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-white/40" title={until ? `until ${new Date(until).toLocaleString()}` : 'no expiry'}>
                                     <ShieldCheck className="h-3.5 w-3.5 icon-dim-50" />
@@ -208,12 +208,12 @@ export default function DroidzSurvivalPage() {
                             Arrows / WASD move · C attack · Space jump · Enter confirm · Esc back
                         </p>
                     </motion.div>
-                    </>
+                    </div>
                 ) : (
                     /* The beta screen, one viewport (owner, 19.09): the announce on the left,
                        the door on the right — heading, video and the wallet state all in view
                        without a scroll on a desktop; the two stack on a phone. */
-                    <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-12">
+                    <div className="mx-auto grid w-full max-w-7xl items-center gap-10 lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] lg:gap-14">
                         <div className="min-w-0">
                             <Heading
                                 align="left"
@@ -225,11 +225,11 @@ export default function DroidzSurvivalPage() {
                             initial={{ opacity: 0, y: 12 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.45, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                            className="rounded-2xl border border-white/10 bg-white/[0.03] p-7 text-center backdrop-blur-sm sm:p-9"
+                            className="min-w-0 text-center lg:text-left"
                         >
                         {gate === 'loading' && (
                             <>
-                                <Loader2 className="mx-auto h-7 w-7 animate-spin text-white icon-dim-50" />
+                                <Loader2 className="mx-auto h-7 w-7 animate-spin text-white icon-dim-50 lg:mx-0" />
                                 <p className="mt-5 font-mono text-xs uppercase tracking-widest text-white/40">
                                     Checking access…
                                 </p>
@@ -238,7 +238,7 @@ export default function DroidzSurvivalPage() {
 
                         {gate === 'connect' && (
                             <>
-                                <Lock className="mx-auto h-7 w-7 text-white icon-dim-50" />
+                                <Lock className="mx-auto h-7 w-7 text-white icon-dim-50 lg:mx-0" />
                                 <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
                                     Connect your wallet
                                 </h2>
@@ -246,7 +246,7 @@ export default function DroidzSurvivalPage() {
                                     Droidz Survival is in closed beta. Connect your wallet to check
                                     whether you are on the early access list.
                                 </p>
-                                <div className="mt-7 flex justify-center [&_button]:!w-full sm:[&_button]:!w-auto">
+                                <div className="mt-7 flex justify-center lg:justify-start [&_button]:!w-full sm:[&_button]:!w-auto">
                                     <ConnectButton
                                         client={client}
                                         chain={apeChain}
@@ -264,7 +264,7 @@ export default function DroidzSurvivalPage() {
 
                         {gate === 'verify' && (
                             <>
-                                <ShieldCheck className="mx-auto h-7 w-7 text-white icon-dim-50" />
+                                <ShieldCheck className="mx-auto h-7 w-7 text-white icon-dim-50 lg:mx-0" />
                                 <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
                                     Verify your wallet
                                 </h2>
@@ -285,7 +285,7 @@ export default function DroidzSurvivalPage() {
 
                         {gate === 'denied' && (
                             <>
-                                <Lock className="mx-auto h-7 w-7 text-white icon-dim-50" />
+                                <Lock className="mx-auto h-7 w-7 text-white icon-dim-50 lg:mx-0" />
                                 <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
                                     Not on the beta list
                                 </h2>
@@ -299,7 +299,7 @@ export default function DroidzSurvivalPage() {
                                         {short(authedWallet)}
                                     </p>
                                 )}
-                                <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                                <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:flex-col lg:items-start">
                                     <a
                                         href={OPENSEA_COLLECTION_URL}
                                         target="_blank"
@@ -326,7 +326,7 @@ export default function DroidzSurvivalPage() {
 
                         {gate === 'allowed' && (
                             <>
-                                <ShieldCheck className="mx-auto h-7 w-7 text-emerald-400" />
+                                <ShieldCheck className="mx-auto h-7 w-7 text-emerald-400 lg:mx-0" />
                                 <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
                                     Beta access open
                                 </h2>
@@ -353,7 +353,7 @@ export default function DroidzSurvivalPage() {
 
                         {gate === 'error' && (
                             <>
-                                <Lock className="mx-auto h-7 w-7 text-white icon-dim-50" />
+                                <Lock className="mx-auto h-7 w-7 text-white icon-dim-50 lg:mx-0" />
                                 <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
                                     Access check failed
                                 </h2>
@@ -423,7 +423,10 @@ const ANNOUNCE_POSTER = 'https://assets.apedroidz.com/apedroidz/droidz-survival/
 
 function BetaAnnounce() {
     const ref = useRef<HTMLVideoElement>(null)
+    const box = useRef<HTMLDivElement>(null)
     const [muted, setMuted] = useState(true)
+    const [full, setFull] = useState(false)
+
     const toggle = () => {
         const v = ref.current
         if (!v) return
@@ -431,14 +434,33 @@ function BetaAnnounce() {
         setMuted(v.muted)
         if (!v.muted) { v.currentTime = 0; void v.play() }
     }
+
+    // Fullscreen on the card, not on the <video>: the badge and both buttons come
+    // along, and Safari keeps its own player chrome out of the way.
+    const toggleFull = () => {
+        if (document.fullscreenElement) void document.exitFullscreen()
+        else void box.current?.requestFullscreen?.()
+    }
+
+    // Esc and the browser's own exit change the state without going through the
+    // button, so the flag follows the document rather than the click.
+    useEffect(() => {
+        const onChange = () => setFull(document.fullscreenElement === box.current)
+        document.addEventListener('fullscreenchange', onChange)
+        return () => document.removeEventListener('fullscreenchange', onChange)
+    }, [])
+
     return (
         <motion.div
+            ref={box}
             initial={{ opacity: 0, scale: 0.985 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
-            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_0_60px_rgba(0,105,255,0.14)]"
+            className={`group relative overflow-hidden bg-black ${full ? 'flex h-full w-full items-center justify-center' : 'rounded-2xl border border-white/10'}`}
         >
-            <div className="relative aspect-video w-full">
+            {/* Filling the screen the box is no longer 16:9, so the frame stops
+                cropping and the whole picture fits inside it. */}
+            <div className={full ? 'relative h-full w-full' : 'relative aspect-video w-full'}>
                 <video
                     ref={ref}
                     src={ANNOUNCE_SRC}
@@ -449,20 +471,29 @@ function BetaAnnounce() {
                     playsInline
                     preload="metadata"
                     onClick={toggle}
-                    className="absolute inset-0 h-full w-full cursor-pointer object-cover"
+                    className={`absolute inset-0 h-full w-full cursor-pointer ${full ? 'object-contain' : 'object-cover'}`}
                 />
             </div>
             <span className="pointer-events-none absolute left-3 top-3 rounded-full border border-white/15 bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-white/70 backdrop-blur">
                 Beta announce
             </span>
-            <button
-                onClick={toggle}
-                aria-label={muted ? 'Turn the sound on' : 'Mute'}
-                className="absolute bottom-3 right-3 flex h-9 items-center gap-2 rounded-full border border-white/15 bg-black/50 px-3 font-mono text-[10px] uppercase tracking-widest text-white/80 backdrop-blur transition-colors hover:bg-white hover:text-black"
-            >
-                {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-                {muted ? 'Sound on' : 'Mute'}
-            </button>
+            <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                <button
+                    onClick={toggle}
+                    aria-label={muted ? 'Turn the sound on' : 'Mute'}
+                    className="flex h-9 items-center gap-2 rounded-full border border-white/15 bg-black/50 px-3 font-mono text-[10px] uppercase tracking-widest text-white/80 backdrop-blur transition-colors hover:bg-white hover:text-black"
+                >
+                    {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                    {muted ? 'Sound on' : 'Mute'}
+                </button>
+                <button
+                    onClick={toggleFull}
+                    aria-label={full ? 'Leave fullscreen' : 'Fullscreen'}
+                    className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/50 text-white/80 backdrop-blur transition-colors hover:bg-white hover:text-black"
+                >
+                    {full ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                </button>
+            </div>
         </motion.div>
     )
 }

@@ -16,7 +16,10 @@ const ANNOUNCE_POSTER = 'https://assets.apedroidz.com/apedroidz/droidz-survival/
 
 // Закрытый баннер не возвращается. Ключ с версией: поменяем содержимое —
 // поднимем номер, и баннер снова покажется тем, кто закрыл прошлый.
-const DISMISS_KEY = 'apedroidz.cta-survival.dismissed.v1'
+// v2 (19.09): баннер «пропал» у владельца — он был закрыт крестиком, а решение
+// лежит в localStorage навсегда. Номер поднят, чтобы баннер вернулся всем,
+// кто закрыл первую версию.
+const DISMISS_KEY = 'apedroidz.cta-survival.dismissed.v2'
 
 function SurvivalCTAComponent() {
     const [isDismissed, setIsDismissed] = useState(false)
