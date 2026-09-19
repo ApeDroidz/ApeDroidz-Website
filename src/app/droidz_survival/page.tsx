@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { useActiveAccount, useSendTransaction } from 'thirdweb/react'
+import { useActiveAccount, useSendTransaction, ConnectButton } from 'thirdweb/react'
+import { createWallet } from 'thirdweb/wallets'
 import { prepareTransaction, toWei } from 'thirdweb'
 import { client, apeChain } from '@/lib/thirdweb'
 import { Loader2, Lock, ShieldCheck, Maximize2, Volume2, VolumeX } from 'lucide-react'
@@ -34,6 +35,9 @@ import { DISCORD_URL, OPENSEA_COLLECTION_URL } from '@/lib/socials'
 // Beta access = a droid + a ticket (owner, 18.09): the collection on OpenSea and the
 // Discord, not a DM to the founder (whose handle was misspelt here anyway — @split0rm).
 const GAME_SRC = '/droidz_survival/play/index.html'
+// The same wallets the Header offers — the door has its own Connect button (owner, 19.09:
+// «справа, где connect your wallet, добавить кнопку, чтобы не тянуться далеко»).
+const WALLETS = [createWallet('io.metamask'), createWallet('com.coinbase.wallet'), createWallet('me.rainbow')]
 /** Where a paid continue / run sends its APE. Server-verified against the same address (api/survival/pay). */
 const TREASURY = process.env.NEXT_PUBLIC_SURVIVAL_TREASURY_WALLET ?? '0x1DcF1d22A1dbDd20AE875beDEEe3A259b1D608db'
 /** Flip to true (or set NEXT_PUBLIC_SURVIVAL_PAY_FOR_REAL=1) when the contracts are in. */
@@ -216,9 +220,19 @@ export default function DroidzSurvivalPage() {
                                     Droidz Survival is in closed beta. Connect your wallet to check
                                     whether you are on the early access list.
                                 </p>
-                                <p className="mt-6 font-mono text-[11px] uppercase tracking-widest text-white/30">
-                                    Use the Connect Wallet button above
-                                </p>
+                                <div className="mt-7 flex justify-center [&_button]:!w-full sm:[&_button]:!w-auto">
+                                    <ConnectButton
+                                        client={client}
+                                        chain={apeChain}
+                                        wallets={WALLETS}
+                                        theme="dark"
+                                        connectButton={{
+                                            label: 'Connect Wallet',
+                                            className: '!bg-white !text-black !font-bold !rounded-full !h-[46px] !px-8 !text-sm !border !border-transparent !transition-all !duration-300 hover:!bg-[#0069FF] hover:!text-white',
+                                        }}
+                                        connectModal={{ size: 'compact', title: 'ApeDroidz Access', showThirdwebBranding: false }}
+                                    />
+                                </div>
                             </>
                         )}
 
