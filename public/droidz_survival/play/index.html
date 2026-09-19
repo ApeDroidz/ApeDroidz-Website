@@ -11,8 +11,8 @@
     <style>
       /* Inter, bundled (assets/fonts): the readable face for descriptions,
          paired with the DRD_SRV pixel face for headings and buttons. */
-      @font-face { font-family: 'Inter'; font-weight: 500; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v4/assets/fonts/Inter-500.woff2') format('woff2'); }
-      @font-face { font-family: 'Inter'; font-weight: 700; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v4/assets/fonts/Inter-700.woff2') format('woff2'); }
+      @font-face { font-family: 'Inter'; font-weight: 500; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v5/assets/fonts/Inter-500.woff2') format('woff2'); }
+      @font-face { font-family: 'Inter'; font-weight: 700; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v5/assets/fonts/Inter-700.woff2') format('woff2'); }
       html,
       body {
         margin: 0;
@@ -26,19 +26,25 @@
         -webkit-user-select: none;
         user-select: none;
       }
+      /* The cover (art/DS_Beta_cover.jpg) is up before a byte of the bundle has arrived,
+         and BootScene paints the same picture under its progress bar, so the first thing
+         anyone sees is the poster, not a navy void. Boot clears it once the game is in
+         (the canvas letterboxes inside #game — left in place, the edges would keep
+         peeking out beside the play area). */
       #game {
         width: 100vw;
         height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
+        background: #0a0f1e url('https://assets.apedroidz.com/apedroidz/droidz-survival/v5/assets/img/DS_Beta_cover.jpg') center bottom / cover no-repeat;
       }
       #game canvas {
         display: block;
         image-rendering: pixelated;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-_jAxD7a3.js"></script>
+    <script type="module" crossorigin src="./assets/index-DZDdy6KX.js"></script>
   </head>
   <body>
     <div id="game"></div>
