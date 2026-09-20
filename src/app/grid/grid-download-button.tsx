@@ -5,7 +5,7 @@ import { NFTItem } from "@/app/upgrade_module/page"
 import { Loader2, Download, Share2 } from "lucide-react"
 import {
     GridStyle, FOOTER_LOGOS, layoutFooterLogos,
-    is3d, getAnimatedUrl, getStillUrl, getPixelUrl, get3dDownloadUrl, gridBackground, calculateGridDimensions,
+    is3d, getAnimatedUrl, getStillUrl, getPixelUrl, get3dDownloadUrl, gridBackground, calculateGridDimensions, gridSpacing,
 } from "./grid-art"
 
 interface GridDownloadButtonProps {
@@ -155,8 +155,11 @@ export function GridDownloadButton({ droids, gridOrder, style }: GridDownloadBut
                 }
                 throw lastErr
             }
-            const gridWidth = cellSize * cols
-            const gridHeight = cellSize * rows
+            // Тот же «воздух», что в превью (grid-art.gridSpacing): на тёмном
+            // 3D-фоне плитки расходятся и скругляются, на остальных — встык.
+            const spacing = gridSpacing(cellSize, bgColor)
+            const gridWidth = cellSize * cols + spacing.pad * 2 + spacing.gap * (cols - 1)
+            const gridHeight = cellSize * rows + spacing.pad * 2 + spacing.gap * (rows - 1)
             const footerHeight = cellSize * 0.7
             const canvasWidth = gridWidth
             const canvasHeight = gridHeight + footerHeight
@@ -277,8 +280,8 @@ export function GridDownloadButton({ droids, gridOrder, style }: GridDownloadBut
                 for (let i = 0; i < totalCells; i++) {
                     const row = Math.floor(i / cols)
                     const col = i % cols
-                    const x = col * cellSize
-                    const y = row * cellSize
+                    const x = spacing.pad + col * (cellSize + spacing.gap)
+                    const y = spacing.pad + row * (cellSize + spacing.gap)
 
                     const droid = orderedDroids[i]
                     if (droid) {
@@ -288,7 +291,19 @@ export function GridDownloadButton({ droids, gridOrder, style }: GridDownloadBut
                             // Пиксель-арт масштабируем без сглаживания, бюст — с ним.
                             ctx.imageSmoothingEnabled = is3d(droid, style)
                             try {
-                                ctx.drawImage(frame, x, y, cellSize, cellSize)
+                                // Скруглённый угол режем маской: рисовать по
+                                // готовому фону нечем — под плиткой тот же цвет,
+                                // а обводкой угол получается грязным.
+                                if (spacing.radius > 0) {
+                                    ctx.save()
+                                    ctx.beginPath()
+                                    ctx.roundRect(x, y, cellSize, cellSize, spacing.radius)
+                                    ctx.clip()
+                                    ctx.drawImage(frame, x, y, cellSize, cellSize)
+                                    ctx.restore()
+                                } else {
+                                    ctx.drawImage(frame, x, y, cellSize, cellSize)
+                                }
                             } catch (err) {
                                 console.warn(`[grid] drawImage failed for ${droid.id}:`, err)
                                 drawPlaceholderCell(ctx, x, y, cellSize, `#${droid.tokenId || droid.id}`)

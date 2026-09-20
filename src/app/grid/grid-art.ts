@@ -143,6 +143,22 @@ export const calculateGridDimensions = (count: number): { cols: number; rows: nu
     return { cols, rows }
 }
 
+/**
+ * «Воздух» между плитками — только на тёмном (3D) фоне.
+ *
+ * Пиксель-арт и SUPER собираются встык: у них общий плотный цвет, и шов между
+ * ячейками там же, где кончается рисунок. Бюсты — отдельные портреты, висящие
+ * на общем почти чёрном поле; встык они слипаются в одно пятно, и владелец
+ * попросил развести их промежутком и слегка скруглить углы. Всё считается в
+ * долях ячейки, поэтому превью на экране и скачанный постер совпадают.
+ */
+export type GridSpacing = { gap: number; pad: number; radius: number }
+
+export const gridSpacing = (cellSize: number, bgColor: string): GridSpacing =>
+    bgColor === DARK_BG
+        ? { gap: cellSize * 0.045, pad: cellSize * 0.045, radius: cellSize * 0.06 }
+        : { gap: 0, pad: 0, radius: 0 }
+
 // ── Подвал грида ─────────────────────────────────────────────────────────────
 
 /** `ratio` — ширина/высота файла, `scale` — оптическая поправка: у лого разная
@@ -177,7 +193,10 @@ export const layoutFooterLogos = (
     let gap = Math.min(width * 0.09, h * 2.55)
 
     // Ряд линеен по (h, gap), поэтому один коэффициент ужимает и то и другое.
-    const maxWidth = width * 0.94
+    // Поля по бокам: ряд лого не должен упираться в края постера (владелец,
+    // 20.09) — раньше он занимал 94% ширины и на широком гриде читался как
+    // строка, прибитая к самому краю.
+    const maxWidth = width * 0.86
     const full = rowWidthAt(h, gap)
     if (full > maxWidth) {
         const k = maxWidth / full

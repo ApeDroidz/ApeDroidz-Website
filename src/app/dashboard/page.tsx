@@ -10,6 +10,7 @@ import { Inventory } from "@/app/upgrade_module/inventory"
 import { NFTItem } from "@/app/upgrade_module/page"
 import { AlertModal } from "@/components/alert-modal"
 import { ProfileModal } from "@/components/profile-modal"
+import { ConnectGate } from "@/components/connect-gate"
 import { resolveImageUrl } from "@/lib/utils"
 import { useGlitchSession } from "@/hooks/useGlitchSession"
 import { Check, ChevronsUp, Loader2, Lock, Save } from "lucide-react"
@@ -174,6 +175,19 @@ export default function DashboardPage() {
     return () => { cancelled = true }
   }, [fetchMyDroids, account?.address])
 
+  // Дашборд не открывается пустым экраном «Select a Droid» (владелец, 20.09):
+  // как только список приехал, первый дроид уже в превьюере. Заодно ставится
+  // и его сохранённый вид — ровно то же, что делает клик по карточке.
+  // Один раз на коллекцию: дальше выбор принадлежит человеку, а переключение
+  // коллекции его намеренно сбрасывает (handleSwitchCollection).
+  const autoPicked = useRef<string | null>(null)
+  useEffect(() => {
+    if (autoPicked.current === collection || droids.length === 0 || selectedDroid) return
+    autoPicked.current = collection
+    handleSelectDroid(droids[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [droids, collection])
+
   // === СИНХРОНИЗАЦИЯ С ПРЕВЬЮЕРОМ (postMessage из iframe) ===
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -315,6 +329,10 @@ export default function DashboardPage() {
           onOpenProfile={() => { setProfileInitialTab('profile'); setIsProfileOpen(true); }}
           onOpenLeaderboard={() => { setProfileInitialTab('leaderboard'); setIsProfileOpen(true); }}
         />
+
+        {/* Без кошелька страница холдера бесполезна — предлагаем подключить его,
+            а не купить ещё одного дроида. */}
+        {!account && <ConnectGate title="Connect your wallet" subtitle="Your droidz live in your wallet — connect it to pick a PFP for each of them." />}
 
         <motion.div
           className="pt-24 pb-6 px-4 sm:px-6 flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 lg:h-full lg:overflow-hidden"

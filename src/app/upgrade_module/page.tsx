@@ -15,6 +15,7 @@ import { NFTDetailModal } from "./nft-detail-modal"
 import { AlertModal } from "@/components/alert-modal"
 import { ShareModal } from "@/components/share-modal"
 import { ProfileModal } from "@/components/profile-modal"
+import { ConnectGate } from "@/components/connect-gate"
 import { resolveImageUrl } from "@/lib/utils"
 import { useUserProgress } from "@/hooks/useUserProgress"
 import { useGlitchSession } from "@/hooks/useGlitchSession"
@@ -189,7 +190,14 @@ export default function UpgradeModulePage() {
     if (preselectDone.current || droids.length === 0) return
     let target: string | null = null
     try { target = new URLSearchParams(window.location.search).get('select') } catch { target = null }
-    if (!target) { preselectDone.current = true; return }
+    // Без ?select машина всё равно не должна открываться пустой (владелец,
+    // 20.09): берём первого дроида, которому апгрейд ещё нужен, а если все
+    // прокачаны — просто первого. Экран сразу показывает, что тут происходит.
+    if (!target) {
+      setSelectedDroid(prev => prev ?? droids.find(d => getDroidLevel(d) < 2) ?? droids[0] ?? null)
+      preselectDone.current = true
+      return
+    }
     const match = droids.find(d => String(d.tokenId) === String(target))
     if (match && getDroidLevel(match) < 2) {
       setSelectedDroid(match)
@@ -361,6 +369,10 @@ export default function UpgradeModulePage() {
           onOpenProfile={() => { setProfileInitialTab('profile'); setIsProfileOpen(true); }}
           onOpenLeaderboard={() => { setProfileInitialTab('leaderboard'); setIsProfileOpen(true); }}
         />
+
+        {/* Без кошелька страница холдера бесполезна — предлагаем подключить его,
+            а не купить ещё одного дроида. */}
+        {!account && <ConnectGate title="Connect your wallet" subtitle="The machine works on droidz you own — connect the wallet that holds them." />}
 
         <motion.div
           className="pt-24 pb-6 px-4 sm:px-6 flex-1 grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 lg:h-full lg:overflow-hidden"

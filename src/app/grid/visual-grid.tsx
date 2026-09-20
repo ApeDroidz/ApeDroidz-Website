@@ -6,7 +6,7 @@ import { NFTItem } from "@/app/upgrade_module/page"
 import { GridFooter } from "./grid-footer"
 import {
     BLUE_BG, ORANGE_BG, DARK_BG, GridStyle,
-    is3d, getAnimatedUrl, getStillUrl, getPixelUrl, gridBackground, calculateGridDimensions,
+    is3d, getAnimatedUrl, getStillUrl, getPixelUrl, gridBackground, calculateGridDimensions, gridSpacing,
 } from "./grid-art"
 
 interface VisualGridProps {
@@ -31,6 +31,7 @@ const GridCell = ({
     isDropTarget,
     draggedDroid,
     style,
+    radius,
 }: {
     droid: NFTItem | null
     index: number
@@ -44,6 +45,7 @@ const GridCell = ({
     isDragging: boolean
     isDropTarget: boolean
     draggedDroid: NFTItem | null
+    radius: number
 }) => {
     const [isLoaded, setIsLoaded] = useState(false)
     const imgRef = useRef<HTMLImageElement>(null)
@@ -63,7 +65,7 @@ const GridCell = ({
             <motion.div
                 layout
                 className={`w-full h-full flex items-center justify-center transition-colors duration-200`}
-                style={{ backgroundColor: isDropTarget ? dropTargetBg : bgColor }}
+                style={{ backgroundColor: isDropTarget ? dropTargetBg : bgColor, borderRadius: radius || undefined }}
                 onDragOver={onDragOver}
                 onDragEnter={() => onDragEnter(index)}
                 onDrop={() => onDrop(index)}
@@ -110,7 +112,7 @@ const GridCell = ({
             onDrop={() => onDrop(index)}
             onDragEnd={onDragEnd}
             className="w-full h-full cursor-grab active:cursor-grabbing relative"
-            style={{ backgroundColor: bgColor }}
+            style={{ backgroundColor: bgColor, borderRadius: radius || undefined, overflow: radius ? 'hidden' : undefined }}
             animate={{
                 scale: isDragging ? 0.85 : isDropTarget ? 1.02 : 1,
                 opacity: isDragging ? 0.5 : 1,
@@ -221,24 +223,29 @@ export function VisualGrid({ droids, gridOrder, onReorder, gridRef, style }: Vis
     // Calculate optimal grid size
     const gridDimensions = useMemo(() => {
         if (containerSize.width === 0 || containerSize.height === 0) {
-            return { width: 300, height: 300, cellSize: 100, footerHeight: 70 }
+            return { width: 300, height: 300, cellSize: 100, footerHeight: 70, spacing: { gap: 0, pad: 0, radius: 0 } }
         }
 
         const availableHeight = containerSize.height
         const availableWidth = containerSize.width
 
-        const maxCellByHeight = availableHeight / (rows + 0.7)
-        const maxCellByWidth = availableWidth / cols
+        // Первая прикидка — без «воздуха»; по ней считаются промежутки, и по
+        // ним ячейка пересчитывается так, чтобы постер с отступами занимал
+        // ровно то же место, что занимал бы встык.
+        const fit = (gapX: number, gapY: number, pad: number) => Math.min(
+            (availableHeight - pad * 2 - gapY * (rows - 1)) / (rows + 0.7),
+            (availableWidth - pad * 2 - gapX * (cols - 1)) / cols,
+        )
+        const probe = gridSpacing(fit(0, 0, 0), bgColor)
+        const cellSize = probe.gap > 0 ? fit(probe.gap, probe.gap, probe.pad) : fit(0, 0, 0)
+        const spacing = gridSpacing(cellSize, bgColor)
 
-        // Use the smaller to ensure it fits - no max cap on mobile, use full space
-        const cellSize = Math.min(maxCellByHeight, maxCellByWidth)
-
-        const gridWidth = cellSize * cols
-        const gridHeight = cellSize * rows
+        const gridWidth = cellSize * cols + spacing.pad * 2 + spacing.gap * (cols - 1)
+        const gridHeight = cellSize * rows + spacing.pad * 2 + spacing.gap * (rows - 1)
         const footerHeight = cellSize * 0.7
 
-        return { width: gridWidth, height: gridHeight, cellSize, footerHeight }
-    }, [containerSize, cols, rows])
+        return { width: gridWidth, height: gridHeight, cellSize, footerHeight, spacing }
+    }, [containerSize, cols, rows, bgColor])
 
     // Map droids by ID
     const droidMap = useMemo(() => new Map(droids.map(d => [d.id, d])), [droids])
@@ -359,7 +366,8 @@ export function VisualGrid({ droids, gridOrder, onReorder, gridRef, style }: Vis
                     style={{
                         gridTemplateColumns: `repeat(${cols}, 1fr)`,
                         gridTemplateRows: `repeat(${rows}, 1fr)`,
-                        gap: 0,
+                        gap: gridDimensions.spacing.gap,
+                        padding: gridDimensions.spacing.pad,
                         width: gridDimensions.width,
                         height: gridDimensions.height,
                         fontSize: 0,
@@ -381,6 +389,7 @@ export function VisualGrid({ droids, gridOrder, onReorder, gridRef, style }: Vis
                             isDropTarget={dropTargetIndex === index}
                             draggedDroid={draggedDroid}
                             style={style}
+                            radius={gridDimensions.spacing.radius}
                         />
                     ))}
                 </div>

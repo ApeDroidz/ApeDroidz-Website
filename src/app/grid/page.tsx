@@ -10,6 +10,7 @@ import { GridDroidSelector } from "./grid-droid-selector"
 import { VisualGrid } from "./visual-grid"
 import { GridDownloadButton } from "./grid-download-button"
 import { ProfileModal } from "@/components/profile-modal"
+import { ConnectGate } from "@/components/connect-gate"
 import { resolveImageUrl } from "@/lib/utils"
 import { GridStyle, supportsStyle } from "./grid-art"
 
@@ -121,6 +122,20 @@ export default function GridPage() {
         fetchMyDroids()
     }, [fetchMyDroids])
 
+    // Грид не открывается пустым: как только дроиды приехали, первые два уже
+    // стоят в сетке (владелец, 20.09) — холдер сразу видит, что инструмент
+    // делает, вместо пустого холста с надписью «выберите двоих». Срабатывает
+    // один раз за сессию: дальше выбор принадлежит человеку.
+    const autoPicked = useRef(false)
+    useEffect(() => {
+        if (autoPicked.current || droids.length < 2) return
+        const first = droids.filter(d => supportsStyle(d, gridStyle)).slice(0, 2)
+        if (first.length < 2) return
+        autoPicked.current = true
+        setSelectedDroids(first)
+        setGridOrder(first.map(d => d.id))
+    }, [droids, gridStyle])
+
     // Смена стиля выкидывает из грида тех, у кого такого арта нет: список их
     // тоже прячет, и иначе дроид остался бы в гриде без возможности его снять.
     useEffect(() => {
@@ -186,6 +201,10 @@ export default function GridPage() {
                     onOpenProfile={() => { setProfileInitialTab('profile'); setIsProfileOpen(true) }}
                     onOpenLeaderboard={() => { setProfileInitialTab('leaderboard'); setIsProfileOpen(true) }}
                 />
+
+                {/* Без кошелька страница холдера бесполезна — предлагаем подключить его,
+                    а не купить ещё одного дроида. */}
+                {!account && <ConnectGate title="Connect your wallet" subtitle="The grid is built from your own droidz — connect your wallet to pick them." />}
 
                 <motion.div
                     className="flex-1 pt-24 pb-4 px-4 sm:px-6 flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 lg:overflow-hidden"

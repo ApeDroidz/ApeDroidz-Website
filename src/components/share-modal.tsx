@@ -3,7 +3,7 @@
 import { NFTItem } from "@/app/upgrade_module/page"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Loader2 } from "lucide-react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import { resolveImageUrl } from "@/lib/utils"
 import { droidStaticUrl, droidAnimatedUrl } from "@/lib/media"
 import { toPng } from 'html-to-image'
@@ -16,6 +16,64 @@ interface ShareModalProps {
 }
 
 const CANVAS_SIZE = 1200;
+
+// Кегль заголовка в долях ширины карточки — общий для CSS-превью и canvas,
+// чтобы GIF выглядел ровно так же, как превью в модалке.
+const HEADLINE_EM = 0.075;
+const HEADLINE_TRACKING_EM = -0.05; // tracking-tighter
+const SUBLINE_TRACKING_EM = 0.025;  // tracking-wide
+const HEADLINE_SAFE_WIDTH = 0.92;   // поля по краям карточки
+
+// Шрифт приложения (next/font генерирует имя вида __Inter_xxxx), чтобы canvas
+// рисовал тем же шрифтом, что и DOM, а не молча падал в Arial.
+const uiFontStack = (sample?: HTMLElement | null) => {
+  if (typeof window === 'undefined') return 'Inter, Arial, sans-serif';
+  return getComputedStyle(sample ?? document.body).fontFamily || 'Inter, Arial, sans-serif';
+};
+
+// Заголовок карточки: всегда в одну строку и ужимается, если не влезает по ширине.
+// Раньше строка просто переносилась ("...LEVEL" + "2" отдельно) и сдвигала логотипы вниз.
+function FitHeadline({ isSuper }: { isSuper: boolean }) {
+  const ref = useRef<HTMLHeadingElement>(null)
+  const accent = isSuper ? "text-[#FF6B00]" : "text-[#3B82F6]"
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    const box = el?.parentElement
+    if (!el || !box) return
+
+    const fit = () => {
+      el.style.setProperty('--fit-scale', '1')
+      // h1 ужимается по контенту, поэтому его ширина = ширина самой длинной строки
+      const needed = el.getBoundingClientRect().width
+      const available = box.clientWidth * HEADLINE_SAFE_WIDTH
+      const scale = available > 0 && needed > available ? available / needed : 1
+      el.style.setProperty('--fit-scale', String(scale))
+    }
+
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(box)
+    // Пока шрифт не догрузился, ширина считается по фолбэку — пересчитываем после загрузки
+    document.fonts?.ready.then(fit).catch(() => { })
+    return () => observer.disconnect()
+  }, [isSuper])
+
+  return (
+    <h1
+      ref={ref}
+      className="text-white font-black italic tracking-tighter uppercase leading-[0.9] whitespace-nowrap"
+      style={{
+        fontSize: `calc(${HEADLINE_EM * 100}cqw * var(--fit-scale, 1))`,
+        textSizeAdjust: 'none',
+        WebkitTextSizeAdjust: 'none',
+      } as React.CSSProperties}
+    >
+      <span className="block">UPGRADED TO <span className={accent}>LEVEL 2</span></span>
+      {isSuper && <span className={`block ${accent}`}>SUPER</span>}
+    </h1>
+  )
+}
 
 export function ShareModal({ item, isOpen, onClose, onShowToast }: ShareModalProps) {
 
@@ -179,50 +237,55 @@ export function ShareModal({ item, isOpen, onClose, onShowToast }: ShareModalPro
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     const accentColor = isSuper ? '#FF6B00' : '#3B82F6';
+    const fontStack = uiFontStack(hiddenShareCardRef.current?.firstElementChild as HTMLElement | null);
+    const maxTextWidth = CANVAS_SIZE * HEADLINE_SAFE_WIDTH;
 
-    (ctx as any).letterSpacing = '-2px';
+    const applyFont = (sizePx: number, style: string, trackingEm: number) => {
+      ctx.font = `${style} ${sizePx}px ${fontStack}`;
+      // letterSpacing задаётся в px, поэтому пересчитываем из em под текущий кегль
+      (ctx as any).letterSpacing = `${(trackingEm * sizePx).toFixed(2)}px`;
+    };
+
+    // Ужимаем кегль, если строка не влезает в холст: fillText не переносит текст,
+    // и длинная строка просто уезжала бы за край картинки.
+    const applyFittedFont = (text: string, basePx: number, style: string, trackingEm: number) => {
+      applyFont(basePx, style, trackingEm);
+      const width = ctx.measureText(text).width;
+      if (width <= maxTextWidth) return basePx;
+      const fitted = Math.floor(basePx * (maxTextWidth / width));
+      applyFont(fitted, style, trackingEm);
+      return fitted;
+    };
 
     // "My ApeDroid #XXX"
-    ctx.font = '400 52px Inter, Arial, sans-serif';
+    const subline = `My ApeDroid #${item.tokenId}`;
+    applyFittedFont(subline, 52, '400', SUBLINE_TRACKING_EM);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(`My ApeDroid #${item.tokenId}`, CANVAS_SIZE / 2, CANVAS_SIZE * 0.06);
+    ctx.fillText(subline, CANVAS_SIZE / 2, CANVAS_SIZE * 0.06);
 
-    // "UPGRADED TO LEVEL 2"
-    ctx.font = 'italic 900 88px Inter, Arial, sans-serif';
+    // "UPGRADED TO LEVEL 2" (+ "SUPER" отдельной строкой — как в CSS-превью)
+    const part1 = "UPGRADED TO ";
+    const part2 = "LEVEL 2";
+    const headSize = applyFittedFont(part1 + part2, CANVAS_SIZE * HEADLINE_EM, 'italic 900', HEADLINE_TRACKING_EM);
     const line2Y = CANVAS_SIZE * 0.115;
 
+    const w1 = ctx.measureText(part1).width;
+    const w2 = ctx.measureText(part2).width;
+    const startX = (CANVAS_SIZE - (w1 + w2)) / 2;
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(part1, startX, line2Y);
+    ctx.fillStyle = accentColor;
+    ctx.fillText(part2, startX + w1, line2Y);
+
     if (isSuper) {
-      const part1 = "UPGRADED TO ";
-      const part2 = "LEVEL 2";
-      const w1 = ctx.measureText(part1).width;
-      const w2 = ctx.measureText(part2).width;
-      const totalW = w1 + w2;
-      const startX = (CANVAS_SIZE - totalW) / 2;
-
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(part1, startX, line2Y);
-      ctx.fillStyle = accentColor;
-      ctx.fillText(part2, startX + w1, line2Y);
-
-      // "SUPER"
       ctx.textAlign = 'center';
       ctx.fillStyle = accentColor;
-      ctx.fillText("SUPER", CANVAS_SIZE / 2, CANVAS_SIZE * 0.19);
-    } else {
-      const part1 = "UPGRADED TO ";
-      const part2 = "LEVEL 2";
-      const w1 = ctx.measureText(part1).width;
-      const w2 = ctx.measureText(part2).width;
-      const totalW = w1 + w2;
-      const startX = (CANVAS_SIZE - totalW) / 2;
-
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(part1, startX, line2Y);
-      ctx.fillStyle = accentColor;
-      ctx.fillText(part2, startX + w1, line2Y);
+      ctx.fillText("SUPER", CANVAS_SIZE / 2, line2Y + headSize * 0.9); // leading-[0.9]
     }
+
+    (ctx as any).letterSpacing = '0px';
 
     // 4.6. ЛОГОТИПЫ (Compositing)
     const logoY = isSuper ? CANVAS_SIZE * 0.305 : CANVAS_SIZE * 0.23;
@@ -353,16 +416,15 @@ export function ShareModal({ item, isOpen, onClose, onShowToast }: ShareModalPro
 
   // === ВИЗУАЛ ПРЕВЬЮ (CSS версия для UI) ===
   const FlexCard = ({ imgRef }: { imgRef?: React.RefObject<HTMLImageElement> }) => (
-    <div className="relative w-full h-full bg-black flex flex-col items-center overflow-hidden font-sans">
+    <div
+      className="relative w-full h-full bg-black flex flex-col items-center overflow-hidden font-sans"
+      style={{ textSizeAdjust: 'none', WebkitTextSizeAdjust: 'none' } as React.CSSProperties}
+    >
       <div className="absolute top-[8%] w-full text-center z-30 flex flex-col items-center leading-none">
-        <h2 className="text-white font-normal tracking-wide mb-[1%] text-[5cqw]" style={{ fontFamily: 'sans-serif' }}>
+        <h2 className="text-white font-normal tracking-wide mb-[1%] text-[5cqw] whitespace-nowrap">
           My ApeDroid #{item.tokenId}
         </h2>
-        <h1 className="text-white font-black italic tracking-tighter uppercase leading-[0.9] text-[7.5cqw]">
-          UPGRADED TO <span className={isSuper ? "text-[#FF6B00]" : "text-[#3B82F6]"}>
-            {isSuper ? "LEVEL 2 SUPER" : "LEVEL 2"}
-          </span>
-        </h1>
+        <FitHeadline isSuper={isSuper} />
         <div className="flex items-center justify-center gap-[12%] mt-[4cqw] opacity-90">
           <div className="flex items-center h-[5cqw]"><img src="/Apechain.svg" alt="ApeChain" className="h-full w-auto" style={{ filter: 'grayscale(100%) brightness(1000%)' }} /></div>
           <div className="flex items-center h-[5.5cqw]"><img src="/full-logo.svg" alt="ApeDroidz" className="h-full w-auto brightness-0 invert" /></div>
