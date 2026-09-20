@@ -11,8 +11,8 @@
     <style>
       /* Inter, bundled (assets/fonts): the readable face for descriptions,
          paired with the DRD_SRV pixel face for headings and buttons. */
-      @font-face { font-family: 'Inter'; font-weight: 500; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v5/assets/fonts/Inter-500.woff2') format('woff2'); }
-      @font-face { font-family: 'Inter'; font-weight: 700; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v5/assets/fonts/Inter-700.woff2') format('woff2'); }
+      @font-face { font-family: 'Inter'; font-weight: 500; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v6/assets/fonts/Inter-500.woff2') format('woff2'); }
+      @font-face { font-family: 'Inter'; font-weight: 700; font-style: normal; font-display: block; src: url('https://assets.apedroidz.com/apedroidz/droidz-survival/v6/assets/fonts/Inter-700.woff2') format('woff2'); }
       html,
       body {
         margin: 0;
@@ -26,27 +26,50 @@
         -webkit-user-select: none;
         user-select: none;
       }
-      /* The cover (art/DS_Beta_cover.jpg) is up before a byte of the bundle has arrived,
-         and BootScene paints the same picture under its progress bar, so the first thing
-         anyone sees is the poster, not a navy void. Boot clears it once the game is in
-         (the canvas letterboxes inside #game — left in place, the edges would keep
-         peeking out beside the play area). */
+      /* The cover (art/DS_Beta_cover.jpg) is up before a byte of the bundle has arrived, and
+         the canvas is TRANSPARENT until the menu, so Boot's progress bar draws straight over
+         this picture instead of over a navy slab that hides it (the owner, 20.09: «прелоадер
+         поверх обложки, и пока грузится обложка тоже показывается»).
+
+         It is an <img crossorigin>, not a CSS background, on purpose. A background image is
+         fetched WITHOUT CORS, and a cross-origin image fetched that way taints any texture
+         made from it — WebGL then refuses to draw it, which is exactly why the poster used
+         to vanish the moment Phaser started on the site and came back nowhere. One CORS
+         request, one cache entry, and BootScene adopts THIS element as its texture: no
+         second download and no race.
+
+         Boot hides it when the menu opens (the canvas letterboxes inside #game — left in
+         place, the edges would keep peeking out beside the play area). */
       #game {
+        position: relative;
         width: 100vw;
         height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #0a0f1e url('https://assets.apedroidz.com/apedroidz/droidz-survival/v5/assets/img/DS_Beta_cover.jpg') center bottom / cover no-repeat;
+        background: #0a0f1e;
+      }
+      #cover {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center bottom;
+        pointer-events: none;
       }
       #game canvas {
         display: block;
+        position: relative;
+        z-index: 1;
         image-rendering: pixelated;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-BZZttEjn.js"></script>
+    <script type="module" crossorigin src="./assets/index-XhM0oM9K.js"></script>
   </head>
   <body>
-    <div id="game"></div>
+    <div id="game">
+      <img id="cover" src="https://assets.apedroidz.com/apedroidz/droidz-survival/v6/assets/img/DS_Beta_cover.jpg" crossorigin="anonymous" alt="" />
+    </div>
   </body>
 </html>
