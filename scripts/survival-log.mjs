@@ -17,12 +17,18 @@ const [cmd = 'tail', arg] = process.argv.slice(2)
 const client = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
 await client.connect()
 const rows = async (q, p) => (await client.query(q, p)).rows
-const short = (w) => (w ? `${w.slice(0, 6)}…${w.slice(-4)}` : '—')
+// Имена из беты-листа (survival_allowlist.note): в выводе адрес идёт как
+// «0x46…4c1f (Sasha)», иначе тестеров приходится сверять по хвостам адресов.
+const NAMES = new Map((await (await new Promise((r) => r(client.query('select wallet, note from survival_allowlist'))))).rows
+    .filter((r) => (r.note ?? '').trim())
+    .map((r) => [r.wallet.toLowerCase(), r.note.trim()]))
+const named = (w) => { const n = NAMES.get((w ?? '').toLowerCase()); return n ? ` (${n})` : '' }
+const short = (w) => (w ? `${w.slice(0, 6)}…${w.slice(-4)}${named(w)}` : '—')
 const when = (d) => new Date(d).toISOString().replace('T', ' ').slice(5, 19)
 const line = (e) => {
     const lvl = { error: '\x1b[31mERR \x1b[0m', warn: '\x1b[33mWARN\x1b[0m', info: 'info', debug: 'dbg ' }[e.level] ?? e.level
     const data = e.data && Object.keys(e.data).length ? ' ' + JSON.stringify(e.data).slice(0, 160) : ''
-    return `${String(e.id).padStart(6)} ${when(e.at)} ${lvl} ${e.source === 'client' ? 'C' : 'S'} ${short(e.wallet).padEnd(11)} ${e.kind.padEnd(18)} ${(e.message || '').slice(0, 80)}${data}`
+    return `${String(e.id).padStart(6)} ${when(e.at)} ${lvl} ${e.source === 'client' ? 'C' : 'S'} ${short(e.wallet).padEnd(11)}  ${e.kind.padEnd(18)} ${(e.message || '').slice(0, 80)}${data}`
 }
 const print = (list) => { if (!list.length) console.log('(nothing)'); for (const e of [...list].reverse()) console.log(line(e)) }
 const sinceMs = (s) => { const m = /^(\d+)([mhd])$/.exec(s ?? ''); if (!m) return 24 * 3600e3; return Number(m[1]) * { m: 60e3, h: 3600e3, d: 86400e3 }[m[2]] }

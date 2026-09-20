@@ -41,8 +41,22 @@ export async function GET(req: NextRequest) {
             .from('survival_profile_seasons').select('season, daily').eq('wallet', caller.wallet).eq('season_id', live.id).maybeSingle()
         season = { seasonId: live.id, season: ps?.season ?? null, daily: ps?.daily ?? null }
     }
+    // Кто спрашивает — для таблицы рекордов: без этого игрок не видит в ней
+    // ни себя, ни своего ника с кланом (владелец, 20.09). Кошелёк отдаём уже
+    // сокращённым: полный адрес игре не нужен ни для чего, а на экране он всё
+    // равно показывается в коротком виде.
+    const [{ data: player }, { data: xRow }] = await Promise.all([
+        supabaseAdmin.from('survival_players').select('clan').eq('wallet', caller.wallet).maybeSingle(),
+        supabaseAdmin.from('glitch_users').select('x_handle').ilike('wallet_address', caller.wallet).maybeSingle(),
+    ])
+    const me = {
+        wallet: `${caller.wallet.slice(0, 6)}…${caller.wallet.slice(-4)}`,
+        x: (xRow as { x_handle: string | null } | null)?.x_handle ?? null,
+        clan: (player as { clan: string | null } | null)?.clan ?? null,
+    }
+
     return NextResponse.json(
-        { ok: true, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, features: { season: seasonVisibleFor(caller.wallet) } },
+        { ok: true, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: seasonVisibleFor(caller.wallet) } },
         { headers: { 'cache-control': 'no-store' } },
     )
 }

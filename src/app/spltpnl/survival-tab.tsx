@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Ban, Check, Clock, Loader2, Plus, RefreshCcw, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { ACCESS_DURATIONS, DEFAULT_ACCESS_DURATION } from '@/lib/survivalDurations'
 
@@ -19,6 +19,7 @@ type Payload = {
     stats: {
         online: number; playing: number; players: number; players24: number; banned: number; runsAll: number; runs24: number; runs7: number; finished: number; rejected: number; voided: number; started: number
         rejectRate: number; cheatWallets: number; avgScore: number; avgWave: number; avgKills: number
+        playtimeMs: number; longestRunMs: number; avgRunMs: number
         payments: { count: number; ape: number; confirmed: number; confirmedApe: number }
     }
     board: Array<{ rank: number; wallet_short: string; display_name: string | null; score: number; wave: number; kills: number; runs_count: number; achieved_at: string }>
@@ -26,17 +27,60 @@ type Payload = {
     suspicious: Array<{ id: string; wallet: string; status: string; reject_reason: string | null; flags: string[]; score: number; wave: number; kills: number; started_at: string; server_duration_ms: number | null; client_duration_ms: number | null; client_version: string | null; hero: string | null }>
     cheaters: Array<{ wallet: string; rejected: number; last: string; reasons: string[]; banned: boolean; ban_reason: string | null }>
     allowlist: Array<{ wallet: string; status: 'active' | 'expired' | 'revoked'; note: string | null; added_by: string | null; added_at: string; revoked_at: string | null; expires_at: string | null }>
-    recentRuns: Array<{ id: string; wallet: string; status: string; reject_reason: string | null; score: number; wave: number; kills: number; started_at: string; hero: string | null; client_version: string | null }>
+    recentRuns: Array<{ id: string; wallet: string; status: string; reject_reason: string | null; score: number; wave: number; kills: number; started_at: string; hero: string | null; client_version: string | null; server_duration_ms: number | null; client_duration_ms: number | null }>
     profiles: Array<{ wallet: string; coins: number; runs: number; best_score: number; selected_hero: string | null; updated_at: string }>
+    feedback: Array<{ wallet: string; rating: number; comment: string | null; runs_at_submit: number; coins_awarded: number; client_version: string | null; created_at: string; updated_at: string; edited_count: number }>
+    feedbackStats: { count: number; avgRating: number; histogram: number[]; withComment: number; coinsPaid: number }
     problems: string[]
 }
 type Clan = { slug: string; name: string; opensea_slug: string | null; chain: string | null; contract: string | null; image_url: string | null; active: boolean }
 
 const short = (w: string | null | undefined) => (w ? `${w.slice(0, 6)}…${w.slice(-4)}` : '—')
+
+/**
+ * Кошелёк с именем из беты-листа: «0x46…4c1f (Sasha)».
+ *
+ * Имя — это `note`, которое владелец пишет при выдаче доступа. Сверять хвосты
+ * адресов между таблицами руками невозможно, поэтому подпись идёт рядом с
+ * КАЖДЫМ адресом в панели, а не только в самом списке доступа. Ключей в карте
+ * два — полный адрес и его короткая форма — потому что доска почёта приходит с
+ * сервера уже обрезанной (survival_board.wallet_short) и полного адреса там нет.
+ */
+function buildNames(rows: Array<{ wallet: string; note: string | null }>): Map<string, string> {
+    const m = new Map<string, string>()
+    for (const r of rows) {
+        const n = (r.note ?? '').trim()
+        if (!n) continue
+        m.set(r.wallet.toLowerCase(), n)
+        m.set(short(r.wallet.toLowerCase()), n)
+    }
+    return m
+}
 const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString() : '—')
 const day = (iso: string | null | undefined) => (iso ? new Date(iso).toISOString().slice(0, 10) : '—')
 const ape = (n: number) => `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })} APE`
 const secs = (ms: number | null | undefined) => (ms == null ? '—' : `${Math.round(ms / 1000)}s`)
+/** Длительность по-человечески: 42s · 7m 30s · 4h 20m. */
+const dur = (ms: number | null | undefined) => {
+    if (!ms) return '—'
+    const t = Math.round(ms / 1000)
+    if (t < 60) return `${t}s`
+    if (t < 3600) return `${Math.floor(t / 60)}m ${t % 60}s`
+    return `${Math.floor(t / 3600)}h ${Math.floor((t % 3600) / 60)}m`
+}
+const stars = (n: number) => '★'.repeat(Math.max(0, Math.min(5, n))) + '☆'.repeat(Math.max(0, 5 - n))
+
+/** Адрес + имя из беты-листа. `full={false}` — когда адрес уже обрезан сервером. */
+function W({ w, names, full = true, className = '' }: { w: string | null | undefined; names: Map<string, string>; full?: boolean; className?: string }) {
+    const key = (w ?? '').toLowerCase()
+    const name = names.get(key) ?? null
+    return (
+        <span className={className} title={w ?? undefined}>
+            <span className="font-mono">{full ? short(w) : (w ?? '—')}</span>
+            {name ? <span className="text-white/40"> ({name})</span> : null}
+        </span>
+    )
+}
 
 async function api(url: string, init?: RequestInit) {
     const res = await fetch(url, { credentials: 'include', cache: 'no-store', ...init })
@@ -87,12 +131,22 @@ export function SurvivalTab() {
     const [clanChain, setClanChain] = useState('ape_chain')
     const [openEvent, setOpenEvent] = useState<number | null>(null)
     const [levelFilter, setLevelFilter] = useState<'all' | 'problems' | 'errors'>('all')
+    // Сколько ApeDroidz на каждом кошельке беты. Грузится фоном отдельным
+    // запросом (десятки вызовов к индексеру), поэтому список появляется сразу,
+    // а значки холдеров догоняют. null у адреса — индексер не ответил.
+    const [holders, setHolders] = useState<Record<string, number | null>>({})
+
+    // Имена из беты-листа — подпись рядом с каждым кошельком в панели.
+    const names = useMemo(() => buildNames(data?.allowlist ?? []), [data?.allowlist])
 
     const load = useCallback(async () => {
         setLoading(true); setError(null)
         try {
             const [d, c] = await Promise.all([api('/api/admin/survival'), api('/api/admin/survival/clans')])
             setData(d); setClans(c.clans ?? [])
+            void api('/api/admin/survival/holders')
+                .then((h) => setHolders(h.counts ?? {}))
+                .catch(() => { /* значки холдеров — приятное дополнение, без них панель работает */ })
         } catch (e) { setError((e as Error).message) } finally { setLoading(false) }
     }, [])
     useEffect(() => { void load() }, [load])
@@ -105,6 +159,9 @@ export function SurvivalTab() {
     if (loading && !data) return <div className="flex items-center gap-2 text-white/40 text-sm py-10"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
     if (!data) return <div className="text-red-400 text-sm py-10">{error ?? 'No data'}</div>
     const s = data.stats
+    // Панель может смотреть на пейлоад, снятый до миграции отзывов — тогда блок просто пуст.
+    const fs = data.feedbackStats ?? { count: 0, avgRating: 0, histogram: [0, 0, 0, 0, 0], withComment: 0, coinsPaid: 0 }
+    const reviews = data.feedback ?? []
     const keep = LEVEL_FILTERS.find((f) => f.id === levelFilter)?.keep ?? (() => true)
     const events = data.events.filter((e) => keep(e.level))
 
@@ -128,8 +185,11 @@ export function SurvivalTab() {
                 <Stat label="Rejected (wallets)" value={`${s.rejected} (${(s.rejectRate * 100).toFixed(1)}%) · ${s.cheatWallets}`} accent={s.rejected ? 'text-red-400' : 'text-white'} />
                 <Stat label="Void / open" value={`${s.voided} / ${s.started}`} />
                 <Stat label="Avg wave · score · kills" value={s.finished ? `${s.avgWave} · ${s.avgScore} · ${s.avgKills}` : '—'} />
+                <Stat label="Playtime (all runs)" value={dur(s.playtimeMs)} accent="text-[#3b82f6]" />
+                <Stat label="Run: average · longest" value={`${dur(s.avgRunMs)} · ${dur(s.longestRunMs)}`} />
                 <Stat label="Payments (confirmed)" value={`${s.payments.count} (${s.payments.confirmed})`} />
                 <Stat label="Paid in (confirmed)" value={`${ape(s.payments.ape)} (${ape(s.payments.confirmedApe)})`} accent="text-[#3b82f6]" />
+                <Stat label="Beta rating (reviews)" value={fs.count ? `${fs.avgRating} ★ (${fs.count})` : '—'} accent={fs.count ? 'text-[#ffcf4a]' : 'text-white'} />
             </div>
 
             <div className="grid lg:grid-cols-2 gap-5">
@@ -138,13 +198,13 @@ export function SurvivalTab() {
                         <table className="w-full text-xs">
                             <thead><tr className="text-white/30 text-[9px] uppercase tracking-widest"><th className="text-left py-1">#</th><th className="text-left">Player</th><th className="text-right">Score</th><th className="text-right">Wave</th><th className="text-right">Kills</th><th className="text-right">Runs</th></tr></thead>
                             <tbody>{data.board.map((b) => (
-                                <tr key={b.rank} className="border-t border-white/5"><td className="py-1 text-white/50">{b.rank}</td><td className="font-mono">{b.wallet_short}{b.display_name ? <span className="text-white/40"> · {b.display_name}</span> : null}</td><td className="text-right font-black">{b.score}</td><td className="text-right text-white/60">{b.wave}</td><td className="text-right text-white/60">{b.kills}</td><td className="text-right text-white/40">{b.runs_count}</td></tr>
+                                <tr key={b.rank} className="border-t border-white/5"><td className="py-1 text-white/50">{b.rank}</td><td><W w={b.wallet_short} names={names} full={false} />{b.display_name ? <span className="text-white/40"> · {b.display_name}</span> : null}</td><td className="text-right font-black">{b.score}</td><td className="text-right text-white/60">{b.wave}</td><td className="text-right text-white/60">{b.kills}</td><td className="text-right text-white/40">{b.runs_count}</td></tr>
                             ))}</tbody>
                         </table>
                     )}
                 </Section>
 
-                <Section title="Beta access" hint={`${data.allowlist.filter((a) => a.status === 'active').length} active · ${data.allowlist.filter((a) => a.status === 'expired').length} expired · ${data.allowlist.length} total`}>
+                <Section title="Beta access" hint={`${data.allowlist.filter((a) => a.status === 'active').length} active · ${data.allowlist.filter((a) => a.status === 'expired').length} expired · ${data.allowlist.length} total${Object.keys(holders).length ? ` · ${Object.values(holders).filter((n) => (n ?? 0) > 0).length} hold droidz` : ''}`}>
                     {/* Timed access (owner, 19.09): the duration picked here is what Add and
                         Activate grant. An expired wallet stays on the list, grey, until it is
                         activated again — the gate itself closes on the minute (the play cookie
@@ -165,11 +225,37 @@ export function SurvivalTab() {
                                     : a.status === 'expired' ? <Clock className="h-3.5 w-3.5 text-amber-400/70 flex-shrink-0" />
                                     : <Ban className="h-3.5 w-3.5 text-white/25 flex-shrink-0" />}
                                 <span className={`font-mono ${a.status === 'active' ? '' : a.status === 'expired' ? 'text-white/40' : 'text-white/30 line-through'}`} title={a.wallet}>{short(a.wallet)}</span>
+                                {(() => {
+                                    const n = holders[a.wallet.toLowerCase()]
+                                    if (n === undefined) return <span className="w-16 flex-shrink-0 text-[9px] uppercase tracking-widest text-white/15">·</span>
+                                    if (n === null) return <span className="w-16 flex-shrink-0 text-[9px] uppercase tracking-widest text-white/25" title="Indexer did not answer for this wallet">?</span>
+                                    return n > 0
+                                        ? <span className="w-16 flex-shrink-0 text-[9px] font-black uppercase tracking-widest text-emerald-400" title={`${n} ApeDroidz on this wallet`}>{n}{n >= 100 ? '+' : ''} droidz</span>
+                                        : <span className="w-16 flex-shrink-0 text-[9px] font-black uppercase tracking-widest text-white/30" title="No ApeDroidz on this wallet">no droidz</span>
+                                })()}
                                 <span className="text-white/40 flex-1 truncate">{a.note ?? ''}{a.added_by ? <span className="text-white/25"> · {a.added_by}</span> : null}</span>
                                 <span className={`font-mono text-[10px] ${a.status === 'expired' ? 'text-amber-400/70' : 'text-white/25'}`}
                                     title={a.revoked_at ? `revoked ${when(a.revoked_at)}` : a.expires_at ? `${a.status === 'expired' ? 'expired' : 'until'} ${when(a.expires_at)} · added ${when(a.added_at)}` : `added ${when(a.added_at)} · no expiry`}>
                                     {a.revoked_at ? `revoked ${day(a.revoked_at)}` : a.expires_at ? `${a.status === 'expired' ? 'expired' : 'until'} ${when(a.expires_at)}` : 'forever'}
                                 </span>
+                                {/* Срок можно переписать, не снимая и не выдавая доступ заново
+                                    (владелец, 20.09): выбор в этом списке сразу применяется к
+                                    кошельку — тем же действием, что и выдача, поэтому заметка
+                                    и дата выдачи остаются на месте. */}
+                                <select
+                                    value=""
+                                    title="Change how long this wallet's access lasts"
+                                    onChange={(e) => {
+                                        const d = e.target.value
+                                        if (!d) return
+                                        e.target.value = ''
+                                        void act(a.wallet, () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', wallet: a.wallet, note: a.note, duration: d }) }))
+                                    }}
+                                    className="bg-black/40 border border-white/10 rounded-md px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-white/40 outline-none hover:text-white hover:border-white/25 cursor-pointer"
+                                >
+                                    <option value="">Set term…</option>
+                                    {ACCESS_DURATIONS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+                                </select>
                                 {a.status === 'active'
                                     ? <button onClick={() => void act(a.wallet, () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'revoke', wallet: a.wallet }) }))} className="text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-red-400">Revoke</button>
                                     : <button title={`Activate for ${ACCESS_DURATIONS.find((d) => d.key === duration)?.label ?? duration} (the picker above)`} onClick={() => void act(a.wallet, () => api('/api/admin/survival/allowlist', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', wallet: a.wallet, note: a.note, duration }) }))} className="text-[9px] font-black uppercase tracking-widest text-emerald-400/70 hover:text-emerald-300">Activate</button>}
@@ -185,7 +271,7 @@ export function SurvivalTab() {
                         <div className="divide-y divide-white/5">{data.cheaters.map((c) => (
                             <div key={c.wallet} className="flex items-center gap-3 py-2 text-xs">
                                 <AlertTriangle className={`h-3.5 w-3.5 flex-shrink-0 ${c.banned ? 'text-red-400' : 'text-orange-400'}`} />
-                                <span className="font-mono">{short(c.wallet)}</span>
+                                <W w={c.wallet} names={names} />
                                 <span className="text-white/50">{c.rejected}× · {c.reasons.join(', ')}</span>
                                 <span className="text-white/25 font-mono text-[10px] flex-1 text-right">{when(c.last)}</span>
                                 <button onClick={() => void act(c.wallet, () => api('/api/admin/survival/ban', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallet: c.wallet, banned: !c.banned, reason: c.banned ? null : c.reasons.join(',') }) }))} className={`text-[9px] font-black uppercase tracking-widest ${c.banned ? 'text-red-400 hover:text-white' : 'text-white/40 hover:text-red-400'}`}>{c.banned ? 'Banned — unban' : 'Ban'}</button>
@@ -225,7 +311,7 @@ export function SurvivalTab() {
                         <table className="w-full text-xs">
                             <thead><tr className="text-white/30 text-[9px] uppercase tracking-widest"><th className="text-left py-1">When</th><th className="text-left">Wallet</th><th className="text-left">Reason</th><th className="text-right">Score</th><th className="text-right">Wave</th><th className="text-right">Kills</th><th className="text-right">Server</th><th className="text-right">Client</th><th className="text-left">Build</th></tr></thead>
                             <tbody>{data.suspicious.map((r) => (
-                                <tr key={r.id} className="border-t border-white/5"><td className="py-1 font-mono text-white/40">{when(r.started_at)}</td><td className="font-mono">{short(r.wallet)}</td><td className="text-orange-400">{r.reject_reason}</td><td className="text-right">{r.score}</td><td className="text-right">{r.wave}</td><td className="text-right">{r.kills}</td><td className="text-right text-white/50">{secs(r.server_duration_ms)}</td><td className="text-right text-white/50">{secs(r.client_duration_ms)}</td><td className="font-mono text-white/30">{r.client_version}</td></tr>
+                                <tr key={r.id} className="border-t border-white/5"><td className="py-1 font-mono text-white/40">{when(r.started_at)}</td><td><W w={r.wallet} names={names} /></td><td className="text-orange-400">{r.reject_reason}</td><td className="text-right">{r.score}</td><td className="text-right">{r.wave}</td><td className="text-right">{r.kills}</td><td className="text-right text-white/50">{secs(r.server_duration_ms)}</td><td className="text-right text-white/50">{secs(r.client_duration_ms)}</td><td className="font-mono text-white/30">{r.client_version}</td></tr>
                             ))}</tbody>
                         </table>
                     </div>
@@ -245,7 +331,7 @@ export function SurvivalTab() {
                                 <span className="font-mono text-white/30 w-36 flex-shrink-0">{when(e.at)}</span>
                                 <span className={`font-black uppercase text-[9px] w-10 ${LEVEL[e.level] ?? ''}`}>{e.level}</span>
                                 <span className="text-white/30 w-4">{e.source === 'client' ? 'C' : 'S'}</span>
-                                <span className="font-mono w-24 flex-shrink-0">{short(e.wallet)}</span>
+                                <W w={e.wallet} names={names} className="w-24 flex-shrink-0 truncate" />
                                 <span className="text-white/60 w-32 flex-shrink-0 truncate">{e.kind}</span>
                                 <span className="truncate flex-1">{e.message}</span>
                             </button>
@@ -255,21 +341,72 @@ export function SurvivalTab() {
                 )}
             </Section>
 
+            {/* Отзывы о бете (владелец, 20.09): звёзды + необязательный комментарий, за них
+                платим Ape Mini. Отдельным блоком, потому что это единственное на вкладке,
+                что читают глазами, а не сверяют числами. */}
+            <Section
+                title="Beta feedback"
+                hint={fs.count ? `${fs.count} reviews · ${fs.avgRating} ★ avg · ${fs.withComment} with a comment · ${fs.coinsPaid.toLocaleString()} mini paid` : 'nothing yet'}
+            >
+                {fs.count === 0 ? (
+                    <div className="text-white/30 text-xs">No reviews yet — the form opens after 3 finished runs.</div>
+                ) : (
+                    <>
+                        {/* Разбивка по звёздам: одна оценка 1★ среди тридцати 5★ — это не то же самое,
+                            что среднее 4.8, и среднее её прячет. */}
+                        <div className="mb-4 space-y-1">
+                            {[5, 4, 3, 2, 1].map((n) => {
+                                const c = fs.histogram[n - 1] ?? 0
+                                return (
+                                    <div key={n} className="flex items-center gap-2 text-[10px]">
+                                        <span className="w-10 font-mono text-[#ffcf4a]">{n} ★</span>
+                                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
+                                            <div className="h-full rounded-full bg-[#ffcf4a]/70" style={{ width: `${fs.count ? (c / fs.count) * 100 : 0}%` }} />
+                                        </div>
+                                        <span className="w-8 text-right font-mono text-white/40">{c}</span>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                        <div className="max-h-[28rem] divide-y divide-white/5 overflow-auto">
+                            {reviews.map((f) => (
+                                <div key={f.wallet} className="py-2">
+                                    <div className="flex items-baseline gap-3 text-xs">
+                                        <W w={f.wallet} names={names} className="w-24 flex-shrink-0 truncate" />
+                                        <span className="w-24 flex-shrink-0 font-black text-[#ffcf4a]">{stars(f.rating)}</span>
+                                        <span className="w-20 flex-shrink-0 font-black text-[#3b82f6]">+{f.coins_awarded} mini</span>
+                                        <span className="flex-1 text-right font-mono text-[10px] text-white/25">
+                                            {f.runs_at_submit} runs at submit{f.edited_count > 0 ? ` · edited ${f.edited_count}×` : ''}
+                                            {f.client_version ? ` · ${f.client_version}` : ''} · {when(f.updated_at)}
+                                        </span>
+                                    </div>
+                                    {f.comment ? (
+                                        <p className="mt-1 whitespace-pre-wrap break-words pl-24 text-xs leading-relaxed text-white/70">{f.comment}</p>
+                                    ) : (
+                                        <p className="mt-1 pl-24 text-xs italic text-white/20">stars only</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </Section>
+
             <div className="grid lg:grid-cols-2 gap-5">
                 <Section title="Recent runs" hint="newest first">
                     <div className="overflow-auto max-h-80 divide-y divide-white/5">{data.recentRuns.map((r) => (
                         <div key={r.id} className="flex items-center gap-3 py-1 text-xs">
                             <span className="font-mono text-white/30 w-36 flex-shrink-0">{when(r.started_at)}</span>
-                            <span className="font-mono w-24">{short(r.wallet)}</span>
+                            <W w={r.wallet} names={names} className="w-24 truncate" />
                             <span className={`w-16 font-black uppercase text-[9px] ${r.status === 'finished' ? 'text-emerald-400' : r.status === 'rejected' ? 'text-red-400' : 'text-white/40'}`}>{r.status}</span>
-                            <span className="text-white/60 flex-1 truncate">{r.hero ?? ''} · score {r.score} · wave {r.wave} · {r.kills} kills {r.reject_reason ? `· ${r.reject_reason}` : ''}</span>
+                            <span className="text-white/60 flex-1 truncate">{r.hero ?? ''} · score {r.score} · wave {r.wave} · {r.kills} kills · {dur(r.server_duration_ms ?? r.client_duration_ms)} {r.reject_reason ? `· ${r.reject_reason}` : ''}</span>
                         </div>
                     ))}</div>
                 </Section>
                 <Section title="Player progress" hint="server-side profiles, newest first">
                     <div className="overflow-auto max-h-80 divide-y divide-white/5">{data.profiles.map((p) => (
                         <div key={p.wallet} className="flex items-center gap-3 py-1 text-xs">
-                            <span className="font-mono w-24">{short(p.wallet)}</span>
+                            <W w={p.wallet} names={names} className="w-24 truncate" />
                             <span className="text-[#3b82f6] font-black w-24">{p.coins} mini</span>
                             <span className="text-white/60">{p.runs} runs · best {p.best_score} · {p.selected_hero ?? '—'}</span>
                             <span className="font-mono text-white/25 text-[10px] flex-1 text-right">{when(p.updated_at)}</span>

@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 
 const LIMIT = 50
 
-interface BestRow { wallet: string; score: number; wave: number; kills: number; runs_count: number; achieved_at: string }
+interface BestRow { wallet: string; score: number; wave: number; kills: number; runs_count: number; achieved_at: string; run_id: string | null }
 interface PlayerRow { wallet: string; clan: string | null; banned: boolean }
 interface XRow { wallet_address: string; x_handle: string | null }
 
@@ -29,7 +29,7 @@ export async function GET() {
 
     const { data: best, error } = await supabaseAdmin
         .from('survival_season_best')
-        .select('wallet, score, wave, kills, runs_count, achieved_at')
+        .select('wallet, score, wave, kills, runs_count, achieved_at, run_id')
         .eq('season_id', season.id)
         .order('score', { ascending: false }).order('achieved_at', { ascending: true })
         .limit(LIMIT)
@@ -45,6 +45,17 @@ export async function GET() {
         ? ((await supabaseAdmin.from('glitch_users').select('wallet_address, x_handle')
             .or(wallets.map((w: string) => `wallet_address.ilike.${w}`).join(','))).data ?? [])
         : []
+
+    // Каким героем поставлен рекорд — из того самого забега, что его поставил
+    // (survival_season_best.run_id). Владелец, 20.09: колонка HERO в таблице.
+    const runIds = rowsBest.map((b) => b.run_id).filter((id): id is string => !!id)
+    const heroOf = new Map<string, string>()
+    if (runIds.length) {
+        const { data: runs } = await supabaseAdmin.from('survival_runs').select('id, hero').in('id', runIds)
+        for (const r of (runs ?? []) as Array<{ id: string; hero: string | null }>) {
+            if (r.hero) heroOf.set(r.id, r.hero)
+        }
+    }
 
     const clanOf = new Map(players.map((p) => [p.wallet, p]))
     const xOf = new Map<string, string>()
@@ -62,6 +73,7 @@ export async function GET() {
                 wallet: `${b.wallet.slice(0, 6)}…${b.wallet.slice(-4)}`,
                 x: xOf.get(b.wallet) ?? null,
                 clan: clanOf.get(b.wallet)?.clan ?? null,
+                hero: b.run_id ? heroOf.get(b.run_id) ?? null : null,
                 score: Number(b.score), wave: Number(b.wave), kills: Number(b.kills),
                 runs: Number(b.runs_count),
             }
