@@ -123,10 +123,34 @@ export function useGlitchSession() {
         // Fast path — cookie already valid for this wallet.
         if (stateRef.current.authedWallet === lower) return true
 
-        // Re-check the cookie before prompting (it may have just been set in another tab).
-        const fromCookie = await refresh()
-        if (fromCookie === lower) return true
-        if (lastCheckedWalletRef.current !== lower) return false   // wallet changed mid-flight
+        /**
+         * ДО ПОДПИСИ НЕ ДОЛЖНО БЫТЬ НИ ОДНОГО `await` С СЕТЬЮ.
+         *
+         * Владелец, 22.09: «на мобилке верификация — я нажимал, у меня так и не
+         * открылось окно MetaMask». Причина не в кошельке. Мобильный кошелёк
+         * открывается deep-link'ом, а его браузер пускает только внутри
+         * пользовательского жеста. Здесь же перед `signMessage` стоял
+         * безусловный `await refresh()` — поход на /api/auth/me. Пока он шёл
+         * (~0.65 с тёплый, до 2 с холодный), контекст жеста истекал, и переход
+         * в приложение кошелька блокировался МОЛЧА: ни ошибки, ни окна.
+         *
+         * Та же ловушка была в шеринге (systems/Share.ts): всё, что открывает
+         * внешнее приложение или вкладку, обязано случиться синхронно после
+         * нажатия.
+         *
+         * Поэтому проверка куки здесь осталась ровно для случая, когда её
+         * состояние ещё НЕИЗВЕСТНО. В обычном сценарии оно уже известно:
+         * эффект выше сходил на /api/auth/me сразу после подключения кошелька,
+         * задолго до того, как человек дотянулся до кнопки. Цена отказа от
+         * безусловной пере-проверки — лишний запрос подписи в редком случае,
+         * когда куку выдали в другой вкладке; цена самой пере-проверки была
+         * полностью неработающая мобилка.
+         */
+        if (stateRef.current.loading) {
+            const fromCookie = await refresh()
+            if (fromCookie === lower) return true
+            if (lastCheckedWalletRef.current !== lower) return false   // wallet changed mid-flight
+        }
 
         // If a sign prompt is in flight, wait for it instead of triggering another.
         if (signingRef.current) {
@@ -138,12 +162,16 @@ export function useGlitchSession() {
         }
 
         signingRef.current = true
-        setSession({ loading: true, error: null })
 
         try {
             const nonce = genNonce()
             const message = `Glitch Games Login\nWallet: ${lower}\nNonce: ${nonce}`
-            const signature = await account.signMessage({ message })
+            // Первое обращение к кошельку — и ничего сетевого перед ним.
+            const signing = account.signMessage({ message })
+            // Спиннер ставим ПОСЛЕ вызова: setState — это перерисовка React, а
+            // она в некоторых браузерах успевает съесть жест до deep-link'а.
+            setSession({ loading: true, error: null })
+            const signature = await signing
 
             const res = await fetch('/api/auth/login', {
                 method: 'POST',

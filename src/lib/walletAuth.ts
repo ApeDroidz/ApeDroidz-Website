@@ -19,10 +19,29 @@ import type { NextRequest } from 'next/server'
  *   <base64url(payload)>.<base64url(HMAC_SHA256(payload, secret))>
  *   payload = JSON { wallet, iat, exp }
  *
- * Lifetime: 24h. On wallet switch / logout, /api/auth/logout clears the cookie.
+ * Lifetime: 7 days. On wallet switch / logout, /api/auth/logout clears the cookie.
  */
 
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000
+/**
+ * Сколько живёт подпись.
+ *
+ * Было 24 часа — то есть тестер подписывал вход примерно раз в сутки, и
+ * владелец (22.09) справедливо назвал это «усложнителем»: «очень долго вход в
+ * игру делает».
+ *
+ * Семь дней вместо суток убирают шесть подписей из семи, не трогая ничего в
+ * механике доступа. Важно понимать, что именно НЕ меняется:
+ *
+ *  * доступ к игре проверяется не этой кукой, а `survival_allowlist` — каждые
+ *    6 часов, при перевыпуске play-куки (lib/survivalAccess.ts). Отозвали
+ *    доступ — он закроется в тот же срок, что и раньше;
+ *  * play-кука перевыпускается ИЗ этой сессии и НЕ требует новой подписи —
+ *    поэтому частоту подписей задаёт ровно эта константа и ничего больше.
+ *
+ * Цена ровно одна: украденная кука живёт неделю вместо суток. Это общая кука
+ * сайта (её же использует Glitch Games), так что срок касается не только игры.
+ */
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const SESSION_COOKIE_NAME = 'glitch_session'
 
 const apeChain = defineChain(33139)
