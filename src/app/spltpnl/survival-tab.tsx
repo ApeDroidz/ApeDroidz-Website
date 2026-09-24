@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Ban, Check, Clock, Loader2, Plus, RefreshCcw, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { ACCESS_DURATIONS, DEFAULT_ACCESS_DURATION } from '@/lib/survivalDurations'
+import { CopyWallet, SurvivalPlayers } from './survival-players'
 
 /**
  * Droidz Survival — the game's own tab in the panel (the owner, 18.09.2026): what is
@@ -117,7 +118,22 @@ const LEVEL_FILTERS: Array<{ id: 'all' | 'problems' | 'errors'; label: string; k
     { id: 'errors', label: 'Errors', keep: (l) => l === 'error' },
 ]
 
+/** Two views: the game at a glance, and every player in full (owner, 24.09.2026). */
 export function SurvivalTab() {
+    const [view, setView] = useState<'overview' | 'players'>('overview')
+    return (
+        <div className="space-y-5">
+            <div className="flex gap-1">
+                {(['overview', 'players'] as const).map((v) => (
+                    <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${view === v ? 'bg-[#3b82f6] text-white' : 'text-white/40 hover:text-white bg-white/5'}`}>{v}</button>
+                ))}
+            </div>
+            {view === 'overview' ? <SurvivalOverview /> : <SurvivalPlayers />}
+        </div>
+    )
+}
+
+function SurvivalOverview() {
     const [data, setData] = useState<Payload | null>(null)
     const [clans, setClans] = useState<Clan[]>([])
     const [loading, setLoading] = useState(true)
@@ -131,6 +147,7 @@ export function SurvivalTab() {
     const [clanChain, setClanChain] = useState('ape_chain')
     const [openEvent, setOpenEvent] = useState<number | null>(null)
     const [levelFilter, setLevelFilter] = useState<'all' | 'problems' | 'errors'>('all')
+    const [accessQ, setAccessQ] = useState('')
     // Сколько ApeDroidz на каждом кошельке беты. Грузится фоном отдельным
     // запросом (десятки вызовов к индексеру), поэтому список появляется сразу,
     // а значки холдеров догоняют. null у адреса — индексер не ответил.
@@ -192,7 +209,7 @@ export function SurvivalTab() {
                 <Stat label="Beta rating (reviews)" value={fs.count ? `${fs.avgRating} ★ (${fs.count})` : '—'} accent={fs.count ? 'text-[#ffcf4a]' : 'text-white'} />
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-5">
+            <div className="grid gap-5">
                 <Section title="Season board" hint={`top ${data.board.length}`}>
                     {data.board.length === 0 ? <div className="text-white/30 text-xs">No accepted runs yet.</div> : (
                         <table className="w-full text-xs">
@@ -217,14 +234,17 @@ export function SurvivalTab() {
                         </select>
                         <button type="submit" disabled={busy === 'allow'} className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#3b82f6] text-[10px] font-black uppercase tracking-widest disabled:opacity-50"><Plus className="h-3.5 w-3.5" /> Add</button>
                     </form>
-                    <div className="max-h-64 overflow-auto divide-y divide-white/5">
+                    {/* Full width, full addresses (owner, 24.09: «кошельки обрезаются — не на всё окно»):
+                        the list used to sit in half the page, 256px tall, with shortened wallets. */}
+                    <input value={accessQ} onChange={(e) => setAccessQ(e.target.value)} placeholder="filter by wallet or note…" className="w-full mb-2 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#3b82f6]" />
+                    <div className="max-h-[70vh] overflow-auto divide-y divide-white/5">
                         {data.allowlist.length === 0 && <div className="text-white/30 text-xs">The list is empty.</div>}
-                        {data.allowlist.map((a) => (
+                        {data.allowlist.filter((a) => { const n = accessQ.trim().toLowerCase(); return !n || a.wallet.toLowerCase().includes(n) || (a.note ?? '').toLowerCase().includes(n) }).map((a) => (
                             <div key={a.wallet} className={`flex items-center gap-3 py-1.5 text-xs ${a.status === 'active' ? '' : 'opacity-60'}`}>
                                 {a.status === 'active' ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
                                     : a.status === 'expired' ? <Clock className="h-3.5 w-3.5 text-amber-400/70 flex-shrink-0" />
                                     : <Ban className="h-3.5 w-3.5 text-white/25 flex-shrink-0" />}
-                                <span className={`font-mono ${a.status === 'active' ? '' : a.status === 'expired' ? 'text-white/40' : 'text-white/30 line-through'}`} title={a.wallet}>{short(a.wallet)}</span>
+                                <CopyWallet wallet={a.wallet} className={`flex-shrink-0 ${a.status === 'active' ? '' : a.status === 'expired' ? 'text-white/40' : 'text-white/30 line-through'}`} />
                                 {(() => {
                                     const n = holders[a.wallet.toLowerCase()]
                                     if (n === undefined) return <span className="w-16 flex-shrink-0 text-[9px] uppercase tracking-widest text-white/15">·</span>
