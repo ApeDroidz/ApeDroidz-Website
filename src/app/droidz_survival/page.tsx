@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { useActiveAccount, useSendTransaction, ConnectButton } from 'thirdweb/react'
+import { useActiveAccount, useActiveWallet, useSendTransaction, ConnectButton } from 'thirdweb/react'
 import { createWallet } from 'thirdweb/wallets'
 import { prepareTransaction, toWei } from 'thirdweb'
 import { client, apeChain } from '@/lib/thirdweb'
@@ -46,6 +46,7 @@ type Gate = 'loading' | 'connect' | 'verify' | 'denied' | 'allowed' | 'error'
 
 export default function DroidzSurvivalPage() {
     const account = useActiveAccount()
+    const wallet = useActiveWallet()
     const { authedWallet, ensureLogin, error: sessionError } = useGlitchSession()
 
     const [gate, setGate] = useState<Gate>('loading')
@@ -161,6 +162,27 @@ export default function DroidzSurvivalPage() {
         setGate('loading')
         await checkAccess()
     }, [ensureLogin, sessionError, checkAccess])
+
+    /**
+     * The wallet app does not know ApeChain (owner, 24.09.2026, MetaMask on an iPhone:
+     * «Missing or invalid. request() chainId: eip155:33139»). Over WalletConnect a phone wallet
+     * approves only the chains it already has, and every request — the signature here, the
+     * payments later — is addressed to ApeChain, so it is refused before the wallet ever sees it.
+     * One tap asks the wallet to add ApeChain (thirdweb routes it through a chain the session
+     * does have); after that signing and paying both work. Called straight from the tap: the
+     * wallet app is opened by a deep link, which the browser allows only inside the gesture.
+     */
+    const noApeChain = !!message && /chainId:?\s*eip155:33139|missing or invalid\. request\(\) chainid/i.test(message)
+    const [addingChain, setAddingChain] = useState(false)
+    const addApeChain = useCallback(() => {
+        if (!wallet) return
+        const switching = wallet.switchChain(apeChain)
+        setAddingChain(true)
+        switching
+            .then(() => setMessage('ApeChain added — now tap Sign to continue'))
+            .catch((e: unknown) => setMessage(`Could not add ApeChain: ${e instanceof Error ? e.message : String(e)}`))
+            .finally(() => setAddingChain(false))
+    }, [wallet])
 
     const short = (w: string) => `${w.slice(0, 6)}…${w.slice(-4)}`
 
@@ -374,8 +396,22 @@ export default function DroidzSurvivalPage() {
                             </>
                         )}
 
-                        {message && gate !== 'error' && (
-                            <p className="mt-5 font-mono text-[11px] uppercase tracking-widest text-red-400/70">
+                        {gate === 'verify' && noApeChain ? (
+                            <div className="mt-5 space-y-3">
+                                <p className="text-sm leading-relaxed text-white/60">
+                                    Your wallet app does not have ApeChain yet. Add it with one tap, then sign.
+                                </p>
+                                <button
+                                    onClick={addApeChain}
+                                    disabled={addingChain}
+                                    className="inline-flex h-[42px] items-center justify-center gap-2 rounded-full border border-white/20 px-6 text-sm font-bold text-white transition-all duration-300 hover:bg-[#0069FF] disabled:opacity-50"
+                                >
+                                    {addingChain && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    Add ApeChain to your wallet
+                                </button>
+                            </div>
+                        ) : message && gate !== 'error' && (
+                            <p className={`mt-5 font-mono text-[11px] uppercase tracking-widest ${message.startsWith('ApeChain added') ? 'text-emerald-400/80' : 'text-red-400/70'}`}>
                                 {message}
                             </p>
                         )}
