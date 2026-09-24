@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer } from '@/lib/survivalRuns'
-import { CASHIER, SKUS } from '@/lib/survivalShop'
+import { CASHIER, loadCatalog, publicCatalog } from '@/lib/survivalShop'
 import { settlePending } from '@/lib/survivalSettle'
 
 /**
- * GET /api/survival/credits → { ok, credits: { solo, coop }, booked, paidRuns, shop: { configured, skus } }
+ * GET /api/survival/credits → { ok, credits: { solo, coop }, booked, paidRuns, shop: { configured, items } }
+ * `items` is the live price list (survival_catalog, active rows) — the game shows these prices.
  *
  * How many runs the player has paid for and not yet played. Books any order that was paid but
  * never reported first (lib/survivalSettle.ts settlePending), so a closed tab never costs a run.
@@ -25,6 +26,6 @@ export async function GET(req: NextRequest) {
     const credits = { solo: rows.filter((r) => r.mode === 'solo').length, coop: rows.filter((r) => r.mode === 'coop').length }
     return NextResponse.json({
         ok: true, credits, booked, paidRuns: process.env.SURVIVAL_PAID_RUNS === '1',
-        shop: { configured: !!CASHIER, skus: SKUS },
+        shop: { configured: !!CASHIER, items: publicCatalog(await loadCatalog(true)) },
     }, { headers: { 'cache-control': 'no-store' } })
 }

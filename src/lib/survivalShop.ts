@@ -1,3 +1,5 @@
+import { supabaseAdmin } from '@/lib/supabase'
+
 /**
  * Droidz Survival — what can be bought, and how a payment is recognised on chain.
  *
@@ -13,17 +15,32 @@
  * payment on the site and a Glyph payment in Otherside.
  */
 
-export type Sku = 'run' | 'run10' | 'continue'
 export type Mode = 'solo' | 'coop'
+export type CatalogKind = 'runs' | 'season_pass' | 'item' | 'box' | 'bundle'
 
-/** Owner, 24.09.2026: a run is 2 APE. The pack keeps the 10%-off shape of the earlier plan. */
-export const SKUS: Record<Sku, { priceApe: number; credits: number; label: string }> = {
-    run: { priceApe: 2, credits: 1, label: '1 run' },
-    run10: { priceApe: 18, credits: 10, label: '10 runs' },
-    continue: { priceApe: 1, credits: 0, label: 'Continue this run' },
+/**
+ * One thing that can be bought — survival_catalog, edited by the owner in spltpnl (owner,
+ * 25.09.2026: «цену забега хочу менять»). An order copies the row, so a price change never touches
+ * an order already in flight. Runs become credits; everything else becomes an entitlement the game
+ * applies (lib/survivalSettle.ts, api/survival/entitlements).
+ */
+export type CatalogItem = {
+    sku: string; kind: CatalogKind; title: string; description: string; price_ape: number
+    credits: number; mode: Mode; grant_spec: Record<string, unknown>; active: boolean; sort: number
 }
 
-export const isSku = (v: unknown): v is Sku => typeof v === 'string' && v in SKUS
+export async function loadCatalog(activeOnly = true): Promise<CatalogItem[]> {
+    let q = supabaseAdmin.from('survival_catalog').select('sku, kind, title, description, price_ape, credits, mode, grant_spec, active, sort').order('sort')
+    if (activeOnly) q = q.eq('active', true)
+    const { data, error } = await q
+    if (error) { console.error('[survival/catalog]', error.message); return [] }
+    return ((data as CatalogItem[] | null) ?? []).map((c) => ({ ...c, price_ape: Number(c.price_ape) }))
+}
+
+/** What the game needs to show a price list: no internals. */
+export const publicCatalog = (items: CatalogItem[]) =>
+    items.map(({ sku, kind, title, description, price_ape, credits, mode }) => ({ sku, kind, title, description, priceApe: price_ape, credits, mode }))
+
 export const MODE_ID: Record<Mode, number> = { solo: 0, coop: 1 }
 export const isMode = (v: unknown): v is Mode => v === 'solo' || v === 'coop'
 /** Co-op is not built yet: no co-op purchases until it is (SURVIVAL_COOP_OPEN=1). */
@@ -88,8 +105,7 @@ export function paidEvents(logs: readonly Log[]): PaidEvent[] {
     return out
 }
 
-export function describe(sku: Sku, mode: Mode): string {
-    const s = SKUS[sku]
+export function describe(item: CatalogItem, mode: Mode): string {
     const m = mode === 'coop' ? 'co-op' : 'solo'
-    return `Droidz Survival — ${s.label} (${m}) for ${s.priceApe} APE. Half goes to the ${m} season prize pool.`
+    return `Droidz Survival — ${item.title} (${m}) for ${item.price_ape} APE. Half goes to the ${m} season prize pool.`
 }

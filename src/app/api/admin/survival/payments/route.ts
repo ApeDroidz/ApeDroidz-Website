@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { eth_getBalance } from 'thirdweb/rpc'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
-import { CASHIER, SKUS, weiToApe } from '@/lib/survivalShop'
+import { CASHIER, loadCatalog, weiToApe } from '@/lib/survivalShop'
 import { rpc, settleAnyInTx } from '@/lib/survivalSettle'
 import { isPublic } from '@/lib/survivalAllow'
 import { logEvent } from '@/lib/survivalLog'
@@ -58,8 +58,9 @@ export async function GET(request: NextRequest) {
     const sum = (rows: Pay[]) => ({ count: rows.length, ape: round(rows.reduce((n, r) => n + Number(r.amount_ape), 0)), pool: round(rows.reduce((n, r) => n + Number(r.to_pool_ape ?? 0), 0)) })
     const by = (key: 'mode' | 'platform') => Object.fromEntries(['solo', 'coop', 'site', 'otherside'].filter((k) => key === 'mode' ? k === 'solo' || k === 'coop' : k === 'site' || k === 'otherside')
         .map((k) => [k, sum(P.filter((r) => (r[key] ?? (key === 'mode' ? 'solo' : 'site')) === k))]))
+    const catalog = await loadCatalog(false)
     const orderSku = new Map(((orders.data as Array<{ id: string; sku: string }> | null) ?? []).map((o) => [o.id, o.sku]))
-    const bySku = Object.fromEntries(Object.keys(SKUS).map((s) => [s, sum(P.filter((r) => r.order_id && orderSku.get(r.order_id) === s))]))
+    const bySku = Object.fromEntries(catalog.map((c) => [c.sku, sum(P.filter((r) => r.order_id && orderSku.get(r.order_id) === c.sku))]))
 
     // APE per day, 30 days, split by mode (the chart).
     const days: Array<{ day: string; solo: number; coop: number; count: number }> = []
@@ -87,7 +88,8 @@ export async function GET(request: NextRequest) {
         ok: true, generatedAt: new Date().toISOString(), season: live.data ?? null,
         config: {
             cashier: CASHIER || null, paidRuns: process.env.SURVIVAL_PAID_RUNS === '1', payForReal: process.env.NEXT_PUBLIC_SURVIVAL_PAY_FOR_REAL === '1',
-            public: isPublic(), coopOpen: process.env.SURVIVAL_COOP_OPEN === '1', skus: SKUS, vaults: VAULTS,
+            public: isPublic(), coopOpen: process.env.SURVIVAL_COOP_OPEN === '1', vaults: VAULTS,
+            skus: Object.fromEntries(catalog.map((c) => [c.sku, { priceApe: c.price_ape, credits: c.credits, label: c.title, active: c.active, kind: c.kind }])),
         },
         totals: { all: sum(P), day: sum(P.filter((r) => within(r.created_at, 86_400_000))), week: sum(P.filter((r) => within(r.created_at, 7 * 86_400_000))), byMode: by('mode'), byPlatform: by('platform'), bySku, viaHub: sum(P.filter((r) => r.payer === HUB)) },
         days, pools, balances,

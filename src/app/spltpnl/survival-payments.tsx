@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, RefreshCcw, Search } from 'lucide-react'
 import { CopyWallet } from './survival-players'
+import { SurvivalCatalog } from './survival-catalog'
 
 /**
  * Droidz Survival → Payments (owner, 24.09.2026): every payment, and what the money did —
@@ -147,7 +148,6 @@ export function SurvivalPayments() {
                     <span className={`px-2 py-1 rounded ${d.config.paidRuns ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/5 text-white/40'}`}>paid runs {d.config.paidRuns ? 'on' : 'off'}</span>
                     <span className={`px-2 py-1 rounded ${d.config.payForReal ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/5 text-white/40'}`}>real payments {d.config.payForReal ? 'on' : 'stub'}</span>
                     <span className={`px-2 py-1 rounded ${d.config.public ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/5 text-white/40'}`}>{d.config.public ? 'public' : 'beta list'}</span>
-                    <span className="px-2 py-1 rounded bg-white/5 text-white/40">run {d.config.skus.run?.priceApe} APE · 10 runs {d.config.skus.run10?.priceApe} APE</span>
                 </div>
                 <button onClick={() => void load()} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white"><RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
             </div>
@@ -161,6 +161,10 @@ export function SurvivalPayments() {
                 <Tile k="Via Otherside Hub" v={ape(t.viaHub.ape)} sub={`${t.viaHub.count} payments · site ${t.byPlatform.site?.count ?? 0}`} />
                 <Tile k="Orders" v={`${d.orders.paid} / ${d.orders.total}`} sub={`paid / made · ${d.orders.pending} pending`} />
             </div>
+
+            <Box title="Prices" hint="what can be bought — edit and save">
+                <SurvivalCatalog />
+            </Box>
 
             <Box title="APE paid per day" hint="last 30 days, by mode">
                 <DailyChart days={d.days} />

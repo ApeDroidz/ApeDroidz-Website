@@ -92,6 +92,8 @@ const LIMITS: Record<string, Limit> = {
     '/api/survival/order':              { max: 20,  windowMs: 60_000 },
     '/api/survival/pay':                { max: 40,  windowMs: 60_000 },
     '/api/survival/credits':            { max: 30,  windowMs: 60_000 },
+    '/api/survival/entitlements':       { max: 30,  windowMs: 60_000 },
+    '/api/survival/run/continue':       { max: 20,  windowMs: 60_000 },
     '/api/otherside/login':             { max: 20,  windowMs: 60_000 },
 }
 

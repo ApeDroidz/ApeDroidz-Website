@@ -2,58 +2,53 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 /**
- * GET /api/survival/pool
+ * GET /api/survival/pool — the live season's prize pools, for the game's main menu and Season
+ * screen. Public and read-only: the numbers the pool panel advertises, nothing behind them.
  *
- * The season's prize pool, for the game's Season screen. Public and read-only: these
- * are the numbers the pool block advertises, and everything behind them
- * (survival_pool_ledger, survival_payments) stays closed.
+ *   { seasonId, seasonName, endsAt, paysOut, poolApe, soloApe, coopApe, players, games, soloGames, coopGames }
  *
- * Reads `survival_menu_stats`, which sums the append-only ledger — the pool is never
- * stored as a number anyone can edit, so this endpoint cannot report a figure that the
- * journal does not back (docs/PRIZE_POOL.md §6).
+ * Every figure is summed from the append-only ledger and the runs table at read time — the pool is
+ * never a stored number anyone can edit. Each mode has its own pool (owner, 24.09.2026: «чтобы для
+ * каждого режима формировался свой пул»): the cashier pays half of every purchase into that mode's
+ * vault and the ledger books it as solo_pool / coop_pool. The pre-split bucket (season_pool) counts
+ * as solo. `games` = runs played to the end this season; `players` = wallets that played one.
  *
- * Returns 204 when no season is live, or when the schema is not applied yet. That is
- * the honest answer and the game already handles it: no server, no number, and the
- * Season screen shows the rules with a zero instead of inventing a pool.
+ * 204 when no season is live — the game then shows no number rather than an invented one.
  */
 export const dynamic = 'force-dynamic'
 
+const round = (n: number) => Math.round(n * 1e6) / 1e6
+
 export async function GET() {
-    if (!supabaseAdmin) {
-        console.error('[survival/pool] service role key missing')
-        return new NextResponse(null, { status: 204 })
+    if (!supabaseAdmin) return new NextResponse(null, { status: 204 })
+    const { data: season, error } = await supabaseAdmin.from('survival_seasons')
+        .select('id, name, ends_at, pays_out').eq('status', 'live').limit(1).maybeSingle()
+    if (error || !season) return new NextResponse(null, { status: 204 })
+
+    const [ledger, runs] = await Promise.all([
+        supabaseAdmin.from('survival_pool_ledger').select('bucket, amount_ape').eq('season_id', season.id).limit(200_000),
+        supabaseAdmin.from('survival_runs').select('wallet, mode, status').eq('season_id', season.id).in('status', ['finished', 'rejected']).limit(500_000),
+    ])
+    let solo = 0, coop = 0
+    for (const l of (ledger.data as Array<{ bucket: string; amount_ape: number }> | null) ?? []) {
+        if (l.bucket === 'coop_pool') coop += Number(l.amount_ape)
+        else if (l.bucket === 'solo_pool' || l.bucket === 'season_pool') solo += Number(l.amount_ape)
     }
-
-    const { data, error } = await supabaseAdmin
-        .from('survival_menu_stats')
-        .select('season_id, ends_at, pool_ape, mega_pool_ape, total_runs, total_players, pays_out')
-        .limit(1)
-        .maybeSingle()
-
-    // A missing table is not an error worth 500-ing over — it is "the season backend is
-    // not up yet", which is a state the game is built to render.
-    if (error) {
-        console.warn('[survival/pool]', error.message)
-        return new NextResponse(null, { status: 204 })
-    }
-    if (!data) return new NextResponse(null, { status: 204 })
-
-    return NextResponse.json(
-        {
-            seasonId: data.season_id,
-            endsAt: data.ends_at ? new Date(data.ends_at).getTime() : null,
-            poolApe: Number(data.pool_ape ?? 0),
-            megaPoolApe: Number(data.mega_pool_ape ?? 0),
-            totalRuns: Number(data.total_runs ?? 0),
-            totalPlayers: Number(data.total_players ?? 0),
-            paysOut: data.pays_out === true,
-        },
-        {
-            headers: {
-                // Short shared cache: the pool ticks up continuously and every player on
-                // the menu asks for it, but nobody needs it to the second.
-                'cache-control': 'public, max-age=5, s-maxage=5, stale-while-revalidate=30',
-            },
-        },
-    )
+    const R = ((runs.data as Array<{ wallet: string; mode: string; status: string }> | null) ?? []).filter((r) => r.status === 'finished')
+    return NextResponse.json({
+        seasonId: season.id,
+        seasonName: season.name,
+        endsAt: season.ends_at ? new Date(season.ends_at).getTime() : null,
+        paysOut: season.pays_out === true,
+        poolApe: round(solo + coop), soloApe: round(solo), coopApe: round(coop),
+        players: new Set(R.map((r) => r.wallet)).size,
+        games: R.length,
+        soloGames: R.filter((r) => r.mode !== 'coop').length,
+        coopGames: R.filter((r) => r.mode === 'coop').length,
+        // legacy fields the Season screen reads
+        totalRuns: R.length, totalPlayers: new Set(R.map((r) => r.wallet)).size,
+    }, {
+        // Short shared cache: every player on the menu asks, nobody needs it to the second.
+        headers: { 'cache-control': 'public, max-age=5, s-maxage=5, stale-while-revalidate=30' },
+    })
 }
