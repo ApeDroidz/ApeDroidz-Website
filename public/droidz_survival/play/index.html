@@ -64,12 +64,94 @@
         z-index: 1;
         image-rendering: pixelated;
       }
+      /**
+       * «Поверни телефон» — чистым CSS, без единой строки скрипта.
+       *
+       * Игра горизонтальная: в портрете от арены остаётся полоска, а кнопки
+       * управления налезают друг на друга. Подсказка сделана правилом, а не
+       * кодом, намеренно — она должна работать и ДО того, как приехал бандл,
+       * то есть в те самые секунды, когда человек впервые открыл ссылку с
+       * телефона и ещё ничего не понимает.
+       *
+       * `pointer: coarse` отсекает десктоп: узкое окно на ноутбуке — это не
+       * портретный телефон, и закрывать его подсказкой нельзя.
+       */
+      #rotate { display: none; }
+      @media (orientation: portrait) and (pointer: coarse) {
+        #rotate {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 18px;
+          background: #0a0f1e;
+          color: #eaf3ff;
+          font-family: Inter, system-ui, sans-serif;
+          text-align: center;
+          padding: 24px;
+        }
+        #rotate .glyph {
+          width: 86px;
+          height: 140px;
+          border: 4px solid #6fd6ff;
+          border-radius: 14px;
+          animation: tip 1.8s ease-in-out infinite;
+        }
+        #rotate .line { font-size: 19px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+        #rotate .sub { font-size: 14px; font-weight: 500; color: #8ba3c7; max-width: 26ch; line-height: 1.5; }
+      }
+      /* Панель «в полный экран»: видна, только пока телефон на боку, а игра
+         всё ещё в окне браузера (systems/Mobile.ts вешает класс .on). */
+      #gofull { display: none; }
+      #gofull.on {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: rgba(10, 15, 30, .82);
+        color: #eaf3ff;
+        font-family: Inter, system-ui, sans-serif;
+        text-align: center;
+        padding: 24px;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #gofull .box {
+        border: 3px solid #6fd6ff;
+        border-radius: 14px;
+        padding: 16px 28px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+      }
+      #gofull .sub { font-size: 14px; font-weight: 500; color: #8ba3c7; max-width: 30ch; line-height: 1.5; }
+
+      @keyframes tip {
+        0%, 45% { transform: rotate(0deg); }
+        70%, 100% { transform: rotate(-90deg); }
+      }
     </style>
-    <script type="module" crossorigin src="./assets/index-B4D_g-zV.js"></script>
+    <script type="module" crossorigin src="./assets/index-CK5Uj-G-.js"></script>
   </head>
   <body>
     <div id="game">
       <img id="cover" src="https://assets.apedroidz.com/apedroidz/droidz-survival/v7/assets/img/DS_Beta_cover.jpg" crossorigin="anonymous" alt="" />
+    </div>
+    <div id="gofull" aria-hidden="true">
+      <div class="box">Tap to play fullscreen</div>
+      <div class="sub">A browser window in landscape leaves almost no room for the arena.</div>
+    </div>
+    <div id="rotate" aria-hidden="true">
+      <div class="glyph"></div>
+      <div class="line">Turn your phone</div>
+      <div class="sub">Droidz Survival is played sideways — rotate to landscape to start.</div>
     </div>
   </body>
 </html>
