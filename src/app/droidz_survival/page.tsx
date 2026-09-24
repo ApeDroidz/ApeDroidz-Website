@@ -38,8 +38,6 @@ const GAME_SRC = '/droidz_survival/play/index.html'
 // The same wallets the Header offers — the door has its own Connect button (owner, 19.09:
 // «справа, где connect your wallet, добавить кнопку, чтобы не тянуться далеко»).
 const WALLETS = [createWallet('io.metamask'), createWallet('com.coinbase.wallet'), createWallet('me.rainbow')]
-/** Where a paid continue / run sends its APE. Server-verified against the same address (api/survival/pay). */
-const TREASURY = process.env.NEXT_PUBLIC_SURVIVAL_TREASURY_WALLET ?? '0x1DcF1d22A1dbDd20AE875beDEEe3A259b1D608db'
 /** Flip to true (or set NEXT_PUBLIC_SURVIVAL_PAY_FOR_REAL=1) when the contracts are in. */
 const PAY_FOR_REAL = process.env.NEXT_PUBLIC_SURVIVAL_PAY_FOR_REAL === '1'
 
@@ -76,25 +74,32 @@ export default function DroidzSurvivalPage() {
         if (!win) return
         win.DroidzPay = {
             stub: !PAY_FOR_REAL,
-            charge: async (kind: 'continue' | 'run', amountApe: number): Promise<boolean> => {
+            charge: async (kind: 'continue' | 'run'): Promise<boolean> => {
                 if (!PAY_FOR_REAL) {
                     await new Promise((r) => setTimeout(r, 500))
                     return true
                 }
                 try {
-                    const tx = prepareTransaction({ chain: apeChain, client, to: TREASURY, value: toWei(String(amountApe)) })
+                    // An order first (the server's price, the cashier's calldata), then the
+                    // player's wallet pays it, then the server books it from the Paid event —
+                    // the same path as the Otherside cabinet (api/survival/order, /pay).
+                    const o = await fetch('/api/survival/order', {
+                        method: 'POST', credentials: 'include', cache: 'no-store',
+                        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sku: kind, platform: 'site' }),
+                    }).then((r) => r.json()).catch(() => null)
+                    if (!o?.ok) return false
+                    const tx = prepareTransaction({ chain: apeChain, client, to: o.to, value: toWei(o.valueApe), data: o.data })
                     const result = await sendTx(tx)
-                    await new Promise((r) => setTimeout(r, 3000))
-                    for (let attempt = 0; attempt < 4; attempt++) {
+                    for (let attempt = 0; attempt < 6; attempt++) {
+                        await new Promise((r) => setTimeout(r, attempt === 0 ? 3000 : 2500))
                         const res = await fetch('/api/survival/pay', {
                             method: 'POST', credentials: 'include',
                             headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({ txHash: result.transactionHash, kind }),
+                            body: JSON.stringify({ txHash: result.transactionHash, orderId: o.orderId }),
                         })
                         const data = await res.json().catch(() => ({}))
                         if (data?.ok === true) return true
-                        if (data?.state !== 'not_found') return false
-                        await new Promise((r) => setTimeout(r, 2500)) // the node has not seen it yet
+                        if (data?.state !== 'not_found') return false // not mined yet → ask again
                     }
                     return false
                 } catch {

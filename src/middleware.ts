@@ -89,6 +89,10 @@ const LIMITS: Record<string, Limit> = {
     '/api/survival/run/finish':         { max: 30,  windowMs: 60_000 },
     '/api/survival/profile':            { max: 40,  windowMs: 60_000 },
     '/api/survival/log':                { max: 30,  windowMs: 60_000 },
+    '/api/survival/order':              { max: 20,  windowMs: 60_000 },
+    '/api/survival/pay':                { max: 40,  windowMs: 60_000 },
+    '/api/survival/credits':            { max: 30,  windowMs: 60_000 },
+    '/api/otherside/login':             { max: 20,  windowMs: 60_000 },
 }
 
 function getKey(pathname: string, req: NextRequest, limit: Limit): string {

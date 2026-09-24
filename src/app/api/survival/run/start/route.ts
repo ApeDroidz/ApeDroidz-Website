@@ -13,8 +13,12 @@ import { RUN_TTL_MS } from '@/lib/survivalEnvelope'
  *   { ok: false, state: 'no_season' | 'banned' | 'rate_limited' | 'no_server' }
  *
  * One active run per wallet: a still-open ticket from an earlier tab is voided (reason
- * `superseded`), not rejected — closing a tab is not cheating. The beta season needs no credit,
- * so credit_id stays null; a paid season will consume one here.
+ * `superseded`), not rejected — closing a tab is not cheating.
+ *
+ * Paid runs (SURVIVAL_PAID_RUNS=1): the run takes one of the player's credits (bought through
+ * the cashier — api/survival/order) atomically, oldest first (survival_consume_credit, SKIP
+ * LOCKED: two tabs can never spend one credit). No credit → the ticket is voided with reason
+ * `no_credit` and the reply is { ok: false, state: 'no_credit' }. Off (the beta): free, as before.
  */
 export const dynamic = 'force-dynamic'
 
@@ -76,6 +80,15 @@ export async function POST(req: NextRequest) {
         .select('id')
         .single()
     if (rErr || !run) { console.error('[survival/run/start] insert', rErr?.message); return noServer() }
+    if (process.env.SURVIVAL_PAID_RUNS === '1') {
+        const { data: creditId, error: kErr } = await supabaseAdmin.rpc('survival_consume_credit', { p_wallet: caller.wallet, p_run: run.id })
+        if (kErr || !creditId) {
+            if (kErr) console.error('[survival/run/start] credit', kErr.message)
+            await supabaseAdmin.from('survival_runs').update({ status: 'void', reject_reason: 'no_credit' }).eq('id', run.id)
+            return kErr ? noServer() : NextResponse.json({ ok: false, state: 'no_credit' }, { headers: { 'cache-control': 'no-store' } })
+        }
+        await supabaseAdmin.from('survival_runs').update({ credit_id: creditId }).eq('id', run.id)
+    }
 
     return NextResponse.json(
         { ok: true, runId: run.id, seed, seasonId: season.id },
