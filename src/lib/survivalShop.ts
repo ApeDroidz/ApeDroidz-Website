@@ -16,7 +16,7 @@ import { supabaseAdmin } from '@/lib/supabase'
  */
 
 export type Mode = 'solo' | 'coop'
-export type CatalogKind = 'runs' | 'season_pass' | 'item' | 'box' | 'bundle'
+export type CatalogKind = 'runs' | 'season_pass' | 'item' | 'box' | 'bundle' | 'ticket'
 
 /**
  * One thing that can be bought — survival_catalog, edited by the owner in spltpnl (owner,

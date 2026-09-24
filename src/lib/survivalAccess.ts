@@ -37,7 +37,8 @@ export const PLAY_PATH = '/'
  */
 const SEASON_PREVIEW_WALLETS = new Set(['0x3c4e3fdb4a8820561a450430f590ea30e1a04954'])
 export function seasonVisibleFor(wallet: string): boolean {
-    return SEASON_PREVIEW_WALLETS.has(wallet.toLowerCase())
+    // SURVIVAL_SEASON_OPEN=1 opens the Season screen (and the pass on sale in it) to everyone.
+    return process.env.SURVIVAL_SEASON_OPEN === '1' || SEASON_PREVIEW_WALLETS.has(wallet.toLowerCase())
 }
 const PLAY_TTL_MS = 6 * 60 * 60 * 1000
 

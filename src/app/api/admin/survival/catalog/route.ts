@@ -16,7 +16,7 @@ const headers = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age
  * made keeps the price it was made at. Every change is written to the journal (who and what).
  * The server validates the shape; the database refuses a runs item without credits.
  */
-const KINDS = ['runs', 'season_pass', 'item', 'box', 'bundle']
+const KINDS = ['runs', 'season_pass', 'item', 'box', 'bundle', 'ticket']
 
 export async function GET(request: NextRequest) {
     const denied = await requireAdmin(request)

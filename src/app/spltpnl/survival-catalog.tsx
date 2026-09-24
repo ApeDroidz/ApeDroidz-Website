@@ -14,7 +14,7 @@ import { Plus, Save } from 'lucide-react'
  *   bundle      → grant {"coins":5000,"resources":{"scrap":50}}
  */
 type Item = { sku: string; kind: string; title: string; description: string; price_ape: number; credits: number; mode: string; grant_spec: Record<string, unknown>; active: boolean; sort: number }
-const KINDS = ['runs', 'season_pass', 'item', 'box', 'bundle']
+const KINDS = ['runs', 'season_pass', 'item', 'box', 'bundle', 'ticket']
 const BLANK: Item = { sku: '', kind: 'box', title: '', description: '', price_ape: 1, credits: 0, mode: 'solo', grant_spec: {}, active: false, sort: 100 }
 
 export function SurvivalCatalog() {

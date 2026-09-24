@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Loader2, RefreshCcw, Search } from 'lucide-react'
 import { CopyWallet } from './survival-players'
 import { SurvivalCatalog } from './survival-catalog'
+import { SurvivalTickets } from './survival-tickets'
 
 /**
  * Droidz Survival → Payments (owner, 24.09.2026): every payment, and what the money did —
@@ -164,6 +165,10 @@ export function SurvivalPayments() {
 
             <Box title="Prices" hint="what can be bought — edit and save">
                 <SurvivalCatalog />
+            </Box>
+
+            <Box title="Lucky ticket" hint="prizes, odds and stock — the draw happens on the server">
+                <SurvivalTickets />
             </Box>
 
             <Box title="APE paid per day" hint="last 30 days, by mode">

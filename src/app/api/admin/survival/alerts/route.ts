@@ -129,6 +129,15 @@ export async function GET(request: NextRequest) {
         }
     }
 
+    // ── lucky ticket: a droid was won and has to be sent by hand ─────────────
+    const { data: nftWins } = await db.from('survival_entitlements').select('id, wallet, created_at, grant_spec')
+        .eq('kind', 'ticket').is('fulfilled_at', null).filter('grant_spec->prize->>kind', 'eq', 'nft').limit(50)
+    for (const w of (nftWins as Array<{ id: string; wallet: string; created_at: string }> | null) ?? []) push({
+        fingerprint: fp('nft', w.id), severity: 'critical', area: 'payments', count: 1, wallets: 1, lastSeen: w.created_at,
+        title: `A player won a droid — send the NFT`, detail: `Wallet ${w.wallet} won an ApeDroidz droid from a lucky ticket on ${new Date(w.created_at).toLocaleString()}.`,
+        action: 'Send a droid from the prize stock to this wallet, then mark it sent in Payments → Lucky ticket.',
+    })
+
     // ── anti-cheat: rejections worth a look ──────────────────────────────────
     const R = (runs.data as Array<{ status: string; reject_reason: string | null; wallet: string }> | null) ?? []
     const rejected = R.filter((r) => r.status === 'rejected')
