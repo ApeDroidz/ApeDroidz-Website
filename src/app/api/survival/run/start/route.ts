@@ -75,13 +75,15 @@ export async function POST(req: NextRequest) {
         .insert({
             season_id: season.id, wallet: caller.wallet, status: 'started',
             hero: str(body.hero), weapon: str(body.weapon), client_version: str(body.clientVersion, 64),
+            // Co-op runs do not exist yet; everything is solo until the co-op server does.
+            mode: 'solo',
             rng_seed: seed,
         })
         .select('id')
         .single()
     if (rErr || !run) { console.error('[survival/run/start] insert', rErr?.message); return noServer() }
     if (process.env.SURVIVAL_PAID_RUNS === '1') {
-        const { data: creditId, error: kErr } = await supabaseAdmin.rpc('survival_consume_credit', { p_wallet: caller.wallet, p_run: run.id })
+        const { data: creditId, error: kErr } = await supabaseAdmin.rpc('survival_consume_credit', { p_wallet: caller.wallet, p_run: run.id, p_mode: 'solo' })
         if (kErr || !creditId) {
             if (kErr) console.error('[survival/run/start] credit', kErr.message)
             await supabaseAdmin.from('survival_runs').update({ status: 'void', reject_reason: 'no_credit' }).eq('id', run.id)

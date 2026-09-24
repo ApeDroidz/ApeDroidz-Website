@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer, readBody } from '@/lib/survivalRuns'
-import { settleByTx, type OrderRow } from '@/lib/survivalSettle'
+import { ORDER_COLUMNS, settleByTx, type OrderRow } from '@/lib/survivalSettle'
 
 /**
  * POST /api/survival/pay { txHash, orderId }
@@ -16,7 +16,7 @@ import { settleByTx, type OrderRow } from '@/lib/survivalSettle'
  * sponsored call has an ERC-4337 `from`, 1.5% is taken off the value), so that path is gone.
  *
  * Replies: { ok: true } · { ok: false, state: 'malformed' | 'no_order' | 'not_found' | 'failed' |
- *          'mismatch' | 'underpaid' | 'used' }. 'not_found' = not mined yet: ask again shortly.
+ *          'mismatch' | 'underpaid' | 'wrong_mode' | 'used' }. 'not_found' = not mined yet: ask again shortly.
  */
 export const dynamic = 'force-dynamic'
 const noStore = { 'cache-control': 'no-store' }
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (!/^0x[0-9a-f]{64}$/.test(txHash) || !/^[0-9a-f-]{36}$/.test(orderId)) return NextResponse.json({ ok: false, state: 'malformed' }, { headers: noStore })
 
     const { data: order } = await supabaseAdmin.from('survival_orders')
-        .select('id, wallet, sku, status, tx_hash, platform, from_block, created_at').eq('id', orderId).maybeSingle()
+        .select(ORDER_COLUMNS).eq('id', orderId).maybeSingle()
     if (!order || (order as OrderRow).wallet !== caller.wallet) return NextResponse.json({ ok: false, state: 'no_order' }, { headers: noStore })
 
     const state = await settleByTx(order as OrderRow, txHash)

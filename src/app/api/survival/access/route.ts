@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readSessionFromRequest } from '@/lib/walletAuth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { accessFor } from '@/lib/survivalAllow'
 import { createPlayToken, PLAY_COOKIE_NAME, PLAY_COOKIE_OPTIONS } from '@/lib/survivalAccess'
 
 /**
@@ -28,19 +29,15 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Service misconfigured' }, { status: 503 })
     }
 
-    // The row, not just survival_has_access(): a timed beta (expires_at) has to cap the play
-    // cookie, so the gate closes when the time is up rather than up to PLAY_TTL later.
-    // Same rule as the function — on the list, not revoked, not expired.
-    const { data: row, error } = await supabaseAdmin.from('survival_allowlist')
-        .select('revoked_at, expires_at').eq('wallet', session.wallet.toLowerCase()).maybeSingle()
-    if (error) {
-        console.error('[survival/access]', error.message)
+    // One rule for both doors (lib/survivalAllow.ts): the beta list — timed access caps the play
+    // cookie, so the gate closes on the minute — or everyone with SURVIVAL_PUBLIC=1.
+    const access = await accessFor(session.wallet)
+    if (access.error) {
+        console.error('[survival/access]', access.error)
         return NextResponse.json({ error: 'Access check failed' }, { status: 502 })
     }
-    const until = row?.expires_at ? new Date(row.expires_at as string) : null
-    const allowed = !!row && !row.revoked_at && (!until || until.getTime() > Date.now())
-
-    if (!allowed) {
+    const until = access.until
+    if (!access.allowed) {
         // Fail closed and clear any play cookie left from an earlier session, so revoking access
         // in the table actually locks someone out on their next page load.
         const res = NextResponse.json(
@@ -50,7 +47,6 @@ export async function GET(req: NextRequest) {
         res.cookies.set(PLAY_COOKIE_NAME, '', { ...PLAY_COOKIE_OPTIONS, maxAge: 0 })
         return res
     }
-
     const token = await createPlayToken(session.wallet, until)
     if (!token) {
         console.error('[survival/access] WALLET_SESSION_SECRET not configured')

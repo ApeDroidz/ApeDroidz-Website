@@ -2,57 +2,66 @@
  * Droidz Survival — what can be bought, and how a payment is recognised on chain.
  *
  * Every purchase is an ORDER the server creates (api/survival/order) and the player pays through
- * the cashier contract (contracts/src/DroidzCashier.sol): `pay(player, order)` with the price as
- * value. The contract splits the money on the spot (half to the prize-pool wallet, half to the
- * treasury, set at deploy) and emits
- *     Paid(address indexed player, bytes32 indexed order, address indexed payer, uint256 amount, uint256 toPool)
- * The server credits an order only for that event, from that contract, naming that player and that
- * order, for at least `minWei`. Nothing else about the transaction matters — which is what lets
- * the same check pass for a MetaMask payment on the site and a Glyph payment in Otherside, where
- * the Hub routes the call through its FeeSplitter and takes 1.5% first.
+ * the cashier contract (contracts/src/DroidzCashier.sol): `pay(player, order, mode)` with the
+ * price as value. The contract splits the money on the spot — half to the pool vault of the mode
+ * (solo / co-op), half to the team wallet, fixed at deploy — and emits
+ *     Paid(address indexed player, bytes32 indexed order, address indexed payer, uint8 mode, uint256 amount, uint256 toPool)
+ * The server credits an order only for that event, from that contract, naming that player, that
+ * order and that mode, for at least the price — or 90% of it when the payer is the Otherside Hub's
+ * FeeSplitter, which takes its platform fee (default 1.5%, at most 10% by its contract) before
+ * forwarding. Nothing else about the transaction matters, so the same check passes for a MetaMask
+ * payment on the site and a Glyph payment in Otherside.
  */
 
 export type Sku = 'run' | 'run10' | 'continue'
+export type Mode = 'solo' | 'coop'
 
+/** Owner, 24.09.2026: a run is 2 APE. The pack keeps the 10%-off shape of the earlier plan. */
 export const SKUS: Record<Sku, { priceApe: number; credits: number; label: string }> = {
-    run: { priceApe: 1, credits: 1, label: '1 run' },
-    run10: { priceApe: 9, credits: 10, label: '10 runs' },
+    run: { priceApe: 2, credits: 1, label: '1 run' },
+    run10: { priceApe: 18, credits: 10, label: '10 runs' },
     continue: { priceApe: 1, credits: 0, label: 'Continue this run' },
 }
 
 export const isSku = (v: unknown): v is Sku => typeof v === 'string' && v in SKUS
+export const MODE_ID: Record<Mode, number> = { solo: 0, coop: 1 }
+export const isMode = (v: unknown): v is Mode => v === 'solo' || v === 'coop'
+/** Co-op is not built yet: no co-op purchases until it is (SURVIVAL_COOP_OPEN=1). */
+export const modeOpen = (m: Mode) => m === 'solo' || process.env.SURVIVAL_COOP_OPEN === '1'
 
-/** The Otherside Hub's platform fee on native value (partner guide: default 150 bps). */
-export const HUB_FEE_BPS = BigInt(150)
+/** The Otherside Hub's FeeSplitter — a payment it forwarded had the Hub's fee taken first. */
+export const HUB_FEE_SPLITTER = '0x8e756ca736da338d78c436c47a41ac18ce72cf63'
 
 /** The cashier contract; '' until it is deployed and configured. */
 export const CASHIER = (process.env.SURVIVAL_CASHIER ?? process.env.NEXT_PUBLIC_SURVIVAL_CASHIER ?? '').toLowerCase()
 
-/** keccak256("pay(address,bytes32)")[:4] */
-const PAY_SELECTOR = '0x46f8f304'
-/** keccak256("Paid(address,bytes32,address,uint256,uint256)") */
-export const PAID_TOPIC = '0x10fa550e6cee394dcb546ce24d453ae92dabb7bcc15a4c80b6cd40394f11d51f'
+/** keccak256("pay(address,bytes32,uint8)")[:4] */
+const PAY_SELECTOR = '0xcaa26fb3'
+/** keccak256("Paid(address,bytes32,address,uint8,uint256,uint256)") */
+export const PAID_TOPIC = '0xc3c0f3fe0b4ba1a78b393b5d695a6a32a0e7a74b2d805f4fef4eb23a9eef7eca'
 
 // The site compiles to ES2017: no bigint literals, BigInt() instead.
 const MICRO = BigInt(10) ** BigInt(12)
-const BPS = BigInt(10_000)
 export const apeToWei = (ape: number): bigint => BigInt(Math.round(ape * 1e6)) * MICRO
 export const weiToApe = (wei: bigint): number => Number(wei / MICRO) / 1e6
-
-/** The least the cashier must receive for a price: net of the Hub fee, so a Glyph payment counts. */
-export const minWeiFor = (priceApe: number): bigint => (apeToWei(priceApe) * (BPS - HUB_FEE_BPS)) / BPS
 
 /** An order's uuid as the bytes32 the contract carries: the 16 bytes, left-aligned. */
 export const orderRef = (orderId: string): string => `0x${orderId.replace(/-/g, '').toLowerCase().padEnd(64, '0')}`
 
-const word = (hex: string) => hex.replace(/^0x/, '').toLowerCase().padStart(64, '0')
-
-/** Calldata for `pay(player, orderRef(orderId))`. */
-export function encodePay(player: string, orderId: string): string {
-    return `${PAY_SELECTOR}${word(player)}${word(orderRef(orderId))}`
+/** The order uuid back from the bytes32 in an event. */
+export const orderIdFromRef = (ref: string): string => {
+    const h = ref.replace(/^0x/, '').slice(0, 32)
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`
 }
 
-export type PaidEvent = { player: string; order: string; payer: string; amount: bigint; toPool: bigint; logIndex: number; blockNumber: bigint }
+const word = (hex: string) => hex.replace(/^0x/, '').toLowerCase().padStart(64, '0')
+
+/** Calldata for `pay(player, orderRef(orderId), mode)`. */
+export function encodePay(player: string, orderId: string, mode: Mode): string {
+    return `${PAY_SELECTOR}${word(player)}${word(orderRef(orderId))}${word(MODE_ID[mode].toString(16))}`
+}
+
+export type PaidEvent = { player: string; order: string; payer: string; mode: Mode | null; amount: bigint; toPool: bigint; logIndex: number; blockNumber: bigint }
 
 type Log = { address: string; topics: readonly string[]; data: string; logIndex?: number | bigint | null; blockNumber?: bigint | null }
 
@@ -63,13 +72,15 @@ export function paidEvents(logs: readonly Log[]): PaidEvent[] {
         if (!CASHIER || l.address.toLowerCase() !== CASHIER) continue
         if ((l.topics[0] ?? '').toLowerCase() !== PAID_TOPIC || l.topics.length !== 4) continue
         const data = l.data.replace(/^0x/, '')
-        if (data.length !== 128) continue
+        if (data.length !== 192) continue
+        const m = Number(BigInt(`0x${data.slice(0, 64)}`))
         out.push({
             player: `0x${l.topics[1].slice(-40)}`.toLowerCase(),
             order: l.topics[2].toLowerCase(),
             payer: `0x${l.topics[3].slice(-40)}`.toLowerCase(),
-            amount: BigInt(`0x${data.slice(0, 64)}`),
-            toPool: BigInt(`0x${data.slice(64, 128)}`),
+            mode: m === 0 ? 'solo' : m === 1 ? 'coop' : null,
+            amount: BigInt(`0x${data.slice(64, 128)}`),
+            toPool: BigInt(`0x${data.slice(128, 192)}`),
             logIndex: Number(l.logIndex ?? 0),
             blockNumber: BigInt(l.blockNumber ?? 0),
         })
@@ -77,7 +88,8 @@ export function paidEvents(logs: readonly Log[]): PaidEvent[] {
     return out
 }
 
-export function describe(sku: Sku): string {
+export function describe(sku: Sku, mode: Mode): string {
     const s = SKUS[sku]
-    return `Droidz Survival — ${s.label} for ${s.priceApe} APE. Half goes to the season prize pool.`
+    const m = mode === 'coop' ? 'co-op' : 'solo'
+    return `Droidz Survival — ${s.label} (${m}) for ${s.priceApe} APE. Half goes to the ${m} season prize pool.`
 }

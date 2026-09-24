@@ -74,7 +74,7 @@ export default function DroidzSurvivalPage() {
         if (!win) return
         win.DroidzPay = {
             stub: !PAY_FOR_REAL,
-            charge: async (kind: 'continue' | 'run'): Promise<boolean> => {
+            charge: async (kind: 'continue' | 'run' | 'run10'): Promise<boolean> => {
                 if (!PAY_FOR_REAL) {
                     await new Promise((r) => setTimeout(r, 500))
                     return true
@@ -85,7 +85,7 @@ export default function DroidzSurvivalPage() {
                     // the same path as the Otherside cabinet (api/survival/order, /pay).
                     const o = await fetch('/api/survival/order', {
                         method: 'POST', credentials: 'include', cache: 'no-store',
-                        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sku: kind, platform: 'site' }),
+                        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sku: kind, platform: 'site', mode: 'solo' }),
                     }).then((r) => r.json()).catch(() => null)
                     if (!o?.ok) return false
                     const tx = prepareTransaction({ chain: apeChain, client, to: o.to, value: toWei(o.valueApe), data: o.data })

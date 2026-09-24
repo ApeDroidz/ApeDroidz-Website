@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(
-        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: seasonVisibleFor(caller.wallet) } },
+        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: seasonVisibleFor(caller.wallet), paidRuns: process.env.SURVIVAL_PAID_RUNS === '1' } },
         { headers: { 'cache-control': 'no-store' } },
     )
 }
