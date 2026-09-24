@@ -129,13 +129,13 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    // ── lucky ticket: a droid was won and has to be sent by hand ─────────────
-    const { data: nftWins } = await db.from('survival_entitlements').select('id, wallet, created_at, grant_spec')
-        .eq('kind', 'ticket').is('fulfilled_at', null).filter('grant_spec->prize->>kind', 'eq', 'nft').limit(50)
-    for (const w of (nftWins as Array<{ id: string; wallet: string; created_at: string }> | null) ?? []) push({
-        fingerprint: fp('nft', w.id), severity: 'critical', area: 'payments', count: 1, wallets: 1, lastSeen: w.created_at,
-        title: `A player won a droid — send the NFT`, detail: `Wallet ${w.wallet} won an ApeDroidz droid from a lucky ticket on ${new Date(w.created_at).toLocaleString()}.`,
-        action: 'Send a droid from the prize stock to this wallet, then mark it sent in Payments → Lucky ticket.',
+    // ── lucky ticket: an NFT prize the vault could not send ───────────────────
+    const { data: stuckNfts } = await db.from('survival_ticket_nfts').select('id, winner, name, token_id, error, status, added_at')
+        .or(`status.eq.failed,and(status.eq.reserved,added_at.lt.${new Date(now - 15 * 60_000).toISOString()})`).limit(50)
+    for (const n of (stuckNfts as Array<{ id: number; winner: string; name: string | null; token_id: string; error: string | null; status: string; added_at: string }> | null) ?? []) push({
+        fingerprint: fp('nft', String(n.id), n.status), severity: 'critical', area: 'payments', count: 1, wallets: 1, lastSeen: new Date().toISOString(),
+        title: `A won NFT was not delivered: ${n.name ?? '#' + n.token_id}`, detail: `Winner ${n.winner}. ${n.error ? `Error: ${n.error}` : 'Still waiting to be sent.'}`,
+        action: 'Payments → Lucky ticket → NFT pool: check the prize vault holds it and has APE for gas, then press Retry.',
     })
 
     // ── anti-cheat: rejections worth a look ──────────────────────────────────

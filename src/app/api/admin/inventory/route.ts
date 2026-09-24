@@ -161,6 +161,11 @@ export async function POST(req: Request) {
         const inserted: any[] = []
         const skipped: { token_id: string; reason: string }[] = []
         for (const row of rows) {
+            // The same prize vault pays the Droidz Survival lucky ticket: a token pooled there is not
+            // free to be a Glitch Cards prize too (the ticket side refuses the reverse in the database).
+            const { data: inTicket } = await supabaseAdmin.from('survival_ticket_nfts').select('id')
+                .eq('contract', row.contract_address).eq('token_id', row.token_id).in('status', ['available', 'reserved', 'sending']).limit(1)
+            if (inTicket?.length) { skipped.push({ token_id: row.token_id, reason: 'already a Droidz Survival ticket prize' }); continue }
             const { data, error } = await supabaseAdmin.from('nft_inventory').insert(row).select().single()
             if (error) {
                 skipped.push({

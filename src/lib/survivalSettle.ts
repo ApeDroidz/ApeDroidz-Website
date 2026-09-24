@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain'
 import { CASHIER, HUB_FEE_SPLITTER, orderIdFromRef, orderRef, PAID_TOPIC, paidEvents, type PaidEvent } from '@/lib/survivalShop'
 import { logEvent } from '@/lib/survivalLog'
+import { deliverTicketNfts } from '@/lib/survivalTicketNft'
 
 /**
  * Booking a payment against its order — the one place that decides whether money arrived.
@@ -27,6 +28,8 @@ async function book(order: OrderRow, txHash: string, ev: PaidEvent): Promise<Set
     })
     if (error) { console.error('[survival/settle]', error.message); return 'no_server' }
     const state = data as SettleState
+    // A lucky ticket that drew an NFT reserved it for this player: send it now.
+    if (state === 'paid' && order.sku === 'ticket') await deliverTicketNfts({ wallet: order.wallet }).catch(() => [])
     logEvent({
         level: state === 'paid' ? 'info' : 'warn', kind: `pay.${state}`, wallet: order.wallet, message: `${order.sku} ${txHash}`,
         data: { orderId: order.id, sku: order.sku, mode: ev.mode, payer: ev.payer, amountWei: ev.amount.toString(), toPoolWei: ev.toPool.toString(), platform: order.platform },

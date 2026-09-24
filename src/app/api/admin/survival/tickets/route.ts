@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
 import { logEvent } from '@/lib/survivalLog'
+import { deliverTicketNfts } from '@/lib/survivalTicketNft'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -11,21 +12,26 @@ const headers = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age
  * GET  /api/admin/survival/tickets → { prizes, draws, pendingNft }
  * POST /api/admin/survival/tickets { prize }                      — edit/add one prize (weight, stock, on/off…)
  * POST /api/admin/survival/tickets { fulfil: entitlementId, note } — an NFT prize was sent by hand
+ * POST /api/admin/survival/tickets { importNfts: [{ contract, tokenId, standard, name, imageUrl }], prizeId }
+ *      — NFT prizes added by link (resolved and vault-checked by /api/admin/inventory/resolve, like Glitch Cards)
+ * POST /api/admin/survival/tickets { retrySend: id } · { removeNft: id }
  */
 type Prize = { id: string; label: string; kind: string; spec: Record<string, unknown>; weight: number; stock: number | null; active: boolean; sort: number }
 const KINDS = ['coins', 'resources', 'item', 'boost', 'runs', 'nft']
 
 async function payload() {
-    const [prizes, draws] = await Promise.all([
+    const [prizes, draws, nfts] = await Promise.all([
         supabaseAdmin.from('survival_ticket_prizes').select('id, label, kind, spec, weight, stock, active, sort').order('sort'),
         supabaseAdmin.from('survival_entitlements').select('id, wallet, grant_spec, created_at, claimed_at, fulfilled_at, fulfilled_note').eq('kind', 'ticket').order('created_at', { ascending: false }).limit(500),
+        supabaseAdmin.from('survival_ticket_nfts').select('id, prize_id, contract, token_id, standard, name, image_url, status, winner, tx_hash, error, added_at, sent_at').neq('status', 'removed').order('added_at', { ascending: false }).limit(500),
     ])
     const D = (draws.data as Array<{ id: string; wallet: string; grant_spec: { prize?: { id: string; label: string; kind: string } }; created_at: string; claimed_at: string | null; fulfilled_at: string | null; fulfilled_note: string | null }> | null) ?? []
     const counts: Record<string, number> = {}
     for (const d of D) { const id = d.grant_spec?.prize?.id ?? '?'; counts[id] = (counts[id] ?? 0) + 1 }
     return {
         ok: true, prizes: (prizes.data as Prize[] | null) ?? [], drawn: counts, totalDraws: D.length,
-        pendingNft: D.filter((d) => d.grant_spec?.prize?.kind === 'nft' && !d.fulfilled_at),
+        pendingNft: [] as unknown[],
+        nfts: nfts.data ?? [],
         recent: D.slice(0, 50).map((d) => ({ id: d.id, wallet: d.wallet, prize: d.grant_spec?.prize?.label ?? '?', at: d.created_at, opened: !!d.claimed_at })),
     }
 }
@@ -40,6 +46,34 @@ export async function POST(request: NextRequest) {
     const denied = await requireAdmin(request)
     if (denied) return denied
     const body = await request.json().catch(() => ({})) as { prize?: Record<string, unknown>; fulfil?: unknown; note?: unknown }
+    const b = body as Record<string, unknown>
+    if (Array.isArray(b.importNfts)) {
+        const prizeId = typeof b.prizeId === 'string' ? b.prizeId : ''
+        const { data: prize } = await supabaseAdmin.from('survival_ticket_prizes').select('id, kind').eq('id', prizeId).maybeSingle()
+        if (!prize || (prize as { kind: string }).kind !== 'nft') return NextResponse.json({ error: 'pick an NFT prize to put these in' }, { status: 400, headers })
+        const added: string[] = [], skipped: Array<{ ref: string; reason: string }> = []
+        for (const raw of (b.importNfts as Array<Record<string, unknown>>).slice(0, 50)) {
+            const contract = String(raw.contract ?? '').toLowerCase(), tokenId = String(raw.tokenId ?? '')
+            const ref = `${contract}/${tokenId}`
+            if (!/^0x[0-9a-f]{40}$/.test(contract) || !/^[0-9]+$/.test(tokenId)) { skipped.push({ ref, reason: 'bad ref' }); continue }
+            const { error } = await supabaseAdmin.from('survival_ticket_nfts').insert({
+                prize_id: prizeId, contract, token_id: tokenId, standard: raw.standard === 'erc1155' ? 'erc1155' : 'erc721',
+                name: typeof raw.name === 'string' ? raw.name.slice(0, 120) : null, image_url: typeof raw.imageUrl === 'string' ? raw.imageUrl.slice(0, 500) : null,
+            })
+            if (error) skipped.push({ ref, reason: /glitch cards/i.test(error.message) ? 'already a Glitch Cards prize' : /duplicate|unique/i.test(error.message) ? 'already in the pool' : error.message })
+            else added.push(ref)
+        }
+        logEvent({ level: 'info', source: 'server', kind: 'ticket.nft_added', message: prizeId, data: { added, skipped } })
+        return NextResponse.json({ ...(await payload()), added, skipped }, { headers })
+    }
+    if (typeof b.retrySend === 'number') {
+        const results = await deliverTicketNfts({ ids: [b.retrySend], retryFailed: true })
+        return NextResponse.json({ ...(await payload()), results }, { headers })
+    }
+    if (typeof b.removeNft === 'number') {
+        await supabaseAdmin.from('survival_ticket_nfts').update({ status: 'removed' }).eq('id', b.removeNft).eq('status', 'available')
+        return NextResponse.json(await payload(), { headers })
+    }
     if (typeof body.fulfil === 'string') {
         const { error } = await supabaseAdmin.from('survival_entitlements').update({ fulfilled_at: new Date().toISOString(), fulfilled_note: typeof body.note === 'string' ? body.note.slice(0, 300) : null }).eq('id', body.fulfil)
         if (error) return NextResponse.json({ error: error.message }, { status: 400, headers })
