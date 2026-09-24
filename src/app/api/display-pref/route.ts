@@ -9,6 +9,8 @@ import { apeChainServer } from '@/lib/apechain'
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    // Live reads only — see noStoreFetch in lib/supabase.ts (Next's Data Cache served stale rows).
+    { global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) } },
 )
 
 const apeChain = apeChainServer

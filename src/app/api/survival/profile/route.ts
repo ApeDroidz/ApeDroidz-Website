@@ -17,6 +17,13 @@ import { seasonVisibleFor } from '@/lib/survivalAccess'
  * and lifts a few numbers out for the panel. Season progress goes to its own row keyed by the
  * season, so ending a season touches nothing a player owns.
  *
+ * Revisions (24.09.2026). `state.rev` counts the client's writes. A PUT carrying a LOWER revision
+ * than the stored one is refused with `{ ok: false, state: 'stale', rev }` — that is an old tab or
+ * a second device about to roll the player back, which is exactly how beta players lost trees and
+ * resources. The write itself is a compare-and-set on `updated_at`, so two pushes racing each
+ * other cannot interleave either; the loser is told to retry. GET also returns `owner` (the full
+ * wallet, the caller's own) so the game can tell whose save sits in the browser.
+ *
  * Ape Mini is an in-game currency with no way out (the owner: «конвертацию не делаем»), so
  * the client's count is accepted as is, bounded to sane integers; the run ledger keeps the
  * server's own idea of what was earned for the day that changes.
@@ -56,7 +63,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(
-        { ok: true, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: seasonVisibleFor(caller.wallet) } },
+        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: seasonVisibleFor(caller.wallet) } },
         { headers: { 'cache-control': 'no-store' } },
     )
 }
@@ -84,10 +91,33 @@ export async function PUT(req: NextRequest) {
         client_version: typeof body.clientVersion === 'string' ? body.clientVersion.slice(0, 64) : null,
         updated_at: new Date().toISOString(),
     }
+    const rev = int(s.rev)
+    const { data: cur, error: curErr } = await supabaseAdmin
+        .from('survival_profiles').select('rev:state->rev, updated_at').eq('wallet', caller.wallet).maybeSingle()
+    if (curErr) { console.error('[survival/profile] put read', curErr.message); return noServer() }
+    const storedRev = int((cur as { rev?: unknown } | null)?.rev)
+    if (cur && rev < storedRev) {
+        logEvent({ level: 'warn', kind: 'profile.stale', wallet: caller.wallet, message: `${rev} < ${storedRev}`, data: { rev, storedRev, clientVersion: row.client_version } })
+        return NextResponse.json({ ok: false, state: 'stale', rev: storedRev }, { headers: { 'cache-control': 'no-store' } })
+    }
+
     // The player row must exist (FK); a profile save can arrive before any run does.
     await supabaseAdmin.from('survival_players').upsert({ wallet: caller.wallet, last_seen: row.updated_at }, { onConflict: 'wallet' })
-    const { error } = await supabaseAdmin.from('survival_profiles').upsert(row, { onConflict: 'wallet' })
+    let error: { message: string; code?: string } | null = null
+    let landed = true
+    if (cur) {
+        // Compare-and-set: only over the row we just read. Zero rows = someone wrote in between.
+        const upd = await supabaseAdmin.from('survival_profiles').update(row)
+            .eq('wallet', caller.wallet).eq('updated_at', (cur as { updated_at: string }).updated_at).select('wallet')
+        error = upd.error
+        landed = !upd.error && (upd.data?.length ?? 0) > 0
+    } else {
+        const ins = await supabaseAdmin.from('survival_profiles').insert(row)
+        error = ins.error
+        if (ins.error?.code === '23505') { error = null; landed = false } // created by a racing push
+    }
     if (error) { console.error('[survival/profile] put', error.message); logEvent({ level: 'error', kind: 'profile.save_failed', wallet: caller.wallet, message: error.message }); return noServer() }
+    if (!landed) return NextResponse.json({ ok: false, state: 'retry' }, { headers: { 'cache-control': 'no-store' } })
 
     if (typeof body.seasonId === 'string' && body.season && typeof body.season === 'object') {
         const season = body.season as Record<string, unknown>

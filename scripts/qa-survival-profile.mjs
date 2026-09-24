@@ -22,13 +22,28 @@ const call = async (path, method, body, c = cookie) => {
 }
 const checks = []
 const ok = (n, c, info = '') => checks.push([n, !!c, info])
-const state = { version: 1, coins: 4321, unlockedHeroes: ['volt', 'goblin'], selectedHero: 'goblin', unlockedWeapons: ['sword_0'], selectedWeapon: 'staff', lab: { base_hp: 2 }, lifetime: { runs: 7, bestScore: 9001, kills: 800 }, bestiary: { robber: 40 }, settings: { sfxVolume: 50, shake: true, damageNumbers: true }, clan: 'BAYC', boost: null }
+const state = { version: 1, rev: 10, coins: 4321, unlockedHeroes: ['volt', 'goblin'], selectedHero: 'goblin', unlockedWeapons: ['sword_0'], selectedWeapon: 'staff', lab: { base_hp: 2 }, lifetime: { runs: 7, bestScore: 9001, kills: 800 }, bestiary: { robber: 40 }, settings: { sfxVolume: 50, shake: true, damageNumbers: true }, clan: 'BAYC', boost: null }
 const put = await call('/api/survival/profile', 'PUT', { state, seasonId: 'beta-1', season: { seasonId: 'beta-1', sxp: 120, tier: 1, claimed: [1] }, daily: { lastClaimDay: '2026-09-18', streak: 3 }, clientVersion: 'qa' })
 ok('PUT profile accepted', put.ok === true, JSON.stringify(put))
 const get = await call('/api/survival/profile', 'GET')
 ok('GET returns the same state', get.ok === true && get.state?.coins === 4321 && get.state?.selectedHero === 'goblin' && get.state?.lab?.base_hp === 2, JSON.stringify(get).slice(0, 200))
 ok('season progress rides in its own row', get.season?.seasonId === 'beta-1' && get.season?.season?.sxp === 120 && get.season?.daily?.streak === 3, JSON.stringify(get.season))
 ok('season hidden for an ordinary wallet', get.features?.season === false, JSON.stringify(get.features))
+ok('GET names the caller as owner (the game tells whose save is local by it)', get.owner === WALLET, String(get.owner))
+// Revisions (24.09.2026): an older save must never roll a newer one back.
+const stale = await call('/api/survival/profile', 'PUT', { state: { ...state, rev: 9, coins: 1 }, clientVersion: 'qa-stale-tab' })
+ok('an older revision is refused as stale, with the stored revision', stale.ok === false && stale.state === 'stale' && stale.rev === 10, JSON.stringify(stale))
+const afterStale = await call('/api/survival/profile', 'GET')
+ok('…and the stored save is untouched', afterStale.state?.coins === 4321 && afterStale.state?.rev === 10, JSON.stringify(afterStale.state).slice(0, 120))
+const same = await call('/api/survival/profile', 'PUT', { state: { ...state, rev: 10 }, clientVersion: 'qa' })
+ok('the same revision is accepted (a repeated last push on the way out)', same.ok === true, JSON.stringify(same))
+const newer = await call('/api/survival/profile', 'PUT', { state: { ...state, rev: 11, coins: 5000 }, clientVersion: 'qa' })
+const afterNewer = await call('/api/survival/profile', 'GET')
+ok('a newer revision lands', newer.ok === true && afterNewer.state?.coins === 5000 && afterNewer.state?.rev === 11, JSON.stringify(newer))
+const racing = await Promise.all([12, 13, 14].map((r) => call('/api/survival/profile', 'PUT', { state: { ...state, rev: r, coins: 6000 + r }, clientVersion: 'qa-race' })))
+const afterRace = await call('/api/survival/profile', 'GET')
+const won = racing.filter((x) => x.ok === true).length
+ok('racing pushes: every loser is told to retry or is stale, the stored save is one of the winners', won >= 1 && racing.every((x) => x.ok === true || x.state === 'retry' || x.state === 'stale') && afterRace.state?.coins === 6000 + afterRace.state?.rev, JSON.stringify(racing.map((x) => x.ok || x.state)) + ' stored ' + afterRace.state?.rev)
 const anon = await call('/api/survival/profile', 'GET', null, '')
 ok('no cookies → 401', anon.status === 401)
 const big = await call('/api/survival/profile', 'PUT', { state: { junk: 'x'.repeat(70000) } })
@@ -41,8 +56,14 @@ const client = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ss
 await client.connect()
 const ev = (await client.query("select wallet, level, kind from survival_events where kind in ('qa.test','qa.anon') order by at desc limit 2")).rows
 ok('the journal has the authenticated line with the wallet and the anonymous one without', ev.some((e) => e.kind === 'qa.test' && e.wallet === WALLET && e.level === 'error') && ev.some((e) => e.kind === 'qa.anon' && e.wallet === null), JSON.stringify(ev))
+// Next's Data Cache served a stale profile to the game (24.09.2026) — a write made behind the
+// site's back must show on the very next read.
+await client.query(`update survival_profiles set state = jsonb_set(state, '{coins}', '777') where wallet=$1`, [WALLET])
+const live = await call('/api/survival/profile', 'GET')
+ok('a read after a direct DB write is live, not cached', live.state?.coins === 777, String(live.state?.coins))
+await client.query(`update survival_profiles set state = jsonb_set(state, '{coins}', to_jsonb(coins)) where wallet=$1`, [WALLET])
 const prof = (await client.query('select coins, runs, best_score from survival_profiles where wallet=$1', [WALLET])).rows[0]
-ok('the extracted columns match the state', prof && prof.coins === 4321 && prof.runs === 7 && prof.best_score === 9001, JSON.stringify(prof))
+ok('the extracted columns match the state', prof && prof.coins === 6000 + afterRace.state?.rev && prof.runs === 7 && prof.best_score === 9001, JSON.stringify(prof))
 await client.query('delete from survival_events where kind like $1', ['qa.%'])
 await client.query('delete from survival_profile_seasons where wallet=$1', [WALLET])
 await client.query('delete from survival_profiles where wallet=$1', [WALLET])
