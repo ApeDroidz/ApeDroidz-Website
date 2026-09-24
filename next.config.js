@@ -61,15 +61,15 @@ const nextConfig = {
   // === 5. CORS ЗАГОЛОВКИ ===
   async headers() {
     // Who may frame the game (24.09.2026). Until now any site could embed any page of ours.
-    // The Otherside cabinet (/otherside) is framed by the Hub; the game build is framed by our
+    // The Otherside cabinet (/droidz_survival/otherside) is framed by the Hub; the game build is framed by our
     // own pages — and, inside the cabinet, sits UNDER the Hub too: frame-ancestors checks every
     // ancestor, not just the parent, so the build has to allow otherside.xyz as well.
-    // Dev adds the local twin origins the stand-in hub (/otherside/dev-hub) runs on.
+    // Dev adds the local twin origins the stand-in hub (/droidz_survival/otherside/dev-hub) runs on.
     const devFrames = process.env.NODE_ENV === 'production' ? '' : ' http://localhost:* http://127.0.0.1:*'
     const gameFrames = `frame-ancestors 'self' https://www.otherside.xyz${devFrames}`
     return [
-      { source: "/otherside", headers: [{ key: "Content-Security-Policy", value: gameFrames }] },
-      { source: "/otherside/:path*", headers: [{ key: "Content-Security-Policy", value: gameFrames }] },
+      { source: "/droidz_survival/otherside", headers: [{ key: "Content-Security-Policy", value: gameFrames }] },
+      { source: "/droidz_survival/otherside/:path*", headers: [{ key: "Content-Security-Policy", value: gameFrames }] },
       { source: "/droidz_survival/play/:path*", headers: [{ key: "Content-Security-Policy", value: gameFrames }] },
       {
         // The game's JS chunks are content-hashed by Vite: safe to cache for a year, and it

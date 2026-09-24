@@ -20,6 +20,7 @@ import { othersideLoginMessage } from '@/lib/othersideMessage'
  * own, so nothing leaks between the two, and every existing route (profile, runs, pay) and the
  * beta gate on /droidz_survival/play read them unchanged. One game, one save, one board — the
  * wallet is the player on both doors. The in-game browser is Chromium, which supports CHIPS.
+ * Who may play is lib/survivalAllow.ts — the same rule as the site (beta list, or SURVIVAL_PUBLIC=1).
  */
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,7 @@ const SESSION_MAX_AGE = 7 * 24 * 60 * 60
 const PLAY_MAX_AGE = 6 * 60 * 60
 
 async function withAccess(wallet: string, res: (body: Record<string, unknown>) => NextResponse): Promise<NextResponse> {
-    const access = await accessFor(wallet, { otherside: true })
+    const access = await accessFor(wallet)
     if (access.error) return NextResponse.json({ error: 'Access check failed' }, { status: 502, headers: noStore })
     if (!access.allowed) {
         const r = res({ state: 'denied', wallet })

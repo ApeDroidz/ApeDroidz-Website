@@ -6,7 +6,7 @@
  * player in a Hub dialog we cannot skip or pre-approve.
  *
  * Our one addition is `pickHubOrigin`: the page may be framed by the real Hub or, on a dev/preview
- * build, by our own stand-in (/otherside/dev-hub). The SDK is still bound to exactly one origin —
+ * build, by our own stand-in (/droidz_survival/otherside/dev-hub). The SDK is still bound to exactly one origin —
  * the one actually framing us, and only if it is on the allowed list.
  */
 
@@ -60,7 +60,7 @@ export class GlyphSDK {
         this.hubOrigin = hubOrigin
         this.readyPromise = new Promise((resolve) => { this.resolveReady = resolve })
         window.addEventListener('message', this.handleMessage)
-        // A `glyph:ready` that came before we were listening (app/otherside/layout.tsx keeps them).
+        // A `glyph:ready` that came before we were listening (app/droidz_survival/otherside/layout.tsx keeps them).
         const early = (window as Window & { __glyphEarly?: Array<{ origin: string; data: unknown }> }).__glyphEarly ?? []
         for (const e of early) if (e.origin === hubOrigin) this.handleMessage({ origin: e.origin, data: e.data } as MessageEvent)
     }

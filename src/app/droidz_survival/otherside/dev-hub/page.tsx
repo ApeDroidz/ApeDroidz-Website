@@ -15,7 +15,7 @@ import { apeChain, client } from '@/lib/thirdweb'
  *
  * The wallet is a throwaway key kept in this browser's localStorage: signatures are real, so the
  * server verifies them for real. To pass the beta gate, add the address shown here to the list
- * in the panel (or run with SURVIVAL_OTHERSIDE_OPEN=1). Transactions are real ApeChain
+ * in the panel (or run with SURVIVAL_PUBLIC=1). Transactions are real ApeChain
  * transactions from that key — fund it with a little APE to test payments.
  *
  * Off unless NEXT_PUBLIC_OTHERSIDE_DEV_HUB=1 or a dev build — it must never exist on production.
@@ -67,7 +67,7 @@ function DevHub() {
     const [cabinet, setCabinet] = useState<string | null>(null)
     useEffect(() => {
         const c = new URLSearchParams(window.location.search).get('cabinet')
-        setCabinet(c && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(c) ? c : '/otherside')
+        setCabinet(c && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(c) ? c : '/droidz_survival/otherside')
     }, [])
     const origin = cabinet ? new URL(cabinet, window.location.href).origin : ''
     const reply = useCallback((msg: object) => frame.current?.contentWindow?.postMessage(msg, origin), [origin])

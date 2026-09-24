@@ -108,14 +108,14 @@ export default function OthersideCabinet() {
         const real = PAY_FOR_REAL && !!CASHIER
         win.DroidzPay = {
             stub: !real,
-            charge: async (kind: 'continue' | 'run'): Promise<boolean> => {
+            charge: async (kind: 'continue' | 'run' | 'run10'): Promise<boolean> => {
                 if (!real) { await new Promise((r) => setTimeout(r, 500)); return true }
                 const sdk = sdkRef.current
                 if (!sdk) return false
                 try {
                     const o = await fetch('/api/survival/order', {
                         method: 'POST', credentials: 'include', cache: 'no-store',
-                        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sku: kind }),
+                        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sku: kind, platform: 'otherside', mode: 'solo' }),
                     }).then((r) => r.json())
                     if (!o?.ok) return false
                     const hash = await sdk.sendTransaction({ to: o.to, value: o.valueApe, data: o.data, description: o.description })

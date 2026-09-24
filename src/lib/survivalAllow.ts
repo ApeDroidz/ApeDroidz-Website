@@ -1,24 +1,29 @@
 import { supabaseAdmin } from '@/lib/supabase'
 
 /**
- * May this wallet play Droidz Survival right now — the beta allowlist rule in one place:
- * on the list, not revoked, not expired. `until` caps the play cookie (null = no expiry).
+ * May this wallet play Droidz Survival right now — one rule for both doors (the site and the
+ * Otherside cabinet): on the beta list, not revoked, not expired.
  *
- * Otherside: with SURVIVAL_OTHERSIDE_OPEN=1 every wallet that signs in from the Otherside
- * cabinet may play, list or not — the owner decides when the arcade opens to everyone.
- * The site's own door (/api/survival/access) keeps the list regardless.
+ * Public launch (owner, 24.09.2026: «игра откроется всем — сначала на сайте, потом в автомате»):
+ * SURVIVAL_PUBLIC=1 lets every signed-in wallet play, on both doors. A wallet whose access was
+ * revoked, or that is banned, stays out either way. `until` caps the play cookie (null = none).
  */
 export type Access = { allowed: boolean; until: Date | null; error?: string }
 
-export async function accessFor(wallet: string, opts: { otherside?: boolean } = {}): Promise<Access> {
+export const isPublic = () => process.env.SURVIVAL_PUBLIC === '1'
+
+export async function accessFor(wallet: string): Promise<Access> {
     if (!supabaseAdmin) return { allowed: false, until: null, error: 'Service misconfigured' }
-    const { data: row, error } = await supabaseAdmin.from('survival_allowlist')
-        .select('revoked_at, expires_at').eq('wallet', wallet.toLowerCase()).maybeSingle()
+    const w = wallet.toLowerCase()
+    const [{ data: row, error }, { data: player }] = await Promise.all([
+        supabaseAdmin.from('survival_allowlist').select('revoked_at, expires_at').eq('wallet', w).maybeSingle(),
+        supabaseAdmin.from('survival_players').select('banned').eq('wallet', w).maybeSingle(),
+    ])
     if (error) return { allowed: false, until: null, error: error.message }
+    if ((player as { banned?: boolean } | null)?.banned) return { allowed: false, until: null }
     const until = row?.expires_at ? new Date(row.expires_at as string) : null
     const listed = !!row && !row.revoked_at && (!until || until.getTime() > Date.now())
     if (listed) return { allowed: true, until }
-    // A revoked wallet stays out even when the cabinet is open to all.
-    if (opts.otherside && process.env.SURVIVAL_OTHERSIDE_OPEN === '1' && !row?.revoked_at) return { allowed: true, until: null }
+    if (isPublic() && !row?.revoked_at) return { allowed: true, until: null }
     return { allowed: false, until: null }
 }
