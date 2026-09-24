@@ -1,0 +1,914 @@
+{
+ "base": "https://assets.apedroidz.com/apedroidz/droidz-survival/v7/assets/img/",
+ "heroes": {
+  "goblin": {
+   "name": "Gob",
+   "file": "goblin_idle_0.png",
+   "box": [
+    130,
+    98,
+    170,
+    164,
+    324,
+    164
+   ]
+  },
+  "geez": {
+   "name": "Geez",
+   "file": "geez_idle_0.png",
+   "box": [
+    122,
+    70,
+    178,
+    164,
+    324,
+    164
+   ]
+  },
+  "volt": {
+   "name": "Droid",
+   "file": "volt_idle_0.png",
+   "box": [
+    140,
+    98,
+    164,
+    164,
+    324,
+    164
+   ]
+  },
+  "titan": {
+   "name": "Titan",
+   "file": "titan_idle_0.png",
+   "box": [
+    140,
+    98,
+    164,
+    164,
+    324,
+    164
+   ]
+  },
+  "surge": {
+   "name": "Surge",
+   "file": "surge_idle_0.png",
+   "box": [
+    140,
+    98,
+    164,
+    164,
+    324,
+    164
+   ]
+  }
+ },
+ "weapons": {
+  "staff": {
+   "name": "Hex Staff",
+   "file": "staff_idle_0.png",
+   "box": [
+    166,
+    96,
+    172,
+    164,
+    324,
+    164
+   ]
+  },
+  "bow": {
+   "name": "Arc Bow",
+   "file": "bow_idle_0.png",
+   "box": [
+    146,
+    126,
+    176,
+    164,
+    324,
+    164
+   ]
+  },
+  "fists": {
+   "name": "Knuckles",
+   "file": "fists_idle_0.png"
+  },
+  "sword_0": {
+   "name": "Volt Blade",
+   "file": "sword_0_idle_0.png",
+   "box": [
+    116,
+    140,
+    182,
+    164,
+    324,
+    164
+   ]
+  },
+  "dagger": {
+   "name": "Shiv",
+   "file": null
+  },
+  "cleaver": {
+   "name": "Wrecker",
+   "file": null
+  },
+  "saber": {
+   "name": "Arc Saber",
+   "file": null
+  }
+ },
+ "enemies": {
+  "robber": {
+   "name": "Robber",
+   "file": "robber_idle_0.png",
+   "box": [
+    130,
+    98,
+    174,
+    164,
+    324,
+    164
+   ]
+  },
+  "watcher": {
+   "name": "Watcher",
+   "file": "watcher_hover_0.png",
+   "box": [
+    136,
+    98,
+    168,
+    120,
+    324,
+    164
+   ]
+  },
+  "bulwark": {
+   "name": "Bulwark",
+   "file": "bulwark_idle_0.png",
+   "box": [
+    110,
+    112,
+    194,
+    164,
+    324,
+    164
+   ]
+  },
+  "kettle": {
+   "name": "Kettle",
+   "file": "kettle_idle_0.png",
+   "box": [
+    130,
+    120,
+    174,
+    164,
+    324,
+    164
+   ]
+  },
+  "lancer": {
+   "name": "Lancer",
+   "file": "lancer_idle_0.png",
+   "box": [
+    120,
+    96,
+    184,
+    164,
+    324,
+    164
+   ]
+  },
+  "rammer": {
+   "name": "Rammer",
+   "file": "rammer_idle_0.png",
+   "box": [
+    96,
+    118,
+    184,
+    164,
+    324,
+    164
+   ]
+  },
+  "musket": {
+   "name": "Musketeer",
+   "file": "musket_idle_0.png",
+   "box": [
+    134,
+    116,
+    200,
+    164,
+    324,
+    164
+   ]
+  },
+  "warlock": {
+   "name": "Warlock",
+   "file": "warlock_idle_0.png",
+   "box": [
+    132,
+    98,
+    202,
+    164,
+    324,
+    164
+   ]
+  },
+  "wasp": {
+   "name": "Wasp",
+   "file": "wasp_hover_0.png",
+   "box": [
+    144,
+    110,
+    166,
+    124,
+    324,
+    164
+   ]
+  },
+  "carrier": {
+   "name": "Carrier",
+   "file": "carrier_hover_0.png",
+   "box": [
+    118,
+    92,
+    186,
+    112,
+    324,
+    164
+   ]
+  },
+  "worm": {
+   "name": "Cyberworm",
+   "file": "worm_under_0.png",
+   "box": [
+    136,
+    152,
+    172,
+    164,
+    324,
+    164
+   ]
+  },
+  "archer": {
+   "name": "Archer",
+   "file": "archer_idle_0.png",
+   "box": [
+    130,
+    94,
+    204,
+    164,
+    324,
+    164
+   ]
+  },
+  "sniper": {
+   "name": "Sniper",
+   "file": "sniper_idle_0.png",
+   "box": [
+    130,
+    98,
+    208,
+    164,
+    324,
+    164
+   ]
+  },
+  "walker": {
+   "name": "Walker",
+   "file": "walker_idle_0.png",
+   "box": [
+    114,
+    86,
+    176,
+    164,
+    324,
+    164
+   ]
+  },
+  "juggernaut": {
+   "name": "Juggernaut",
+   "file": "juggernaut_idle_0.png",
+   "box": [
+    122,
+    40,
+    194,
+    164,
+    324,
+    164
+   ]
+  },
+  "runner": {
+   "name": "Runner",
+   "file": "robber_idle_0.png",
+   "box": [
+    130,
+    98,
+    174,
+    164,
+    324,
+    164
+   ]
+  },
+  "brute": {
+   "name": "Brute",
+   "file": "brute_idle_0.png",
+   "box": [
+    120,
+    100,
+    200,
+    164,
+    324,
+    164
+   ]
+  },
+  "leaper": {
+   "name": "Leaper",
+   "file": "leaper_idle_0.png",
+   "box": [
+    124,
+    108,
+    180,
+    164,
+    324,
+    164
+   ]
+  },
+  "gunner": {
+   "name": "Gunner",
+   "file": "gunner_idle_0.png",
+   "box": [
+    122,
+    112,
+    194,
+    164,
+    324,
+    164
+   ]
+  },
+  "warden_boss": {
+   "name": "The Warden",
+   "file": "juggernaut_idle_0.png",
+   "box": [
+    122,
+    40,
+    194,
+    164,
+    324,
+    164
+   ]
+  },
+  "siege_boss": {
+   "name": "Siege Walker",
+   "file": "walker_idle_0.png",
+   "box": [
+    114,
+    86,
+    176,
+    164,
+    324,
+    164
+   ]
+  },
+  "devourer_boss": {
+   "name": "The Devourer",
+   "file": "worm_under_0.png",
+   "box": [
+    136,
+    152,
+    172,
+    164,
+    324,
+    164
+   ]
+  },
+  "hive_boss": {
+   "name": "The Hive",
+   "file": "carrier_hover_0.png",
+   "box": [
+    118,
+    92,
+    186,
+    112,
+    324,
+    164
+   ]
+  },
+  "mutant_boss": {
+   "name": "Mutant Boss",
+   "file": "bosshulk_idle_0.png",
+   "box": [
+    108,
+    84,
+    200,
+    164,
+    324,
+    164
+   ]
+  },
+  "grafted_boss": {
+   "name": "Grafted",
+   "file": "mutantboss_idle_0.png",
+   "box": [
+    110,
+    66,
+    212,
+    164,
+    324,
+    164
+   ]
+  }
+ },
+ "items": {
+  "plating": {
+   "name": "PLATING",
+   "file": "st_max_hp_lt.png",
+   "desc": "+# max HP."
+  },
+  "servo": {
+   "name": "SERVO",
+   "file": "st_dmg_lt.png",
+   "desc": "+#% damage."
+  },
+  "treads": {
+   "name": "TREADS",
+   "file": "st_move_speed_lt.png",
+   "desc": "+#% move speed."
+  },
+  "coil": {
+   "name": "COIL",
+   "file": "st_atk_speed_lt.png",
+   "desc": "+#% attack speed."
+  },
+  "magnet": {
+   "name": "MAGNET",
+   "file": "st_magnet_lt.png",
+   "desc": "+# px pickup reach."
+  },
+  "capacitor": {
+   "name": "CAPACITOR",
+   "file": "st_overclock_lt.png",
+   "desc": "Super charges #% faster."
+  }
+ },
+ "resources": {
+  "scrap": {
+   "name": "SCRAP",
+   "file": "rs_scrap.png"
+  },
+  "circuit": {
+   "name": "CIRCUIT",
+   "file": "rs_circuit.png"
+  },
+  "cell": {
+   "name": "CELL",
+   "file": "rs_cell.png"
+  },
+  "core": {
+   "name": "CORE",
+   "file": "rs_core.png"
+  }
+ },
+ "nodes": {
+  "volt_core": {
+   "name": "CORE TUNE",
+   "desc": "+1 max HP.",
+   "file": "st_max_hp_lt.png",
+   "max": 3,
+   "branch": "EDGE"
+  },
+  "volt_coils": {
+   "name": "ARC COILS",
+   "desc": "Storm Surge charges 8% faster.",
+   "file": "st_overclock_lt.png",
+   "max": 3,
+   "branch": "STORM"
+  },
+  "volt_capacitor": {
+   "name": "CAPACITOR",
+   "desc": "Storm Surge hits 15% harder.",
+   "file": "st_crit_lt.png",
+   "max": 2,
+   "branch": "STORM"
+  },
+  "volt_tempest": {
+   "name": "TEMPEST",
+   "desc": "Every heavy finisher arcs to a neighbour.",
+   "file": "st_blade_lt.png",
+   "max": 1,
+   "branch": "STORM"
+  },
+  "volt_static": {
+   "name": "STATIC FIELD",
+   "desc": "Storm Surge hits 10% harder.",
+   "file": "st_crit_lt.png",
+   "max": 2,
+   "branch": "STORM"
+  },
+  "volt_thunderhead": {
+   "name": "THUNDERHEAD",
+   "desc": "Storm Surge charges 20% faster.",
+   "file": "st_overclock_lt.png",
+   "max": 1,
+   "branch": "STORM"
+  },
+  "volt_edge": {
+   "name": "HONED EDGE",
+   "desc": "+4% damage.",
+   "file": "st_dmg_lt.png",
+   "max": 3,
+   "branch": "EDGE"
+  },
+  "volt_rhythm": {
+   "name": "COMBAT RHYTHM",
+   "desc": "The charged strike comes one hit sooner.",
+   "file": "st_atk_speed_lt.png",
+   "max": 2,
+   "branch": "EDGE"
+  },
+  "volt_blink": {
+   "name": "BLINK PROTOCOL",
+   "desc": "Start every run with Blink Cut on [Z].",
+   "file": "st_dash_lt.png",
+   "max": 1,
+   "branch": "EDGE"
+  },
+  "volt_keen": {
+   "name": "KEEN EYE",
+   "desc": "+4% crit chance.",
+   "file": "st_crit_lt.png",
+   "max": 2,
+   "branch": "EDGE"
+  },
+  "volt_executioner": {
+   "name": "EXECUTIONER",
+   "desc": "Crits hit +50% harder.",
+   "file": "st_dmg_lt.png",
+   "max": 1,
+   "branch": "EDGE"
+  },
+  "volt_treads": {
+   "name": "TURBO TREADS",
+   "desc": "+3% move speed.",
+   "file": "st_move_speed_lt.png",
+   "max": 3,
+   "branch": "TREADS"
+  },
+  "volt_servos": {
+   "name": "ROLL SERVOS",
+   "desc": "Rolls cost 10% less stamina.",
+   "file": "st_dodge_lt.png",
+   "max": 2,
+   "branch": "TREADS"
+  },
+  "volt_afterimage": {
+   "name": "AFTERIMAGE",
+   "desc": "The roll cuts what it passes through.",
+   "file": "st_knockback_lt.png",
+   "max": 1,
+   "branch": "TREADS"
+  },
+  "volt_stride": {
+   "name": "LONG STRIDE",
+   "desc": "+4% move speed.",
+   "file": "st_move_speed_lt.png",
+   "max": 2,
+   "branch": "TREADS"
+  },
+  "volt_phantom": {
+   "name": "PHANTOM",
+   "desc": "+6% dodge chance.",
+   "file": "st_dodge_lt.png",
+   "max": 1,
+   "branch": "TREADS"
+  },
+  "volt_core_hp": {
+   "name": "CHASSIS",
+   "desc": "+2 max HP per level.",
+   "file": "st_max_hp_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "volt_core_power": {
+   "name": "SERVOS",
+   "desc": "+5% damage and +3% attack speed per level.",
+   "file": "st_dmg_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "volt_core_yield": {
+   "name": "DATA SIPHON",
+   "desc": "+5% XP and +10% Ape Mini per run per level; at level 3 one draft reroll per run.",
+   "file": "st_xp_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "volt_core_alloy": {
+   "name": "ALLOY FRAME",
+   "desc": "+2 max HP and +2% dodge per level.",
+   "file": "st_dodge_lt.png",
+   "max": 3,
+   "branch": "CHASSIS"
+  },
+  "volt_core_overclock": {
+   "name": "OVERCLOCK",
+   "desc": "+4% attack speed and +4% move speed per level.",
+   "file": "st_overclock_lt.png",
+   "max": 3,
+   "branch": "CHASSIS"
+  },
+  "gob_wick": {
+   "name": "WICK",
+   "desc": "+1 max HP.",
+   "file": "st_max_hp_lt.png",
+   "max": 3,
+   "branch": "VENOM"
+  },
+  "gob_focus": {
+   "name": "FOCUS",
+   "desc": "+5% damage.",
+   "file": "st_dmg_lt.png",
+   "max": 3,
+   "branch": "HEX"
+  },
+  "gob_twin": {
+   "name": "TWIN BOLT",
+   "desc": "The heavy step casts one more bolt.",
+   "file": "st_atk_speed_lt.png",
+   "max": 1,
+   "branch": "HEX"
+  },
+  "gob_hexstart": {
+   "name": "HEX PRIMED",
+   "desc": "Start every run with Hex Fan on [Z].",
+   "file": "st_overclock_lt.png",
+   "max": 1,
+   "branch": "HEX"
+  },
+  "gob_pierce": {
+   "name": "PIERCING HEX",
+   "desc": "Bolts pass through one more body.",
+   "file": "st_blade_lt.png",
+   "max": 2,
+   "branch": "HEX"
+  },
+  "gob_triple": {
+   "name": "TRIPLE BOLT",
+   "desc": "Every cast throws one more bolt.",
+   "file": "st_atk_speed_lt.png",
+   "max": 1,
+   "branch": "HEX"
+  },
+  "gob_leech": {
+   "name": "LEECH",
+   "desc": "+3% chance a bolt mends 1 HP.",
+   "file": "st_lifesteal_lt.png",
+   "max": 3,
+   "branch": "VENOM"
+  },
+  "gob_volatile": {
+   "name": "VOLATILE",
+   "desc": "Bolts splash 20 px wider, 10% harder.",
+   "file": "st_glass_lt.png",
+   "max": 2,
+   "branch": "VENOM"
+  },
+  "gob_bloom": {
+   "name": "FULL BLOOM",
+   "desc": "Caustic Bloom charges 25% faster.",
+   "file": "st_crit_lt.png",
+   "max": 1,
+   "branch": "VENOM"
+  },
+  "gob_miasma": {
+   "name": "MIASMA",
+   "desc": "Bolts splash 30 px wider.",
+   "file": "st_glass_lt.png",
+   "max": 2,
+   "branch": "VENOM"
+  },
+  "gob_plague": {
+   "name": "PLAGUE",
+   "desc": "Every kill mends a little.",
+   "file": "st_lifesteal_lt.png",
+   "max": 1,
+   "branch": "VENOM"
+  },
+  "gob_skitter": {
+   "name": "SKITTER",
+   "desc": "+3% move speed.",
+   "file": "st_move_speed_lt.png",
+   "max": 3,
+   "branch": "LEGS"
+  },
+  "gob_wind": {
+   "name": "SECOND WIND",
+   "desc": "Stamina comes back 10% faster.",
+   "file": "st_regen_lt.png",
+   "max": 2,
+   "branch": "LEGS"
+  },
+  "gob_hop": {
+   "name": "THIRD HOP",
+   "desc": "One more jump in the air.",
+   "file": "st_jump_lt.png",
+   "max": 1,
+   "branch": "LEGS"
+  },
+  "gob_lightfoot": {
+   "name": "LIGHT FOOT",
+   "desc": "Rolls cost 10% less stamina.",
+   "file": "st_dodge_lt.png",
+   "max": 2,
+   "branch": "LEGS"
+  },
+  "gob_ghost": {
+   "name": "GHOST STEP",
+   "desc": "+5% dodge chance.",
+   "file": "st_dash_lt.png",
+   "max": 1,
+   "branch": "LEGS"
+  },
+  "gob_core_hp": {
+   "name": "CHASSIS",
+   "desc": "+2 max HP per level.",
+   "file": "st_max_hp_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "gob_core_power": {
+   "name": "SERVOS",
+   "desc": "+5% damage and +3% attack speed per level.",
+   "file": "st_dmg_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "gob_core_yield": {
+   "name": "DATA SIPHON",
+   "desc": "+5% XP and +10% Ape Mini per run per level; at level 3 one draft reroll per run.",
+   "file": "st_xp_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "gob_core_alloy": {
+   "name": "ALLOY FRAME",
+   "desc": "+2 max HP and +2% dodge per level.",
+   "file": "st_dodge_lt.png",
+   "max": 3,
+   "branch": "CHASSIS"
+  },
+  "gob_core_overclock": {
+   "name": "OVERCLOCK",
+   "desc": "+4% attack speed and +4% move speed per level.",
+   "file": "st_overclock_lt.png",
+   "max": 3,
+   "branch": "CHASSIS"
+  },
+  "geez_hide": {
+   "name": "THICK HIDE",
+   "desc": "+2 max HP.",
+   "file": "st_max_hp_lt.png",
+   "max": 3,
+   "branch": "FISTS"
+  },
+  "geez_plating": {
+   "name": "PLATING",
+   "desc": "Take 4% less damage.",
+   "file": "st_dodge_lt.png",
+   "max": 3,
+   "branch": "PLATE"
+  },
+  "geez_thorns": {
+   "name": "THORNS",
+   "desc": "15% of a hit is dealt back.",
+   "file": "st_thorns_lt.png",
+   "max": 2,
+   "branch": "PLATE"
+  },
+  "geez_ironstart": {
+   "name": "IRON PRIMED",
+   "desc": "Start every run with Iron Hide on [Z].",
+   "file": "st_overclock_lt.png",
+   "max": 1,
+   "branch": "PLATE"
+  },
+  "geez_dense": {
+   "name": "DENSE PLATE",
+   "desc": "Take 5% less damage.",
+   "file": "st_dodge_lt.png",
+   "max": 2,
+   "branch": "PLATE"
+  },
+  "geez_bastion": {
+   "name": "BASTION",
+   "desc": "20% more of a hit is dealt back.",
+   "file": "st_thorns_lt.png",
+   "max": 1,
+   "branch": "PLATE"
+  },
+  "geez_fists": {
+   "name": "HEAVY FISTS",
+   "desc": "+5% damage.",
+   "file": "st_dmg_lt.png",
+   "max": 3,
+   "branch": "FISTS"
+  },
+  "geez_shove": {
+   "name": "SHOVE",
+   "desc": "+15% knockback.",
+   "file": "st_knockback_lt.png",
+   "max": 2,
+   "branch": "FISTS"
+  },
+  "geez_quake": {
+   "name": "DEEP QUAKE",
+   "desc": "The quake hits 30% harder.",
+   "file": "st_crit_lt.png",
+   "max": 1,
+   "branch": "FISTS"
+  },
+  "geez_knuckle": {
+   "name": "IRON KNUCKLE",
+   "desc": "+5% damage.",
+   "file": "st_dmg_lt.png",
+   "max": 2,
+   "branch": "FISTS"
+  },
+  "geez_wrecking": {
+   "name": "WRECKING BALL",
+   "desc": "The slam reaches 30% further.",
+   "file": "st_knockback_lt.png",
+   "max": 1,
+   "branch": "FISTS"
+  },
+  "geez_charge": {
+   "name": "SHOULDER",
+   "desc": "The charge does +1 damage.",
+   "file": "st_dash_lt.png",
+   "max": 3,
+   "branch": "CHARGE"
+  },
+  "geez_stamina": {
+   "name": "DEEP LUNGS",
+   "desc": "+20 max stamina.",
+   "file": "st_regen_lt.png",
+   "max": 2,
+   "branch": "CHARGE"
+  },
+  "geez_secondwind": {
+   "name": "LAST STAND",
+   "desc": "Survive one killing blow per run.",
+   "file": "st_revive_lt.png",
+   "max": 1,
+   "branch": "CHARGE"
+  },
+  "geez_lungs": {
+   "name": "LONG CHARGE",
+   "desc": "Stamina comes back 10% faster.",
+   "file": "st_regen_lt.png",
+   "max": 2,
+   "branch": "CHARGE"
+  },
+  "geez_juggernaut": {
+   "name": "JUGGERNAUT",
+   "desc": "The charge does +2 damage.",
+   "file": "st_dash_lt.png",
+   "max": 1,
+   "branch": "CHARGE"
+  },
+  "geez_core_hp": {
+   "name": "CHASSIS",
+   "desc": "+2 max HP per level.",
+   "file": "st_max_hp_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "geez_core_power": {
+   "name": "SERVOS",
+   "desc": "+5% damage and +3% attack speed per level.",
+   "file": "st_dmg_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "geez_core_yield": {
+   "name": "DATA SIPHON",
+   "desc": "+5% XP and +10% Ape Mini per run per level; at level 3 one draft reroll per run.",
+   "file": "st_xp_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "geez_core_alloy": {
+   "name": "ALLOY FRAME",
+   "desc": "+2 max HP and +2% dodge per level.",
+   "file": "st_dodge_lt.png",
+   "max": 3,
+   "branch": "CHASSIS"
+  },
+  "geez_core_overclock": {
+   "name": "OVERCLOCK",
+   "desc": "+4% attack speed and +4% move speed per level.",
+   "file": "st_overclock_lt.png",
+   "max": 3,
+   "branch": "CHASSIS"
+  }
+ }
+}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArrowLeft, Check, Copy, Loader2, RefreshCcw, Search } from 'lucide-react'
+import CATALOG from '@/lib/survivalGameCatalog.json'
 
 /**
  * Droidz Survival → Players (the owner, 24.09.2026): every player in one table, and a full
@@ -57,10 +58,66 @@ const dur = (ms: number | null | undefined) => {
     if (t < 3600) return `${Math.floor(t / 60)}m ${t % 60}s`
     return `${Math.floor(t / 3600)}h ${Math.floor((t % 3600) / 60)}m`
 }
-/** 'volt_core_hp' under hero 'volt' → 'core hp'. */
+/**
+ * The game's own names and pictures (owner, 24.09: «я с игры ничего не знаю по названиям,
+ * только визуально»). survivalGameCatalog.json is exported from the game configs by
+ * `npx tsx tools/export-panel-catalog.ts` in the game repo — rerun it when heroes, trees,
+ * items or enemies change.
+ */
+type Pic = { name: string; file: string | null; box?: number[]; desc?: string; max?: number; branch?: string }
+const CAT = CATALOG as unknown as { base: string } & Record<'heroes' | 'weapons' | 'enemies' | 'items' | 'resources' | 'nodes', Record<string, Pic>>
+const pretty = (id: string) => id.replace(/_/g, ' ')
+/** 'volt_core_hp' under hero 'volt' → 'CHASSIS' (the id without its hero prefix when the catalog lacks it). */
 const nodeName = (hero: string, id: string) => {
+    const known = CAT.nodes[id]?.name
+    if (known) return known
     const p = { goblin: 'gob' }[hero] ?? hero
-    return (id.startsWith(`${p}_`) ? id.slice(p.length + 1) : id).replace(/_/g, ' ')
+    return pretty(id.startsWith(`${p}_`) ? id.slice(p.length + 1) : id)
+}
+
+/**
+ * One picture from the game at a fixed size. Animation frames are 324×164 with the figure
+ * somewhere inside, so they are cropped to the figure's box (box = x0, y0, x1, y1, w, h);
+ * icons are drawn whole. Pixel art stays sharp.
+ */
+function GamePic({ pic, size = 28, title }: { pic?: Pic; size?: number; title?: string }) {
+    if (!pic?.file) return <span style={{ width: size, height: size }} className="inline-block flex-shrink-0 rounded bg-white/5" title={title} />
+    const url = CAT.base + pic.file
+    const b = pic.box
+    if (!b) return <img src={url} alt="" width={size} height={size} title={title} className="flex-shrink-0" style={{ imageRendering: 'pixelated' }} />
+    const [x0, y0, x1, y1, w, h] = b
+    const k = Math.min((size - 4) / (x1 - x0), (size - 4) / (y1 - y0))
+    return (
+        // The droids and the enemies are near-black silhouettes by design: they sit on a light tile, like the game's fog.
+        <span title={title} className="inline-block flex-shrink-0 rounded-[4px]" style={{
+            width: size, height: size, imageRendering: 'pixelated', backgroundColor: '#96a0b4', backgroundImage: `url(${url})`, backgroundRepeat: 'no-repeat',
+            backgroundSize: `${w * k}px ${h * k}px`,
+            backgroundPosition: `${-x0 * k + (size - (x1 - x0) * k) / 2}px ${-y0 * k + (size - (y1 - y0) * k) / 2}px`,
+        }} />
+    )
+}
+
+/** A picture with its name — the chip every list in the report uses. */
+function Chip({ pic, label, extra, title, className = '' }: { pic?: Pic; label: string; extra?: React.ReactNode; title?: string; className?: string }) {
+    return (
+        <span title={title} className={`inline-flex items-center gap-1.5 rounded-md border px-1.5 py-1 text-[10px] ${className || 'bg-white/5 border-white/10'}`}>
+            <GamePic pic={pic} size={22} />
+            <span className="font-black uppercase tracking-wide">{label}</span>
+            {extra}
+        </span>
+    )
+}
+
+function Resources({ res }: { res: Record<string, number | undefined> }) {
+    return (
+        <span className="inline-flex flex-wrap items-center gap-2.5">
+            {(['scrap', 'circuit', 'cell', 'core'] as const).map((r) => (
+                <span key={r} className="inline-flex items-center gap-1" title={CAT.resources[r]?.name ?? r}>
+                    <GamePic pic={CAT.resources[r]} size={18} /><span className="font-mono text-xs">{res[r] ?? 0}</span>
+                </span>
+            ))}
+        </span>
+    )
 }
 const RARITY: Record<string, string> = { common: 'text-white/60', rare: 'text-sky-400', epic: 'text-fuchsia-400', legendary: 'text-amber-400' }
 const ACCESS: Record<Row['access'], string> = { active: 'text-emerald-400', expired: 'text-amber-400/80', revoked: 'text-white/30 line-through', none: 'text-white/25' }
@@ -171,8 +228,8 @@ export function SurvivalPlayers() {
                                 <td className="text-right font-black">{num(r.best)}</td>
                                 <td className="text-right text-white/60">{dur(r.playMs)}</td>
                                 <td className="text-right text-[#3b82f6] font-black">{num(r.coins)}</td>
-                                <td className="text-right font-mono text-white/60">{r.resources.scrap}/{r.resources.circuit}/{r.resources.cell}/{r.resources.core}</td>
-                                <td className="text-right text-white/60">{r.heroes.length}</td>
+                                <td className="text-right text-white/60"><Resources res={r.resources} /></td>
+                                <td className="text-right"><span className="inline-flex gap-0.5 justify-end">{r.heroes.map((h) => <GamePic key={h} pic={CAT.heroes[h]} size={20} title={CAT.heroes[h]?.name ?? h} />)}</span></td>
                                 <td className="text-right text-white/60">{r.treeLevels}</td>
                                 <td className="text-right text-white/60">{r.items}</td>
                                 <td className={`text-right font-black ${r.drift ? 'text-orange-400' : 'text-white/20'}`}>{r.drift || '·'}</td>
@@ -241,22 +298,23 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
                 <Kv k="Playtime" v={dur(d.stats.playMs)} accent="text-[#3b82f6]" />
                 <Kv k="Kills (lifetime)" v={num(st.lifetime?.kills)} />
                 <Kv k="Ape Mini" v={num(st.coins)} accent="text-[#3b82f6]" />
-                <Kv k="Resources" v={<span className="font-mono text-xs">scrap {res.scrap ?? 0} · circuit {res.circuit ?? 0} · cell {res.cell ?? 0} · core {res.core ?? 0}</span>} />
+                <Kv k="Resources" v={<Resources res={res} />} />
             </div>
 
             {!d.profile ? <div className="text-white/30 text-xs">No save on the server for this wallet yet.</div> : (
                 <>
                     <div className="grid lg:grid-cols-2 gap-4">
-                        <Box title="Heroes & skill trees" hint={`selected: ${st.selectedHero ?? '—'}`}>
+                        <Box title="Heroes & skill trees" hint={`selected: ${CAT.heroes[st.selectedHero]?.name ?? st.selectedHero ?? '—'}`}>
                             <div className="space-y-3">
                                 {(Array.isArray(st.unlockedHeroes) ? st.unlockedHeroes as string[] : []).map((h) => {
                                     const t = Object.entries(trees[h] ?? {}).filter(([, n]) => Number(n) > 0)
                                     return (
                                         <div key={h}>
-                                            <div className="text-xs font-black uppercase tracking-widest">{h}{h === st.selectedHero ? <span className="text-emerald-400"> · selected</span> : null}<span className="text-white/30 font-normal normal-case tracking-normal"> — {t.reduce((n, [, v]) => n + Number(v), 0)} levels</span></div>
+                                            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest"><GamePic pic={CAT.heroes[h]} size={36} />{CAT.heroes[h]?.name ?? h}{h === st.selectedHero ? <span className="text-emerald-400"> · selected</span> : null}<span className="text-white/30 font-normal normal-case tracking-normal"> — {t.reduce((n, [, v]) => n + Number(v), 0)} levels</span></div>
                                             {t.length === 0 ? <div className="text-white/30 text-xs">nothing bought</div> : (
                                                 <div className="flex flex-wrap gap-1.5 mt-1">{t.map(([id, n]) => (
-                                                    <span key={id} className="rounded-md bg-white/5 border border-white/10 px-1.5 py-0.5 text-[10px] font-mono">{nodeName(h, id)} <span className="text-[#3b82f6] font-black">{n}</span></span>
+                                                    <Chip key={id} pic={CAT.nodes[id]} label={nodeName(h, id)} title={CAT.nodes[id] ? `${CAT.nodes[id].branch} — ${CAT.nodes[id].desc}` : id}
+                                                        extra={<span className="text-[#3b82f6] font-black">{n}{CAT.nodes[id]?.max ? <span className="text-white/30">/{CAT.nodes[id].max}</span> : null}</span>} />
                                                 ))}</div>
                                             )}
                                         </div>
@@ -266,11 +324,11 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
                         </Box>
                         <Box title="Weapons & cosmetics">
                             <div className="text-xs space-y-1.5">
-                                <div>Selected: <span className="font-black">{st.selectedWeapon ?? '—'}</span></div>
+                                <div>Selected: <span className="font-black">{CAT.weapons[st.selectedWeapon]?.name ?? st.selectedWeapon ?? '—'}</span></div>
                                 <div className="flex flex-wrap gap-1.5">{(Array.isArray(st.unlockedWeapons) ? st.unlockedWeapons as string[] : []).map((w) => (
-                                    <span key={w} className="rounded-md bg-white/5 border border-white/10 px-1.5 py-0.5 text-[10px] font-mono">{w} <span className="text-[#3b82f6] font-black">T{tiers[w] ?? 1}</span></span>
+                                    <Chip key={w} pic={CAT.weapons[w]} label={CAT.weapons[w]?.name ?? pretty(w)} extra={<span className="text-[#3b82f6] font-black">T{tiers[w] ?? 1}</span>} />
                                 ))}</div>
-                                <div className="text-white/50">Cosmetics: {(Array.isArray(st.cosmetics) ? st.cosmetics : []).join(', ') || '—'} · worn {st.cosmetic ?? '—'}</div>
+                                <div className="text-white/50">Cosmetics: {(Array.isArray(st.cosmetics) ? st.cosmetics as string[] : []).map(pretty).join(', ') || '—'} · worn {st.cosmetic ? pretty(st.cosmetic) : '—'}</div>
                                 <div className="text-white/50">Boost waiting: {st.boost ?? 'none'} · clan in save: {st.clan || '—'}</div>
                             </div>
                         </Box>
@@ -280,9 +338,9 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
                         <Box title="Bag" hint={`${items.length} items · ${equipped.size} equipped`}>
                             {items.length === 0 ? <div className="text-white/30 text-xs">Empty.</div> : (
                                 <div className="flex flex-wrap gap-1.5">{items.map((it) => (
-                                    <span key={it.uid} className={`rounded-md border px-1.5 py-0.5 text-[10px] ${equipped.has(it.uid) ? 'border-emerald-400/50 bg-emerald-400/10' : 'border-white/10 bg-white/5'}`}>
-                                        <span className={RARITY[it.rarity] ?? 'text-white/60'}>{it.rarity}</span> {it.kind}{equipped.has(it.uid) ? ' ✓' : ''}
-                                    </span>
+                                    <Chip key={it.uid} pic={CAT.items[it.kind]} label={CAT.items[it.kind]?.name ?? it.kind} title={`${it.rarity} — ${CAT.items[it.kind]?.desc ?? ''}${equipped.has(it.uid) ? ' · equipped' : ''}`}
+                                        className={equipped.has(it.uid) ? 'border-emerald-400/50 bg-emerald-400/10' : 'border-white/10 bg-white/5'}
+                                        extra={<><span className={`uppercase ${RARITY[it.rarity] ?? 'text-white/60'}`}>{it.rarity}</span>{equipped.has(it.uid) ? <span className="text-emerald-400">✓</span> : null}</>} />
                                 ))}</div>
                             )}
                         </Box>
@@ -298,7 +356,7 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
 
                     <Box title="Bestiary" hint={`${bestiary.length} kinds met`}>
                         <div className="flex flex-wrap gap-1.5">{bestiary.map(([k, n]) => (
-                            <span key={k} className="rounded-md bg-white/5 border border-white/10 px-1.5 py-0.5 text-[10px] font-mono">{k} <span className="text-white/50">{num(n)}</span></span>
+                            <Chip key={k} pic={CAT.enemies[k]} label={CAT.enemies[k]?.name ?? pretty(k)} extra={<span className="text-white/50 font-mono">{num(n)}</span>} />
                         ))}</div>
                     </Box>
                 </>
@@ -312,7 +370,7 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
                             <tr key={r.id} className="border-t border-white/5">
                                 <td className="py-1 font-mono text-white/40 whitespace-nowrap">{when(r.started_at)}</td>
                                 <td className={`font-black uppercase text-[9px] ${r.status === 'finished' ? 'text-emerald-400' : r.status === 'rejected' ? 'text-red-400' : 'text-white/40'}`}>{r.status}{r.reject_reason ? <span className="text-orange-400 normal-case font-normal"> {r.reject_reason}</span> : null}</td>
-                                <td className="text-white/60">{r.hero ?? '—'} · {r.weapon ?? '—'}</td>
+                                <td className="text-white/60"><span className="inline-flex items-center gap-1.5">{r.hero ? <GamePic pic={CAT.heroes[r.hero]} size={20} /> : null}{CAT.heroes[r.hero ?? '']?.name ?? r.hero ?? '—'} · {CAT.weapons[r.weapon ?? '']?.name ?? r.weapon ?? '—'}</span></td>
                                 <td className="text-right font-black">{num(r.score)}</td><td className="text-right">{r.wave ?? '—'}</td><td className="text-right">{r.kills ?? '—'}</td>
                                 <td className="text-right text-white/50">{dur(r.server_duration_ms)}</td><td className="text-right text-white/50">{dur(r.client_duration_ms)}</td>
                                 <td className="pl-3 font-mono text-white/30">{r.client_version}</td>

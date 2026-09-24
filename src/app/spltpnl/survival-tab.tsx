@@ -212,15 +212,17 @@ function SurvivalOverview() {
                 <Stat label="Beta rating (reviews)" value={fs.count ? `${fs.avgRating} ★ (${fs.count})` : '—'} accent={fs.count ? 'text-[#ffcf4a]' : 'text-white'} />
             </div>
 
-            <div className="grid gap-5">
+            {/* Side by side again, each list scrolls in a fixed box (owner, 24.09: «слишком много места
+                стали занимать лидерборд и валлеты — раньше расположение было лучше»). Addresses stay full. */}
+            <div className="grid lg:grid-cols-2 gap-5 items-start">
                 <Section title="Season board" hint={`top ${data.board.length}`}>
                     {data.board.length === 0 ? <div className="text-white/30 text-xs">No accepted runs yet.</div> : (
-                        <table className="w-full text-xs">
+                        <div className="max-h-80 overflow-auto"><table className="w-full text-xs">
                             <thead><tr className="text-white/30 text-[9px] uppercase tracking-widest"><th className="text-left py-1">#</th><th className="text-left">Player</th><th className="text-right">Score</th><th className="text-right">Wave</th><th className="text-right">Kills</th><th className="text-right">Runs</th></tr></thead>
                             <tbody>{data.board.map((b) => (
                                 <tr key={b.rank} className="border-t border-white/5"><td className="py-1 text-white/50">{b.rank}</td><td><W w={b.wallet_short} names={names} full={false} />{b.display_name ? <span className="text-white/40"> · {b.display_name}</span> : null}</td><td className="text-right font-black">{b.score}</td><td className="text-right text-white/60">{b.wave}</td><td className="text-right text-white/60">{b.kills}</td><td className="text-right text-white/40">{b.runs_count}</td></tr>
                             ))}</tbody>
-                        </table>
+                        </table></div>
                     )}
                 </Section>
 
@@ -240,14 +242,14 @@ function SurvivalOverview() {
                     {/* Full width, full addresses (owner, 24.09: «кошельки обрезаются — не на всё окно»):
                         the list used to sit in half the page, 256px tall, with shortened wallets. */}
                     <input value={accessQ} onChange={(e) => setAccessQ(e.target.value)} placeholder="filter by wallet or note…" className="w-full mb-2 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#3b82f6]" />
-                    <div className="max-h-[70vh] overflow-auto divide-y divide-white/5">
+                    <div className="max-h-80 overflow-auto divide-y divide-white/5">
                         {data.allowlist.length === 0 && <div className="text-white/30 text-xs">The list is empty.</div>}
                         {data.allowlist.filter((a) => { const n = accessQ.trim().toLowerCase(); return !n || a.wallet.toLowerCase().includes(n) || (a.note ?? '').toLowerCase().includes(n) }).map((a) => (
-                            <div key={a.wallet} className={`flex items-center gap-3 py-1.5 text-xs ${a.status === 'active' ? '' : 'opacity-60'}`}>
+                            <div key={a.wallet} className={`flex items-center gap-2 py-1.5 text-xs ${a.status === 'active' ? '' : 'opacity-60'}`}>
                                 {a.status === 'active' ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
                                     : a.status === 'expired' ? <Clock className="h-3.5 w-3.5 text-amber-400/70 flex-shrink-0" />
                                     : <Ban className="h-3.5 w-3.5 text-white/25 flex-shrink-0" />}
-                                <CopyWallet wallet={a.wallet} className={`flex-shrink-0 ${a.status === 'active' ? '' : a.status === 'expired' ? 'text-white/40' : 'text-white/30 line-through'}`} />
+                                <CopyWallet wallet={a.wallet} className={`flex-shrink-0 text-[10px] ${a.status === 'active' ? '' : a.status === 'expired' ? 'text-white/40' : 'text-white/30 line-through'}`} />
                                 {(() => {
                                     const n = holders[a.wallet.toLowerCase()]
                                     if (n === undefined) return <span className="w-16 flex-shrink-0 text-[9px] uppercase tracking-widest text-white/15">·</span>
