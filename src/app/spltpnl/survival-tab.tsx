@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Ban, Check, Clock, Loader2, Plus, RefreshCcw, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { ACCESS_DURATIONS, DEFAULT_ACCESS_DURATION } from '@/lib/survivalDurations'
 import { CopyWallet, SurvivalPlayers } from './survival-players'
+import { SurvivalPayments } from './survival-payments'
+import { SurvivalAlerts } from './survival-alerts'
 
 /**
  * Droidz Survival — the game's own tab in the panel (the owner, 18.09.2026): what is
@@ -120,15 +122,16 @@ const LEVEL_FILTERS: Array<{ id: 'all' | 'problems' | 'errors'; label: string; k
 
 /** Two views: the game at a glance, and every player in full (owner, 24.09.2026). */
 export function SurvivalTab() {
-    const [view, setView] = useState<'overview' | 'players'>('overview')
+    const [view, setView] = useState<'overview' | 'players' | 'payments'>('overview')
     return (
         <div className="space-y-5">
+            <SurvivalAlerts />
             <div className="flex gap-1">
-                {(['overview', 'players'] as const).map((v) => (
+                {(['overview', 'players', 'payments'] as const).map((v) => (
                     <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${view === v ? 'bg-[#3b82f6] text-white' : 'text-white/40 hover:text-white bg-white/5'}`}>{v}</button>
                 ))}
             </div>
-            {view === 'overview' ? <SurvivalOverview /> : <SurvivalPlayers />}
+            {view === 'overview' ? <SurvivalOverview /> : view === 'players' ? <SurvivalPlayers /> : <SurvivalPayments />}
         </div>
     )
 }

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Activity, AlertTriangle, BarChart3, Check, Coins, Crosshair, ExternalLink, Gamepad2, Link2 as LinkIcon, Loader2, Lock, LogOut, Package, Pencil, Plus, RefreshCcw, Search, Sparkles, Target, Trash2, Users, X } from 'lucide-react'
 import { LockerTab } from './locker-tab'
 import { SurvivalTab } from './survival-tab'
+import { useSurvivalAlertCount } from './survival-alerts'
 
 // ── Types (loose — coming from server JSON) ───────────────────────────────────
 
@@ -1856,6 +1857,8 @@ function GlitchCardsTab({ sub, setSub }: { sub: GlitchTabId; setSub: (id: Glitch
  */
 export default function SpltpnlPage() {
     const [{ tab, sub }, setTabs] = useState<{ tab: TabId; sub: GlitchTabId }>({ tab: 'overview', sub: 'cards' })
+    // Urgent Droidz Survival fixes, on the tab itself so they are seen from any tab (owner, 24.09).
+    const survivalAlerts = useSurvivalAlertCount()
     const setTab = useCallback((id: TabId) => setTabs(prev => ({ ...prev, tab: id })), [])
     const setSub = useCallback((id: GlitchTabId) => setTabs({ tab: 'glitch', sub: id }), [])
     useEffect(() => {
@@ -1894,11 +1897,13 @@ export default function SpltpnlPage() {
                 </div>
                 <nav className="max-w-[1400px] mx-auto flex overflow-x-auto px-3 gap-1 -mb-px">
                     {TABS.map(t => {
+                        const badge = t.id === 'survival' ? survivalAlerts : 0
                         const Icon = t.icon
                         const active = tab === t.id
                         return (
                             <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 whitespace-nowrap transition-colors ${active ? 'text-white border-[#3b82f6]' : 'text-white/40 border-transparent hover:text-white/70'}`}>
                                 <Icon size={12} /> {t.label}
+                                {badge > 0 && <span title="Things to fix in Droidz Survival" className="ml-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] leading-4 text-center">{badge}</span>}
                             </button>
                         )
                     })}
