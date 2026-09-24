@@ -27,19 +27,32 @@ export type CatalogKind = 'runs' | 'season_pass' | 'item' | 'box' | 'bundle' | '
 export type CatalogItem = {
     sku: string; kind: CatalogKind; title: string; description: string; price_ape: number
     credits: number; mode: Mode; grant_spec: Record<string, unknown>; active: boolean; sort: number
+    /** Off for ApeDroidz holders, 0–90 (the season pass: 30 — owner, 25.09.2026). */
+    holder_discount_pct: number
 }
 
 export async function loadCatalog(activeOnly = true): Promise<CatalogItem[]> {
-    let q = supabaseAdmin.from('survival_catalog').select('sku, kind, title, description, price_ape, credits, mode, grant_spec, active, sort').order('sort')
+    let q = supabaseAdmin.from('survival_catalog').select('sku, kind, title, description, price_ape, credits, mode, grant_spec, active, sort, holder_discount_pct').order('sort')
     if (activeOnly) q = q.eq('active', true)
     const { data, error } = await q
     if (error) { console.error('[survival/catalog]', error.message); return [] }
-    return ((data as CatalogItem[] | null) ?? []).map((c) => ({ ...c, price_ape: Number(c.price_ape) }))
+    return ((data as CatalogItem[] | null) ?? []).map((c) => ({ ...c, price_ape: Number(c.price_ape), holder_discount_pct: Number(c.holder_discount_pct ?? 0) }))
 }
 
-/** What the game needs to show a price list: no internals. */
-export const publicCatalog = (items: CatalogItem[]) =>
-    items.map(({ sku, kind, title, description, price_ape, credits, mode }) => ({ sku, kind, title, description, priceApe: price_ape, credits, mode }))
+/** What this wallet pays: the holder discount, rounded to 0.01 APE. */
+export const priceFor = (item: CatalogItem, holder: boolean): number =>
+    holder && item.holder_discount_pct > 0 ? Math.round(item.price_ape * (100 - item.holder_discount_pct)) / 100 : item.price_ape
+
+/**
+ * What the game needs to show a price list: no internals. `priceApe` is what THIS wallet pays;
+ * `fullPriceApe` and `holderDiscountPct` let the game strike the full price through for a holder,
+ * and tell everyone else that holders pay less.
+ */
+export const publicCatalog = (items: CatalogItem[], holder = false) =>
+    items.map((i) => ({
+        sku: i.sku, kind: i.kind, title: i.title, description: i.description, priceApe: priceFor(i, holder), fullPriceApe: i.price_ape,
+        holderDiscountPct: i.holder_discount_pct, count: Number((i.grant_spec as { count?: number })?.count ?? 1), credits: i.credits, mode: i.mode,
+    }))
 
 export const MODE_ID: Record<Mode, number> = { solo: 0, coop: 1 }
 export const isMode = (v: unknown): v is Mode => v === 'solo' || v === 'coop'

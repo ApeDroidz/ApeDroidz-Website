@@ -193,10 +193,11 @@ export default function DroidzSurvivalPage() {
             <div className="fixed inset-0 z-0 opacity-40 pointer-events-none mix-blend-lighten"><DigitalBackground /></div>
             <Header onOpenProfile={() => setIsProfileOpen(true)} />
 
-            <main className="relative z-10 mx-auto flex min-h-[100svh] w-full flex-col justify-center px-4 pb-10 pt-24 sm:pt-28">
+            <main className={`relative z-10 mx-auto flex min-h-[100svh] w-full flex-col justify-center px-4 ${gate === 'allowed' && playing ? 'pb-4 pt-20 sm:pt-24' : 'pb-10 pt-24 sm:pt-28'}`}>
                 {gate === 'allowed' && playing ? (
-                    <div className="mx-auto w-full max-w-6xl">
-                        <Heading sub={'Pixel roguelite · Survive the waves'} />
+                    // As big as the screen allows (owner, 25.09.2026: «окно больше, чем сейчас»): the
+                    // 16:9 frame takes the viewport's height under the header, up to the full width.
+                    <div className="mx-auto w-full" style={{ maxWidth: 'min(100%, calc((100svh - 150px) * 16 / 9))' }}>
                     <motion.div
                         initial={{ opacity: 0, scale: 0.985 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -231,9 +232,6 @@ export default function DroidzSurvivalPage() {
                                 />
                             </div>
                         </div>
-                        <p className="mt-4 text-center font-mono text-[11px] uppercase tracking-widest text-white/30">
-                            Arrows / WASD move · C attack · Space jump · Enter confirm · Esc back
-                        </p>
                     </motion.div>
                     </div>
                 ) : (

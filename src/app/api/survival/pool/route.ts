@@ -13,6 +13,8 @@ import { supabaseAdmin } from '@/lib/supabase'
  * vault and the ledger books it as solo_pool / coop_pool. The pre-split bucket (season_pool) counts
  * as solo. `games` = runs played to the end this season; `players` = wallets that played one.
  *
+ * `reserveApe` is frozen for the next season; `payoutApe` is what this one pays (lib/survivalForecast.ts).
+ *
  * 204 when no season is live — the game then shows no number rather than an invented one.
  */
 export const dynamic = 'force-dynamic'
@@ -22,7 +24,7 @@ const round = (n: number) => Math.round(n * 1e6) / 1e6
 export async function GET() {
     if (!supabaseAdmin) return new NextResponse(null, { status: 204 })
     const { data: season, error } = await supabaseAdmin.from('survival_seasons')
-        .select('id, name, ends_at, pays_out').eq('status', 'live').limit(1).maybeSingle()
+        .select('id, name, ends_at, pays_out, payout_pct').eq('status', 'live').limit(1).maybeSingle()
     if (error || !season) return new NextResponse(null, { status: 204 })
 
     // Counted in the database (survival_pool_stats): one row out, however long the season.
@@ -40,6 +42,11 @@ export async function GET() {
         players, games, soloGames: Number(r.solo_games ?? 0), coopGames: Number(r.coop_games ?? 0),
         // legacy fields the Season screen reads
         totalRuns: games, totalPlayers: players,
+        // Frozen for the next season's start (owner, 25.09.2026: «сразу замораживать 10–15% пула на
+        // старт следующего сезона и тоже это показывать»); the rest is what the season pays out.
+        reservePct: Math.round((1 - Number(season.payout_pct ?? 0.9)) * 100),
+        reserveApe: round((solo + coop) * (1 - Number(season.payout_pct ?? 0.9))),
+        payoutApe: round((solo + coop) * Number(season.payout_pct ?? 0.9)),
     }, {
         // Shared cache: every menu asks, nobody needs it to the second. At the edge for 30 s, so
         // however many players sit on the menu, the function runs about twice a minute.

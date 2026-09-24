@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer } from '@/lib/survivalRuns'
 import { CASHIER, loadCatalog, publicCatalog } from '@/lib/survivalShop'
 import { settlePending } from '@/lib/survivalSettle'
+import { isDroidHolder } from '@/lib/droidHolder'
 
 /**
  * GET /api/survival/credits → { ok, credits: { solo, coop }, booked, paidRuns, shop: { configured, items } }
@@ -24,8 +25,10 @@ export async function GET(req: NextRequest) {
     if (error) { console.error('[survival/credits]', error.message); return noServer() }
     const rows = (data as Array<{ mode: string }> | null) ?? []
     const credits = { solo: rows.filter((r) => r.mode === 'solo').length, coop: rows.filter((r) => r.mode === 'coop').length }
+    const catalog = await loadCatalog(true)
+    const holder = catalog.some((i) => i.holder_discount_pct > 0) ? await isDroidHolder(caller.wallet) : false
     return NextResponse.json({
         ok: true, credits, booked, paidRuns: process.env.SURVIVAL_PAID_RUNS === '1',
-        shop: { configured: !!CASHIER, items: publicCatalog(await loadCatalog(true)) },
+        shop: { configured: !!CASHIER, holder, items: publicCatalog(catalog, holder) },
     }, { headers: { 'cache-control': 'no-store' } })
 }

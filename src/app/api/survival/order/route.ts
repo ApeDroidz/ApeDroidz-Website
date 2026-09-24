@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { eth_blockNumber } from 'thirdweb/rpc'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer, readBody } from '@/lib/survivalRuns'
-import { apeToWei, CASHIER, describe, encodePay, isMode, loadCatalog, modeOpen } from '@/lib/survivalShop'
+import { apeToWei, CASHIER, describe, encodePay, isMode, loadCatalog, modeOpen, priceFor } from '@/lib/survivalShop'
+import { isDroidHolder } from '@/lib/droidHolder'
+import { seasonVisibleFor } from '@/lib/survivalAccess'
 import { rpc } from '@/lib/survivalSettle'
 
 /**
@@ -30,6 +32,8 @@ export async function POST(req: NextRequest) {
     if (typeof body.sku !== 'string' || !/^[a-z0-9_]{2,32}$/.test(body.sku)) return NextResponse.json({ ok: false, state: 'malformed' }, { headers: noStore })
     const item = (await loadCatalog(true)).find((c) => c.sku === body.sku)
     if (!item) return NextResponse.json({ ok: false, state: 'unknown_item' }, { headers: noStore })
+    // The pass is sold where the season is open for sale (SURVIVAL_SEASON_OPEN or a preview wallet).
+    if (item.kind === 'season_pass' && !seasonVisibleFor(caller.wallet)) return NextResponse.json({ ok: false, state: 'unknown_item' }, { headers: noStore })
     const platform = body.platform === 'otherside' ? 'otherside' : 'site'
     const mode = item.kind === 'runs' && isMode(body.mode) ? body.mode : item.mode
     if (!modeOpen(mode)) return NextResponse.json({ ok: false, state: 'mode_closed' }, { headers: noStore })
@@ -44,16 +48,19 @@ export async function POST(req: NextRequest) {
     // A first-time player may buy before ever starting a run: the player row must exist (FK).
     await supabaseAdmin.from('survival_players').upsert({ wallet: caller.wallet, last_seen: new Date().toISOString() }, { onConflict: 'wallet' })
     // Where to look for the Paid event later if the client never returns with the hash.
+    // An ApeDroidz holder pays the discounted price (the season pass: −30%). Checked here, on the
+    // server, and copied into the order — settlement then holds the payment to exactly this price.
+    const price = item.holder_discount_pct > 0 ? priceFor(item, await isDroidHolder(caller.wallet)) : item.price_ape
     const fromBlock = await eth_blockNumber(rpc()).then((b) => Number(b)).catch(() => null)
     const { data: order, error } = await supabaseAdmin.from('survival_orders').insert({
         wallet: caller.wallet, season_id: season.id, sku: item.sku, kind: item.kind, credits: item.kind === 'runs' ? item.credits : 0,
-        price_ape: item.price_ape, min_wei: apeToWei(item.price_ape).toString(), grant_spec: item.grant_spec,
+        price_ape: price, min_wei: apeToWei(price).toString(), grant_spec: item.grant_spec,
         platform, from_block: fromBlock, mode,
     }).select('id').single()
     if (error || !order) { console.error('[survival/order]', error?.message); return noServer() }
 
     return NextResponse.json({
-        ok: true, orderId: order.id, to: CASHIER, valueApe: String(item.price_ape),
+        ok: true, orderId: order.id, to: CASHIER, valueApe: String(price),
         mode, data: encodePay(caller.wallet, order.id, mode), description: describe(item, mode),
     }, { headers: noStore })
 }

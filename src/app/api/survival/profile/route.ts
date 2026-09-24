@@ -8,7 +8,9 @@ import { seasonVisibleFor } from '@/lib/survivalAccess'
  * The player's progress, on the server.
  *
  *   GET  /api/survival/profile                → { ok, state, season: { seasonId, season, daily } | null,
- *                                                  features: { season } — what the game may show this wallet }
+ *                                                  features: { season, passOnSale, paidRuns } — what the game may show this wallet }
+ * The Season screen is open to everyone (25.09.2026: it holds the pool and the leaderboard now); the
+ * pass is on sale only where seasonVisibleFor says so (SURVIVAL_SEASON_OPEN=1, or a preview wallet).
  *                                              or { ok: true, state: null } for a wallet with none yet
  *   PUT  /api/survival/profile { state, seasonId, season, daily, clientVersion }
  *
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(
-        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: seasonVisibleFor(caller.wallet), paidRuns: process.env.SURVIVAL_PAID_RUNS === '1' } },
+        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: true, passOnSale: seasonVisibleFor(caller.wallet), paidRuns: process.env.SURVIVAL_PAID_RUNS === '1' } },
         { headers: { 'cache-control': 'no-store' } },
     )
 }

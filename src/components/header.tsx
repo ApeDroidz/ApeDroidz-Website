@@ -43,21 +43,13 @@ interface NavGroup {
 
 // Единый источник навигации для десктопа и мобильного меню.
 //
-// Порядок здесь — это порядок на экране: Dashboard → Games → Upgrade → Tools →
+// Порядок здесь — это порядок на экране: Dashboard → Droidz Survival → Glitch Cards → Upgrade → Tools →
 // Links → Staking. Раньше прямые ссылки и группы рисовались двумя отдельными
 // списками, из-за чего порядок нельзя было задать, только подстроить рендер.
-// Games (владелец, 19.09) — вторая вкладка: Droidz Survival первым, Glitch Cards
-// вторым; прямой ссылки на Glitch Cards больше нет, она живёт внутри Games.
+// Игры — отдельными пунктами, без папки Games (владелец, 25.09.2026: «Droidz Survival вытащить
+// в меню отдельно — это важно, и Glitch Cards следом»).
 // Staking стоит последним и помечен Soon: внутри обе страницы закрыты.
 const NAV_GROUPS: NavGroup[] = [
-  {
-    key: "games",
-    label: "Games",
-    items: [
-      { href: "/droidz_survival", label: "Droidz Survival" },
-      { href: "/glitch_games/cards", label: "Glitch Cards" },
-    ],
-  },
   {
     key: "staking",
     label: "Staking",
@@ -97,6 +89,8 @@ const NAV_GROUPS: NavGroup[] = [
 
 const DIRECT_LINKS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/droidz_survival", label: "Droidz Survival" },
+  { href: "/glitch_games/cards", label: "Glitch Cards" },
 ];
 
 type NavEntry = { kind: "link"; item: NavItem } | { kind: "group"; group: NavGroup };
@@ -106,7 +100,8 @@ const byKey = (key: string) => NAV_GROUPS.find((g) => g.key === key)!;
 /** The single ordered navigation the user asked for, desktop and mobile alike. */
 const NAV_ORDER: NavEntry[] = [
   { kind: "link", item: DIRECT_LINKS[0] },          // Dashboard
-  { kind: "group", group: byKey("games") },         // Games → Droidz Survival / Glitch Cards
+  { kind: "link", item: DIRECT_LINKS[1] },          // Droidz Survival
+  { kind: "link", item: DIRECT_LINKS[2] },          // Glitch Cards
   { kind: "group", group: byKey("upgrade") },       // Upgrade → Module / Batteries / Merge
   { kind: "group", group: byKey("tools") },         // Tools
   { kind: "group", group: byKey("links") },         // Links

@@ -57,6 +57,15 @@ export async function GET() {
         }
     }
 
+    // Season-pass holders are marked on the board (owner, 25.09.2026: «в лидерборде помечать
+    // жёлтой надписью PASS, у кого есть пропуск») — only they share the pool.
+    const passHolders = new Set<string>()
+    if (wallets.length) {
+        const { data: passes } = await supabaseAdmin.from('survival_entitlements').select('wallet')
+            .eq('season_id', season.id).eq('kind', 'season_pass').in('wallet', wallets)
+        for (const p of (passes ?? []) as Array<{ wallet: string }>) passHolders.add(p.wallet)
+    }
+
     const clanOf = new Map(players.map((p) => [p.wallet, p]))
     const xOf = new Map<string, string>()
     for (const row of xs) {
@@ -76,6 +85,7 @@ export async function GET() {
                 hero: b.run_id ? heroOf.get(b.run_id) ?? null : null,
                 score: Number(b.score), wave: Number(b.wave), kills: Number(b.kills),
                 runs: Number(b.runs_count),
+                pass: passHolders.has(b.wallet),
             }
         })
 
