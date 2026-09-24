@@ -61,10 +61,12 @@ const LOG_SPAN = BigInt(400_000)
  */
 export async function settlePending(wallet: string): Promise<number> {
     if (!CASHIER) return 0
-    const since = new Date(Date.now() - 7 * 86_400_000).toISOString()
+    // Two days back is plenty: a paid order is booked on the pay report or the next reads; an order
+    // left unpaid for days is not scanned for on every visit (each costs chain reads).
+    const since = new Date(Date.now() - 2 * 86_400_000).toISOString()
     const { data } = await supabaseAdmin.from('survival_orders').select(ORDER_COLUMNS)
         .eq('wallet', wallet).eq('status', 'pending').gte('created_at', since).not('from_block', 'is', null)
-        .order('created_at', { ascending: false }).limit(10)
+        .order('created_at', { ascending: false }).limit(5)
     const orders = (data as OrderRow[] | null) ?? []
     if (orders.length === 0) return 0
     const head = await eth_blockNumber(rpc()).catch(() => null)

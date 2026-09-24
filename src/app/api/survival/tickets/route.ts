@@ -20,7 +20,7 @@ export async function GET() {
         .filter((p) => p.stock === null || p.stock > 0)
     const total = rows.reduce((a, p) => a + p.weight, 0)
     return NextResponse.json({
-        sku: ticket?.sku ?? null, priceApe: ticket?.price_ape ?? null,
+        sku: ticket?.sku ?? null, priceApe: ticket?.price_ape ?? null, fullPriceApe: ticket?.list_price_ape ?? null, salePct: ticket?.sale_pct ?? 0, saleUntil: ticket?.sale_until ?? null,
         prizes: rows.map((p) => ({ id: p.id, label: p.label, kind: p.kind, spec: p.spec, chance: total ? p.weight / total : 0 })),
     }, { headers: { 'cache-control': 'public, max-age=30, s-maxage=60' } })
 }

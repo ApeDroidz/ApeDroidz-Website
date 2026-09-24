@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
-import { loadCatalog } from '@/lib/survivalShop'
+import { loadCatalog, type CatalogItem } from '@/lib/survivalShop'
+
+/** The editor edits LIST prices: a running sale is shown beside them, never saved over them. */
+const forEditor = (items: CatalogItem[]) => items.map((i) => ({ ...i, price_ape: i.list_price_ape, sale_price_ape: i.price_ape }))
 import { logEvent } from '@/lib/survivalLog'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +24,7 @@ const KINDS = ['runs', 'season_pass', 'item', 'box', 'bundle', 'ticket']
 export async function GET(request: NextRequest) {
     const denied = await requireAdmin(request)
     if (denied) return denied
-    return NextResponse.json({ ok: true, items: await loadCatalog(false) }, { headers })
+    return NextResponse.json({ ok: true, items: forEditor(await loadCatalog(false)) }, { headers })
 }
 
 export async function POST(request: NextRequest) {
@@ -51,5 +54,5 @@ export async function POST(request: NextRequest) {
     const { error } = await supabaseAdmin.from('survival_catalog').upsert(row, { onConflict: 'sku' })
     if (error) return NextResponse.json({ error: error.message }, { status: 400, headers })
     logEvent({ level: 'info', source: 'server', kind: 'catalog.change', message: sku, data: { before, after: { price_ape: row.price_ape, active: row.active, credits } } })
-    return NextResponse.json({ ok: true, items: await loadCatalog(false) }, { headers })
+    return NextResponse.json({ ok: true, items: forEditor(await loadCatalog(false)) }, { headers })
 }

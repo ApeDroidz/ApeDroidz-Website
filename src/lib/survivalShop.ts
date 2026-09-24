@@ -29,14 +29,30 @@ export type CatalogItem = {
     credits: number; mode: Mode; grant_spec: Record<string, unknown>; active: boolean; sort: number
     /** Off for ApeDroidz holders, 0–90 (the season pass: 30 — owner, 25.09.2026). */
     holder_discount_pct: number
+    /** The list price; `price_ape` is what is charged NOW (a running sale already taken off). */
+    list_price_ape: number
+    /** A timed sale in force right now (0 when none), and when it ends. */
+    sale_pct: number
+    sale_until: string | null
 }
 
 export async function loadCatalog(activeOnly = true): Promise<CatalogItem[]> {
-    let q = supabaseAdmin.from('survival_catalog').select('sku, kind, title, description, price_ape, credits, mode, grant_spec, active, sort, holder_discount_pct').order('sort')
+    let q = supabaseAdmin.from('survival_catalog').select('sku, kind, title, description, price_ape, credits, mode, grant_spec, active, sort, holder_discount_pct, sale_pct, sale_until').order('sort')
     if (activeOnly) q = q.eq('active', true)
     const { data, error } = await q
     if (error) { console.error('[survival/catalog]', error.message); return [] }
-    return ((data as CatalogItem[] | null) ?? []).map((c) => ({ ...c, price_ape: Number(c.price_ape), holder_discount_pct: Number(c.holder_discount_pct ?? 0) }))
+    // A sale (sale_pct until sale_until) is taken off here, once, for every reader — the order, the
+    // price list, the ticket screen. It ends by the clock: no one has to put the prices back.
+    const now = Date.now()
+    return ((data as CatalogItem[] | null) ?? []).map((c) => {
+        const list = Number(c.price_ape)
+        const on = Number(c.sale_pct ?? 0) > 0 && !!c.sale_until && new Date(c.sale_until).getTime() > now
+        const pct = on ? Number(c.sale_pct) : 0
+        return {
+            ...c, list_price_ape: list, price_ape: on ? Math.round(list * (100 - pct)) / 100 : list,
+            sale_pct: pct, sale_until: on ? c.sale_until : null, holder_discount_pct: Number(c.holder_discount_pct ?? 0),
+        }
+    })
 }
 
 /** What this wallet pays: the holder discount, rounded to 0.01 APE. */
@@ -50,7 +66,8 @@ export const priceFor = (item: CatalogItem, holder: boolean): number =>
  */
 export const publicCatalog = (items: CatalogItem[], holder = false) =>
     items.map((i) => ({
-        sku: i.sku, kind: i.kind, title: i.title, description: i.description, priceApe: priceFor(i, holder), fullPriceApe: i.price_ape,
+        sku: i.sku, kind: i.kind, title: i.title, description: i.description, priceApe: priceFor(i, holder), fullPriceApe: i.list_price_ape,
+        salePct: i.sale_pct, saleUntil: i.sale_until,
         holderDiscountPct: i.holder_discount_pct, count: Number((i.grant_spec as { count?: number })?.count ?? 1), credits: i.credits, mode: i.mode,
     }))
 
