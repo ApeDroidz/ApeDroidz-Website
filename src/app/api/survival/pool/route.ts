@@ -25,30 +25,24 @@ export async function GET() {
         .select('id, name, ends_at, pays_out').eq('status', 'live').limit(1).maybeSingle()
     if (error || !season) return new NextResponse(null, { status: 204 })
 
-    const [ledger, runs] = await Promise.all([
-        supabaseAdmin.from('survival_pool_ledger').select('bucket, amount_ape').eq('season_id', season.id).limit(200_000),
-        supabaseAdmin.from('survival_runs').select('wallet, mode, status').eq('season_id', season.id).in('status', ['finished', 'rejected']).limit(500_000),
-    ])
-    let solo = 0, coop = 0
-    for (const l of (ledger.data as Array<{ bucket: string; amount_ape: number }> | null) ?? []) {
-        if (l.bucket === 'coop_pool') coop += Number(l.amount_ape)
-        else if (l.bucket === 'solo_pool' || l.bucket === 'season_pool') solo += Number(l.amount_ape)
-    }
-    const R = ((runs.data as Array<{ wallet: string; mode: string; status: string }> | null) ?? []).filter((r) => r.status === 'finished')
+    // Counted in the database (survival_pool_stats): one row out, however long the season.
+    const { data: st, error: sErr } = await supabaseAdmin.rpc('survival_pool_stats', { p_season: season.id })
+    if (sErr) { console.warn('[survival/pool]', sErr.message); return new NextResponse(null, { status: 204 }) }
+    const r = ((st as Array<Record<string, number | string>> | null) ?? [])[0] ?? {}
+    const solo = Number(r.solo_ape ?? 0), coop = Number(r.coop_ape ?? 0)
+    const players = Number(r.players ?? 0), games = Number(r.games ?? 0)
     return NextResponse.json({
         seasonId: season.id,
         seasonName: season.name,
         endsAt: season.ends_at ? new Date(season.ends_at).getTime() : null,
         paysOut: season.pays_out === true,
         poolApe: round(solo + coop), soloApe: round(solo), coopApe: round(coop),
-        players: new Set(R.map((r) => r.wallet)).size,
-        games: R.length,
-        soloGames: R.filter((r) => r.mode !== 'coop').length,
-        coopGames: R.filter((r) => r.mode === 'coop').length,
+        players, games, soloGames: Number(r.solo_games ?? 0), coopGames: Number(r.coop_games ?? 0),
         // legacy fields the Season screen reads
-        totalRuns: R.length, totalPlayers: new Set(R.map((r) => r.wallet)).size,
+        totalRuns: games, totalPlayers: players,
     }, {
-        // Short shared cache: every player on the menu asks, nobody needs it to the second.
-        headers: { 'cache-control': 'public, max-age=5, s-maxage=5, stale-while-revalidate=30' },
+        // Shared cache: every menu asks, nobody needs it to the second. At the edge for 30 s, so
+        // however many players sit on the menu, the function runs about twice a minute.
+        headers: { 'cache-control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60' },
     })
 }
