@@ -164,6 +164,76 @@ function Kv({ k, v, accent }: { k: string; v: React.ReactNode; accent?: string }
     )
 }
 
+/**
+ * Runs in hand for one wallet, editable (owner, 25.09.2026: «начислять кому-то игры или
+ * редактировать число»). Sets the unspent count per mode; the server adds grants or takes
+ * unspent runs away (api/admin/survival/credits).
+ */
+export function RunsEditor({ wallet }: { wallet: string }) {
+    const [have, setHave] = useState<{ solo: number; coop: number } | null>(null)
+    const [draft, setDraft] = useState<{ solo: string; coop: string }>({ solo: '', coop: '' })
+    const [busy, setBusy] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const load = useCallback(async () => {
+        setError(null)
+        try {
+            const r = await api(`/api/admin/survival/credits?wallet=${wallet}`)
+            setHave({ solo: r.solo, coop: r.coop }); setDraft({ solo: String(r.solo), coop: String(r.coop) })
+        } catch (e) { setError((e as Error).message) }
+    }, [wallet])
+    useEffect(() => { void load() }, [load])
+    const save = async (mode: 'solo' | 'coop', count: number) => {
+        if (!Number.isInteger(count) || count < 0) { setError('A whole number, 0 or more'); return }
+        setBusy(mode); setError(null)
+        try {
+            const res = await fetch('/api/admin/survival/credits', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet, mode, count }) })
+            const r = await res.json().catch(() => ({}))
+            if (!res.ok) throw new Error(r?.error || `HTTP ${res.status}`)
+            setHave({ solo: r.solo, coop: r.coop }); setDraft({ solo: String(r.solo), coop: String(r.coop) })
+        } catch (e) { setError((e as Error).message) } finally { setBusy(null) }
+    }
+    const row = (mode: 'solo' | 'coop') => {
+        const n = have?.[mode] ?? 0
+        const dirty = have !== null && draft[mode] !== String(n)
+        const btn = 'h-7 min-w-7 px-2 rounded-lg border border-white/10 bg-white/5 text-xs font-black hover:bg-white/10 disabled:opacity-40'
+        return (
+            <div className="flex items-center gap-2">
+                <span className="w-12 text-[10px] font-black uppercase tracking-widest text-white/40">{mode}</span>
+                <button className={btn} disabled={!have || busy !== null || n === 0} onClick={() => void save(mode, n - 1)}>−</button>
+                <input value={draft[mode]} onChange={(e) => setDraft({ ...draft, [mode]: e.target.value.replace(/[^0-9]/g, '') })}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && dirty) void save(mode, Number(draft[mode])) }}
+                    className="h-7 w-16 rounded-lg border border-white/10 bg-black/40 px-2 text-center text-sm font-black text-white outline-none focus:border-[#3b82f6]" />
+                <button className={btn} disabled={!have || busy !== null} onClick={() => void save(mode, n + 1)}>+</button>
+                <button className={btn} disabled={!have || busy !== null} onClick={() => void save(mode, n + 10)}>+10</button>
+                {dirty && <button className={`${btn} text-[#3b82f6]`} disabled={busy !== null} onClick={() => void save(mode, Number(draft[mode]))}>Set</button>}
+                {busy === mode && <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />}
+            </div>
+        )
+    }
+    return (
+        <div className="space-y-1.5">
+            {row('solo')}
+            {row('coop')}
+            <div className="text-[10px] text-white/30">Unspent runs this season. Up adds free grants; down removes unspent runs (grants first).</div>
+            {error && <div className="text-red-400 text-xs font-mono">{error}</div>}
+        </div>
+    )
+}
+
+/** Give runs to any wallet, even one that has not opened the game yet. */
+function GiveRuns() {
+    const [w, setW] = useState('')
+    const ok = /^0x[0-9a-fA-F]{40}$/.test(w.trim())
+    return (
+        <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-3 space-y-2">
+            <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Give runs to a wallet</div>
+            <input value={w} onChange={(e) => setW(e.target.value)} placeholder="0x…"
+                className="w-full max-w-md h-8 rounded-lg border border-white/10 bg-black/40 px-3 text-xs font-mono text-white outline-none focus:border-[#3b82f6]" />
+            {ok && <RunsEditor key={w.trim().toLowerCase()} wallet={w.trim().toLowerCase()} />}
+        </div>
+    )
+}
+
 export function SurvivalPlayers() {
     const [rows, setRows] = useState<Row[] | null>(null)
     const [error, setError] = useState<string | null>(null)
@@ -202,6 +272,7 @@ export function SurvivalPlayers() {
                 <button onClick={() => void load()} className="flex items-center justify-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white"><RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
             </div>
             {error && <div className="text-red-400 text-xs font-mono">{error}</div>}
+            <GiveRuns />
             {lost.length > 0 && (
                 <div className="flex items-start gap-2 text-xs text-orange-300/90 bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 py-2">
                     <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
@@ -300,6 +371,10 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
                 <Kv k="Ape Mini" v={num(st.coins)} accent="text-[#3b82f6]" />
                 <Kv k="Resources" v={<Resources res={res} />} />
             </div>
+
+            <Box title="Runs in hand">
+                <RunsEditor wallet={d.wallet} />
+            </Box>
 
             {!d.profile ? <div className="text-white/30 text-xs">No save on the server for this wallet yet.</div> : (
                 <>
