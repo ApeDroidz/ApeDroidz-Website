@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const [ev, runs, orders, ledger, acks, live] = await Promise.all([
         db.from('survival_events').select('at, wallet, kind, level, message, data, client_version').gte('at', weekAgo).in('level', ['warn', 'error']).order('at', { ascending: false }).limit(20_000),
         db.from('survival_runs').select('status, reject_reason, wallet').gte('started_at', dayAgo).limit(20_000),
-        db.from('survival_orders').select('id, wallet, sku, created_at').eq('status', 'pending').gte('created_at', weekAgo).limit(5_000),
+        db.from('survival_orders').select('id, wallet, sku, created_at').eq('status', 'pending').is('dismissed_at', null).gte('created_at', weekAgo).limit(5_000),
         db.from('survival_pool_ledger').select('bucket, amount_ape').limit(100_000),
         db.from('survival_alert_acks').select('fingerprint, acked_at, snooze_until'),
         db.from('survival_seasons').select('id').eq('status', 'live').limit(1).maybeSingle(),
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
     if (stuck.length) push({
         fingerprint: fp('pay', 'stuck', String(stuck.length)), severity: stuck.length >= 5 ? 'high' : 'medium', area: 'payments', count: stuck.length, wallets: new Set(stuck.map((o) => o.wallet)).size, lastSeen: stuck[0].created_at,
         title: 'Orders pending for over 30 minutes', detail: 'Usually a player who opened the wallet dialog and walked away (harmless). If one of them did pay, the next credits check books it — unless its client never comes back.',
-        action: 'If a player says they paid, open Payments → Stuck orders and «Recheck tx» with their hash.',
+        action: 'Open Payments → Stuck orders: «Check all» books any that were paid; «Close» the rest.',
     })
 
     // ── payments: the books against the chain ────────────────────────────────

@@ -1,5 +1,5 @@
 {
- "base": "https://assets.apedroidz.com/apedroidz/droidz-survival/v7/assets/img/",
+ "base": "https://assets.apedroidz.com/apedroidz/droidz-survival/v9/assets/img/",
  "heroes": {
   "goblin": {
    "name": "Gob",
@@ -67,9 +67,9 @@
    "name": "Hex Staff",
    "file": "staff_idle_0.png",
    "box": [
-    166,
+    164,
     96,
-    172,
+    174,
     164,
     324,
     164

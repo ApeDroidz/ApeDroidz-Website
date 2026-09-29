@@ -4,13 +4,14 @@ import { supabaseAdmin } from '@/lib/supabase'
  * May this wallet play Droidz Survival right now — one rule for both doors (the site and the
  * Otherside cabinet): on the beta list, not revoked, not expired.
  *
- * Public launch (owner, 24.09.2026: «игра откроется всем — сначала на сайте, потом в автомате»):
- * SURVIVAL_PUBLIC=1 lets every signed-in wallet play, on both doors. A wallet whose access was
- * revoked, or that is banned, stays out either way. `until` caps the play cookie (null = none).
+ * Open beta (owner, 28.09.2026: «просто снять лок»): every signed-in wallet plays, on both
+ * doors. SURVIVAL_PUBLIC=0 closes it back to the beta list — the kill switch, no code change.
+ * A wallet whose access was revoked, or that is banned, stays out either way. `until` caps the
+ * play cookie (null = none).
  */
 export type Access = { allowed: boolean; until: Date | null; error?: string }
 
-export const isPublic = () => process.env.SURVIVAL_PUBLIC === '1'
+export const isPublic = () => process.env.SURVIVAL_PUBLIC !== '0'
 
 export async function accessFor(wallet: string): Promise<Access> {
     if (!supabaseAdmin) return { allowed: false, until: null, error: 'Service misconfigured' }

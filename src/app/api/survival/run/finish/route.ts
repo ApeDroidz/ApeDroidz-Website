@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, ints, loadRun, noServer, readBody } from '@/lib/survivalRuns'
 import { checkFinish } from '@/lib/survivalEnvelope'
 import { logEvent } from '@/lib/survivalLog'
+import { runReward, type RunReport } from '@/lib/survivalEconomy'
+import { withEcon } from '@/lib/survivalEconomyStore'
 
 /**
  * POST /api/survival/run/finish  { runId, wave, kills, score, durationMs }
@@ -76,5 +78,22 @@ export async function POST(req: NextRequest) {
     const mine = board?.find((b: { wallet_short: string; rank: number }) => b.wallet_short === short)
     if (mine) rank = Number(mine.rank)
 
-    return NextResponse.json({ ok: true, verdict: 'accepted', rank, flags: check.flags }, { headers: { 'cache-control': 'no-store' } })
+    // The run's pay — here, from the run we just verified (lib/survivalEconomy.ts runReward): Ape
+    // Mini, salvage, season XP, the bestiary, today's quests. The client's `report` can only lower
+    // it (every number in it is capped by the verified score, wave, kills and time).
+    const report = (body as { report?: unknown }).report
+    const rep: RunReport = report && typeof report === 'object' ? report as RunReport : {}
+    let economy: Record<string, unknown> | null = null
+    const paid = await withEcon(caller.wallet, run.season_id, (loaded) => {
+        const r = runReward(loaded.econ, { score: n.score, wave: n.wave, kills: n.kills, durationMs: Math.min(n.durationMs, serverDurationMs) }, rep, { now })
+        return { next: r.econ, out: r.paid }
+    })
+    if (paid.ok) {
+        economy = { paid: paid.out, state: paid.econ.state, season: paid.econ.season, daily: paid.econ.daily }
+        logEvent({ level: 'info', kind: 'economy.run_paid', wallet: caller.wallet, runId: run.id, message: `${(paid.out as { coins?: number } | null)?.coins ?? 0} mini`, data: { paid: paid.out } })
+    } else {
+        logEvent({ level: 'error', kind: 'economy.run_unpaid', wallet: caller.wallet, runId: run.id, message: paid.error })
+    }
+
+    return NextResponse.json({ ok: true, verdict: 'accepted', rank, flags: check.flags, economy }, { headers: { 'cache-control': 'no-store' } })
 }

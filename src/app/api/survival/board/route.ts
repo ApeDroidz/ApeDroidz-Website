@@ -20,17 +20,32 @@ interface BestRow { wallet: string; score: number; wave: number; kills: number; 
 interface PlayerRow { wallet: string; clan: string | null; banned: boolean }
 interface XRow { wallet_address: string; x_handle: string | null }
 
-export async function GET() {
+export async function GET(req: Request) {
     if (!supabaseAdmin) return new NextResponse(null, { status: 204 })
+    // ?only=pass — the season's own board: pass holders only, ranked among themselves (owner,
+    // 26.09.2026: «в сезоне первым выводится сезонный рейтинг тех, кто с пассом, но можно
+    // посмотреть общий»). Filtering the top 50 of everyone instead would drop a holder ranked 51st.
+    const only = new URL(req.url).searchParams.get('only') === 'pass' ? 'pass' : 'all'
 
     const { data: season } = await supabaseAdmin
         .from('survival_seasons').select('id, name').eq('status', 'live').limit(1).maybeSingle()
     if (!season) return new NextResponse(null, { status: 204 })
 
-    const { data: best, error } = await supabaseAdmin
+    // Every pass holder of the season (a pass bought before seasons were stamped has no season_id).
+    const { data: passRows } = await supabaseAdmin.from('survival_entitlements').select('wallet')
+        .eq('kind', 'season_pass').or(`season_id.eq.${season.id},season_id.is.null`).limit(10_000)
+    const passHolders = new Set(((passRows ?? []) as Array<{ wallet: string }>).map((p) => p.wallet))
+    const headers = { 'cache-control': 'public, max-age=10, s-maxage=10, stale-while-revalidate=60' }
+    if (only === 'pass' && passHolders.size === 0) {
+        return NextResponse.json({ seasonId: season.id, seasonName: season.name, only, passCount: 0, rows: [] }, { headers })
+    }
+
+    let query = supabaseAdmin
         .from('survival_season_best')
         .select('wallet, score, wave, kills, runs_count, achieved_at, run_id')
         .eq('season_id', season.id)
+    if (only === 'pass') query = query.in('wallet', [...passHolders])
+    const { data: best, error } = await query
         .order('score', { ascending: false }).order('achieved_at', { ascending: true })
         .limit(LIMIT)
     if (error || !best) { console.warn('[survival/board]', error?.message); return new NextResponse(null, { status: 204 }) }
@@ -50,22 +65,18 @@ export async function GET() {
     // (survival_season_best.run_id). Владелец, 20.09: колонка HERO в таблице.
     const runIds = rowsBest.map((b) => b.run_id).filter((id): id is string => !!id)
     const heroOf = new Map<string, string>()
+    // How long the best run lasted (the server's own clock), for the TIME column.
+    const msOf = new Map<string, number>()
     if (runIds.length) {
-        const { data: runs } = await supabaseAdmin.from('survival_runs').select('id, hero').in('id', runIds)
-        for (const r of (runs ?? []) as Array<{ id: string; hero: string | null }>) {
+        const { data: runs } = await supabaseAdmin.from('survival_runs').select('id, hero, server_duration_ms').in('id', runIds)
+        for (const r of (runs ?? []) as Array<{ id: string; hero: string | null; server_duration_ms: number | null }>) {
             if (r.hero) heroOf.set(r.id, r.hero)
+            if (r.server_duration_ms) msOf.set(r.id, Number(r.server_duration_ms))
         }
     }
 
     // Season-pass holders are marked on the board (owner, 25.09.2026: «в лидерборде помечать
     // жёлтой надписью PASS, у кого есть пропуск») — only they share the pool.
-    const passHolders = new Set<string>()
-    if (wallets.length) {
-        const { data: passes } = await supabaseAdmin.from('survival_entitlements').select('wallet')
-            .eq('season_id', season.id).eq('kind', 'season_pass').in('wallet', wallets)
-        for (const p of (passes ?? []) as Array<{ wallet: string }>) passHolders.add(p.wallet)
-    }
-
     const clanOf = new Map(players.map((p) => [p.wallet, p]))
     const xOf = new Map<string, string>()
     for (const row of xs) {
@@ -83,14 +94,12 @@ export async function GET() {
                 x: xOf.get(b.wallet) ?? null,
                 clan: clanOf.get(b.wallet)?.clan ?? null,
                 hero: b.run_id ? heroOf.get(b.run_id) ?? null : null,
+                timeMs: b.run_id ? msOf.get(b.run_id) ?? null : null,
                 score: Number(b.score), wave: Number(b.wave), kills: Number(b.kills),
                 runs: Number(b.runs_count),
                 pass: passHolders.has(b.wallet),
             }
         })
 
-    return NextResponse.json(
-        { seasonId: season.id, seasonName: season.name, rows },
-        { headers: { 'cache-control': 'public, max-age=10, s-maxage=10, stale-while-revalidate=60' } },
-    )
+    return NextResponse.json({ seasonId: season.id, seasonName: season.name, only, passCount: passHolders.size, rows }, { headers })
 }

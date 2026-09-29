@@ -19,7 +19,8 @@ const ANNOUNCE_POSTER = 'https://assets.apedroidz.com/apedroidz/droidz-survival/
 // v2 (19.09): баннер «пропал» у владельца — он был закрыт крестиком, а решение
 // лежит в localStorage навсегда. Номер поднят, чтобы баннер вернулся всем,
 // кто закрыл первую версию.
-const DISMISS_KEY = 'apedroidz.cta-survival.dismissed.v2'
+// v3 (28.09): open beta — баннер снова показывается всем, кто закрыл «Closed beta».
+const DISMISS_KEY = 'apedroidz.cta-survival.dismissed.v3'
 
 function SurvivalCTAComponent() {
     const [isDismissed, setIsDismissed] = useState(false)
@@ -96,7 +97,7 @@ function SurvivalCTAComponent() {
                             style={{ boxShadow: "inset 0 0 18px rgba(0,0,0,0.55)" }}
                         />
                         <span className="absolute top-1.5 left-1.5 rounded-full border border-white/15 bg-black/60 px-1.5 py-0.5 font-mono text-[7px] sm:text-[8px] uppercase tracking-widest text-white/70">
-                            Closed beta
+                            Open beta
                         </span>
                     </div>
                 </div>

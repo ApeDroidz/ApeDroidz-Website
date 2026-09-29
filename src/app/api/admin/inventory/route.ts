@@ -166,6 +166,9 @@ export async function POST(req: Request) {
             const { data: inTicket } = await supabaseAdmin.from('survival_ticket_nfts').select('id')
                 .eq('contract', row.contract_address).eq('token_id', row.token_id).in('status', ['available', 'reserved', 'sending']).limit(1)
             if (inTicket?.length) { skipped.push({ token_id: row.token_id, reason: 'already a Droidz Survival ticket prize' }); continue }
+            const { data: inPool } = await supabaseAdmin.from('survival_pool_prizes').select('id')
+                .eq('contract', String(row.contract_address).toLowerCase()).eq('token_id', row.token_id).in('status', ['listed', 'awarded']).limit(1)
+            if (inPool?.length) { skipped.push({ token_id: row.token_id, reason: 'already a Droidz Survival prize pool prize' }); continue }
             const { data, error } = await supabaseAdmin.from('nft_inventory').insert(row).select().single()
             if (error) {
                 skipped.push({

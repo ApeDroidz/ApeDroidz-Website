@@ -40,6 +40,18 @@ export function seasonVisibleFor(wallet: string): boolean {
     // SURVIVAL_SEASON_OPEN=1 opens the Season screen (and the pass on sale in it) to everyone.
     return process.env.SURVIVAL_SEASON_OPEN === '1' || SEASON_PREVIEW_WALLETS.has(wallet.toLowerCase())
 }
+
+/**
+ * The game's SANDBOX — the owner's workbench (owner, 26.09.2026: «в игре отдельный раздел —
+ * админ-меню, там я буду докручивать»): any hero, weapon, level, enemy, boss, storm, animation.
+ * SURVIVAL_SANDBOX_WALLETS (comma-separated) or, unset, the owner. Served as `features.sandbox`.
+ * Nothing in the sandbox is paid or ranked — it starts no run and the economy checks every spend
+ * itself — so this hides a tool; it does not guard money.
+ */
+export function sandboxFor(wallet: string): boolean {
+    const list = (process.env.SURVIVAL_SANDBOX_WALLETS || [...SEASON_PREVIEW_WALLETS].join(',')).toLowerCase().split(',').map((s) => s.trim()).filter(Boolean)
+    return list.includes(wallet.toLowerCase())
+}
 const PLAY_TTL_MS = 6 * 60 * 60 * 1000
 
 // ── Base64url + HMAC, Edge-safe (no Buffer, no node:crypto) ───────────────────

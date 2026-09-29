@@ -5,12 +5,14 @@ import { Loader2, RefreshCcw, Search } from 'lucide-react'
 import { CopyWallet } from './survival-players'
 import { SurvivalCatalog } from './survival-catalog'
 import { SurvivalTickets } from './survival-tickets'
+import { SurvivalPoolPrizes } from './survival-pool-prizes'
 
 /**
  * Droidz Survival → Payments (owner, 24.09.2026): every payment, and what the money did —
  * totals by mode / platform / item, APE per day, each pool as the ledger books it next to what its
  * vault actually holds on chain, credits issued and spent, orders stuck in pending, attempts the
  * server refused, and a «Recheck tx» for support (it books only what the cashier's event shows).
+ * Stuck orders can be checked on chain without a hash, and closed.
  */
 
 type Sum = { count: number; ape: number; pool: number }
@@ -22,10 +24,87 @@ type Payload = {
     pools: Record<string, number>
     balances: Record<string, number | null>
     credits: { issued: { solo: number; coop: number }; spent: { solo: number; coop: number } }
-    orders: { total: number; pending: number; paid: number; stuck: Array<{ id: string; wallet: string; sku: string; mode: string; platform: string; price_ape: number; created_at: string }> }
+    orders: { total: number; pending: number; paid: number; stuck: Stuck[] }
     payments: Array<{ tx_hash: string; wallet: string; name: string | null; amount_ape: number; to_pool_ape: number | null; mode: string | null; platform: string | null; viaHub: boolean; credits_granted: number; created_at: string }>
     refused: Array<{ at: string; wallet: string | null; kind: string; message: string; data: Record<string, unknown> }>
     problems: string[]
+}
+
+type Stuck = { id: string; wallet: string; name: string | null; sku: string; mode: string; platform: string; price_ape: number; created_at: string; from_block: number | null; paidAfter: number }
+
+/** What a check or a close came back with, in words and a colour. */
+const ORDER_STATE: Record<string, [string, string]> = {
+    paid: ['paid — booked now', 'text-emerald-400'],
+    not_paid: ['no payment on chain', 'text-white/50'],
+    closed: ['closed', 'text-white/40'],
+    not_pending: ['already settled', 'text-white/40'],
+    used: ['tx already used', 'text-orange-400'],
+    underpaid: ['underpaid', 'text-orange-400'],
+    wrong_mode: ['wrong mode', 'text-orange-400'],
+    mismatch: ['event does not match', 'text-orange-400'],
+    no_rpc: ['chain unreachable — try again', 'text-orange-400'],
+    no_server: ['server error', 'text-red-400'],
+    no_order: ['order not found', 'text-red-400'],
+}
+
+const ago = (iso: string) => {
+    const m = Math.round((Date.now() - Date.parse(iso)) / 60_000)
+    return m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`
+}
+
+/**
+ * Stuck orders (owner, 26.09.2026: «функционал для застрявших транз — нажать проверить, убрать»).
+ * «Check» looks for the order's Paid event on chain without a hash and books it if it is there;
+ * «Close» takes it off this list and the alert (it stays pending underneath, so a late payment is
+ * still booked). «Paid later» — the same wallet paid another order afterwards: almost surely this
+ * one was a wallet dialog that was closed.
+ */
+function StuckOrders({ stuck, reload }: { stuck: Stuck[]; reload: () => void }) {
+    const [state, setState] = useState<Record<string, string>>({})
+    const [busy, setBusy] = useState<string | null>(null)
+    const run = async (action: 'scan' | 'dismiss', ids: string[], key: string) => {
+        setBusy(key)
+        setState((s) => ({ ...s, ...Object.fromEntries(ids.map((id) => [id, action === 'scan' ? 'checking' : 'closing'])) }))
+        try {
+            const r = await api('/api/admin/survival/payments', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, orderIds: ids }) })
+            setState((s) => ({ ...s, ...Object.fromEntries((r.results as Array<{ orderId: string; state: string }>).map((x) => [x.orderId, x.state])) }))
+            if ((r.results as Array<{ state: string }>).some((x) => x.state === 'paid' || x.state === 'closed')) setTimeout(reload, 1200)
+        } catch (e) {
+            setState((s) => ({ ...s, ...Object.fromEntries(ids.map((id) => [id, (e as Error).message])) }))
+        } finally { setBusy(null) }
+    }
+    if (stuck.length === 0) return <div className="text-white/30 text-xs">None.</div>
+    const open = stuck.filter((o) => state[o.id] !== 'closed' && state[o.id] !== 'paid')
+    const unpaid = open.filter((o) => state[o.id] === 'not_paid').map((o) => o.id)
+    return (
+        <div>
+            <div className="flex flex-wrap gap-2 mb-2">
+                <button onClick={() => void run('scan', open.map((o) => o.id).slice(0, 20), 'all')} disabled={!!busy || open.length === 0} className="px-2.5 py-1.5 rounded-lg bg-[#3b82f6] text-[9px] font-black uppercase tracking-widest disabled:opacity-40">{busy === 'all' ? 'Checking…' : `Check all (${open.length})`}</button>
+                {unpaid.length > 0 && <button onClick={() => void run('dismiss', unpaid, 'close')} disabled={!!busy} className="px-2.5 py-1.5 rounded-lg bg-white/10 text-[9px] font-black uppercase tracking-widest disabled:opacity-40">Close the unpaid ({unpaid.length})</button>}
+            </div>
+            <div className="max-h-72 overflow-auto divide-y divide-white/5 text-xs">{stuck.map((o) => {
+                const st = state[o.id]
+                const [txt, cls] = st ? (ORDER_STATE[st] ?? [st, 'text-white/60']) : ['', '']
+                const done = st === 'closed' || st === 'paid'
+                return (
+                    <div key={o.id} className={`py-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 ${done ? 'opacity-50' : ''}`}>
+                        <span className="font-mono text-white/30 w-20 flex-shrink-0" title={when(o.created_at)}>{ago(o.created_at)}</span>
+                        <a className="font-mono text-sky-400/80 hover:text-sky-300" href={`https://apescan.io/address/${o.wallet}`} target="_blank" rel="noreferrer" title="the wallet's transactions on apescan">{short(o.wallet)}</a>
+                        {o.name && <span className="text-white/40">({o.name})</span>}
+                        <span className="text-white/60">{o.sku} · {o.price_ape} APE · {o.platform}</span>
+                        {o.paidAfter > 0 && <span className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] text-white/40 uppercase tracking-wider" title="this wallet paid another order afterwards">paid later ×{o.paidAfter}</span>}
+                        <span className="ml-auto flex items-center gap-2">
+                            {txt && <span className={`text-[10px] ${cls}`}>{st === 'checking' ? 'checking…' : st === 'closing' ? 'closing…' : txt}</span>}
+                            {!done && <>
+                                <button onClick={() => void run('scan', [o.id], o.id)} disabled={!!busy} className="px-2 py-1 rounded bg-[#3b82f6]/80 text-[9px] font-black uppercase tracking-widest disabled:opacity-40">Check</button>
+                                <button onClick={() => void run('dismiss', [o.id], o.id)} disabled={!!busy} className="px-2 py-1 rounded bg-white/10 text-[9px] font-black uppercase tracking-widest disabled:opacity-40">Close</button>
+                            </>}
+                        </span>
+                    </div>
+                )
+            })}</div>
+        </div>
+    )
 }
 
 // Validated for the dark surface (dataviz validate_palette.js --mode dark): all checks pass.
@@ -171,6 +250,10 @@ export function SurvivalPayments() {
                 <SurvivalTickets />
             </Box>
 
+            <Box title="Prize pool — NFT prizes" hint="NFTs on top of the APE: a place on the board, the pool level that opens them">
+                <SurvivalPoolPrizes />
+            </Box>
+
             <Box title="APE paid per day" hint="last 30 days, by mode">
                 <DailyChart days={d.days} />
             </Box>
@@ -206,11 +289,7 @@ export function SurvivalPayments() {
 
             <div className="grid lg:grid-cols-2 gap-4">
                 <Box title="Stuck orders" hint="pending over 30 min, last 7 days">
-                    {d.orders.stuck.length === 0 ? <div className="text-white/30 text-xs">None.</div> : (
-                        <div className="max-h-64 overflow-auto divide-y divide-white/5 text-xs">{d.orders.stuck.map((o) => (
-                            <div key={o.id} className="py-1 flex gap-2"><span className="font-mono text-white/30 w-36 flex-shrink-0">{when(o.created_at)}</span><span className="font-mono">{short(o.wallet)}</span><span className="text-white/50">{o.sku} · {o.mode} · {o.platform} · {o.price_ape} APE</span></div>
-                        ))}</div>
-                    )}
+                    <StuckOrders stuck={d.orders.stuck} reload={() => void load()} />
                 </Box>
                 <Box title="Refused" hint="attempts the server did not credit">
                     {d.refused.length === 0 ? <div className="text-white/30 text-xs">None.</div> : (

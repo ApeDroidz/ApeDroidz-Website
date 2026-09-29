@@ -109,6 +109,9 @@ ok('only the accepted run reached the season board', best.length === 1 && best[0
 await client.query('delete from survival_season_best where wallet = $1', [WALLET])
 await client.query('delete from survival_runs where wallet = $1', [WALLET])
 await client.query('delete from survival_events where wallet = $1', [WALLET])
+// The finish now pays the run (lib/survivalEconomy.ts) — so there is a profile and a season row too.
+await client.query('delete from survival_profile_seasons where wallet = $1', [WALLET])
+await client.query('delete from survival_profiles where wallet = $1', [WALLET])
 await client.query('delete from survival_players where wallet = $1', [WALLET])
 await client.end()
 

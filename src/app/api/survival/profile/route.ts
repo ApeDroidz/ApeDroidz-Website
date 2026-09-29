@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer, readBody } from '@/lib/survivalRuns'
 import { logEvent } from '@/lib/survivalLog'
-import { seasonVisibleFor } from '@/lib/survivalAccess'
+import { sandboxFor, seasonVisibleFor } from '@/lib/survivalAccess'
+import { mergeClientState, economyOf } from '@/lib/survivalEconomy'
+import { loadEcon, saveEcon } from '@/lib/survivalEconomyStore'
 
 /**
  * The player's progress, on the server.
  *
  *   GET  /api/survival/profile                → { ok, state, season: { seasonId, season, daily } | null,
- *                                                  features: { season, passOnSale, paidRuns } — what the game may show this wallet }
+ *                                                  features: { season, passOnSale, paidRuns, sandbox } — what the game may show this wallet }
  * The Season screen is open to everyone (25.09.2026: it holds the pool and the leaderboard now); the
  * pass is on sale only where seasonVisibleFor says so (SURVIVAL_SEASON_OPEN=1, or a preview wallet).
  *                                              or { ok: true, state: null } for a wallet with none yet
@@ -26,9 +28,11 @@ import { seasonVisibleFor } from '@/lib/survivalAccess'
  * other cannot interleave either; the loser is told to retry. GET also returns `owner` (the full
  * wallet, the caller's own) so the game can tell whose save sits in the browser.
  *
- * Ape Mini is an in-game currency with no way out (the owner: «конвертацию не делаем»), so
- * the client's count is accepted as is, bounded to sane integers; the run ledger keeps the
- * server's own idea of what was earned for the day that changes.
+ * The economy is the SERVER's (26.09.2026, lib/survivalEconomy.ts): Ape Mini, salvage, gear,
+ * unlocks, the trees, the season's XP and claims, the daily streak are written only by
+ * /api/survival/economy and the run's finish. A PUT keeps the client's own business (settings,
+ * keys, tips, which OWNED hero/weapon/gear it picked) and nothing else — forged coins or heroes in
+ * the body are dropped by mergeClientState; the season and daily parts in the body are ignored.
  */
 export const dynamic = 'force-dynamic'
 
@@ -39,17 +43,14 @@ export async function GET(req: NextRequest) {
     if (caller instanceof NextResponse) return caller
     if (!supabaseAdmin) return noServer()
 
-    const { data: prof, error } = await supabaseAdmin
-        .from('survival_profiles').select('state, save_version, updated_at').eq('wallet', caller.wallet).maybeSingle()
-    if (error) { console.error('[survival/profile] get', error.message); return noServer() }
-
-    const { data: live } = await supabaseAdmin.from('survival_seasons').select('id').eq('status', 'live').limit(1).maybeSingle()
-    let season: { seasonId: string; season: unknown; daily: unknown } | null = null
-    if (live) {
-        const { data: ps } = await supabaseAdmin
-            .from('survival_profile_seasons').select('season, daily').eq('wallet', caller.wallet).eq('season_id', live.id).maybeSingle()
-        season = { seasonId: live.id, season: ps?.season ?? null, daily: ps?.daily ?? null }
-    }
+    const loaded = await loadEcon(caller.wallet)
+    if (!loaded) return noServer()
+    // A new epoch wiped the economy on this read: write it back now, so a PUT cannot find the old one.
+    if (loaded.wiped) await saveEcon(caller.wallet, loaded, loaded.econ)
+    const prof = loaded.stored ? { state: loaded.econ.state, updated_at: loaded.updatedAt } : null
+    const season = loaded.seasonId
+        ? { seasonId: loaded.seasonId, season: loaded.econ.season, daily: loaded.econ.daily, passOwned: loaded.passOwned }
+        : null
     // Кто спрашивает — для таблицы рекордов: без этого игрок не видит в ней
     // ни себя, ни своего ника с кланом (владелец, 20.09). Кошелёк отдаём уже
     // сокращённым: полный адрес игре не нужен ни для чего, а на экране он всё
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(
-        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: true, passOnSale: seasonVisibleFor(caller.wallet), paidRuns: process.env.SURVIVAL_PAID_RUNS === '1' } },
+        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: true, passOnSale: seasonVisibleFor(caller.wallet), paidRuns: process.env.SURVIVAL_PAID_RUNS === '1', sandbox: sandboxFor(caller.wallet) } },
         { headers: { 'cache-control': 'no-store' } },
     )
 }
@@ -81,36 +82,39 @@ export async function PUT(req: NextRequest) {
     }
     const s = state as Record<string, unknown>
     const int = (v: unknown, max = 1e9): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(max, Math.floor(v))) : 0)
-    const lifetime = (s.lifetime && typeof s.lifetime === 'object' ? s.lifetime : {}) as Record<string, unknown>
+    const loaded = await loadEcon(caller.wallet)
+    if (!loaded) return noServer()
+    const rev = int(s.rev)
+    const storedRev = int(loaded.stored?.rev)
+    if (loaded.stored && rev < storedRev) {
+        logEvent({ level: 'warn', kind: 'profile.stale', wallet: caller.wallet, message: `${rev} < ${storedRev}`, data: { rev, storedRev, clientVersion: body.clientVersion } })
+        return NextResponse.json({ ok: false, state: 'stale', rev: storedRev }, { headers: { 'cache-control': 'no-store' } })
+    }
+    // The client's business over the server's economy: whatever coins, heroes or gear the body
+    // carries, the stored ones stand (lib/survivalEconomy.ts mergeClientState).
+    const merged = mergeClientState(loaded.econ.state, s)
+    const eco = economyOf(merged)
+    const life = eco.lifetime as { runs: number; bestScore: number }
     const row = {
         wallet: caller.wallet,
-        state: s,
+        state: { ...merged, rev },
         save_version: int(s.version, 100) || 1,
-        coins: int(s.coins),
-        runs: int(lifetime.runs),
-        best_score: int(lifetime.bestScore),
-        selected_hero: typeof s.selectedHero === 'string' ? s.selectedHero.slice(0, 32) : null,
+        coins: eco.coins as number,
+        runs: life.runs,
+        best_score: life.bestScore,
+        selected_hero: typeof merged.selectedHero === 'string' ? merged.selectedHero.slice(0, 32) : null,
         client_version: typeof body.clientVersion === 'string' ? body.clientVersion.slice(0, 64) : null,
         updated_at: new Date().toISOString(),
-    }
-    const rev = int(s.rev)
-    const { data: cur, error: curErr } = await supabaseAdmin
-        .from('survival_profiles').select('rev:state->rev, updated_at').eq('wallet', caller.wallet).maybeSingle()
-    if (curErr) { console.error('[survival/profile] put read', curErr.message); return noServer() }
-    const storedRev = int((cur as { rev?: unknown } | null)?.rev)
-    if (cur && rev < storedRev) {
-        logEvent({ level: 'warn', kind: 'profile.stale', wallet: caller.wallet, message: `${rev} < ${storedRev}`, data: { rev, storedRev, clientVersion: row.client_version } })
-        return NextResponse.json({ ok: false, state: 'stale', rev: storedRev }, { headers: { 'cache-control': 'no-store' } })
     }
 
     // The player row must exist (FK); a profile save can arrive before any run does.
     await supabaseAdmin.from('survival_players').upsert({ wallet: caller.wallet, last_seen: row.updated_at }, { onConflict: 'wallet' })
     let error: { message: string; code?: string } | null = null
     let landed = true
-    if (cur) {
+    if (loaded.updatedAt) {
         // Compare-and-set: only over the row we just read. Zero rows = someone wrote in between.
         const upd = await supabaseAdmin.from('survival_profiles').update(row)
-            .eq('wallet', caller.wallet).eq('updated_at', (cur as { updated_at: string }).updated_at).select('wallet')
+            .eq('wallet', caller.wallet).eq('updated_at', loaded.updatedAt).select('wallet')
         error = upd.error
         landed = !upd.error && (upd.data?.length ?? 0) > 0
     } else {
@@ -120,16 +124,10 @@ export async function PUT(req: NextRequest) {
     }
     if (error) { console.error('[survival/profile] put', error.message); logEvent({ level: 'error', kind: 'profile.save_failed', wallet: caller.wallet, message: error.message }); return noServer() }
     if (!landed) return NextResponse.json({ ok: false, state: 'retry' }, { headers: { 'cache-control': 'no-store' } })
-
-    if (typeof body.seasonId === 'string' && body.season && typeof body.season === 'object') {
-        const season = body.season as Record<string, unknown>
-        const { error: sErr } = await supabaseAdmin.from('survival_profile_seasons').upsert({
-            wallet: caller.wallet, season_id: body.seasonId.slice(0, 32),
-            season, daily: body.daily && typeof body.daily === 'object' ? body.daily : {},
-            sxp: int(season.sxp), tier: int(season.tier, 100), updated_at: row.updated_at,
-        }, { onConflict: 'wallet,season_id' })
-        // An unknown season id is not worth failing the save over — the profile itself landed.
-        if (sErr) console.warn('[survival/profile] season', sErr.message)
+    // A wiped economy (new epoch) goes to the season row too — the PUT above only wrote the save.
+    if (loaded.wiped && loaded.seasonId) {
+        await supabaseAdmin.from('survival_profile_seasons').upsert({ wallet: caller.wallet, season_id: loaded.seasonId, season: loaded.econ.season, daily: loaded.econ.daily, sxp: 0, tier: 0, updated_at: row.updated_at }, { onConflict: 'wallet,season_id' })
     }
-    return NextResponse.json({ ok: true, updatedAt: row.updated_at }, { headers: { 'cache-control': 'no-store' } })
+    // The economy as it stands, so the game can drop anything its own copy made up.
+    return NextResponse.json({ ok: true, updatedAt: row.updated_at, state: row.state, season: loaded.seasonId ? { seasonId: loaded.seasonId, season: loaded.econ.season, daily: loaded.econ.daily } : null }, { headers: { 'cache-control': 'no-store' } })
 }

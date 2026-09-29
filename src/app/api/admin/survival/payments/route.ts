@@ -3,7 +3,7 @@ import { eth_getBalance } from 'thirdweb/rpc'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
 import { CASHIER, loadCatalog, weiToApe } from '@/lib/survivalShop'
-import { rpc, settleAnyInTx } from '@/lib/survivalSettle'
+import { ORDER_COLUMNS, rpc, scanOrder, settleAnyInTx, type OrderRow } from '@/lib/survivalSettle'
 import { isPublic } from '@/lib/survivalAllow'
 import { logEvent } from '@/lib/survivalLog'
 
@@ -19,6 +19,10 @@ const headers = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age
  * POST /api/admin/survival/payments { txHash } — support: book the orders a transaction paid,
  *        by the cashier's own Paid events (lib/survivalSettle.ts settleAnyInTx). The event
  *        decides — an operator cannot credit anything the chain does not show.
+ * POST … { action: 'scan', orderIds } — stuck orders: look for each one's Paid event on chain
+ *        without a hash (scanOrder) and book it if it is there.
+ * POST … { action: 'dismiss', orderIds } — close stuck orders: off the list and the alert. The
+ *        status stays pending, so a payment that turns up later is still booked.
  *
  * Owner, 24.09.2026: «отдельная страничка в spltpnl по оплате с информацией по всем переводам
  * и аналитикой».
@@ -44,10 +48,10 @@ export async function GET(request: NextRequest) {
     const seasonId = (live.data as { id: string } | null)?.id ?? null
     const [pays, orders, ledger, credits, events, allow] = await Promise.all([
         db.from('survival_payments').select('tx_hash, wallet, amount_ape, to_pool_ape, mode, platform, payer, credits_granted, created_at, order_id, block_number').order('created_at', { ascending: false }).limit(10_000),
-        db.from('survival_orders').select('id, wallet, sku, mode, platform, price_ape, status, created_at').order('created_at', { ascending: false }).limit(5_000),
+        db.from('survival_orders').select('id, wallet, sku, mode, platform, price_ape, status, created_at, from_block, dismissed_at').order('created_at', { ascending: false }).limit(5_000),
         seasonId ? db.from('survival_pool_ledger').select('bucket, source, amount_ape').eq('season_id', seasonId).limit(50_000) : Promise.resolve({ data: [], error: null }),
         db.from('survival_credits').select('mode, source, consumed_by_run').limit(100_000),
-        db.from('survival_events').select('at, wallet, kind, message, data').like('kind', 'pay.%').neq('kind', 'pay.paid').order('at', { ascending: false }).limit(200),
+        db.from('survival_events').select('at, wallet, kind, message, data').like('kind', 'pay.%').neq('kind', 'pay.paid').not('kind', 'like', 'pay.admin_%').order('at', { ascending: false }).limit(200),
         db.from('survival_allowlist').select('wallet, note').limit(5_000),
     ])
     ;[['payments', pays], ['orders', orders], ['ledger', ledger], ['credits', credits], ['events', events], ['allowlist', allow]].forEach(([l, r]) => note(l as string)(r as never))
@@ -79,10 +83,13 @@ export async function GET(request: NextRequest) {
         balances[k] = await eth_getBalance(rpc(), { address: a }).then((b) => weiToApe(b)).catch(() => null)
     }))
 
-    const O = (orders.data as Array<{ id: string; wallet: string; sku: string; mode: string; platform: string; price_ape: number; status: string; created_at: string }> | null) ?? []
-    const stuck = O.filter((o) => o.status === 'pending' && now - Date.parse(o.created_at) > 30 * 60_000 && within(o.created_at, 7 * 86_400_000)).slice(0, 100)
+    const O = (orders.data as Array<{ id: string; wallet: string; sku: string; mode: string; platform: string; price_ape: number; status: string; created_at: string; from_block: number | null; dismissed_at: string | null }> | null) ?? []
     const C = (credits.data as Array<{ mode: string; source: string; consumed_by_run: string | null }> | null) ?? []
     const names = Object.fromEntries(((allow.data as Array<{ wallet: string; note: string | null }> | null) ?? []).filter((a) => a.note).map((a) => [a.wallet.toLowerCase(), a.note]))
+    // Stuck = pending over 30 min this week and not closed; with the player's name and whether
+    // the same wallet paid another order afterwards (then this one was almost surely abandoned).
+    const stuck = O.filter((o) => o.status === 'pending' && !o.dismissed_at && now - Date.parse(o.created_at) > 30 * 60_000 && within(o.created_at, 7 * 86_400_000)).slice(0, 100)
+        .map((o) => ({ ...o, name: names[o.wallet] ?? null, paidAfter: O.filter((p) => p.wallet === o.wallet && p.status === 'paid' && p.created_at > o.created_at).length }))
 
     return NextResponse.json({
         ok: true, generatedAt: new Date().toISOString(), season: live.data ?? null,
@@ -107,12 +114,38 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     const denied = await requireAdmin(request)
     if (denied) return denied
-    const body = await request.json().catch(() => ({})) as { txHash?: unknown }
+    const body = await request.json().catch(() => ({})) as { txHash?: unknown; action?: unknown; orderIds?: unknown }
+    if (body.action === 'scan' || body.action === 'dismiss') return orderAction(body.action, body.orderIds)
     const tx = typeof body.txHash === 'string' ? body.txHash.trim().toLowerCase() : ''
     if (!/^0x[0-9a-f]{64}$/.test(tx)) return NextResponse.json({ error: 'Bad tx hash' }, { status: 400, headers })
     if (!CASHIER) return NextResponse.json({ error: 'Cashier not configured' }, { status: 400, headers })
     const results = await settleAnyInTx(tx)
     logEvent({ level: 'info', source: 'server', kind: 'pay.admin_recheck', wallet: null, message: tx, data: { results } })
+    return NextResponse.json({ ok: true, results }, { headers })
+}
+
+/** Stuck orders from the panel: check each on chain, or close them. At most 20 per call. */
+async function orderAction(action: 'scan' | 'dismiss', raw: unknown) {
+    const ids = Array.isArray(raw) ? [...new Set(raw.filter((x): x is string => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x)))].slice(0, 20) : []
+    if (!ids.length) return NextResponse.json({ error: 'No order ids' }, { status: 400, headers })
+    if (action === 'dismiss') {
+        const { data, error } = await supabaseAdmin.from('survival_orders').update({ dismissed_at: new Date().toISOString() })
+            .in('id', ids).eq('status', 'pending').select('id, wallet, sku')
+        if (error) return NextResponse.json({ error: error.message }, { status: 500, headers })
+        const rows = (data as Array<{ id: string; wallet: string; sku: string }> | null) ?? []
+        logEvent({ level: 'info', source: 'server', kind: 'pay.admin_dismiss', wallet: rows[0]?.wallet ?? null, message: `${rows.length} order(s) closed`, data: { orders: rows } })
+        return NextResponse.json({ ok: true, results: ids.map((id) => ({ orderId: id, state: rows.some((r) => r.id === id) ? 'closed' : 'not_pending' })) }, { headers })
+    }
+    if (!CASHIER) return NextResponse.json({ error: 'Cashier not configured' }, { status: 400, headers })
+    const { data, error } = await supabaseAdmin.from('survival_orders').select(ORDER_COLUMNS).in('id', ids)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500, headers })
+    const orders = (data as OrderRow[] | null) ?? []
+    const results: Array<{ orderId: string; state: string }> = []
+    for (const id of ids) {
+        const order = orders.find((o) => o.id === id)
+        results.push({ orderId: id, state: order ? await scanOrder(order) : 'no_order' })
+    }
+    logEvent({ level: 'info', source: 'server', kind: 'pay.admin_scan', wallet: orders[0]?.wallet ?? null, message: `${ids.length} order(s) checked on chain`, data: { results } })
     return NextResponse.json({ ok: true, results }, { headers })
 }
 

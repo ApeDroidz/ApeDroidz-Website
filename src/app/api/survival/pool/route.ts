@@ -5,7 +5,8 @@ import { supabaseAdmin } from '@/lib/supabase'
  * GET /api/survival/pool — the live season's prize pools, for the game's main menu and Season
  * screen. Public and read-only: the numbers the pool panel advertises, nothing behind them.
  *
- *   { seasonId, seasonName, endsAt, paysOut, poolApe, soloApe, coopApe, players, games, soloGames, coopGames }
+ *   { seasonId, seasonName, endsAt, paysOut, poolApe, soloApe, coopApe, players, games, soloGames, coopGames,
+ *     prizes: [{ place, unlockLevel, name, imageUrl, awarded }] — the NFTs on top of the APE }
  *
  * Every figure is summed from the append-only ledger and the runs table at read time — the pool is
  * never a stored number anyone can edit. Each mode has its own pool (owner, 24.09.2026: «чтобы для
@@ -31,6 +32,11 @@ export async function GET() {
     const { data: st, error: sErr } = await supabaseAdmin.rpc('survival_pool_stats', { p_season: season.id })
     if (sErr) { console.warn('[survival/pool]', sErr.message); return new NextResponse(null, { status: 204 }) }
     const r = ((st as Array<Record<string, number | string>> | null) ?? [])[0] ?? {}
+    // The NFT prizes on top of the APE (admin: spltpnl → survival_pool_prizes): which place takes
+    // each, and the pool level that opens it (null = open from the start).
+    const { data: nfts } = await supabaseAdmin.from('survival_pool_prizes')
+        .select('place, unlock_level, name, image_url, status').eq('season_id', season.id).neq('status', 'removed')
+        .order('place').order('id')
     const solo = Number(r.solo_ape ?? 0), coop = Number(r.coop_ape ?? 0)
     const players = Number(r.players ?? 0), games = Number(r.games ?? 0)
     return NextResponse.json({
@@ -47,6 +53,8 @@ export async function GET() {
         reservePct: Math.round((1 - Number(season.payout_pct ?? 0.9)) * 100),
         reserveApe: round((solo + coop) * (1 - Number(season.payout_pct ?? 0.9))),
         payoutApe: round((solo + coop) * Number(season.payout_pct ?? 0.9)),
+        prizes: ((nfts as Array<{ place: number; unlock_level: number | null; name: string | null; image_url: string | null; status: string }> | null) ?? [])
+            .map((p) => ({ place: p.place, unlockLevel: p.unlock_level, name: p.name, imageUrl: p.image_url, awarded: p.status !== 'listed' })),
     }, {
         // Shared cache: every menu asks, nobody needs it to the second. At the edge for 30 s, so
         // however many players sit on the menu, the function runs about twice a minute.

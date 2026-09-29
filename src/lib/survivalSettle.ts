@@ -72,19 +72,33 @@ export async function settlePending(wallet: string): Promise<number> {
     const head = await eth_blockNumber(rpc()).catch(() => null)
     if (head === null) return 0
     let booked = 0
-    for (const order of orders) {
-        const topics = [PAID_TOPIC, `0x${wallet.slice(2).padStart(64, '0')}`, orderRef(order.id)] as `0x${string}`[]
-        for (let from = BigInt(order.from_block ?? 0); from <= head; from += LOG_SPAN) {
-            const last = from + LOG_SPAN - BigInt(1)
-            const logs = await eth_getLogs(rpc(), { address: CASHIER as `0x${string}`, topics, fromBlock: from, toBlock: last < head ? last : head }).catch(() => [])
-            const ev = paidEvents(logs as never)[0]
-            const tx = (logs[0] as { transactionHash?: string } | undefined)?.transactionHash
-            if (!ev || !tx) continue
-            if ((await book(order, tx.toLowerCase(), ev)) === 'paid') booked++
-            break
-        }
-    }
+    for (const order of orders) if ((await scanOrder(order, head)) === 'paid') booked++
     return booked
+}
+
+/**
+ * One order's Paid event, looked for on chain by its indexed player + order from the height the
+ * order was made, and booked if it is there. `not_paid` — the chain has no such event (the player
+ * opened the wallet and walked away). Used by settlePending and by the panel's «Check chain».
+ */
+export async function scanOrder(order: OrderRow, head?: bigint): Promise<SettleState | 'not_paid' | 'no_rpc'> {
+    if (!CASHIER) return 'no_server'
+    if (order.status === 'paid') return 'paid'
+    const top = head ?? await eth_blockNumber(rpc()).catch(() => null)
+    if (top === null) return 'no_rpc'
+    // An order made before from_block was recorded: look back one span from now.
+    const start = order.from_block != null ? BigInt(order.from_block) : (top > LOG_SPAN ? top - LOG_SPAN : BigInt(0))
+    const topics = [PAID_TOPIC, `0x${order.wallet.slice(2).padStart(64, '0')}`, orderRef(order.id)] as `0x${string}`[]
+    for (let from = start; from <= top; from += LOG_SPAN) {
+        const last = from + LOG_SPAN - BigInt(1)
+        const logs = await eth_getLogs(rpc(), { address: CASHIER as `0x${string}`, topics, fromBlock: from, toBlock: last < top ? last : top }).catch(() => null)
+        if (logs === null) return 'no_rpc'
+        const ev = paidEvents(logs as never)[0]
+        const tx = (logs[0] as { transactionHash?: string } | undefined)?.transactionHash
+        if (!ev || !tx) continue
+        return book(order, tx.toLowerCase(), ev)
+    }
+    return 'not_paid'
 }
 
 /**

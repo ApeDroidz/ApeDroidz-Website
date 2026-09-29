@@ -1,0 +1,2108 @@
+{
+ "version": 1,
+ "exportedAt": "2026-09-27T11:56:27.561Z",
+ "resources": [
+  "scrap",
+  "circuit",
+  "cell",
+  "core"
+ ],
+ "heroes": {
+  "goblin": {
+   "cost": 10000,
+   "free": false,
+   "cls": "mage",
+   "defaultWeapon": "staff"
+  },
+  "geez": {
+   "cost": 5000,
+   "free": false,
+   "cls": "tank",
+   "defaultWeapon": "fists"
+  },
+  "volt": {
+   "cost": 0,
+   "free": true,
+   "cls": "blade",
+   "defaultWeapon": "sword_0"
+  },
+  "titan": {
+   "cost": 300,
+   "free": false,
+   "cls": "blade",
+   "defaultWeapon": "sword_0"
+  },
+  "surge": {
+   "cost": 300,
+   "free": false,
+   "cls": "archer",
+   "defaultWeapon": "bow"
+  }
+ },
+ "weapons": {
+  "staff": {
+   "cost": 0,
+   "free": true,
+   "cls": "mage"
+  },
+  "bow": {
+   "cost": 0,
+   "free": true,
+   "cls": "archer"
+  },
+  "fists": {
+   "cost": 0,
+   "free": true,
+   "cls": "tank"
+  },
+  "sword_0": {
+   "cost": 0,
+   "free": true,
+   "cls": "blade"
+  },
+  "dagger": {
+   "cost": 1000,
+   "free": false,
+   "cls": "blade"
+  },
+  "cleaver": {
+   "cost": 1000,
+   "free": false,
+   "cls": "blade"
+  },
+  "saber": {
+   "cost": 1800,
+   "free": false,
+   "cls": "blade"
+  }
+ },
+ "weaponTiers": [
+  {
+   "tier": 1,
+   "cost": {}
+  },
+  {
+   "tier": 2,
+   "cost": {
+    "scrap": 12,
+    "circuit": 4
+   }
+  },
+  {
+   "tier": 3,
+   "cost": {
+    "circuit": 8,
+    "cell": 4
+   }
+  },
+  {
+   "tier": 4,
+   "cost": {
+    "cell": 6,
+    "core": 2
+   }
+  }
+ ],
+ "trees": {
+  "volt": [
+   {
+    "id": "volt_core",
+    "requires": "",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 4
+     },
+     {
+      "scrap": 8
+     },
+     {
+      "scrap": 12
+     }
+    ]
+   },
+   {
+    "id": "volt_coils",
+    "requires": "volt_core",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "volt_capacitor",
+    "requires": "volt_coils",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "volt_tempest",
+    "requires": "volt_capacitor",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "volt_static",
+    "requires": "volt_tempest",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "volt_thunderhead",
+    "requires": "volt_static",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 2
+     }
+    ]
+   },
+   {
+    "id": "volt_edge",
+    "requires": "volt_core",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "volt_rhythm",
+    "requires": "volt_edge",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "volt_blink",
+    "requires": "volt_rhythm",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "volt_keen",
+    "requires": "volt_blink",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "volt_executioner",
+    "requires": "volt_keen",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 2
+     }
+    ]
+   },
+   {
+    "id": "volt_treads",
+    "requires": "volt_core",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "volt_servos",
+    "requires": "volt_treads",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "volt_afterimage",
+    "requires": "volt_servos",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "volt_stride",
+    "requires": "volt_afterimage",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "volt_phantom",
+    "requires": "volt_stride",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 2
+     }
+    ]
+   },
+   {
+    "id": "volt_core_hp",
+    "requires": "volt_core",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 300
+     },
+     {
+      "coins": 600
+     },
+     {
+      "coins": 900
+     },
+     {
+      "coins": 1200
+     },
+     {
+      "coins": 1500
+     }
+    ]
+   },
+   {
+    "id": "volt_core_power",
+    "requires": "volt_core_hp",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 420
+     },
+     {
+      "coins": 840
+     },
+     {
+      "coins": 1260
+     },
+     {
+      "coins": 1680
+     },
+     {
+      "coins": 2100
+     }
+    ]
+   },
+   {
+    "id": "volt_core_yield",
+    "requires": "volt_core_power",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 600
+     },
+     {
+      "coins": 1200
+     },
+     {
+      "coins": 1800
+     },
+     {
+      "coins": 2400
+     },
+     {
+      "coins": 3000
+     }
+    ]
+   },
+   {
+    "id": "volt_core_alloy",
+    "requires": "volt_core_yield",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "coins": 800
+     },
+     {
+      "coins": 1600
+     },
+     {
+      "coins": 2400
+     }
+    ]
+   },
+   {
+    "id": "volt_core_overclock",
+    "requires": "volt_core_alloy",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "coins": 1200
+     },
+     {
+      "coins": 2400
+     },
+     {
+      "coins": 3600
+     }
+    ]
+   }
+  ],
+  "goblin": [
+   {
+    "id": "gob_wick",
+    "requires": "",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 4
+     },
+     {
+      "scrap": 8
+     },
+     {
+      "scrap": 12
+     }
+    ]
+   },
+   {
+    "id": "gob_focus",
+    "requires": "gob_wick",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "gob_twin",
+    "requires": "gob_focus",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     }
+    ]
+   },
+   {
+    "id": "gob_hexstart",
+    "requires": "gob_twin",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "gob_pierce",
+    "requires": "gob_hexstart",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "gob_triple",
+    "requires": "gob_pierce",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 2
+     }
+    ]
+   },
+   {
+    "id": "gob_leech",
+    "requires": "gob_wick",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "gob_volatile",
+    "requires": "gob_leech",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "gob_bloom",
+    "requires": "gob_volatile",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "gob_miasma",
+    "requires": "gob_bloom",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "gob_plague",
+    "requires": "gob_miasma",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 2
+     }
+    ]
+   },
+   {
+    "id": "gob_skitter",
+    "requires": "gob_wick",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "gob_wind",
+    "requires": "gob_skitter",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "gob_hop",
+    "requires": "gob_wind",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "gob_lightfoot",
+    "requires": "gob_hop",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "gob_ghost",
+    "requires": "gob_lightfoot",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 2
+     }
+    ]
+   },
+   {
+    "id": "gob_core_hp",
+    "requires": "gob_wick",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 300
+     },
+     {
+      "coins": 600
+     },
+     {
+      "coins": 900
+     },
+     {
+      "coins": 1200
+     },
+     {
+      "coins": 1500
+     }
+    ]
+   },
+   {
+    "id": "gob_core_power",
+    "requires": "gob_core_hp",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 420
+     },
+     {
+      "coins": 840
+     },
+     {
+      "coins": 1260
+     },
+     {
+      "coins": 1680
+     },
+     {
+      "coins": 2100
+     }
+    ]
+   },
+   {
+    "id": "gob_core_yield",
+    "requires": "gob_core_power",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 600
+     },
+     {
+      "coins": 1200
+     },
+     {
+      "coins": 1800
+     },
+     {
+      "coins": 2400
+     },
+     {
+      "coins": 3000
+     }
+    ]
+   },
+   {
+    "id": "gob_core_alloy",
+    "requires": "gob_core_yield",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "coins": 800
+     },
+     {
+      "coins": 1600
+     },
+     {
+      "coins": 2400
+     }
+    ]
+   },
+   {
+    "id": "gob_core_overclock",
+    "requires": "gob_core_alloy",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "coins": 1200
+     },
+     {
+      "coins": 2400
+     },
+     {
+      "coins": 3600
+     }
+    ]
+   }
+  ],
+  "geez": [
+   {
+    "id": "geez_hide",
+    "requires": "",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 4
+     },
+     {
+      "scrap": 8
+     },
+     {
+      "scrap": 12
+     }
+    ]
+   },
+   {
+    "id": "geez_plating",
+    "requires": "geez_hide",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "geez_thorns",
+    "requires": "geez_plating",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "geez_ironstart",
+    "requires": "geez_thorns",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "geez_dense",
+    "requires": "geez_ironstart",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "geez_bastion",
+    "requires": "geez_dense",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 2
+     }
+    ]
+   },
+   {
+    "id": "geez_fists",
+    "requires": "geez_hide",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "geez_shove",
+    "requires": "geez_fists",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "geez_quake",
+    "requires": "geez_shove",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "geez_knuckle",
+    "requires": "geez_quake",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "geez_wrecking",
+    "requires": "geez_knuckle",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 2
+     }
+    ]
+   },
+   {
+    "id": "geez_charge",
+    "requires": "geez_hide",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "geez_stamina",
+    "requires": "geez_charge",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "geez_secondwind",
+    "requires": "geez_stamina",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "geez_lungs",
+    "requires": "geez_secondwind",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "geez_juggernaut",
+    "requires": "geez_lungs",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 2
+     }
+    ]
+   },
+   {
+    "id": "geez_core_hp",
+    "requires": "geez_hide",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 300
+     },
+     {
+      "coins": 600
+     },
+     {
+      "coins": 900
+     },
+     {
+      "coins": 1200
+     },
+     {
+      "coins": 1500
+     }
+    ]
+   },
+   {
+    "id": "geez_core_power",
+    "requires": "geez_core_hp",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 420
+     },
+     {
+      "coins": 840
+     },
+     {
+      "coins": 1260
+     },
+     {
+      "coins": 1680
+     },
+     {
+      "coins": 2100
+     }
+    ]
+   },
+   {
+    "id": "geez_core_yield",
+    "requires": "geez_core_power",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 600
+     },
+     {
+      "coins": 1200
+     },
+     {
+      "coins": 1800
+     },
+     {
+      "coins": 2400
+     },
+     {
+      "coins": 3000
+     }
+    ]
+   },
+   {
+    "id": "geez_core_alloy",
+    "requires": "geez_core_yield",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "coins": 800
+     },
+     {
+      "coins": 1600
+     },
+     {
+      "coins": 2400
+     }
+    ]
+   },
+   {
+    "id": "geez_core_overclock",
+    "requires": "geez_core_alloy",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "coins": 1200
+     },
+     {
+      "coins": 2400
+     },
+     {
+      "coins": 3600
+     }
+    ]
+   }
+  ]
+ },
+ "items": {
+  "kinds": {
+   "plating": {
+    "cost": {
+     "scrap": 6
+    },
+    "value": {
+     "common": 1,
+     "rare": 2,
+     "epic": 3,
+     "legendary": 5
+    },
+    "refund": {
+     "common": {
+      "scrap": 3
+     },
+     "rare": {
+      "scrap": 3
+     },
+     "epic": {
+      "scrap": 3
+     },
+     "legendary": {
+      "scrap": 3,
+      "core": 1
+     }
+    }
+   },
+   "servo": {
+    "cost": {
+     "scrap": 4,
+     "circuit": 2
+    },
+    "value": {
+     "common": 3,
+     "rare": 5,
+     "epic": 8,
+     "legendary": 12
+    },
+    "refund": {
+     "common": {
+      "scrap": 2,
+      "circuit": 1
+     },
+     "rare": {
+      "scrap": 2,
+      "circuit": 1
+     },
+     "epic": {
+      "scrap": 2,
+      "circuit": 1
+     },
+     "legendary": {
+      "scrap": 2,
+      "circuit": 1,
+      "core": 1
+     }
+    }
+   },
+   "treads": {
+    "cost": {
+     "scrap": 5,
+     "cell": 1
+    },
+    "value": {
+     "common": 3,
+     "rare": 5,
+     "epic": 8,
+     "legendary": 12
+    },
+    "refund": {
+     "common": {
+      "scrap": 2
+     },
+     "rare": {
+      "scrap": 2
+     },
+     "epic": {
+      "scrap": 2
+     },
+     "legendary": {
+      "scrap": 2,
+      "core": 1
+     }
+    }
+   },
+   "coil": {
+    "cost": {
+     "circuit": 3,
+     "cell": 1
+    },
+    "value": {
+     "common": 3,
+     "rare": 5,
+     "epic": 8,
+     "legendary": 12
+    },
+    "refund": {
+     "common": {
+      "circuit": 1
+     },
+     "rare": {
+      "circuit": 1
+     },
+     "epic": {
+      "circuit": 1
+     },
+     "legendary": {
+      "circuit": 1,
+      "core": 1
+     }
+    }
+   },
+   "magnet": {
+    "cost": {
+     "scrap": 4,
+     "circuit": 1
+    },
+    "value": {
+     "common": 30,
+     "rare": 50,
+     "epic": 80,
+     "legendary": 120
+    },
+    "refund": {
+     "common": {
+      "scrap": 2
+     },
+     "rare": {
+      "scrap": 2
+     },
+     "epic": {
+      "scrap": 2
+     },
+     "legendary": {
+      "scrap": 2,
+      "core": 1
+     }
+    }
+   },
+   "capacitor": {
+    "cost": {
+     "circuit": 2,
+     "cell": 2
+    },
+    "value": {
+     "common": 8,
+     "rare": 12,
+     "epic": 18,
+     "legendary": 25
+    },
+    "refund": {
+     "common": {
+      "circuit": 1,
+      "cell": 1
+     },
+     "rare": {
+      "circuit": 1,
+      "cell": 1
+     },
+     "epic": {
+      "circuit": 1,
+      "cell": 1
+     },
+     "legendary": {
+      "circuit": 1,
+      "cell": 1,
+      "core": 1
+     }
+    }
+   }
+  },
+  "rarities": [
+   "common",
+   "rare",
+   "epic",
+   "legendary"
+  ],
+  "oddsPlain": [
+   62,
+   26,
+   9,
+   3
+  ],
+  "oddsCore": [
+   20,
+   38,
+   28,
+   14
+  ],
+  "bagSize": 32,
+  "equipSlots": 3,
+  "mergeCount": 3
+ },
+ "daily": {
+  "milestones": [
+   7,
+   14,
+   30
+  ],
+  "rewards": [
+   {
+    "reward": 50,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 60,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 70,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 80,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 90,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 100,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 310,
+    "bonus": 200,
+    "bag": {
+     "scrap": 6,
+     "circuit": 2
+    },
+    "milestone": 7
+   },
+   {
+    "reward": 120,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 130,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 140,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 150,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 160,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 170,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 680,
+    "bonus": 500,
+    "bag": {
+     "core": 1,
+     "circuit": 4
+    },
+    "milestone": 14
+   },
+   {
+    "reward": 190,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 400,
+    "bonus": 200,
+    "bag": {
+     "scrap": 6,
+     "circuit": 2
+    },
+    "milestone": 7
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 400,
+    "bonus": 200,
+    "bag": {
+     "scrap": 6,
+     "circuit": 2
+    },
+    "milestone": 7
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 1200,
+    "bonus": 1000,
+    "bag": {
+     "core": 2,
+     "cell": 4
+    },
+    "milestone": 30
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1
+    },
+    "milestone": 0
+   }
+  ]
+ },
+ "quests": [
+  {
+   "type": "kills",
+   "text": "Put down # enemies",
+   "targets": [
+    60,
+    150,
+    300
+   ],
+   "sxp": [
+    100,
+    160,
+    240
+   ],
+   "bag": [
+    {
+     "scrap": 3
+    },
+    {
+     "scrap": 5
+    },
+    {
+     "scrap": 8
+    }
+   ],
+   "mode": "sum"
+  },
+  {
+   "type": "wave",
+   "text": "Reach wave # in one run",
+   "targets": [
+    4,
+    7,
+    10
+   ],
+   "sxp": [
+    120,
+    200,
+    300
+   ],
+   "bag": [
+    {
+     "scrap": 3
+    },
+    {
+     "circuit": 2
+    },
+    {
+     "cell": 2
+    }
+   ],
+   "mode": "max"
+  },
+  {
+   "type": "salvage",
+   "text": "Break # salvage",
+   "targets": [
+    4,
+    8,
+    14
+   ],
+   "sxp": [
+    100,
+    150,
+    220
+   ],
+   "bag": [
+    {
+     "scrap": 4
+    },
+    {
+     "scrap": 6
+    },
+    {
+     "circuit": 3
+    }
+   ],
+   "mode": "sum"
+  },
+  {
+   "type": "resources",
+   "text": "Pick up # resources",
+   "targets": [
+    8,
+    16,
+    30
+   ],
+   "sxp": [
+    100,
+    150,
+    220
+   ],
+   "bag": [
+    {
+     "circuit": 1
+    },
+    {
+     "circuit": 2
+    },
+    {
+     "cell": 2
+    }
+   ],
+   "mode": "sum"
+  },
+  {
+   "type": "charged",
+   "text": "Land # charged strikes",
+   "targets": [
+    4,
+    10,
+    20
+   ],
+   "sxp": [
+    110,
+    170,
+    250
+   ],
+   "bag": [
+    {
+     "scrap": 3
+    },
+    {
+     "circuit": 2
+    },
+    {
+     "cell": 1,
+     "circuit": 2
+    }
+   ],
+   "mode": "sum"
+  },
+  {
+   "type": "elites",
+   "text": "Kill # elites",
+   "targets": [
+    2,
+    5,
+    10
+   ],
+   "sxp": [
+    120,
+    190,
+    280
+   ],
+   "bag": [
+    {
+     "circuit": 2
+    },
+    {
+     "cell": 2
+    },
+    {
+     "core": 1
+    }
+   ],
+   "mode": "sum"
+  },
+  {
+   "type": "boss",
+   "text": "Bring down # bosses",
+   "one": "Bring down a boss",
+   "targets": [
+    1,
+    2,
+    3
+   ],
+   "sxp": [
+    150,
+    240,
+    340
+   ],
+   "bag": [
+    {
+     "cell": 1
+    },
+    {
+     "cell": 2
+    },
+    {
+     "core": 1
+    }
+   ],
+   "mode": "sum"
+  },
+  {
+   "type": "runs",
+   "text": "Finish # runs",
+   "targets": [
+    2,
+    4,
+    6
+   ],
+   "sxp": [
+    90,
+    140,
+    200
+   ],
+   "bag": [
+    {
+     "scrap": 4
+    },
+    {
+     "scrap": 6
+    },
+    {
+     "scrap": 10
+    }
+   ],
+   "mode": "sum"
+  }
+ ],
+ "season": {
+  "tierCount": 20,
+  "tierCosts": [
+   1300,
+   1400,
+   1500,
+   1600,
+   1700,
+   1800,
+   1900,
+   2000,
+   2100,
+   2200,
+   2300,
+   2400,
+   2500,
+   2600,
+   2700,
+   2800,
+   2900,
+   3000,
+   3100,
+   3200
+  ],
+  "tiers": [
+   {
+    "tier": 1,
+    "free": {
+     "kind": "coins",
+     "coins": 300
+    },
+    "pass": {
+     "kind": "coins",
+     "coins": 1000
+    }
+   },
+   {
+    "tier": 2,
+    "free": {
+     "kind": "resources",
+     "bag": {
+      "scrap": 6
+     }
+    },
+    "pass": {
+     "kind": "boost",
+     "minutes": 30
+    }
+   },
+   {
+    "tier": 3,
+    "free": {
+     "kind": "coins",
+     "coins": 400
+    },
+    "pass": {
+     "kind": "resources",
+     "bag": {
+      "scrap": 12,
+      "circuit": 4
+     }
+    }
+   },
+   {
+    "tier": 4,
+    "free": {
+     "kind": "resources",
+     "bag": {
+      "circuit": 3,
+      "cell": 1
+     }
+    },
+    "pass": {
+     "kind": "item",
+     "item": "servo",
+     "rarity": "epic"
+    }
+   },
+   {
+    "tier": 5,
+    "free": {
+     "kind": "item",
+     "item": "plating",
+     "rarity": "rare"
+    },
+    "pass": {
+     "kind": "cosmetic",
+     "id": "spark_cyan"
+    }
+   },
+   {
+    "tier": 6,
+    "free": {
+     "kind": "coins",
+     "coins": 500
+    },
+    "pass": {
+     "kind": "coins",
+     "coins": 2000
+    }
+   },
+   {
+    "tier": 7,
+    "free": {
+     "kind": "boost",
+     "minutes": 15
+    },
+    "pass": {
+     "kind": "resources",
+     "bag": {
+      "cell": 4,
+      "core": 1
+     }
+    }
+   },
+   {
+    "tier": 8,
+    "free": {
+     "kind": "resources",
+     "bag": {
+      "scrap": 8,
+      "circuit": 2
+     }
+    },
+    "pass": {
+     "kind": "boost",
+     "minutes": 60
+    }
+   },
+   {
+    "tier": 9,
+    "free": {
+     "kind": "coins",
+     "coins": 600
+    },
+    "pass": {
+     "kind": "item",
+     "item": "coil",
+     "rarity": "epic"
+    }
+   },
+   {
+    "tier": 10,
+    "free": {
+     "kind": "item",
+     "item": "servo",
+     "rarity": "rare"
+    },
+    "pass": {
+     "kind": "item",
+     "item": "treads",
+     "rarity": "legendary"
+    }
+   },
+   {
+    "tier": 11,
+    "free": {
+     "kind": "resources",
+     "bag": {
+      "cell": 2
+     }
+    },
+    "pass": {
+     "kind": "coins",
+     "coins": 3000
+    }
+   },
+   {
+    "tier": 12,
+    "free": {
+     "kind": "coins",
+     "coins": 700
+    },
+    "pass": {
+     "kind": "resources",
+     "bag": {
+      "core": 2,
+      "cell": 3
+     }
+    }
+   },
+   {
+    "tier": 13,
+    "free": {
+     "kind": "resources",
+     "bag": {
+      "scrap": 10,
+      "circuit": 3
+     }
+    },
+    "pass": {
+     "kind": "cosmetic",
+     "id": "spark_lime"
+    }
+   },
+   {
+    "tier": 14,
+    "free": {
+     "kind": "boost",
+     "minutes": 30
+    },
+    "pass": {
+     "kind": "item",
+     "item": "capacitor",
+     "rarity": "epic"
+    }
+   },
+   {
+    "tier": 15,
+    "free": {
+     "kind": "item",
+     "item": "coil",
+     "rarity": "rare"
+    },
+    "pass": {
+     "kind": "boost",
+     "minutes": 120
+    }
+   },
+   {
+    "tier": 16,
+    "free": {
+     "kind": "coins",
+     "coins": 800
+    },
+    "pass": {
+     "kind": "cosmetic",
+     "id": "spark_violet"
+    }
+   },
+   {
+    "tier": 17,
+    "free": {
+     "kind": "resources",
+     "bag": {
+      "cell": 3,
+      "core": 1
+     }
+    },
+    "pass": {
+     "kind": "coins",
+     "coins": 4000
+    }
+   },
+   {
+    "tier": 18,
+    "free": {
+     "kind": "coins",
+     "coins": 1000
+    },
+    "pass": {
+     "kind": "item",
+     "item": "servo",
+     "rarity": "legendary"
+    }
+   },
+   {
+    "tier": 19,
+    "free": {
+     "kind": "resources",
+     "bag": {
+      "core": 1,
+      "circuit": 4
+     }
+    },
+    "pass": {
+     "kind": "cosmetic",
+     "id": "spark_gold"
+    }
+   },
+   {
+    "tier": 20,
+    "free": {
+     "kind": "item",
+     "item": "magnet",
+     "rarity": "epic"
+    },
+    "pass": {
+     "kind": "item",
+     "item": "plating",
+     "rarity": "legendary"
+    }
+   }
+  ],
+  "id": "S1"
+ },
+ "run": {
+  "coins": {
+   "sqrtScore": 3,
+   "kill": 0.3,
+   "wave": 20
+  },
+  "sxp": {
+   "sqrtScore": 4,
+   "kill": 0.5,
+   "wave": 10
+  },
+  "yieldSuffix": "_core_yield",
+  "yieldPerLevel": 0.1
+ },
+ "discoveryBounty": 40,
+ "enemies": [
+  "robber",
+  "watcher",
+  "bulwark",
+  "kettle",
+  "lancer",
+  "rammer",
+  "musket",
+  "warlock",
+  "wasp",
+  "carrier",
+  "worm",
+  "archer",
+  "sniper",
+  "walker",
+  "juggernaut",
+  "runner",
+  "brute",
+  "leaper",
+  "gunner",
+  "warden_boss",
+  "siege_boss",
+  "devourer_boss",
+  "hive_boss",
+  "mutant_boss",
+  "grafted_boss"
+ ],
+ "boxOdds": {
+  "basic": [
+   55,
+   30,
+   12,
+   3
+  ],
+  "rare": [
+   0,
+   55,
+   33,
+   12
+  ],
+  "legendary": [
+   0,
+   0,
+   60,
+   40
+  ]
+ },
+ "continueMini": 5000
+}
