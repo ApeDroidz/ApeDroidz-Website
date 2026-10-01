@@ -19,4 +19,14 @@ export const client = createThirdwebClient({
 export const APECHAIN_RPC_URL =
   process.env.NEXT_PUBLIC_APECHAIN_RPC_URL || "https://rpc.apechain.com/http";
 
-export const apeChain = defineChain({ id: 33139, rpc: APECHAIN_RPC_URL });
+// Имя, валюта и эксплорер — не украшение: когда кошельку на телефоне нужно ДОБАВИТЬ ApeChain
+// (wallet.switchChain → wallet_addEthereumChain), thirdweb берёт chainName/nativeCurrency/
+// blockExplorerUrls ровно отсюда. С одним id и rpc в запрос уходили undefined, и MetaMask
+// отказывал — кнопка «Add ApeChain» на /droidz_survival не могла сработать (01.10.2026).
+export const apeChain = defineChain({
+  id: 33139,
+  rpc: APECHAIN_RPC_URL,
+  name: "ApeChain",
+  nativeCurrency: { name: "ApeCoin", symbol: "APE", decimals: 18 },
+  blockExplorers: [{ name: "ApeScan", url: "https://apescan.io" }],
+});

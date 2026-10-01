@@ -42,6 +42,8 @@ export function useGlitchSession() {
     // Prevent concurrent /me checks and signing prompts.
     const checkingRef = useRef(false)
     const signingRef = useRef(false)
+    /** Bumped by cancelLogin(): a prompt the person gave up on no longer holds the next one back. */
+    const attemptRef = useRef(0)
     const lastCheckedWalletRef = useRef<string | null>(null)
 
     const setSession = useCallback((next: Partial<SessionState>) => {
@@ -162,6 +164,7 @@ export function useGlitchSession() {
         }
 
         signingRef.current = true
+        const attempt = ++attemptRef.current
 
         try {
             const nonce = genNonce()
@@ -187,15 +190,33 @@ export function useGlitchSession() {
             setSession({ authedWallet: lower, loading: false, error: null })
             return true
         } catch (err: any) {
+            // Given up on (cancelLogin) and maybe already retried: this late failure is not news.
+            if (attemptRef.current !== attempt) return false
             const msg = err?.message?.toLowerCase().includes('reject')
                 ? 'Signature rejected'
                 : (err?.message || 'Login failed')
             setSession({ loading: false, error: msg })
             return false
         } finally {
-            signingRef.current = false
+            // A cancelled attempt has already released the lock; never release a newer one's.
+            if (attemptRef.current === attempt) signingRef.current = false
         }
     }, [account, refresh, setSession])
+
+    /**
+     * Give up on a signature prompt that never reached the wallet (phone: the wallet app opened
+     * without the request). The pending promise is left to settle on its own — if the signature
+     * does arrive later it still logs in — but the lock is released so a fresh tap asks again
+     * at once instead of waiting 20 s behind the lost one.
+     */
+    const cancelLogin = useCallback(() => {
+        attemptRef.current++
+        signingRef.current = false
+        setSession({ loading: false, error: null })
+    }, [setSession])
+
+    /** The error of the last attempt, read synchronously (state from a closure would be one render behind). */
+    const lastError = useCallback(() => stateRef.current.error, [])
 
     /** Programmatic logout (clears server cookie too). */
     const logout = useCallback(async () => {
@@ -210,6 +231,8 @@ export function useGlitchSession() {
         loading: state.loading,
         error: state.error,
         ensureLogin,
+        cancelLogin,
+        lastError,
         refresh,
         logout,
     }

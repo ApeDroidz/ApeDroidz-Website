@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useActiveAccount, useActiveWallet, useSendTransaction, ConnectButton } from 'thirdweb/react'
-import { createWallet } from 'thirdweb/wallets'
+import { createWallet, injectedProvider } from 'thirdweb/wallets'
 import { prepareTransaction, toWei } from 'thirdweb'
 import { client, apeChain } from '@/lib/thirdweb'
-import { Loader2, Lock, ShieldCheck, Maximize2, Minimize2, Volume2, VolumeX, Play, X } from 'lucide-react'
+import { Loader2, Lock, ShieldCheck, Maximize2, Minimize2, Volume2, VolumeX, Play, X, ExternalLink } from 'lucide-react'
 import { Header } from '@/components/header'
 import { DigitalBackground } from '@/components/digital-background'
 import { ProfileModal } from '@/components/profile-modal'
@@ -40,6 +40,47 @@ const GAME_SRC = '/droidz_survival/play/index.html'
 // The same wallets the Header offers — the door has its own Connect button (owner, 19.09:
 // «справа, где connect your wallet, добавить кнопку, чтобы не тянуться далеко»).
 const WALLETS = [createWallet('io.metamask'), createWallet('com.coinbase.wallet'), createWallet('me.rainbow')]
+/**
+ * The wallet apps a phone reaches over WalletConnect (MetaMask, Rainbow): their name for the hints
+ * and the bare app link. The link is the «it didn't show up» button — the request waits in the
+ * relay, so simply opening the app again usually brings it up (a tap on a link is a gesture, so
+ * Safari lets it through). Coinbase Wallet goes through its own SDK (a keys.coinbase.com window),
+ * not a deep link, so it gets no button here — only the «open in the wallet's browser» way out.
+ */
+const WALLET_APPS: Record<string, { name: string; open: string }> = {
+    'io.metamask': { name: 'MetaMask', open: 'metamask://' },
+    'me.rainbow': { name: 'Rainbow', open: 'rainbow://' },
+}
+
+/** Phone or tablet (iPadOS reports itself as a Mac with a touch screen). Client-only. */
+function isMobileDevice(): boolean {
+    if (typeof navigator === 'undefined') return false
+    const ua = navigator.userAgent
+    return /iPhone|iPad|iPod|Android|Mobile/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+}
+
+/**
+ * Inside a wallet's own browser (MetaMask, Coinbase Wallet, Rainbow…) the wallet is injected and
+ * signs in place — no deep link, no WalletConnect. Client-only.
+ */
+function inWalletBrowser(): boolean {
+    if (typeof window === 'undefined') return false
+    return !!(window as Window & { ethereum?: unknown }).ethereum
+}
+
+/**
+ * The way out when the phone's browser and the wallet app will not talk: open this very page in
+ * the wallet's built-in browser, where signing needs no hand-off at all.
+ * MetaMask: https://metamask.app.link/dapp/<host><path> (no scheme — MetaMask adds https).
+ * Coinbase Wallet: https://go.cb-w.com/dapp?cb_url=<the full URL, encoded>.
+ */
+function walletBrowserLinks(loc: { host: string; pathname: string; search: string; href: string }) {
+    return {
+        metamask: `https://metamask.app.link/dapp/${loc.host}${loc.pathname}${loc.search}`,
+        coinbase: `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(loc.href)}`,
+    }
+}
+
 /** Flip to true (or set NEXT_PUBLIC_SURVIVAL_PAY_FOR_REAL=1) when the contracts are in. */
 const PAY_FOR_REAL = process.env.NEXT_PUBLIC_SURVIVAL_PAY_FOR_REAL === '1'
 
@@ -49,7 +90,7 @@ type Gate = 'loading' | 'connect' | 'verify' | 'denied' | 'allowed' | 'error'
 export default function DroidzSurvivalPage() {
     const account = useActiveAccount()
     const wallet = useActiveWallet()
-    const { authedWallet, ensureLogin, error: sessionError } = useGlitchSession()
+    const { authedWallet, ensureLogin, cancelLogin, lastError } = useGlitchSession()
 
     const [gate, setGate] = useState<Gate>('loading')
     const [signing, setSigning] = useState(false)
@@ -61,6 +102,16 @@ export default function DroidzSurvivalPage() {
      *  same screen as for everyone — announce, door card with «access open» and a Play button. */
     const [playing, setPlaying] = useState(false)
     const [isProfileOpen, setIsProfileOpen] = useState(false)
+    /** Phone facts, read after mount (the server render knows neither). */
+    const [phone, setPhone] = useState<{ mobile: boolean; inWallet: boolean; links: ReturnType<typeof walletBrowserLinks> } | null>(null)
+    useEffect(() => {
+        setPhone({ mobile: isMobileDevice(), inWallet: inWalletBrowser(), links: walletBrowserLinks(window.location) })
+    }, [])
+    /**
+     * The connected wallet signs through its phone app (WalletConnect deep link) rather than in
+     * place: a phone, a wallet with an app link, and nothing injected for it on this page.
+     */
+    const walletApp = wallet && phone?.mobile && !injectedProvider(wallet.id) ? WALLET_APPS[wallet.id] ?? null : null
 
     const frameRef = useRef<HTMLIFrameElement>(null)
     // The Buy / Deposit window thirdweb shows when the wallet is short of APE stays on (it is how a
@@ -225,15 +276,32 @@ export default function DroidzSurvivalPage() {
         checkAccess()
     }, [account?.address, authedWallet, checkAccess])
 
+    /** Bumped by «Cancel»: the abandoned attempt must not flip the UI when it finally settles. */
+    const verifyRunRef = useRef(0)
     const verify = useCallback(async () => {
+        // Nothing may run before ensureLogin() reaches the wallet: on a phone the wallet app is
+        // opened by a deep link, and Safari allows that only inside this tap (the setState calls
+        // are batched by React and render after the handler, so they cost the gesture nothing).
+        const run = ++verifyRunRef.current
         setSigning(true)
         setMessage(null)
         const ok = await ensureLogin()
+        if (verifyRunRef.current !== run) return
         setSigning(false)
-        if (!ok) { setMessage(sessionError ?? 'Signature required to continue'); return }
+        // The hook's error is read from its ref: the `error` of this render would be the
+        // previous attempt's (it used to show «Signature required» instead of the real reason).
+        if (!ok) { setMessage(lastError() ?? 'Signature required to continue'); return }
         setGate('loading')
         await checkAccess()
-    }, [ensureLogin, sessionError, checkAccess])
+    }, [ensureLogin, lastError, checkAccess])
+
+    /** «The request never showed up»: release the lock so the next tap asks the wallet afresh. */
+    const cancelVerify = useCallback(() => {
+        verifyRunRef.current++
+        cancelLogin()
+        setSigning(false)
+        setMessage(null)
+    }, [cancelLogin])
 
     /**
      * The wallet app does not know ApeChain (owner, 24.09.2026, MetaMask on an iPhone:
@@ -377,6 +445,12 @@ export default function DroidzSurvivalPage() {
                                         connectModal={{ size: 'compact', title: 'ApeDroidz Access', showThirdwebBranding: false }}
                                     />
                                 </div>
+                                {phone?.mobile && !phone.inWallet && (
+                                    <p className="mt-4 text-xs leading-relaxed text-white/35">
+                                        On a phone: pick your wallet, approve the connection in its app,
+                                        then come back to this tab — the next step is one signature.
+                                    </p>
+                                )}
                             </>
                         )}
 
@@ -390,14 +464,47 @@ export default function DroidzSurvivalPage() {
                                     Sign a message to prove the wallet is yours. It is free, there is
                                     no transaction, and nothing leaves your wallet.
                                 </p>
+                                {walletApp && !signing && (
+                                    <p data-testid="sign-hint" className="mt-3 text-sm leading-relaxed text-white/50">
+                                        Tapping Sign opens {walletApp.name} with the request. Approve it
+                                        there, then switch back to this tab.
+                                    </p>
+                                )}
                                 <button
                                     onClick={verify}
                                     disabled={signing}
                                     className="mt-7 inline-flex h-[46px] items-center justify-center gap-2 rounded-full bg-white px-8 text-sm font-bold text-black transition-all duration-300 hover:bg-[#0069FF] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     {signing && <Loader2 className="h-4 w-4 animate-spin" />}
-                                    {signing ? 'Waiting for signature…' : 'Sign to continue'}
+                                    {signing ? 'Waiting for signature…' : walletApp ? `Sign in ${walletApp.name}` : 'Sign to continue'}
                                 </button>
+                                {signing && (
+                                    <div data-testid="sign-waiting" className="mt-5 space-y-3 text-sm leading-relaxed text-white/50">
+                                        <p>
+                                            {walletApp
+                                                ? `Approve the request in ${walletApp.name}, then come back to this tab. No request in ${walletApp.name}? Open it again — the request may arrive a moment later.`
+                                                : 'Approve the request in your wallet.'}
+                                        </p>
+                                        <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                                            {walletApp && (
+                                                <a
+                                                    data-testid="open-wallet-app"
+                                                    href={walletApp.open}
+                                                    className="inline-flex h-[42px] items-center justify-center gap-2 rounded-full border border-white/20 px-6 text-sm font-bold text-white transition-all duration-300 hover:border-white/60"
+                                                >
+                                                    Open {walletApp.name}
+                                                </a>
+                                            )}
+                                            <button
+                                                data-testid="sign-cancel"
+                                                onClick={cancelVerify}
+                                                className="inline-flex h-[42px] items-center justify-center rounded-full px-4 text-sm font-bold text-white/50 transition-colors hover:text-white"
+                                            >
+                                                Cancel and try again
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
 
@@ -494,6 +601,36 @@ export default function DroidzSurvivalPage() {
                             <p className={`mt-5 font-mono text-[11px] uppercase tracking-widest ${message.startsWith('ApeChain added') ? 'text-emerald-400/80' : 'text-red-400/70'}`}>
                                 {message}
                             </p>
+                        )}
+
+                        {/* The way out on a phone (owner, 01.10.2026: a signature that never reached
+                            MetaMask from Safari): the same page inside the wallet's own browser,
+                            where it signs in place. Not shown inside a wallet browser already. */}
+                        {(gate === 'connect' || gate === 'verify') && phone?.mobile && !phone.inWallet && (
+                            <div data-testid="wallet-browser-links" className="mt-8 border-t border-white/10 pt-5">
+                                <p className="text-xs leading-relaxed text-white/35">
+                                    Still stuck? Open this page in your wallet&apos;s own browser and
+                                    connect there:
+                                </p>
+                                <div className="mt-3 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+                                    <a
+                                        data-testid="open-in-metamask"
+                                        href={phone.links.metamask}
+                                        className="inline-flex h-[36px] items-center gap-1.5 rounded-full border border-white/15 px-4 text-xs font-bold text-white/80 transition-colors hover:border-white/50 hover:text-white"
+                                    >
+                                        <ExternalLink className="h-3.5 w-3.5 icon-dim-50" />
+                                        MetaMask browser
+                                    </a>
+                                    <a
+                                        data-testid="open-in-coinbase"
+                                        href={phone.links.coinbase}
+                                        className="inline-flex h-[36px] items-center gap-1.5 rounded-full border border-white/15 px-4 text-xs font-bold text-white/80 transition-colors hover:border-white/50 hover:text-white"
+                                    >
+                                        <ExternalLink className="h-3.5 w-3.5 icon-dim-50" />
+                                        Coinbase Wallet browser
+                                    </a>
+                                </div>
+                            </div>
                         )}
                         </motion.div>
                     </div>
