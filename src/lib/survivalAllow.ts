@@ -16,15 +16,19 @@ export const isPublic = () => process.env.SURVIVAL_PUBLIC !== '0'
 export async function accessFor(wallet: string): Promise<Access> {
     if (!supabaseAdmin) return { allowed: false, until: null, error: 'Service misconfigured' }
     const w = wallet.toLowerCase()
-    const [{ data: row, error }, { data: player }] = await Promise.all([
+    const [{ data: row, error }, { data: player, error: pErr }] = await Promise.all([
         supabaseAdmin.from('survival_allowlist').select('revoked_at, expires_at').eq('wallet', w).maybeSingle(),
         supabaseAdmin.from('survival_players').select('banned').eq('wallet', w).maybeSingle(),
     ])
-    if (error) return { allowed: false, until: null, error: error.message }
+    // Fail closed: a ban that could not be read is not a ban that was checked.
+    if (error || pErr) return { allowed: false, until: null, error: (error ?? pErr)!.message }
     if ((player as { banned?: boolean } | null)?.banned) return { allowed: false, until: null }
+    if (row?.revoked_at) return { allowed: false, until: null }
+    // Open beta: every wallet plays, with no countdown — a beta-list expiry means nothing while
+    // the door is open for all. SURVIVAL_PUBLIC=0 brings the list and its dates back.
+    if (isPublic()) return { allowed: true, until: null }
     const until = row?.expires_at ? new Date(row.expires_at as string) : null
-    const listed = !!row && !row.revoked_at && (!until || until.getTime() > Date.now())
+    const listed = !!row && (!until || until.getTime() > Date.now())
     if (listed) return { allowed: true, until }
-    if (isPublic() && !row?.revoked_at) return { allowed: true, until: null }
     return { allowed: false, until: null }
 }

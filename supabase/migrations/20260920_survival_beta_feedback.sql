@@ -154,4 +154,7 @@ comment on function survival_submit_feedback is
 alter table survival_feedback enable row level security;
 
 revoke insert, update, delete, select on survival_feedback from anon, authenticated;
-revoke execute on function survival_submit_feedback(text, int, text, text) from anon, authenticated;
+-- PUBLIC too: anon inherits from PUBLIC, and a revoke from anon alone left anon=X through it
+-- (checked on prod 29.09). service_role only — /api/survival/feedback checks the session.
+revoke execute on function survival_submit_feedback(text, int, text, text) from public, anon, authenticated;
+grant execute on function survival_submit_feedback(text, int, text, text) to service_role;

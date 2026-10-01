@@ -4,6 +4,20 @@ import { droidStaticUrl, droidAnimatedWebpUrl, droid3dPfpUrl, droidOthersideMmlU
 import { buildHonoraryDisplay } from '@/lib/droidDisplay'
 import { lmntItem, buildLmntMetadata } from '@/lib/lmnt'
 
+// The honorary mirror is only ever written by us, but its external_url goes straight to
+// marketplaces — accept nothing but an https link to our own hosts, else the default.
+const HONORARY_EXTERNAL_DEFAULT = 'https://x.com/ApeDroidz'
+const HONORARY_EXTERNAL_HOSTS = new Set(['x.com', 'twitter.com', 'apedroidz.com', 'www.apedroidz.com'])
+function safeHonoraryExternalUrl(raw: unknown): string {
+  if (typeof raw !== 'string' || !raw) return HONORARY_EXTERNAL_DEFAULT
+  try {
+    const u = new URL(raw)
+    return u.protocol === 'https:' && HONORARY_EXTERNAL_HOSTS.has(u.hostname) ? u.href : HONORARY_EXTERNAL_DEFAULT
+  } catch {
+    return HONORARY_EXTERNAL_DEFAULT
+  }
+}
+
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -109,7 +123,7 @@ export async function GET(
         // Interactive previewer — same switcher as the base collection, minus
         // the level/3D views that do not apply here.
         animation_url: `${origin}/api/viewer/${tokenId}?collection=honorary&v=${d.display_view}`,
-        external_url: d.external_url || 'https://x.com/ApeDroidz',
+        external_url: safeHonoraryExternalUrl(d.external_url),
         attributes: d.attributes,
       }, { headers: corsHeaders })
     }

@@ -49,7 +49,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     const wallet = useActiveWallet()
     const { disconnect } = useDisconnect()
     const { level, xp, rank, progress, stats, username: currentUsername, refetch } = useUserProgress()
-    const { ensureLogin } = useGlitchSession()
+    const { ensureLogin, refresh: refreshSession } = useGlitchSession()
 
     // Normalize wallet address
     const normalizedAddress = account?.address
@@ -185,12 +185,51 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
         setLoadingDroids(false)
     }
 
+    /**
+     * username/PFP пишет только сервер (/api/user/profile) по кошельку из
+     * куки сессии: прямая запись в `users` анонимным ключом позволяла менять
+     * профиль любому кошельку. Нет сессии — просим подписать вход.
+     */
+    const saveProfile = async (patch: { username?: string, pfp?: number }): Promise<boolean> => {
+        // Подпись — первым делом, до сетевых запросов: иначе на мобилке
+        // истекает жест и кошелёк не открывается (см. useGlitchSession).
+        const ok = await ensureLogin()
+        if (!ok) {
+            setToast({ isOpen: true, title: "Sign in required", message: "Please sign the login message to save your profile.", type: "error" })
+            return false
+        }
+        try {
+            const res = await fetch('/api/user/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(patch)
+            })
+            if (res.status === 401) {
+                refreshSession()   // сбросит устаревшее состояние — следующая попытка попросит подпись
+                setToast({ isOpen: true, title: "Sign in required", message: "Session expired — please sign in again and retry.", type: "error" })
+                return false
+            }
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) throw new Error(data.error || "Failed to save")
+            return true
+        } catch (e: any) {
+            console.error(e)
+            setToast({ isOpen: true, title: "Error", message: e.message || "Failed to save profile.", type: "error" })
+            return false
+        }
+    }
+
     const selectPfp = async (tokenId: string, url: string) => {
         setIsAvatarLoading(true)
         const idInt = parseInt(tokenId)
-        await supabase.from('users').update({ PFP: idInt }).ilike('wallet_address', normalizedAddress || "")
-        setUserPfpUrl(url)
-        setIsSelectingPfp(false)
+        const ok = await saveProfile({ pfp: idInt })
+        if (ok) {
+            setUserPfpUrl(url)
+            setIsSelectingPfp(false)
+        } else {
+            setIsAvatarLoading(false)
+        }
     }
 
     const handleDownloadImg = async () => {
@@ -219,7 +258,10 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
     }
 
     const saveUsername = async () => {
-        await supabase.from('users').update({ username: newName }).ilike('wallet_address', normalizedAddress || "")
+        const name = newName.trim()
+        if (!name) return setIsEditingName(false)
+        const ok = await saveProfile({ username: name })
+        if (!ok) return
         setIsEditingName(false); refetch();
     }
 
@@ -346,7 +388,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
                                                         <div className="flex-1 min-w-0">
                                                             {isEditingName ? (
                                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                                    <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-black text-lg uppercase tracking-tighter w-full focus:outline-none focus:border-[#3b82f6]" placeholder="ENTER NAME" onKeyDown={(e) => { if (e.key === 'Enter') saveUsername(); if (e.key === 'Escape') setIsEditingName(false) }} />
+                                                                    <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-black text-lg uppercase tracking-tighter w-full focus:outline-none focus:border-[#3b82f6]" placeholder="ENTER NAME" maxLength={24} onKeyDown={(e) => { if (e.key === 'Enter') saveUsername(); if (e.key === 'Escape') setIsEditingName(false) }} />
                                                                     <div className="flex gap-1">
                                                                         <button onClick={saveUsername} className="p-1.5 rounded bg-[#3b82f6] text-white hover:bg-blue-500 transition-colors"><Check size={14} /></button>
                                                                         <button onClick={() => setIsEditingName(false)} className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors"><X size={14} /></button>
@@ -442,7 +484,7 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: { isOp
 
                                                             {isEditingName ? (
                                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                                    <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-black text-2xl uppercase tracking-tighter w-full max-w-[300px] focus:outline-none focus:border-[#3b82f6]" placeholder="ENTER NAME" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') saveUsername(); if (e.key === 'Escape') setIsEditingName(false) }} />
+                                                                    <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white font-black text-2xl uppercase tracking-tighter w-full max-w-[300px] focus:outline-none focus:border-[#3b82f6]" placeholder="ENTER NAME" maxLength={24} autoFocus onKeyDown={(e) => { if (e.key === 'Enter') saveUsername(); if (e.key === 'Escape') setIsEditingName(false) }} />
                                                                     <div className="flex gap-1">
                                                                         <button onClick={saveUsername} className="p-1.5 rounded bg-[#3b82f6] text-white hover:bg-blue-500 transition-colors"><Check size={14} /></button>
                                                                         <button onClick={() => setIsEditingName(false)} className="p-1.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors"><X size={14} /></button>

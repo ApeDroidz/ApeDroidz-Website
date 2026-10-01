@@ -4,7 +4,9 @@
 -- Heavy GROUP BY / DISTINCT aggregations behind SECURITY DEFINER functions
 -- so the panel can pull all-time data without fetching every row to JS.
 -- All functions are STABLE — Postgres can cache within a single statement.
--- All locked down to service_role only.
+-- All locked down to service_role only. Revoke names anon and authenticated too:
+-- Supabase grants them EXECUTE directly (default privileges), so FROM public
+-- alone left every function callable with the public anon key (fixed 29.09.2026).
 -- ════════════════════════════════════════════════════════════════════
 
 
@@ -25,7 +27,7 @@ BEGIN
     RETURN result;
 END;
 $$;
-REVOKE ALL ON FUNCTION admin_distinct_players(text, timestamptz) FROM public;
+REVOKE ALL ON FUNCTION admin_distinct_players(text, timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_distinct_players(text, timestamptz) TO service_role;
 
 
@@ -43,7 +45,7 @@ AS $$
     ORDER BY SUM(ape_amount) DESC NULLS LAST
     LIMIT p_limit;
 $$;
-REVOKE ALL ON FUNCTION admin_top_card_spenders(int) FROM public;
+REVOKE ALL ON FUNCTION admin_top_card_spenders(int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_top_card_spenders(int) TO service_role;
 
 
@@ -64,7 +66,7 @@ AS $$
     ORDER BY COALESCE(SUM(profit), 0) DESC NULLS LAST
     LIMIT p_limit;
 $$;
-REVOKE ALL ON FUNCTION admin_top_flight_profits(int, timestamptz) FROM public;
+REVOKE ALL ON FUNCTION admin_top_flight_profits(int, timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_top_flight_profits(int, timestamptz) TO service_role;
 
 
@@ -84,7 +86,7 @@ AS $$
     ORDER BY SUM(bet_amount - COALESCE(cashout_at * bet_amount, 0)) DESC
     LIMIT p_limit;
 $$;
-REVOKE ALL ON FUNCTION admin_worst_flight_losers(int, timestamptz) FROM public;
+REVOKE ALL ON FUNCTION admin_worst_flight_losers(int, timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_worst_flight_losers(int, timestamptz) TO service_role;
 
 
@@ -101,7 +103,7 @@ AS $$
     GROUP BY prize_type_id
     ORDER BY COUNT(*) DESC;
 $$;
-REVOKE ALL ON FUNCTION admin_prize_drop_distribution(timestamptz) FROM public;
+REVOKE ALL ON FUNCTION admin_prize_drop_distribution(timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_prize_drop_distribution(timestamptz) TO service_role;
 
 
@@ -130,7 +132,7 @@ AS $$
     GROUP BY bucket
     ORDER BY MIN(crash_point);
 $$;
-REVOKE ALL ON FUNCTION admin_flight_crash_buckets(timestamptz) FROM public;
+REVOKE ALL ON FUNCTION admin_flight_crash_buckets(timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_flight_crash_buckets(timestamptz) TO service_role;
 
 
@@ -197,7 +199,7 @@ AS $$
     LEFT JOIN withdrawals wd ON wd.day = d.day
     ORDER BY d.day;
 $$;
-REVOKE ALL ON FUNCTION admin_dau_trend(int) FROM public;
+REVOKE ALL ON FUNCTION admin_dau_trend(int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_dau_trend(int) TO service_role;
 
 
@@ -223,7 +225,7 @@ AS $$
     GROUP BY tier
     ORDER BY MIN(season_xp);
 $$;
-REVOKE ALL ON FUNCTION admin_xp_tier_distribution() FROM public;
+REVOKE ALL ON FUNCTION admin_xp_tier_distribution() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_xp_tier_distribution() TO service_role;
 
 
@@ -247,7 +249,7 @@ AS $$
     ORDER BY MIN(ts) DESC
     LIMIT p_limit;
 $$;
-REVOKE ALL ON FUNCTION admin_recent_signups(int) FROM public;
+REVOKE ALL ON FUNCTION admin_recent_signups(int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_recent_signups(int) TO service_role;
 
 
@@ -285,7 +287,7 @@ AS $$
     FROM days d LEFT JOIN per_day p ON p.day = d.day
     ORDER BY d.day;
 $$;
-REVOKE ALL ON FUNCTION admin_signups_trend(int) FROM public;
+REVOKE ALL ON FUNCTION admin_signups_trend(int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_signups_trend(int) TO service_role;
 
 
@@ -302,7 +304,7 @@ AS $$
     FROM flight_balances
     WHERE balance > 0;
 $$;
-REVOKE ALL ON FUNCTION admin_flight_liability() FROM public;
+REVOKE ALL ON FUNCTION admin_flight_liability() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_flight_liability() TO service_role;
 
 
@@ -317,7 +319,7 @@ AS $$
     GROUP BY quest_type
     ORDER BY COUNT(*) DESC;
 $$;
-REVOKE ALL ON FUNCTION admin_quest_completion_today() FROM public;
+REVOKE ALL ON FUNCTION admin_quest_completion_today() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_quest_completion_today() TO service_role;
 
 
@@ -355,7 +357,7 @@ AS $$
         (SELECT COUNT(*) FROM glitch_users),
         (SELECT COUNT(*) FROM nft_inventory WHERE status = 'claimed');
 $$;
-REVOKE ALL ON FUNCTION admin_lifetime_totals() FROM public;
+REVOKE ALL ON FUNCTION admin_lifetime_totals() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_lifetime_totals() TO service_role;
 
 
@@ -402,7 +404,7 @@ AS $$
             UNION ALL SELECT created_at FROM flight_game_logs WHERE lower(wallet_address) = lower(p_wallet)
         ) u);
 $$;
-REVOKE ALL ON FUNCTION admin_wallet_summary(text) FROM public;
+REVOKE ALL ON FUNCTION admin_wallet_summary(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_wallet_summary(text) TO service_role;
 
 
@@ -430,5 +432,5 @@ AS $$
     LEFT JOIN flight f ON f.h = h.h
     ORDER BY h.h;
 $$;
-REVOKE ALL ON FUNCTION admin_hourly_play_distribution() FROM public;
+REVOKE ALL ON FUNCTION admin_hourly_play_distribution() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_hourly_play_distribution() TO service_role;

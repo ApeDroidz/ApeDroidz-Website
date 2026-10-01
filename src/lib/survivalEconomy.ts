@@ -33,7 +33,11 @@ type Reward =
 export type SaveState = Record<string, unknown>
 export interface SeasonPart { seasonId: string; sxp: number; tier: number; claimed: number[]; claimedPass: number[]; pass: boolean }
 export interface Quest { id: string; type: string; text: string; target: number; progress: number; sxp: number; bag: Bag; mode: 'sum' | 'max'; claimed: boolean }
-export interface DailyPart { lastClaimDay: string; streak: number; questDay: string; quests: Quest[] }
+/**
+ * The daily part. `runDay`/`runsPaid`/`runSxp` count the runs PAID on a UTC day (runReward) — the
+ * DAILY BONUS and the SXP soft cap read them, and the game shows them from here (29.09.2026).
+ */
+export interface DailyPart { lastClaimDay: string; streak: number; questDay: string; quests: Quest[]; runDay: string; runsPaid: number; runSxp: number }
 export interface Econ { state: SaveState; season: SeasonPart; daily: DailyPart }
 
 const RES: ResourceId[] = ECON.resources as ResourceId[]
@@ -42,8 +46,22 @@ const RARITIES = ECON.items.rarities as Rarity[]
 /** The fields only the server writes. Everything else in the save is the client's (mergeClientState). */
 export const ECONOMY_FIELDS = [
     'coins', 'resources', 'items', 'unlockedHeroes', 'unlockedWeapons', 'weaponTiers', 'heroTrees', 'lab',
-    'boosts', 'bestiary', 'lifetime', 'appliedPurchases', 'cosmetics', 'epoch',
+    'boosts', 'bestiary', 'lifetime', 'appliedPurchases', 'cosmetics', 'epoch', 'paidRuns',
 ] as const
+
+/**
+ * Heroes the game retired (config/heroes.ts `retired`, or off its roster): kept in the JSON for old
+ * saves, never sold, never played in a counted run. The sandbox plays them locally only.
+ * Read from the game's export (`sellable: false`, tools/export-economy.ts), so the game stays the one
+ * list: today Titan and Surge.
+ */
+export const RETIRED_HEROES: readonly string[] = Object.entries(ECON.heroes as Record<string, { sellable?: boolean }>)
+    .filter(([, h]) => h.sellable === false).map(([id]) => id)
+/** Weapons retired the same way — the game ignores them, so selling them sells nothing (dagger, cleaver, saber). */
+export const RETIRED_WEAPONS: readonly string[] = Object.entries(ECON.weapons as Record<string, { sellable?: boolean }>)
+    .filter(([, w]) => w.sellable === false).map(([id]) => id)
+/** How many paid run ids the save remembers (a finish is paid once — runs/finish, runReward). */
+const PAID_RUNS_KEEP = 12
 
 // ---- reading a stored save -------------------------------------------------------------------
 
@@ -83,7 +101,13 @@ export function economyOf(state: SaveState): SaveState {
         appliedPurchases: strArr(state.appliedPurchases).slice(-500),
         cosmetics: [...new Set(['spark_white', ...strArr(state.cosmetics)])],
         epoch: typeof state.epoch === 'string' ? state.epoch : '',
+        paidRuns: strArr(state.paidRuns).slice(-PAID_RUNS_KEEP),
     }
+}
+
+/** Whether this run's finish has already been paid into the save (a retried or doubled finish). */
+export function runAlreadyPaid(econ: Econ, runId: string): boolean {
+    return strArr(econ.state.paidRuns).includes(runId)
 }
 
 /** A fresh economy — what a wipe (a new epoch) leaves: nothing earned, the free heroes and weapons. */
@@ -118,6 +142,9 @@ export function mergeClientState(stored: SaveState, client: SaveState): SaveStat
     // The season and the daily part live in their own row, written by us; a client copy is ignored.
     delete out.season
     delete out.daily
+    // The end-of-run prize (+1 life, +2 HP, half overdrive) is gone from the game; a client copy
+    // must not ride into a counted run.
+    delete out.boost
     return out
 }
 
@@ -138,6 +165,9 @@ export function dailyOf(raw: unknown): DailyPart {
         streak: int(r.streak, 10_000),
         questDay: typeof r.questDay === 'string' ? r.questDay : '',
         quests,
+        runDay: typeof r.runDay === 'string' ? r.runDay : '',
+        runsPaid: int(r.runsPaid, 10_000),
+        runSxp: int(r.runSxp),
     }
 }
 
@@ -255,7 +285,7 @@ export function act(before: Econ, a: Action, ctx: { now: number; rand?: () => nu
     switch (a.type) {
         case 'unlock_hero': {
             const h = (ECON.heroes as Record<string, { cost: number; free: boolean }>)[a.hero]
-            if (!h) return fail('unknown_hero')
+            if (!h || RETIRED_HEROES.includes(a.hero)) return fail('unknown_hero')
             if ((e.unlockedHeroes as string[]).includes(a.hero)) return fail('already_owned')
             if ((e.coins as number) < h.cost) return fail('not_enough_coins')
             e.coins = (e.coins as number) - h.cost;
@@ -264,7 +294,7 @@ export function act(before: Econ, a: Action, ctx: { now: number; rand?: () => nu
         }
         case 'unlock_weapon': {
             const w = (ECON.weapons as Record<string, { cost: number }>)[a.weapon]
-            if (!w) return fail('unknown_weapon')
+            if (!w || RETIRED_WEAPONS.includes(a.weapon)) return fail('unknown_weapon')
             if ((e.unlockedWeapons as string[]).includes(a.weapon)) return fail('already_owned')
             if ((e.coins as number) < w.cost) return fail('not_enough_coins')
             e.coins = (e.coins as number) - w.cost;
@@ -402,10 +432,13 @@ export interface RunReport {
  * The run's pay, from the VERIFIED run (score, wave, kills from the run row) and the capped report.
  * Returns the new state and what was paid. Called once per run, on its finish.
  */
-export function runReward(before: Econ, run: { score: number; wave: number; kills: number; durationMs: number }, rep: RunReport, ctx: { now: number }): { econ: Econ; paid: Record<string, unknown> } {
+export function runReward(before: Econ, run: { score: number; wave: number; kills: number; durationMs: number; runId?: string }, rep: RunReport, ctx: { now: number }): { econ: Econ; paid: Record<string, unknown> } {
     const x = clone(before)
     x.state = { ...x.state, ...economyOf(x.state) }
     const e = x.state
+    // The run is remembered in the same write as its pay: a second finish of it (two requests at
+    // once, a retry after a lost reply) finds it here and is not paid again (runs/finish).
+    if (run.runId) e.paidRuns = [...(e.paidRuns as string[]).filter((id) => id !== run.runId), run.runId].slice(-PAID_RUNS_KEEP)
     const { score, wave, kills } = run
     const mins = Math.max(0.25, run.durationMs / 60_000)
     const cap = (v: unknown, max: number): number => Math.min(Math.max(0, Math.floor(Number(v) || 0)), Math.max(0, Math.floor(max)))
@@ -416,22 +449,46 @@ export function runReward(before: Econ, run: { score: number; wave: number; kill
     const breaks = cap(rep.breaks, 6 + mins * 6 + wave * 2)
     const pickups = cap(rep.pickups, breaks * 4 + bosses * 25 + elites * 2 + 10)
     const picked = cap(rep.picked, kills * 2 + 50)
+    // Cores (progression pacing 29.09.2026): the game drops them at 2% from a terminal, 5% from a
+    // capsule and from the bosses of waves 10, 20, 30… — one per fifteen breaks and one per ten waves,
+    // plus one of slack, is more than an honest run reaches.
     const salvCap: Record<ResourceId, number> = {
-        scrap: breaks * 3 + bosses * 12 + 10, circuit: breaks * 2 + bosses * 6 + 6, cell: breaks + bosses * 3 + 3, core: Math.floor(breaks * 0.2) + bosses * 2 + 1,
+        scrap: breaks * 3 + bosses * 12 + 10, circuit: breaks * 2 + bosses * 6 + 6, cell: breaks + bosses * 3 + 3,
+        core: 1 + Math.floor(breaks / 15) + Math.floor(wave / 10),
     }
     const bag: Bag = {}
     for (const r of RES) { const n = cap(rep.salvaged?.[r], salvCap[r]); if (n > 0) bag[r] = n }
+
+    // DAILY BONUS: the first runs PAID in a UTC day pay x`mult` Ape Mini, season XP and salvage —
+    // counted here, in the daily part, so the count moves with the pay (one write, compare-and-set)
+    // and a run that was never paid (restored from a pulse, a failed write) never uses one up.
+    // Applied after the caps above. With a running boost the Ape Mini multipliers ADD (x2 + x2 = x3).
+    const today = dayKey(ctx.now)
+    if (x.daily.runDay !== today) { x.daily.runDay = today; x.daily.runsPaid = 0; x.daily.runSxp = 0 }
+    const DB = ECON.run.dailyBonus
+    const bonusRun = x.daily.runsPaid < DB.runs
+    const dailyMult = bonusRun ? DB.mult : 1
+    if (dailyMult > 1) for (const r of RES) if (bag[r]) bag[r] = (bag[r] as number) * dailyMult
 
     // Ape Mini: the game's formula, the hero's DATA SIPHON (its tree, as WE store it), a running x2.
     const hero = typeof rep.hero === 'string' && (e.unlockedHeroes as string[]).includes(rep.hero) ? rep.hero : 'volt'
     const yieldNode = ((ECON.trees as Record<string, Array<{ id: string; maxLevel: number }>>)[hero] ?? []).find((n) => n.id.endsWith(ECON.run.yieldSuffix))
     const yieldLvl = yieldNode ? Math.min(yieldNode.maxLevel, (e.heroTrees as Record<string, Record<string, number>>)[hero]?.[yieldNode.id] ?? 0) : 0
     const boost = (e.boosts as Array<{ until: number }>).some((b) => b.until > ctx.now) ? 2 : 1
+    const coinMult = Math.min(DB.maxMult, boost + dailyMult - 1)
     const C = ECON.run.coins
     const base = Math.floor(C.sqrtScore * Math.sqrt(Math.max(0, score)) + kills * C.kill + wave * C.wave)
-    const coins = Math.floor(base * (1 + ECON.run.yieldPerLevel * yieldLvl) * boost) + picked
+    const coins = Math.floor(base * (1 + ECON.run.yieldPerLevel * yieldLvl) * coinMult) + picked
     const S = ECON.run.sxp
-    const sxp = Math.floor(Math.sqrt(Math.max(0, score)) * S.sqrtScore + kills * S.kill + wave * S.wave)
+    const sxpRun = Math.floor(Math.sqrt(Math.max(0, score)) * S.sqrtScore + kills * S.kill + wave * S.wave) * dailyMult
+    // The soft cap (off unless the game's config turns it on): past perDay of runs' SXP in a day, a
+    // run's SXP counts at rateAbove. Quests are not runs and are never capped (claim_quest).
+    const SC = ECON.run.sxpSoftCap
+    const room = Math.max(0, SC.perDay - x.daily.runSxp)
+    const sxp = SC.enabled ? Math.min(sxpRun, room) + Math.floor(Math.max(0, sxpRun - room) * SC.rateAbove) : sxpRun
+    x.daily.runSxp += sxpRun
+    x.daily.runsPaid += 1
+    const daily = { applied: bonusRun, mult: dailyMult, left: Math.max(0, DB.runs - x.daily.runsPaid), runs: DB.runs }
 
     // The bestiary: species the server knows, no more kills than the run had; a first meeting pays.
     const best = e.bestiary as Record<string, number>
@@ -458,7 +515,7 @@ export function runReward(before: Econ, run: { score: number; wave: number; kill
         if (q.claimed || !(q.type in counts)) continue
         q.progress = Math.min(q.target, q.mode === 'max' ? Math.max(q.progress, counts[q.type]) : q.progress + counts[q.type])
     }
-    return { econ: x, paid: { coins, sxp, bag, discovered, bounty: discovered.length * ECON.discoveryBounty, boost } }
+    return { econ: x, paid: { coins, sxp, bag, discovered, bounty: discovered.length * ECON.discoveryBounty, boost, coinMult, daily } }
 }
 
 // ---- purchases (lucky tickets, boxes, items, bundles, the pass) -------------------------------

@@ -94,7 +94,12 @@ const LIMITS: Record<string, Limit> = {
     '/api/survival/credits':            { max: 30,  windowMs: 60_000 },
     '/api/survival/entitlements':       { max: 30,  windowMs: 60_000 },
     '/api/survival/run/continue':       { max: 20,  windowMs: 60_000 },
+    '/api/survival/economy':            { max: 60,  windowMs: 60_000 },
+    '/api/survival/feedback':           { max: 10,  windowMs: 60_000 },
     '/api/otherside/login':             { max: 20,  windowMs: 60_000 },
+    // The panel's password: a handful of tries a minute per IP (400 ms per wrong answer in the
+    // route does not stop requests sent in parallel).
+    '/api/admin/login':                 { max: 5,   windowMs: 60_000 },
 }
 
 function getKey(pathname: string, req: NextRequest, limit: Limit): string {
@@ -136,6 +141,53 @@ function rateLimit(req: NextRequest): NextResponse | null {
     return null
 }
 
+// ── Cross-site writes (Droidz Survival, Otherside) ────────────────────────────
+//
+// The Otherside cabinet's cookies are SameSite=None + Partitioned (api/otherside/login): inside
+// otherside.xyz the browser attaches them to requests to apedroidz.com from ANY frame under that
+// top-level site — another author's experience included. Every write of the game's API is made by
+// our own pages, same-origin, with a JSON body; so a write that is cross-site by Fetch Metadata, or
+// by Origin where the browser sends no Fetch Metadata, or that is not JSON (a text/plain «simple»
+// request skips the CORS preflight), is refused here, before any route runs.
+
+const CSRF_GUARDED = /^\/api\/(survival|otherside)(\/|$)/
+const OUR_ORIGINS = new Set(['https://www.apedroidz.com', 'https://apedroidz.com'])
+
+function crossSite(req: NextRequest): NextResponse | null {
+    const { pathname } = req.nextUrl
+    if (!CSRF_GUARDED.test(pathname)) return null
+    const method = req.method.toUpperCase()
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return null
+    const refuse = (status: number, state: string) => new NextResponse(JSON.stringify({ ok: false, state }), {
+        status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+    })
+    const site = req.headers.get('sec-fetch-site')
+    if (site) {
+        if (site !== 'same-origin') return refuse(403, 'cross_site')
+    } else {
+        const origin = req.headers.get('origin')
+        if (origin && !OUR_ORIGINS.has(origin) && origin !== req.nextUrl.origin) return refuse(403, 'cross_site')
+    }
+    if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+        const type = (req.headers.get('content-type') ?? '').toLowerCase()
+        const hasBody = Number(req.headers.get('content-length') ?? '0') > 0 || req.headers.has('transfer-encoding')
+        if (type ? !type.startsWith('application/json') : hasBody) return refuse(415, 'json_only')
+    }
+    return null
+}
+
+/**
+ * The path as the file system will serve it: percent-decoded and lower-cased, so
+ * /droidz_survival/%70lay/… is the gated /droidz_survival/play/… (it was served without a cookie).
+ * A malformed escape is treated as the gated path.
+ */
+function gatedGamePath(pathname: string): boolean {
+    let p = pathname
+    try { p = decodeURIComponent(pathname) } catch { return pathname.toLowerCase().includes('droidz_survival') }
+    p = p.toLowerCase()
+    return p.startsWith('/droidz_survival/play') || (pathname.includes('%') && p.startsWith('/droidz_survival/'))
+}
+
 // ── Main middleware ───────────────────────────────────────────────────────────
 
 export async function middleware(req: NextRequest) {
@@ -164,7 +216,7 @@ export async function middleware(req: NextRequest) {
 
     // ── 2. Droidz Survival beta gate ─────────────────────────────────────────
     // Only the build under /play is gated; /droidz_survival itself is the door.
-    if (pathname.startsWith('/droidz_survival/play')) {
+    if (gatedGamePath(pathname)) {
         const wallet = await readPlayToken(req.cookies.get(PLAY_COOKIE_NAME)?.value)
         if (!wallet) {
             const url = req.nextUrl.clone()
@@ -176,7 +228,11 @@ export async function middleware(req: NextRequest) {
         }
     }
 
-    // ── 3. Rate limiter (passthrough if not configured for this path) ────────
+    // ── 3. Cross-site writes to the game's API ───────────────────────────────
+    const cs = crossSite(req)
+    if (cs) return cs
+
+    // ── 4. Rate limiter (passthrough if not configured for this path) ────────
     const rl = rateLimit(req)
     if (rl) return rl
 
@@ -187,7 +243,11 @@ export const config = {
     // Run on every request EXCEPT static asset paths and Next internals so
     // /coming-soon (and its login form) can load fonts, JS, images, etc.
     matcher: [
-        '/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:png|jpg|jpeg|gif|webp|svg|mp4|mp3|MP3|webm|wav|ogg|woff|woff2|ttf|eot|ico|json|txt|map)).*)',
+        //
+        // Also skipped: public read-only APIs the middleware has nothing to do for (no gate, no
+        // limit, maintenance lets /api through) and that the menu polls — every middleware run is
+        // a billed invocation, even on a CDN hit. Their routes cache and memoize on their own.
+        '/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|api/survival/(?:pool|board|tickets|clans)(?:/|$)|api/metadata(?:/|$)|.*\\.(?:png|jpg|jpeg|gif|webp|svg|mp4|mp3|MP3|webm|wav|ogg|woff|woff2|ttf|eot|ico|json|txt|map)).*)',
         // The game build is matched separately and WITHOUT the asset-extension escape hatch:
         // its sprite sheets and atlases are .png and .json, and the pattern above would wave
         // every one of them straight past the beta gate.

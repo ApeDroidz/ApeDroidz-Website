@@ -27,6 +27,6 @@ export async function POST(req: NextRequest) {
     }
     if (!runId) return NextResponse.json({ ok: false, state: 'no_run' }, { headers: noStore })
     const { data, error } = await supabaseAdmin.rpc('survival_continue_run', { p_wallet: caller.wallet, p_run: runId })
-    if (error) { console.error('[survival/run/continue]', error.message); return noServer() }
+    if (error) { console.error('[survival/run/continue]', error.message); return noServer('run.continue', error.message) }
     return NextResponse.json(data === 'ok' ? { ok: true } : { ok: false, state: data }, { headers: noStore })
 }

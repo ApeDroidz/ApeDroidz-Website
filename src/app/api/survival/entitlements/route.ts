@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer, readBody } from '@/lib/survivalRuns'
-import { settlePending } from '@/lib/survivalSettle'
+import { settlePending, within } from '@/lib/survivalSettle'
 import { applyEntitlement, type Econ } from '@/lib/survivalEconomy'
 import { withEcon } from '@/lib/survivalEconomyStore'
 
@@ -24,10 +24,11 @@ export async function GET(req: NextRequest) {
     const caller = await authCaller(req)
     if (caller instanceof NextResponse) return caller
     if (!supabaseAdmin) return noServer()
-    await settlePending(caller.wallet).catch(() => 0)
+    // Bounded like /credits: what does not finish in time is booked by the next read.
+    await within(settlePending(caller.wallet).catch(() => 0), 2500, 0)
     const { data, error } = await supabaseAdmin.from('survival_entitlements').select('id, sku, kind, grant_spec, seed, season_id, created_at')
         .eq('wallet', caller.wallet).is('claimed_at', null).order('created_at').limit(50)
-    if (error) { console.error('[survival/entitlements]', error.message); return noServer() }
+    if (error) { console.error('[survival/entitlements]', error.message); return noServer('entitlements', error.message) }
     const items = ((data as Array<{ id: string; sku: string; kind: string; grant_spec: unknown; seed: number; season_id: string | null; created_at: string }> | null) ?? [])
         .map((e) => ({ id: e.id, sku: e.sku, kind: e.kind, grant: e.grant_spec, seed: Number(e.seed), seasonId: e.season_id, createdAt: e.created_at }))
     return NextResponse.json({ ok: true, items }, { headers: noStore })
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     // The player's own, unclaimed ones only.
     const { data: rows, error: rowsErr } = await supabaseAdmin.from('survival_entitlements').select('id, kind, grant_spec, seed')
         .eq('wallet', caller.wallet).is('claimed_at', null).in('id', ids)
-    if (rowsErr) { console.error('[survival/entitlements] read', rowsErr.message); return noServer() }
+    if (rowsErr) { console.error('[survival/entitlements] read', rowsErr.message); return noServer('entitlements.read', rowsErr.message) }
     const ents = ((rows as Array<{ id: string; kind: string; grant_spec: Record<string, unknown>; seed: number }> | null) ?? [])
         .map((r) => ({ id: r.id, kind: r.kind, grant: r.grant_spec ?? {}, seed: Number(r.seed) }))
     const results: Array<{ id: string; state: string; gave: Record<string, unknown> }> = []
@@ -57,9 +58,9 @@ export async function POST(req: NextRequest) {
         }
         return results.some((x) => x.state === 'applied') ? { next: econ, out: results } : null
     })
-    if (!r.ok) return noServer()
+    if (!r.ok) return noServer('entitlements.claim', r.error)
     const done = results.filter((x) => x.state !== 'bag_full').map((x) => x.id)
     const { data, error } = done.length ? await supabaseAdmin.rpc('survival_claim_entitlements', { p_wallet: caller.wallet, p_ids: done }) : { data: 0, error: null }
-    if (error) { console.error('[survival/entitlements] claim', error.message); return noServer() }
+    if (error) { console.error('[survival/entitlements] claim', error.message); return noServer('entitlements.claim', error.message) }
     return NextResponse.json({ ok: true, claimed: data, results, state: r.econ.state, season: r.econ.season, daily: r.econ.daily }, { headers: noStore })
 }

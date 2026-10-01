@@ -1,6 +1,6 @@
 {
  "version": 1,
- "exportedAt": "2026-09-27T11:56:27.561Z",
+ "exportedAt": "2026-10-01T06:24:00.595Z",
  "resources": [
   "scrap",
   "circuit",
@@ -12,68 +12,80 @@
    "cost": 10000,
    "free": false,
    "cls": "mage",
-   "defaultWeapon": "staff"
+   "defaultWeapon": "staff",
+   "sellable": true
   },
   "geez": {
    "cost": 5000,
    "free": false,
    "cls": "tank",
-   "defaultWeapon": "fists"
+   "defaultWeapon": "fists",
+   "sellable": true
   },
   "volt": {
    "cost": 0,
    "free": true,
    "cls": "blade",
-   "defaultWeapon": "sword_0"
+   "defaultWeapon": "sword_0",
+   "sellable": true
   },
   "titan": {
    "cost": 300,
    "free": false,
    "cls": "blade",
-   "defaultWeapon": "sword_0"
+   "defaultWeapon": "sword_0",
+   "sellable": false
   },
   "surge": {
    "cost": 300,
    "free": false,
    "cls": "archer",
-   "defaultWeapon": "bow"
+   "defaultWeapon": "bow",
+   "sellable": false
   }
  },
  "weapons": {
   "staff": {
    "cost": 0,
    "free": true,
-   "cls": "mage"
+   "cls": "mage",
+   "sellable": true
   },
   "bow": {
    "cost": 0,
    "free": true,
-   "cls": "archer"
+   "cls": "archer",
+   "sellable": true
   },
   "fists": {
    "cost": 0,
    "free": true,
-   "cls": "tank"
+   "cls": "tank",
+   "sellable": true
   },
   "sword_0": {
    "cost": 0,
    "free": true,
-   "cls": "blade"
+   "cls": "blade",
+   "sellable": true
   },
   "dagger": {
    "cost": 1000,
    "free": false,
-   "cls": "blade"
+   "cls": "blade",
+   "sellable": false
   },
   "cleaver": {
    "cost": 1000,
    "free": false,
-   "cls": "blade"
+   "cls": "blade",
+   "sellable": false
   },
   "saber": {
    "cost": 1800,
    "free": false,
-   "cls": "blade"
+   "cls": "blade",
+   "sellable": false
   }
  },
  "weaponTiers": [
@@ -99,7 +111,7 @@
    "tier": 4,
    "cost": {
     "cell": 6,
-    "core": 2
+    "core": 1
    }
   }
  ],
@@ -172,8 +184,7 @@
     "maxLevel": 2,
     "costs": [
      {
-      "cell": 3,
-      "core": 1
+      "cell": 3
      },
      {
       "cell": 4,
@@ -188,7 +199,7 @@
     "costs": [
      {
       "cell": 4,
-      "core": 2
+      "core": 1
      }
     ]
    },
@@ -243,8 +254,7 @@
     "maxLevel": 2,
     "costs": [
      {
-      "cell": 3,
-      "core": 1
+      "cell": 3
      },
      {
       "cell": 4,
@@ -259,7 +269,7 @@
     "costs": [
      {
       "cell": 4,
-      "core": 2
+      "core": 1
      }
     ]
    },
@@ -314,8 +324,7 @@
     "maxLevel": 2,
     "costs": [
      {
-      "cell": 3,
-      "core": 1
+      "cell": 3
      },
      {
       "cell": 4,
@@ -330,7 +339,7 @@
     "costs": [
      {
       "cell": 4,
-      "core": 2
+      "core": 1
      }
     ]
    },
@@ -340,19 +349,19 @@
     "maxLevel": 5,
     "costs": [
      {
-      "coins": 300
+      "coins": 50
      },
      {
-      "coins": 600
+      "coins": 100
      },
      {
-      "coins": 900
+      "coins": 150
      },
      {
-      "coins": 1200
+      "coins": 200
      },
      {
-      "coins": 1500
+      "coins": 250
      }
     ]
    },
@@ -362,19 +371,19 @@
     "maxLevel": 5,
     "costs": [
      {
-      "coins": 420
+      "coins": 80
      },
      {
-      "coins": 840
+      "coins": 160
      },
      {
-      "coins": 1260
+      "coins": 240
      },
      {
-      "coins": 1680
+      "coins": 320
      },
      {
-      "coins": 2100
+      "coins": 400
      }
     ]
    },
@@ -384,19 +393,19 @@
     "maxLevel": 5,
     "costs": [
      {
+      "coins": 120
+     },
+     {
+      "coins": 240
+     },
+     {
+      "coins": 360
+     },
+     {
+      "coins": 480
+     },
+     {
       "coins": 600
-     },
-     {
-      "coins": 1200
-     },
-     {
-      "coins": 1800
-     },
-     {
-      "coins": 2400
-     },
-     {
-      "coins": 3000
      }
     ]
    },
@@ -406,13 +415,13 @@
     "maxLevel": 3,
     "costs": [
      {
-      "coins": 800
+      "coins": 160
      },
      {
-      "coins": 1600
+      "coins": 320
      },
      {
-      "coins": 2400
+      "coins": 480
      }
     ]
    },
@@ -422,13 +431,13 @@
     "maxLevel": 3,
     "costs": [
      {
-      "coins": 1200
+      "coins": 260
      },
      {
-      "coins": 2400
+      "coins": 520
      },
      {
-      "coins": 3600
+      "coins": 780
      }
     ]
    }
@@ -497,8 +506,7 @@
     "maxLevel": 2,
     "costs": [
      {
-      "cell": 3,
-      "core": 1
+      "cell": 3
      },
      {
       "cell": 4,
@@ -513,7 +521,7 @@
     "costs": [
      {
       "cell": 4,
-      "core": 2
+      "core": 1
      }
     ]
    },
@@ -568,8 +576,7 @@
     "maxLevel": 2,
     "costs": [
      {
-      "cell": 3,
-      "core": 1
+      "cell": 3
      },
      {
       "cell": 4,
@@ -584,7 +591,7 @@
     "costs": [
      {
       "cell": 4,
-      "core": 2
+      "core": 1
      }
     ]
    },
@@ -639,8 +646,7 @@
     "maxLevel": 2,
     "costs": [
      {
-      "cell": 3,
-      "core": 1
+      "cell": 3
      },
      {
       "cell": 4,
@@ -655,7 +661,7 @@
     "costs": [
      {
       "cell": 4,
-      "core": 2
+      "core": 1
      }
     ]
    },
@@ -665,19 +671,19 @@
     "maxLevel": 5,
     "costs": [
      {
-      "coins": 300
+      "coins": 50
      },
      {
-      "coins": 600
+      "coins": 100
      },
      {
-      "coins": 900
+      "coins": 150
      },
      {
-      "coins": 1200
+      "coins": 200
      },
      {
-      "coins": 1500
+      "coins": 250
      }
     ]
    },
@@ -687,19 +693,19 @@
     "maxLevel": 5,
     "costs": [
      {
-      "coins": 420
+      "coins": 80
      },
      {
-      "coins": 840
+      "coins": 160
      },
      {
-      "coins": 1260
+      "coins": 240
      },
      {
-      "coins": 1680
+      "coins": 320
      },
      {
-      "coins": 2100
+      "coins": 400
      }
     ]
    },
@@ -709,19 +715,19 @@
     "maxLevel": 5,
     "costs": [
      {
+      "coins": 120
+     },
+     {
+      "coins": 240
+     },
+     {
+      "coins": 360
+     },
+     {
+      "coins": 480
+     },
+     {
       "coins": 600
-     },
-     {
-      "coins": 1200
-     },
-     {
-      "coins": 1800
-     },
-     {
-      "coins": 2400
-     },
-     {
-      "coins": 3000
      }
     ]
    },
@@ -731,13 +737,13 @@
     "maxLevel": 3,
     "costs": [
      {
-      "coins": 800
+      "coins": 160
      },
      {
-      "coins": 1600
+      "coins": 320
      },
      {
-      "coins": 2400
+      "coins": 480
      }
     ]
    },
@@ -747,13 +753,13 @@
     "maxLevel": 3,
     "costs": [
      {
-      "coins": 1200
+      "coins": 260
      },
      {
-      "coins": 2400
+      "coins": 520
      },
      {
-      "coins": 3600
+      "coins": 780
      }
     ]
    }
@@ -826,8 +832,7 @@
     "maxLevel": 2,
     "costs": [
      {
-      "cell": 3,
-      "core": 1
+      "cell": 3
      },
      {
       "cell": 4,
@@ -842,7 +847,7 @@
     "costs": [
      {
       "cell": 4,
-      "core": 2
+      "core": 1
      }
     ]
    },
@@ -897,8 +902,7 @@
     "maxLevel": 2,
     "costs": [
      {
-      "cell": 3,
-      "core": 1
+      "cell": 3
      },
      {
       "cell": 4,
@@ -913,7 +917,7 @@
     "costs": [
      {
       "cell": 4,
-      "core": 2
+      "core": 1
      }
     ]
    },
@@ -968,8 +972,7 @@
     "maxLevel": 2,
     "costs": [
      {
-      "cell": 3,
-      "core": 1
+      "cell": 3
      },
      {
       "cell": 4,
@@ -984,7 +987,7 @@
     "costs": [
      {
       "cell": 4,
-      "core": 2
+      "core": 1
      }
     ]
    },
@@ -994,19 +997,19 @@
     "maxLevel": 5,
     "costs": [
      {
-      "coins": 300
+      "coins": 50
      },
      {
-      "coins": 600
+      "coins": 100
      },
      {
-      "coins": 900
+      "coins": 150
      },
      {
-      "coins": 1200
+      "coins": 200
      },
      {
-      "coins": 1500
+      "coins": 250
      }
     ]
    },
@@ -1016,19 +1019,19 @@
     "maxLevel": 5,
     "costs": [
      {
-      "coins": 420
+      "coins": 80
      },
      {
-      "coins": 840
+      "coins": 160
      },
      {
-      "coins": 1260
+      "coins": 240
      },
      {
-      "coins": 1680
+      "coins": 320
      },
      {
-      "coins": 2100
+      "coins": 400
      }
     ]
    },
@@ -1038,19 +1041,19 @@
     "maxLevel": 5,
     "costs": [
      {
+      "coins": 120
+     },
+     {
+      "coins": 240
+     },
+     {
+      "coins": 360
+     },
+     {
+      "coins": 480
+     },
+     {
       "coins": 600
-     },
-     {
-      "coins": 1200
-     },
-     {
-      "coins": 1800
-     },
-     {
-      "coins": 2400
-     },
-     {
-      "coins": 3000
      }
     ]
    },
@@ -1060,13 +1063,13 @@
     "maxLevel": 3,
     "costs": [
      {
-      "coins": 800
+      "coins": 160
      },
      {
-      "coins": 1600
+      "coins": 320
      },
      {
-      "coins": 2400
+      "coins": 480
      }
     ]
    },
@@ -1076,13 +1079,13 @@
     "maxLevel": 3,
     "costs": [
      {
-      "coins": 1200
+      "coins": 260
      },
      {
-      "coins": 2400
+      "coins": 520
      },
      {
-      "coins": 3600
+      "coins": 780
      }
     ]
    }
@@ -1293,7 +1296,8 @@
     "reward": 50,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1301,7 +1305,8 @@
     "reward": 60,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1309,7 +1314,8 @@
     "reward": 70,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1317,7 +1323,8 @@
     "reward": 80,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1325,7 +1332,8 @@
     "reward": 90,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1333,7 +1341,8 @@
     "reward": 100,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1342,7 +1351,8 @@
     "bonus": 200,
     "bag": {
      "scrap": 6,
-     "circuit": 2
+     "circuit": 2,
+     "core": 2
     },
     "milestone": 7
    },
@@ -1350,7 +1360,8 @@
     "reward": 120,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1358,7 +1369,8 @@
     "reward": 130,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1366,7 +1378,8 @@
     "reward": 140,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1374,7 +1387,8 @@
     "reward": 150,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1382,7 +1396,8 @@
     "reward": 160,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1390,7 +1405,8 @@
     "reward": 170,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1398,7 +1414,7 @@
     "reward": 680,
     "bonus": 500,
     "bag": {
-     "core": 1,
+     "core": 3,
      "circuit": 4
     },
     "milestone": 14
@@ -1407,7 +1423,8 @@
     "reward": 190,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1415,7 +1432,8 @@
     "reward": 200,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1423,7 +1441,8 @@
     "reward": 200,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1431,7 +1450,8 @@
     "reward": 200,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1439,7 +1459,8 @@
     "reward": 200,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1447,64 +1468,8 @@
     "reward": 200,
     "bonus": 0,
     "bag": {
-     "scrap": 1
-    },
-    "milestone": 0
-   },
-   {
-    "reward": 400,
-    "bonus": 200,
-    "bag": {
-     "scrap": 6,
-     "circuit": 2
-    },
-    "milestone": 7
-   },
-   {
-    "reward": 200,
-    "bonus": 0,
-    "bag": {
-     "scrap": 1
-    },
-    "milestone": 0
-   },
-   {
-    "reward": 200,
-    "bonus": 0,
-    "bag": {
-     "scrap": 1
-    },
-    "milestone": 0
-   },
-   {
-    "reward": 200,
-    "bonus": 0,
-    "bag": {
-     "scrap": 1
-    },
-    "milestone": 0
-   },
-   {
-    "reward": 200,
-    "bonus": 0,
-    "bag": {
-     "scrap": 1
-    },
-    "milestone": 0
-   },
-   {
-    "reward": 200,
-    "bonus": 0,
-    "bag": {
-     "scrap": 1
-    },
-    "milestone": 0
-   },
-   {
-    "reward": 200,
-    "bonus": 0,
-    "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1513,7 +1478,8 @@
     "bonus": 200,
     "bag": {
      "scrap": 6,
-     "circuit": 2
+     "circuit": 2,
+     "core": 2
     },
     "milestone": 7
    },
@@ -1521,7 +1487,72 @@
     "reward": 200,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1,
+     "core": 2
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1,
+     "core": 2
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1,
+     "core": 2
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1,
+     "core": 2
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1,
+     "core": 2
+    },
+    "milestone": 0
+   },
+   {
+    "reward": 400,
+    "bonus": 200,
+    "bag": {
+     "scrap": 6,
+     "circuit": 2,
+     "core": 2
+    },
+    "milestone": 7
+   },
+   {
+    "reward": 200,
+    "bonus": 0,
+    "bag": {
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    },
@@ -1529,7 +1560,7 @@
     "reward": 1200,
     "bonus": 1000,
     "bag": {
-     "core": 2,
+     "core": 4,
      "cell": 4
     },
     "milestone": 30
@@ -1538,7 +1569,8 @@
     "reward": 200,
     "bonus": 0,
     "bag": {
-     "scrap": 1
+     "scrap": 1,
+     "core": 2
     },
     "milestone": 0
    }
@@ -1566,7 +1598,8 @@
      "scrap": 5
     },
     {
-     "scrap": 8
+     "scrap": 8,
+     "core": 1
     }
    ],
    "mode": "sum"
@@ -1592,7 +1625,8 @@
      "circuit": 2
     },
     {
-     "cell": 2
+     "cell": 2,
+     "core": 1
     }
    ],
    "mode": "max"
@@ -1618,7 +1652,8 @@
      "scrap": 6
     },
     {
-     "circuit": 3
+     "circuit": 3,
+     "core": 1
     }
    ],
    "mode": "sum"
@@ -1644,7 +1679,8 @@
      "circuit": 2
     },
     {
-     "cell": 2
+     "cell": 2,
+     "core": 1
     }
    ],
    "mode": "sum"
@@ -1671,7 +1707,8 @@
     },
     {
      "cell": 1,
-     "circuit": 2
+     "circuit": 2,
+     "core": 1
     }
    ],
    "mode": "sum"
@@ -1750,7 +1787,8 @@
      "scrap": 6
     },
     {
-     "scrap": 10
+     "scrap": 10,
+     "core": 1
     }
    ],
    "mode": "sum"
@@ -1759,37 +1797,37 @@
  "season": {
   "tierCount": 20,
   "tierCosts": [
-   1300,
-   1400,
-   1500,
-   1600,
-   1700,
-   1800,
-   1900,
+   1190,
+   1280,
+   1370,
+   1460,
+   1550,
+   1640,
+   1730,
+   1820,
+   1910,
    2000,
-   2100,
-   2200,
-   2300,
-   2400,
-   2500,
-   2600,
-   2700,
-   2800,
-   2900,
-   3000,
-   3100,
-   3200
+   2090,
+   2180,
+   2270,
+   2360,
+   2450,
+   2540,
+   2630,
+   2720,
+   2810,
+   2900
   ],
   "tiers": [
    {
     "tier": 1,
     "free": {
      "kind": "coins",
-     "coins": 300
+     "coins": 150
     },
     "pass": {
      "kind": "coins",
-     "coins": 1000
+     "coins": 500
     }
    },
    {
@@ -1809,7 +1847,7 @@
     "tier": 3,
     "free": {
      "kind": "coins",
-     "coins": 400
+     "coins": 200
     },
     "pass": {
      "kind": "resources",
@@ -1850,11 +1888,11 @@
     "tier": 6,
     "free": {
      "kind": "coins",
-     "coins": 500
+     "coins": 250
     },
     "pass": {
      "kind": "coins",
-     "coins": 2000
+     "coins": 1000
     }
    },
    {
@@ -1889,7 +1927,7 @@
     "tier": 9,
     "free": {
      "kind": "coins",
-     "coins": 600
+     "coins": 300
     },
     "pass": {
      "kind": "item",
@@ -1920,14 +1958,14 @@
     },
     "pass": {
      "kind": "coins",
-     "coins": 3000
+     "coins": 1500
     }
    },
    {
     "tier": 12,
     "free": {
      "kind": "coins",
-     "coins": 700
+     "coins": 350
     },
     "pass": {
      "kind": "resources",
@@ -1979,7 +2017,7 @@
     "tier": 16,
     "free": {
      "kind": "coins",
-     "coins": 800
+     "coins": 400
     },
     "pass": {
      "kind": "cosmetic",
@@ -1997,14 +2035,14 @@
     },
     "pass": {
      "kind": "coins",
-     "coins": 4000
+     "coins": 2000
     }
    },
    {
     "tier": 18,
     "free": {
      "kind": "coins",
-     "coins": 1000
+     "coins": 500
     },
     "pass": {
      "kind": "item",
@@ -2044,9 +2082,9 @@
  },
  "run": {
   "coins": {
-   "sqrtScore": 3,
-   "kill": 0.3,
-   "wave": 20
+   "sqrtScore": 1.5,
+   "kill": 0.15,
+   "wave": 10
   },
   "sxp": {
    "sqrtScore": 4,
@@ -2054,7 +2092,17 @@
    "wave": 10
   },
   "yieldSuffix": "_core_yield",
-  "yieldPerLevel": 0.1
+  "yieldPerLevel": 0.1,
+  "dailyBonus": {
+   "runs": 1,
+   "mult": 2,
+   "maxMult": 3
+  },
+  "sxpSoftCap": {
+   "enabled": false,
+   "perDay": 5000,
+   "rateAbove": 0.3333333333333333
+  }
  },
  "discoveryBounty": 40,
  "enemies": [
@@ -2104,5 +2152,5 @@
    40
   ]
  },
- "continueMini": 5000
+ "continueMini": 2500
 }

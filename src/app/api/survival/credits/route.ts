@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer } from '@/lib/survivalRuns'
-import { CASHIER, loadCatalog, publicCatalog } from '@/lib/survivalShop'
-import { settlePending } from '@/lib/survivalSettle'
+import { CASHIER, catalogFor, loadCatalog, publicCatalog } from '@/lib/survivalShop'
+import { settlePending, within } from '@/lib/survivalSettle'
 import { isDroidHolder } from '@/lib/droidHolder'
+import { seasonVisibleFor } from '@/lib/survivalAccess'
 
 /**
  * GET /api/survival/credits → { ok, credits: { solo, coop }, booked, paidRuns, shop: { configured, items } }
@@ -15,10 +16,6 @@ import { isDroidHolder } from '@/lib/droidHolder'
  */
 export const dynamic = 'force-dynamic'
 
-/** `p`, or `fallback` once `ms` have passed — whichever comes first. */
-const within = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
-    Promise.race([p, new Promise<T>((r) => setTimeout(() => r(fallback), ms))])
-
 export async function GET(req: NextRequest) {
     const caller = await authCaller(req)
     if (caller instanceof NextResponse) return caller
@@ -29,14 +26,18 @@ export async function GET(req: NextRequest) {
     // budget; what does not finish in time finishes on the next read. An order is priced on its
     // own (api/survival/order checks the droid again), so a missed holder check only shows the
     // full price here, it never charges it.
-    const [booked, holderNow, catalog] = await Promise.all([
+    // The droid check (Insight, up to 2 s) only where a holder price can be shown: a discounted
+    // item this wallet may buy (the pass only where the season is on sale for it).
+    // Test rows (test_*) only for SURVIVAL_TEST_WALLETS, standing in for the real items there.
+    const catalog = catalogFor(await loadCatalog(true), caller.wallet)
+    const needHolder = catalog.some((i) => i.holder_discount_pct > 0 && (i.kind !== 'season_pass' || seasonVisibleFor(caller.wallet)))
+    const [booked, holderNow] = await Promise.all([
         within(settlePending(caller.wallet).catch(() => 0), 2500, 0),
-        within(isDroidHolder(caller.wallet).catch(() => false), 2000, false),
-        loadCatalog(true),
+        needHolder ? within(isDroidHolder(caller.wallet).catch(() => false), 2000, false) : Promise.resolve(false),
     ])
     const { data, error } = await supabaseAdmin.from('survival_credits').select('mode')
         .eq('wallet', caller.wallet).is('consumed_by_run', null).limit(10_000)
-    if (error) { console.error('[survival/credits]', error.message); return noServer() }
+    if (error) { console.error('[survival/credits]', error.message); return noServer('credits', error.message) }
     const rows = (data as Array<{ mode: string }> | null) ?? []
     const credits = { solo: rows.filter((r) => r.mode === 'solo').length, coop: rows.filter((r) => r.mode === 'coop').length }
     const holder = catalog.some((i) => i.holder_discount_pct > 0) && holderNow

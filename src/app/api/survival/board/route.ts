@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { fetchAll } from '@/lib/survivalFetchAll'
 
 /**
  * GET /api/survival/board
@@ -20,36 +21,68 @@ interface BestRow { wallet: string; score: number; wave: number; kills: number; 
 interface PlayerRow { wallet: string; clan: string | null; banned: boolean }
 interface XRow { wallet_address: string; x_handle: string | null }
 
+const HEADERS = { 'cache-control': 'public, max-age=10, s-maxage=10, stale-while-revalidate=60' }
+/** Wallets per `.in()` — each is ~45 characters of URL; a few hundred in one request break it. */
+const IN_CHUNK = 200
+/** The board as this instance last built it, per filter: the edge cache is keyed by the full URL,
+ *  so `?r=<anything>` went past it to the database; this does not. */
+const memo = new Map<string, { until: number; body: Promise<Record<string, unknown> | null> }>()
+const MEMO_MS = 10_000
+
 export async function GET(req: Request) {
     if (!supabaseAdmin) return new NextResponse(null, { status: 204 })
     // ?only=pass — the season's own board: pass holders only, ranked among themselves (owner,
     // 26.09.2026: «в сезоне первым выводится сезонный рейтинг тех, кто с пассом, но можно
     // посмотреть общий»). Filtering the top 50 of everyone instead would drop a holder ranked 51st.
     const only = new URL(req.url).searchParams.get('only') === 'pass' ? 'pass' : 'all'
+    const now = Date.now()
+    let hit = memo.get(only)
+    if (!hit || hit.until < now) {
+        hit = { until: now + MEMO_MS, body: build(only).catch(() => null) }
+        memo.set(only, hit)
+    }
+    const body = await hit.body
+    if (!body) { memo.delete(only); return new NextResponse(null, { status: 204 }) }
+    return NextResponse.json(body, { headers: HEADERS })
+}
+
+async function build(only: 'pass' | 'all'): Promise<Record<string, unknown> | null> {
 
     const { data: season } = await supabaseAdmin
         .from('survival_seasons').select('id, name').eq('status', 'live').limit(1).maybeSingle()
-    if (!season) return new NextResponse(null, { status: 204 })
+    if (!season) return null
 
-    // Every pass holder of the season (a pass bought before seasons were stamped has no season_id).
-    const { data: passRows } = await supabaseAdmin.from('survival_entitlements').select('wallet')
-        .eq('kind', 'season_pass').or(`season_id.eq.${season.id},season_id.is.null`).limit(10_000)
-    const passHolders = new Set(((passRows ?? []) as Array<{ wallet: string }>).map((p) => p.wallet))
-    const headers = { 'cache-control': 'public, max-age=10, s-maxage=10, stale-while-revalidate=60' }
+    // Every pass holder of the season (a pass bought before seasons were stamped has no season_id;
+    // a test pass — test_* sku, SURVIVAL_TEST_WALLETS — is not one: it shares no pool),
+    // page by page — a read stops at 1000 rows.
+    const { rows: passRows } = await fetchAll<{ wallet: string }>(() => supabaseAdmin.from('survival_entitlements').select('wallet')
+        .eq('kind', 'season_pass').not('sku', 'like', 'test_%').or(`season_id.eq.${season.id},season_id.is.null`).order('id'), { cap: 20_000 })
+    const passHolders = new Set(passRows.map((p) => p.wallet))
     if (only === 'pass' && passHolders.size === 0) {
-        return NextResponse.json({ seasonId: season.id, seasonName: season.name, only, passCount: 0, rows: [] }, { headers })
+        return { seasonId: season.id, seasonName: season.name, only, passCount: 0, rows: [] }
     }
 
-    let query = supabaseAdmin
-        .from('survival_season_best')
-        .select('wallet, score, wave, kills, runs_count, achieved_at, run_id')
-        .eq('season_id', season.id)
-    if (only === 'pass') query = query.in('wallet', [...passHolders])
-    const { data: best, error } = await query
-        .order('score', { ascending: false }).order('achieved_at', { ascending: true })
-        .limit(LIMIT)
-    if (error || !best) { console.warn('[survival/board]', error?.message); return new NextResponse(null, { status: 204 }) }
-    const rowsBest = best as BestRow[]
+    const top = (wallets?: string[]) => {
+        let q = supabaseAdmin.from('survival_season_best')
+            .select('wallet, score, wave, kills, runs_count, achieved_at, run_id')
+            .eq('season_id', season.id)
+        if (wallets) q = q.in('wallet', wallets)
+        return q.order('score', { ascending: false }).order('achieved_at', { ascending: true }).limit(LIMIT)
+    }
+    let rowsBest: BestRow[]
+    if (only === 'pass') {
+        // The holders in chunks, each chunk's top 50, merged: the same 50 one query would give.
+        const list = [...passHolders]
+        const parts = await Promise.all(Array.from({ length: Math.ceil(list.length / IN_CHUNK) }, (_, i) => top(list.slice(i * IN_CHUNK, (i + 1) * IN_CHUNK))))
+        const bad = parts.find((p) => p.error)
+        if (bad) { console.warn('[survival/board]', bad.error?.message); return null }
+        rowsBest = parts.flatMap((p) => (p.data as BestRow[] | null) ?? [])
+            .sort((a, b) => Number(b.score) - Number(a.score) || a.achieved_at.localeCompare(b.achieved_at)).slice(0, LIMIT)
+    } else {
+        const { data: best, error } = await top()
+        if (error || !best) { console.warn('[survival/board]', error?.message); return null }
+        rowsBest = best as BestRow[]
+    }
 
     const wallets = rowsBest.map((b) => b.wallet)
     const players: PlayerRow[] = wallets.length
@@ -101,5 +134,5 @@ export async function GET(req: Request) {
             }
         })
 
-    return NextResponse.json({ seasonId: season.id, seasonName: season.name, only, passCount: passHolders.size, rows }, { headers })
+    return { seasonId: season.id, seasonName: season.name, only, passCount: passHolders.size, rows }
 }

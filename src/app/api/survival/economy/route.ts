@@ -20,6 +20,8 @@ export const dynamic = 'force-dynamic'
 
 const TYPES = new Set(['unlock_hero', 'unlock_weapon', 'upgrade_weapon', 'tree_level', 'craft', 'dismantle', 'merge',
     'claim_daily', 'claim_quest', 'claim_tier', 'claim_pass_tier', 'continue_mini'])
+/** Claims recorded in the live season's row (survival_profile_seasons) — refused without one. */
+const SEASON_CLAIMS = new Set(['claim_daily', 'claim_quest', 'claim_tier', 'claim_pass_tier'])
 
 /** Only the fields an action names, as the types they must be — nothing else reaches the rules. */
 function parseAction(raw: unknown): Action | null {
@@ -51,6 +53,9 @@ export async function POST(req: NextRequest) {
 
     let result: Record<string, unknown> = {}
     const r = await withEcon(caller.wallet, undefined, (loaded) => {
+        // The daily, the quests and the season's tiers are marked claimed in the season's row; with
+        // no live season there is no row to mark, and the same claim would pay again and again.
+        if (!loaded.seasonId && SEASON_CLAIMS.has(action.type)) return { fail: 'no_season' }
         const res = act(loaded.econ, action, { now: Date.now() })
         if (!res.ok) return { fail: res.error }
         result = res.result

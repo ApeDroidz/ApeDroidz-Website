@@ -6,16 +6,18 @@ import { useActiveAccount, useActiveWallet, useSendTransaction, ConnectButton } 
 import { createWallet } from 'thirdweb/wallets'
 import { prepareTransaction, toWei } from 'thirdweb'
 import { client, apeChain } from '@/lib/thirdweb'
-import { Loader2, Lock, ShieldCheck, Maximize2, Minimize2, Volume2, VolumeX, Play } from 'lucide-react'
+import { Loader2, Lock, ShieldCheck, Maximize2, Minimize2, Volume2, VolumeX, Play, X } from 'lucide-react'
 import { Header } from '@/components/header'
 import { DigitalBackground } from '@/components/digital-background'
 import { ProfileModal } from '@/components/profile-modal'
 import { useGlitchSession } from '@/hooks/useGlitchSession'
 import { GlitchText } from '@/components/glitch/glitch-text'
-import { DISCORD_URL, OPENSEA_COLLECTION_URL } from '@/lib/socials'
+import { DISCORD_URL } from '@/lib/socials'
+import { cancelOrder, createOrder, isUserRejection, leaveFullscreen, reportPayment, singleFlight } from '@/lib/survivalHostPay'
 
 /**
- * Droidz Survival — closed beta.
+ * Droidz Survival — open beta (SURVIVAL_PUBLIC=0 closes it back to the beta list; `denied` is then
+ * «not on the list», in the open beta only a banned or revoked wallet).
  *
  * Four states, and the page is only ever in one of them:
  *
@@ -61,7 +63,20 @@ export default function DroidzSurvivalPage() {
     const [isProfileOpen, setIsProfileOpen] = useState(false)
 
     const frameRef = useRef<HTMLIFrameElement>(null)
-    const { mutateAsync: sendTx } = useSendTransaction()
+    // The Buy / Deposit window thirdweb shows when the wallet is short of APE stays on (it is how a
+    // newcomer tops up) — with our name on it; the page leaves fullscreen first so it can be seen.
+    const { mutateAsync: sendTx } = useSendTransaction({ payModal: { metadata: { name: 'Droidz Survival' } } })
+    /** A line over the game about a payment the game itself cannot explain (a late one). */
+    const [payNote, setPayNote] = useState<string | null>(null)
+    /**
+     * The frame on the whole screen without the Fullscreen API — iPhone Safari (and wallet in-app
+     * browsers) have none for an iframe, so the button did nothing and the game stayed a 16:9
+     * stamp. Also asked for by the game itself (postMessage 'ds:fullscreen', systems/Mobile.ts).
+     */
+    const [pseudoFs, setPseudoFs] = useState(false)
+    /** The connected address, for checks that run after an await (no stale closure). */
+    const addrRef = useRef<string | null>(null)
+    addrRef.current = account?.address?.toLowerCase() ?? null
 
     // The paid door. The game (an iframe on our own origin) looks for `window.DroidzPay`
     // and offers CONTINUE for 1 APE only when it is there. We install it on the frame's
@@ -75,40 +90,67 @@ export default function DroidzSurvivalPage() {
         if (!win) return
         win.DroidzPay = {
             stub: !PAY_FOR_REAL,
-            charge: async (kind: 'continue' | 'run' | 'run10'): Promise<boolean> => {
+            // One payment at a time: Enter pressed twice, or a screen rebuilt mid-payment, opens no
+            // second order and no second wallet request (lib/survivalHostPay.ts singleFlight).
+            charge: singleFlight(async (kind: string): Promise<boolean> => {
                 if (!PAY_FOR_REAL) {
                     await new Promise((r) => setTimeout(r, 500))
                     return true
                 }
+                // An order first (the server's price, the cashier's calldata), then the player's
+                // wallet pays it, then the server books it from the Paid event — the same path as
+                // the Otherside cabinet (api/survival/order, /pay).
+                const o = await createOrder(kind, 'site')
+                if (!o) return false
+                let hash: string
                 try {
-                    // An order first (the server's price, the cashier's calldata), then the
-                    // player's wallet pays it, then the server books it from the Paid event —
-                    // the same path as the Otherside cabinet (api/survival/order, /pay).
-                    const o = await fetch('/api/survival/order', {
-                        method: 'POST', credentials: 'include', cache: 'no-store',
-                        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sku: kind, platform: 'site', mode: 'solo' }),
-                    }).then((r) => r.json()).catch(() => null)
-                    if (!o?.ok) return false
-                    const tx = prepareTransaction({ chain: apeChain, client, to: o.to, value: toWei(o.valueApe), data: o.data })
-                    const result = await sendTx(tx)
-                    for (let attempt = 0; attempt < 6; attempt++) {
-                        await new Promise((r) => setTimeout(r, attempt === 0 ? 3000 : 2500))
-                        const res = await fetch('/api/survival/pay', {
-                            method: 'POST', credentials: 'include',
-                            headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({ txHash: result.transactionHash, orderId: o.orderId }),
-                        })
-                        const data = await res.json().catch(() => ({}))
-                        if (data?.ok === true) return true
-                        if (data?.state !== 'not_found') return false // not mined yet → ask again
-                    }
-                    return false
-                } catch {
+                    // A fullscreen frame hides the wallet's and thirdweb's windows on this page.
+                    await leaveFullscreen(frameRef.current)
+                    const tx = prepareTransaction({ chain: apeChain, client, to: o.to as `0x${string}`, value: toWei(o.valueApe), data: o.data as `0x${string}` })
+                    hash = (await sendTx(tx)).transactionHash
+                } catch (e) {
+                    if (isUserRejection(e)) cancelOrder(o.orderId)
                     return false
                 }
-            },
+                // Sent: yes, unless the server says a definite no (a slow server is not a no).
+                const state = await reportPayment(hash, o.orderId)
+                if (state === 'late') setPayNote('Your payment arrived more than an hour after the order was made. Support will settle it — open a ticket in Discord.')
+                return state === 'paid' || state === 'sent'
+            }),
         }
     }, [sendTx])
+
+    /** Real fullscreen where the browser has it for the frame; the whole-window frame otherwise. */
+    const goFullscreen = useCallback(() => {
+        const f = frameRef.current
+        if (f && document.fullscreenEnabled && typeof f.requestFullscreen === 'function') {
+            f.requestFullscreen().catch(() => setPseudoFs(true))
+        } else {
+            setPseudoFs(true)
+        }
+    }, [])
+
+    // The game asks for the screen itself (PLAY on a phone, its «tap to play fullscreen» panel) when
+    // it cannot go fullscreen on its own — only from our own frame.
+    useEffect(() => {
+        const onMsg = (e: MessageEvent) => {
+            if (e.source !== frameRef.current?.contentWindow || e.origin !== window.location.origin) return
+            if ((e.data as { type?: unknown } | null)?.type === 'ds:fullscreen') setPseudoFs(true)
+        }
+        window.addEventListener('message', onMsg)
+        return () => window.removeEventListener('message', onMsg)
+    }, [])
+
+    // While the frame covers the window the page under it must not scroll; Esc gives the page back.
+    useEffect(() => {
+        if (!pseudoFs) return
+        const prev = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPseudoFs(false) }
+        window.addEventListener('keydown', onKey)
+        return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey) }
+    }, [pseudoFs])
+    useEffect(() => { if (!playing) setPseudoFs(false) }, [playing])
 
     const checkAccess = useCallback(async () => {
         try {
@@ -119,8 +161,12 @@ export default function DroidzSurvivalPage() {
                 setMessage(data?.error ?? 'Access check failed')
                 return
             }
-            if (data.state === 'allowed') { setUntil(typeof data.until === 'string' ? data.until : null); setGate('allowed'); return }
-            if (data.state === 'denied') { setGate('denied'); return }
+            // The answer is about the SIGNED wallet. With a session of another wallet still in the
+            // browser (the connected one was switched), it is not an answer for this one: sign in
+            // again — or the game loads, and every call it makes fails silently for this wallet.
+            const same = String(data.wallet ?? '').toLowerCase() === addrRef.current
+            if (data.state === 'allowed' && same) { setUntil(typeof data.until === 'string' ? data.until : null); setGate('allowed'); return }
+            if (data.state === 'denied' && same) { setGate('denied'); return }
             setGate('verify')
         } catch {
             setGate('error')
@@ -143,6 +189,32 @@ export default function DroidzSurvivalPage() {
         const id = setTimeout(() => { setGate('loading'); void checkAccess() }, Math.min(ms, 2 ** 31 - 1))
         return () => clearTimeout(id)
     }, [gate, until, checkAccess])
+
+    // The play cookie lives six hours (lib/survivalAccess.ts PLAY_TTL) and was minted only on the
+    // page's first check, so a long session outlived it: every run call answered 401 and the run
+    // played on unrecorded (29.09). While the door is open it is renewed quietly — every 30 minutes
+    // and whenever the tab comes back. A wallet banned or taken off the list meanwhile gets
+    // `denied` and the door closes, as on a reload; a failed request just waits for the next one.
+    useEffect(() => {
+        if (gate !== 'allowed') return
+        let alive = true
+        const renew = async () => {
+            try {
+                const res = await fetch('/api/survival/access', { credentials: 'include', cache: 'no-store' })
+                const data = await res.json().catch(() => ({}))
+                if (!alive || !res.ok) return
+                const same = String(data.wallet ?? '').toLowerCase() === addrRef.current
+                if (data.state === 'denied' && same) setGate('denied')
+                else if (data.state === 'allowed' && same) setUntil(typeof data.until === 'string' ? data.until : null)
+                // The session is gone or is another wallet's: the game would play on unrecorded.
+                else { setPlaying(false); setGate('verify') }
+            } catch { /* offline for a moment — the next tick asks again */ }
+        }
+        const id = setInterval(renew, 30 * 60_000)
+        const onVisible = () => { if (document.visibilityState === 'visible') void renew() }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
+    }, [gate])
 
     // Re-run the whole gate whenever the connected or the verified wallet changes: switching
     // accounts in the wallet must not leave the previous account's game on screen.
@@ -197,31 +269,52 @@ export default function DroidzSurvivalPage() {
                 {gate === 'allowed' && playing ? (
                     // As big as the screen allows (owner, 25.09.2026: «окно больше, чем сейчас»): the
                     // 16:9 frame takes the viewport's height under the header, up to the full width.
-                    <div className="mx-auto w-full" style={{ maxWidth: 'min(100%, calc((100svh - 150px) * 16 / 9))' }}>
+                    <div
+                        className={pseudoFs ? 'fixed inset-0 z-[9999] h-[100dvh] w-screen bg-black' : 'mx-auto w-full'}
+                        style={pseudoFs
+                            ? { paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }
+                            : { maxWidth: 'min(100%, calc((100svh - 150px) * 16 / 9))' }}
+                    >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.985 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                        className={pseudoFs ? 'relative h-full w-full' : undefined}
                     >
-                        <div className="overflow-hidden rounded-2xl border border-white/10 bg-black">
-                            <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-2">
-                                <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-white/40" title={until ? `until ${new Date(until).toLocaleString()}` : 'no expiry'}>
+                        {pseudoFs && (
+                            <button
+                                onClick={() => setPseudoFs(false)}
+                                aria-label="Exit full screen"
+                                className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/60 hover:text-white"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
+                        <div className={pseudoFs ? 'h-full w-full bg-black' : 'overflow-hidden rounded-2xl border border-white/10 bg-black'}>
+                            <div className={pseudoFs ? 'hidden' : 'flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-2'}>
+                                <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-white/40" title={until ? `until ${new Date(until).toLocaleString()}` : 'open beta'}>
                                     <ShieldCheck className="h-3.5 w-3.5 icon-dim-50" />
-                                    Beta access open · {until === null ? 'forever' : until ? `${timeLeft(new Date(until).getTime() - now)} left` : ''}
+                                    {until ? `Access · ${timeLeft(new Date(until).getTime() - now)} left` : 'Open beta'}
                                     {authedWallet ? <span className="hidden sm:inline text-white/25">· {short(authedWallet)}</span> : null}
                                 </span>
                                 <button
-                                    onClick={() => frameRef.current?.requestFullscreen?.()}
+                                    onClick={goFullscreen}
                                     className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-white/40 transition-colors hover:text-white"
                                 >
                                     <Maximize2 className="h-3.5 w-3.5 icon-dim-50" />
                                     Fullscreen
                                 </button>
                             </div>
+                            {payNote && !pseudoFs && (
+                                <div className="flex items-center justify-between gap-3 border-b border-orange-400/30 bg-orange-500/10 px-4 py-2 text-xs text-orange-200">
+                                    <span>{payNote}</span>
+                                    <button onClick={() => setPayNote(null)} aria-label="Dismiss" className="text-orange-200/60 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+                                </div>
+                            )}
                             {/* 16:9 — the Phaser canvas is 1280×720 and letterboxes itself inside.
                                 The cover sits behind the frame so the box is the poster, not a
                                 grey slab, for the second or two the build takes to arrive. */}
-                            <div className="relative aspect-video w-full bg-[#0a0f1e] bg-cover bg-bottom" style={{ backgroundImage: 'url(/droidz_survival/DS_Beta_cover.jpg)' }}>
+                            <div className={pseudoFs ? 'relative h-full w-full bg-[#0a0f1e] bg-cover bg-bottom' : 'relative aspect-video w-full bg-[#0a0f1e] bg-cover bg-bottom'} style={{ backgroundImage: 'url(/droidz_survival/DS_Beta_cover.jpg)' }}>
                                 <iframe
                                     ref={frameRef}
                                     onLoad={installPay}
@@ -268,8 +361,8 @@ export default function DroidzSurvivalPage() {
                                     Connect your wallet
                                 </h2>
                                 <p className="mt-3 text-sm leading-relaxed text-white/50">
-                                    Droidz Survival is in closed beta. Connect your wallet to check
-                                    whether you are on the early access list.
+                                    Open beta — connect a wallet and sign once (free, no transaction)
+                                    to play. Your first run is a free 3-wave trial.
                                 </p>
                                 <div className="mt-7 flex justify-center lg:justify-start [&_button]:!w-full sm:[&_button]:!w-auto">
                                     <ConnectButton
@@ -312,12 +405,11 @@ export default function DroidzSurvivalPage() {
                             <>
                                 <Lock className="mx-auto h-7 w-7 text-white icon-dim-50 lg:mx-0" />
                                 <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
-                                    Not on the beta list
+                                    Can&apos;t play on this wallet
                                 </h2>
                                 <p className="mt-3 text-sm leading-relaxed text-white/50">
-                                    This wallet does not have early access to Droidz Survival yet.
-                                    To get in: hold an ApeDroid, then open a ticket in the Discord —
-                                    the beta is opening in waves.
+                                    This wallet can&apos;t play right now. If you think that&apos;s a
+                                    mistake, open a ticket in Discord.
                                 </p>
                                 {authedWallet && (
                                     <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-white/30">
@@ -325,14 +417,6 @@ export default function DroidzSurvivalPage() {
                                     </p>
                                 )}
                                 <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:flex-col lg:items-start">
-                                    <a
-                                        href={OPENSEA_COLLECTION_URL}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex h-[46px] items-center justify-center rounded-full bg-white px-8 text-sm font-bold text-black transition-all duration-300 hover:bg-[#0069FF] hover:text-white"
-                                    >
-                                        Get an ApeDroid on OpenSea
-                                    </a>
                                     <a
                                         href={DISCORD_URL}
                                         target="_blank"
@@ -353,17 +437,15 @@ export default function DroidzSurvivalPage() {
                             <>
                                 <ShieldCheck className="mx-auto h-7 w-7 text-emerald-400 lg:mx-0" />
                                 <h2 className="mt-5 text-xl font-bold uppercase tracking-tight">
-                                    Beta access open
+                                    You&apos;re in
                                 </h2>
                                 <p className="mt-3 text-sm leading-relaxed text-white/50">
-                                    {until === null
-                                        ? 'This wallet has early access to Droidz Survival with no expiry.'
-                                        : until
-                                            ? `This wallet has early access to Droidz Survival for ${timeLeft(new Date(until).getTime() - now)} more.`
-                                            : 'This wallet has early access to Droidz Survival.'}
+                                    {until
+                                        ? `This wallet is ready to play — access for ${timeLeft(new Date(until).getTime() - now)} more.`
+                                        : 'This wallet is ready to play.'}
                                 </p>
-                                <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-white/30" title={until ? `until ${new Date(until).toLocaleString()}` : 'no expiry'}>
-                                    {until === null ? 'Access · forever' : until ? `Access until ${new Date(until).toLocaleString()}` : ''}
+                                <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-white/30" title={until ? `until ${new Date(until).toLocaleString()}` : 'open beta'}>
+                                    {typeof until === 'string' ? `Access until ${new Date(until).toLocaleString()}` : 'Open beta'}
                                     {authedWallet ? ` · ${short(authedWallet)}` : ''}
                                 </p>
                                 <button
@@ -442,7 +524,7 @@ function Heading({ sub, align = 'center' }: { sub: string; align?: 'center' | 'l
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className={`mb-5 ${left ? 'text-center lg:text-left' : 'text-center'}`}
         >
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-white/40">Closed Beta</p>
+            <p className="font-mono text-xs uppercase tracking-[0.3em] text-white/40">Open Beta</p>
             <h1 className={`mt-3 max-w-4xl text-4xl font-black uppercase leading-none tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] sm:text-5xl xl:text-6xl ${left ? 'mx-auto lg:mx-0' : 'mx-auto'}`}>
                 <GlitchText text="Droidz Survival" />
             </h1>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
+import { scoreTypical, waveCap } from '@/lib/survivalEnvelope'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -100,9 +101,18 @@ export async function GET(request: NextRequest) {
     const paid = (payments.data ?? []) as Array<{ amount_ape: number | string; confirmed_at: string | null }>
     const ape = (rows: typeof paid) => rows.reduce((s, p) => s + Number(p.amount_ape ?? 0), 0)
 
+    // Review (before any pool payout): the top of the season board and every accepted run with a
+    // flag, with the numbers that tell a played run from a forged finish — pulses against waves,
+    // how much of the score the last pulse covers, score per kill.
+    const review = seasonId ? await reviewRuns(seasonId, problems) : []
+
     // Cheaters: the rejected runs grouped by wallet, with the ban switch's current state.
+    // A refusal by the old «25 s a wave» rule (pulse_wave_ahead_of_clock, before 29.09) was an
+    // honest run the rule got wrong: those wallets are listed apart, never as cheaters.
     const byWallet = new Map<string, { rejected: number; last: string; reasons: Set<string> }>()
+    const OLD_RULE = new Set(['pulse_wave_ahead_of_clock', 'wave_ahead_of_clock'])
     for (const r of (rejectedRuns.data ?? []) as RejectedRow[]) {
+        if (r.reject_reason && OLD_RULE.has(r.reject_reason)) continue
         const w = r.wallet.toLowerCase()
         const cur = byWallet.get(w) ?? { rejected: 0, last: r.started_at, reasons: new Set<string>() }
         cur.rejected += 1
@@ -149,6 +159,7 @@ export async function GET(request: NextRequest) {
         board: board.data ?? [],
         events: events.data ?? [],
         suspicious: rejectedRuns.data ?? [],
+        review,
         cheaters: caught,
         // revoked beats expired: a revoked wallet stays revoked whatever its clock says.
         allowlist: ((allowlist.data ?? []) as AllowRow[]).map((a) => ({
@@ -161,4 +172,50 @@ export async function GET(request: NextRequest) {
         feedbackStats,
         problems,
     }, { headers })
+}
+
+type ReviewRun = {
+    id: string; wallet: string; score: number; wave: number; kills: number; pulse_count: number
+    last_pulse_wave: number | null; last_pulse_score: number | null; server_duration_ms: number | null
+    client_duration_ms: number | null; flags: string[] | null; client_version: string | null; hero: string | null; finished_at: string | null
+}
+
+/** The season's top 30 and its flagged accepted runs, with what a reviewer compares. */
+async function reviewRuns(seasonId: string, problems: string[]) {
+    const db = supabaseAdmin
+    const COLS = 'id, wallet, score, wave, kills, pulse_count, last_pulse_wave, last_pulse_score, server_duration_ms, client_duration_ms, flags, client_version, hero, finished_at'
+    const { data: top, error: tErr } = await db.from('survival_season_best').select('run_id').eq('season_id', seasonId)
+        .order('score', { ascending: false }).order('achieved_at', { ascending: true }).limit(30)
+    if (tErr) problems.push(`review.top: ${tErr.message}`)
+    const topIds = ((top as Array<{ run_id: string }> | null) ?? []).map((t) => t.run_id)
+    const [byTop, flagged] = await Promise.all([
+        topIds.length ? db.from('survival_runs').select(COLS).in('id', topIds) : Promise.resolve({ data: [], error: null }),
+        db.from('survival_runs').select(COLS).eq('season_id', seasonId).eq('status', 'finished')
+            // The review flags only (not the telemetry tags like died_boss_alive:w5).
+            .or('flags.cs.["pulses_missing"],flags.cs.["wave_ahead_of_clock"],flags.cs.["pulse_wave_ahead_of_clock"],flags.cs.["score_above_typical"]')
+            .order('score', { ascending: false }).limit(100),
+    ])
+    if (byTop.error) problems.push(`review.runs: ${byTop.error.message}`)
+    if (flagged.error) problems.push(`review.flagged: ${flagged.error.message}`)
+    const runs = new Map<string, ReviewRun>()
+    for (const r of [...((byTop.data as ReviewRun[] | null) ?? []), ...((flagged.data as ReviewRun[] | null) ?? [])]) runs.set(r.id, r)
+    const wallets = [...new Set([...runs.values()].map((r) => r.wallet))]
+    const { data: passRows } = wallets.length
+        ? await db.from('survival_entitlements').select('wallet').eq('kind', 'season_pass').or(`season_id.eq.${seasonId},season_id.is.null`).in('wallet', wallets)
+        : { data: [] }
+    const pass = new Set(((passRows as Array<{ wallet: string }> | null) ?? []).map((p) => p.wallet))
+    const topRank = new Map(topIds.map((id, i) => [id, i + 1]))
+    return [...runs.values()].map((r) => ({
+        ...r,
+        flags: Array.isArray(r.flags) ? r.flags : [],
+        rank: topRank.get(r.id) ?? null,
+        pass: pass.has(r.wallet),
+        // One pulse per wave after the first: the gap is how many checkpoints never arrived.
+        pulsesMissing: Math.max(0, r.wave - 1 - r.pulse_count),
+        perKill: r.kills > 0 ? Math.round(r.score / r.kills) : null,
+        typicalRatio: Math.round((r.score / Math.max(1, scoreTypical(r.kills, r.wave))) * 100) / 100,
+        waveCap: r.server_duration_ms != null ? waveCap(r.server_duration_ms) : null,
+        // The share of the score no pulse ever vouched for: 0 = the finish is its last checkpoint.
+        uncovered: r.score > 0 ? Math.round(((r.score - (r.last_pulse_score ?? 0)) / r.score) * 100) / 100 : 0,
+    })).sort((a, b) => b.score - a.score)
 }

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { eth_getBalance } from 'thirdweb/rpc'
 import { supabaseAdmin } from '@/lib/supabase'
+import { fetchAll } from '@/lib/survivalFetchAll'
 import { requireAdmin } from '@/lib/adminAuth'
-import { CASHIER, loadCatalog, weiToApe } from '@/lib/survivalShop'
+import { CASHIER, isTestSku, loadCatalog, weiToApe } from '@/lib/survivalShop'
 import { ORDER_COLUMNS, rpc, scanOrder, settleAnyInTx, type OrderRow } from '@/lib/survivalSettle'
 import { isPublic } from '@/lib/survivalAllow'
 import { logEvent } from '@/lib/survivalLog'
@@ -46,25 +47,36 @@ export async function GET(request: NextRequest) {
 
     const live = await db.from('survival_seasons').select('id, name').eq('status', 'live').limit(1).maybeSingle()
     const seasonId = (live.data as { id: string } | null)?.id ?? null
+    // PostgREST answers at most 1000 rows a request: the money tables are read page by page
+    // (lib/survivalFetchAll.ts), or every total past the 1000th payment would be short.
+    const paged = <T,>(label: string, r: { rows: T[]; truncated: boolean; error: string | null }) => {
+        if (r.truncated) problems.push(`${label}: more rows than read — totals are partial`)
+        return { data: r.rows, error: r.error ? { message: r.error } : null }
+    }
     const [pays, orders, ledger, credits, events, allow] = await Promise.all([
-        db.from('survival_payments').select('tx_hash, wallet, amount_ape, to_pool_ape, mode, platform, payer, credits_granted, created_at, order_id, block_number').order('created_at', { ascending: false }).limit(10_000),
-        db.from('survival_orders').select('id, wallet, sku, mode, platform, price_ape, status, created_at, from_block, dismissed_at').order('created_at', { ascending: false }).limit(5_000),
-        seasonId ? db.from('survival_pool_ledger').select('bucket, source, amount_ape').eq('season_id', seasonId).limit(50_000) : Promise.resolve({ data: [], error: null }),
-        db.from('survival_credits').select('mode, source, consumed_by_run').limit(100_000),
-        db.from('survival_events').select('at, wallet, kind, message, data').like('kind', 'pay.%').neq('kind', 'pay.paid').not('kind', 'like', 'pay.admin_%').order('at', { ascending: false }).limit(200),
+        fetchAll(() => db.from('survival_payments').select('tx_hash, wallet, amount_ape, to_pool_ape, mode, platform, payer, credits_granted, created_at, order_id, block_number').order('created_at', { ascending: false }).order('id'), { cap: 20_000 }).then((r) => paged('payments', r)),
+        fetchAll(() => db.from('survival_orders').select('id, wallet, sku, mode, platform, price_ape, status, created_at, from_block, dismissed_at').order('created_at', { ascending: false }).order('id'), { cap: 10_000 }).then((r) => paged('orders', r)),
+        seasonId ? fetchAll(() => db.from('survival_pool_ledger').select('bucket, source, amount_ape').eq('season_id', seasonId).order('id')).then((r) => paged('ledger', r)) : Promise.resolve({ data: [], error: null }),
+        fetchAll(() => db.from('survival_credits').select('mode, source, consumed_by_run').order('id'), { cap: 100_000 }).then((r) => paged('credits', r)),
+        // Only the server's own payment lines: anyone can POST a «pay.*» line to /api/survival/log.
+        db.from('survival_events').select('at, wallet, kind, message, data').eq('source', 'server').like('kind', 'pay.%').neq('kind', 'pay.paid').not('kind', 'like', 'pay.admin_%').order('at', { ascending: false }).limit(200),
         db.from('survival_allowlist').select('wallet, note').limit(5_000),
     ])
     ;[['payments', pays], ['orders', orders], ['ledger', ledger], ['credits', credits], ['events', events], ['allowlist', allow]].forEach(([l, r]) => note(l as string)(r as never))
 
-    const P = (pays.data as Pay[] | null) ?? []
+    const orderSku = new Map(((orders.data as Array<{ id: string; sku: string }> | null) ?? []).map((o) => [o.id, o.sku]))
+    // Test purchases (test_* skus, SURVIVAL_TEST_WALLETS) are listed but kept out of every total:
+    // they are the owner checking the till, not revenue, and they never reach the pool ledger.
+    const isTestPay = (r: Pay) => !!r.order_id && isTestSku(orderSku.get(r.order_id) ?? '')
+    const Pall = (pays.data as Pay[] | null) ?? []
+    const P = Pall.filter((r) => !isTestPay(r))
     const now = Date.now()
     const within = (iso: string, ms: number) => now - Date.parse(iso) <= ms
     const sum = (rows: Pay[]) => ({ count: rows.length, ape: round(rows.reduce((n, r) => n + Number(r.amount_ape), 0)), pool: round(rows.reduce((n, r) => n + Number(r.to_pool_ape ?? 0), 0)) })
     const by = (key: 'mode' | 'platform') => Object.fromEntries(['solo', 'coop', 'site', 'otherside'].filter((k) => key === 'mode' ? k === 'solo' || k === 'coop' : k === 'site' || k === 'otherside')
         .map((k) => [k, sum(P.filter((r) => (r[key] ?? (key === 'mode' ? 'solo' : 'site')) === k))]))
     const catalog = await loadCatalog(false)
-    const orderSku = new Map(((orders.data as Array<{ id: string; sku: string }> | null) ?? []).map((o) => [o.id, o.sku]))
-    const bySku = Object.fromEntries(catalog.map((c) => [c.sku, sum(P.filter((r) => r.order_id && orderSku.get(r.order_id) === c.sku))]))
+    const bySku = Object.fromEntries(catalog.map((c) => [c.sku, sum(Pall.filter((r) => r.order_id && orderSku.get(r.order_id) === c.sku))]))
 
     // APE per day, 30 days, split by mode (the chart).
     const days: Array<{ day: string; solo: number; coop: number; count: number }> = []
@@ -105,7 +117,7 @@ export async function GET(request: NextRequest) {
             spent: { solo: C.filter((c) => c.mode === 'solo' && c.consumed_by_run).length, coop: C.filter((c) => c.mode === 'coop' && c.consumed_by_run).length },
         },
         orders: { total: O.length, pending: O.filter((o) => o.status === 'pending').length, paid: O.filter((o) => o.status === 'paid').length, stuck },
-        payments: P.slice(0, 1000).map((p) => ({ ...p, name: names[p.wallet] ?? null, viaHub: p.payer === HUB })),
+        payments: Pall.slice(0, 1000).map((p) => ({ ...p, name: names[p.wallet] ?? null, viaHub: p.payer === HUB, test: isTestPay(p) })),
         refused: events.data ?? [],
         problems,
     }, { headers })

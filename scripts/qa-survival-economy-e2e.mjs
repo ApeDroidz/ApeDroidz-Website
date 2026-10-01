@@ -9,6 +9,10 @@
  */
 import { createHmac } from 'node:crypto'
 import pg from 'pg'
+import { readFileSync } from 'node:fs'
+
+// The pay formula and the DAILY BONUS come from the export the server pays by.
+const ECON = JSON.parse(readFileSync(new URL('../src/lib/survivalEconomy.json', import.meta.url), 'utf8'))
 
 const BASE = process.env.BASE ?? 'http://localhost:3737'
 const SECRET = process.env.WALLET_SESSION_SECRET
@@ -72,8 +76,11 @@ try {
     const fin = await call('/api/survival/run/finish', 'POST', { runId: start.runId, wave: 10, kills: 250, score: 40_000, durationMs: 290_000, report })
     ok('the run is accepted and paid', fin.verdict === 'accepted' && fin.economy?.paid, JSON.stringify(fin).slice(0, 300))
     const paid = fin.economy?.paid ?? {}
-    const formula = Math.floor(3 * Math.sqrt(40_000) + 250 * 0.3 + 10 * 20)
-    ok('Ape Mini: the formula + picked capped at 2 per kill + 50', paid.coins <= formula + 250 * 2 + 50 && paid.coins >= formula, JSON.stringify(paid))
+    const formula = Math.floor(ECON.run.coins.sqrtScore * Math.sqrt(40_000) + 250 * ECON.run.coins.kill + 10 * ECON.run.coins.wave)
+    // The wallet's first run today: a DAILY BONUS run (x2 on the formula part, 29.09.2026).
+    ok('the first run of the day is a DAILY BONUS run, and the answer says so', paid.daily?.applied === true && paid.coinMult === 2 && fin.dailyBonus?.left === ECON.run.dailyBonus.runs - 1, JSON.stringify({ daily: paid.daily, top: fin.dailyBonus }))
+    const mult = paid.coinMult ?? 1
+    ok('Ape Mini: the formula (x the bonus) + picked capped at 2 per kill + 50', paid.coins <= formula * mult + 250 * 2 + 50 && paid.coins >= formula * mult, JSON.stringify(paid))
     ok('cores capped by the run, not a million', (fin.economy?.state?.resources?.core ?? 1e9) <= 30, JSON.stringify(fin.economy?.state?.resources))
     ok('the bestiary counted no more kills than the run had; no dragons', fin.economy?.state?.bestiary?.robber === 250 && !fin.economy?.state?.bestiary?.dragon)
     ok('season XP came with it', (fin.economy?.season?.sxp ?? 0) > 0)

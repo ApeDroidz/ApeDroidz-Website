@@ -75,7 +75,7 @@ BEGIN
     RETURN new_balance;
 END;
 $$;
-REVOKE ALL ON FUNCTION add_glitch_user_tickets(text, int) FROM public;
+REVOKE ALL ON FUNCTION add_glitch_user_tickets(text, int) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION add_glitch_user_tickets(text, int) TO service_role;
 
 
@@ -118,7 +118,7 @@ BEGIN
     END IF;
 END;
 $$;
-REVOKE ALL ON FUNCTION set_glitch_user_x_handle(text, text) FROM public;
+REVOKE ALL ON FUNCTION set_glitch_user_x_handle(text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION set_glitch_user_x_handle(text, text) TO service_role;
 
 
@@ -169,7 +169,7 @@ AS $$
             UNION ALL SELECT created_at FROM flight_game_logs WHERE lower(wallet_address) = lower(p_wallet)
         ) u);
 $$;
-REVOKE ALL ON FUNCTION admin_wallet_summary(text) FROM public;
+REVOKE ALL ON FUNCTION admin_wallet_summary(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_wallet_summary(text) TO service_role;
 
 
@@ -200,7 +200,7 @@ AS $$
     HAVING COUNT(*) > 1
     ORDER BY COUNT(*) DESC;
 $$;
-REVOKE ALL ON FUNCTION detect_glitch_users_dups() FROM public;
+REVOKE ALL ON FUNCTION detect_glitch_users_dups() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION detect_glitch_users_dups() TO service_role;
 
 
@@ -247,5 +247,5 @@ BEGIN
     RETURN;
 END;
 $$;
-REVOKE ALL ON FUNCTION merge_glitch_users_dups() FROM public;
+REVOKE ALL ON FUNCTION merge_glitch_users_dups() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION merge_glitch_users_dups() TO service_role;

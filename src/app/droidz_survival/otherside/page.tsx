@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GlyphSDK, OTHERSIDE_HUB_ORIGIN, pickHubOrigin, type GlyphReadyPayload } from '@/lib/glyph-sdk'
 import { othersideLoginMessage } from '@/lib/othersideMessage'
+import { DISCORD_URL } from '@/lib/socials'
+import { cancelOrder, createOrder, isUserRejection, reportPayment, singleFlight } from '@/lib/survivalHostPay'
 
 /**
  * Droidz Survival in the Otherside arcade cabinet.
@@ -108,33 +110,47 @@ export default function OthersideCabinet() {
         const real = PAY_FOR_REAL && !!CASHIER
         win.DroidzPay = {
             stub: !real,
-            charge: async (kind: 'continue' | 'run' | 'run10'): Promise<boolean> => {
+            // One payment at a time; once sent, yes unless the server says a definite no
+            // (lib/survivalHostPay.ts — the same rules as the site).
+            charge: singleFlight(async (kind: string): Promise<boolean> => {
                 if (!real) { await new Promise((r) => setTimeout(r, 500)); return true }
                 const sdk = sdkRef.current
                 if (!sdk) return false
+                const o = await createOrder(kind, 'otherside')
+                if (!o) return false
+                let hash: string
                 try {
-                    const o = await fetch('/api/survival/order', {
-                        method: 'POST', credentials: 'include', cache: 'no-store',
-                        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sku: kind, platform: 'otherside', mode: 'solo' }),
-                    }).then((r) => r.json())
-                    if (!o?.ok) return false
-                    const hash = await sdk.sendTransaction({ to: o.to, value: o.valueApe, data: o.data, description: o.description })
-                    for (let attempt = 0; attempt < 6; attempt++) {
-                        await new Promise((r) => setTimeout(r, attempt === 0 ? 3000 : 2500))
-                        const d = await fetch('/api/survival/pay', {
-                            method: 'POST', credentials: 'include', cache: 'no-store',
-                            headers: { 'content-type': 'application/json' }, body: JSON.stringify({ txHash: hash, orderId: o.orderId }),
-                        }).then((r) => r.json()).catch(() => ({}))
-                        if (d?.ok === true) return true
-                        if (d?.state !== 'not_found') return false
-                    }
-                    return false
-                } catch {
+                    hash = await sdk.sendTransaction({ to: o.to, value: o.valueApe, data: o.data, description: o.description ?? 'Droidz Survival' })
+                } catch (e) {
+                    if (isUserRejection(e)) cancelOrder(o.orderId)
                     return false
                 }
-            },
+                const state = await reportPayment(hash, o.orderId)
+                return state === 'paid' || state === 'sent'
+            }),
         }
     }, [hubUser])
+
+    // The partitioned play cookie lives six hours and is minted only at sign-in; the game's own
+    // renewal (lib/survivalRuns.ts authCaller) sets a Lax cookie the Hub's frame never keeps. So
+    // while the game is up this page renews it — every 30 minutes and when the cabinet comes back
+    // into view. `denied` (a ban, access revoked) closes the cabinet, as on a reload.
+    const playingWallet = phase.k === 'playing' ? phase.wallet : null
+    useEffect(() => {
+        if (!playingWallet) return
+        let alive = true
+        const renew = async () => {
+            try {
+                const r = await fetch('/api/otherside/login', { credentials: 'include', cache: 'no-store' })
+                const d = await r.json().catch(() => ({}))
+                if (alive && r.ok && d.state === 'denied' && d.wallet === playingWallet) setPhase({ k: 'denied', wallet: playingWallet })
+            } catch { /* offline for a moment — the next tick asks again */ }
+        }
+        const id = setInterval(renew, 30 * 60_000)
+        const onVisible = () => { if (document.visibilityState === 'visible') void renew() }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
+    }, [playingWallet])
 
     if (phase.k === 'playing') {
         return (
@@ -172,9 +188,9 @@ export default function OthersideCabinet() {
                 )}
                 {phase.k === 'denied' && (
                     <>
-                        <p className="text-white/70 text-sm">Droidz Survival is in closed beta, and this wallet is not on the list yet.</p>
+                        <p className="text-white/70 text-sm">This wallet can&apos;t play right now. If you think that&apos;s a mistake, open a ticket in Discord.</p>
                         <p className="text-white/40 text-xs font-mono break-all">{phase.wallet}</p>
-                        <p className="text-white/50 text-xs">Ask for access on X — <span className="text-[#3b82f6]">@ApeDroidz</span>.</p>
+                        <a className="text-[#3b82f6] text-xs underline" href={DISCORD_URL} target="_top" rel="noopener noreferrer">Open a ticket in Discord</a>
                     </>
                 )}
                 {phase.k === 'error' && <p className="text-red-400 text-sm">{phase.message}</p>}

@@ -71,9 +71,9 @@ export function forecast(poolApe: number, rules: SeasonRules, standings: Standin
 }
 
 /** The live season's pool, rules and standings, read fresh. null when no season is live. */
-export async function loadForecast(wallet?: string): Promise<(Forecast & { seasonId: string }) | null> {
+export async function loadForecast(wallet?: string): Promise<(Forecast & { seasonId: string; paysOut: boolean }) | null> {
     const { data: season } = await supabaseAdmin.from('survival_seasons')
-        .select('id, payout_pct, curve_s, paid_pct_of_field, min_places, max_places').eq('status', 'live').limit(1).maybeSingle()
+        .select('id, payout_pct, curve_s, paid_pct_of_field, min_places, max_places, pays_out').eq('status', 'live').limit(1).maybeSingle()
     if (!season) return null
     const [{ data: st }, { data: rows }] = await Promise.all([
         supabaseAdmin.rpc('survival_pool_stats', { p_season: season.id }),
@@ -87,5 +87,10 @@ export async function loadForecast(wallet?: string): Promise<(Forecast & { seaso
     }
     const standings = ((rows as Array<{ wallet: string; best: number | string; has_pass: boolean }> | null) ?? [])
         .map((r) => ({ wallet: r.wallet, best: Number(r.best), hasPass: r.has_pass }))
-    return { seasonId: season.id, ...forecast(pool, rules, standings, wallet) }
+    const f = forecast(pool, rules, standings, wallet)
+    // A season that pays nothing (the beta — its pool is paid in Season 1) forecasts nobody a share:
+    // with no pass holders every player came out «#1 of 1, ≈ 90% of the pool» (the field of one).
+    const paysOut = season.pays_out === true
+    if (!paysOut && f.me) f.me = { ...f.me, rank: null, forecastApe: 0 }
+    return { seasonId: season.id, paysOut, ...f }
 }

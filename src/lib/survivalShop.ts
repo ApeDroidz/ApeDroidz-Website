@@ -55,6 +55,64 @@ export async function loadCatalog(activeOnly = true): Promise<CatalogItem[]> {
     })
 }
 
+/**
+ * TEST ITEMS — the owner checks a real payment on prod for pennies (owner, 29.09.2026: «проверить
+ * настоящую оплату на проде очень дёшево, не пополняя призовой пул»).
+ *
+ * A catalog row whose sku starts with `test_` (migration 20260929_survival_test_skus) is a test
+ * stand-in for the real item after the prefix: test_ticket → ticket, test_run → run,
+ * test_season_pass → season_pass, 0.01 APE each. They exist only for the wallets in
+ * SURVIVAL_TEST_WALLETS (comma-separated; unset = nobody):
+ *   - everyone else never sees them (catalogFor) and cannot order them (resolveItem → unknown_item);
+ *   - for a test wallet the test row takes the real row's place in the price list UNDER THE REAL
+ *     SKU, so the game's own buttons (1 RUN, LUCKY TICKET, the pass) buy it — the order is made for
+ *     the test row (order.sku = 'test_run'), which is what the database keys on;
+ *   - the database keeps them out of the money that matters: no pool ledger row, no NFT from the
+ *     ticket vault, a test pass does not count among the pass holders who share the pool (the
+ *     migration's triggers and survival_season_standings). On chain the cashier still splits the
+ *     0.01 (0.005 lands in the pool vault) — the pool the game shows and pays is the ledger.
+ * Switched off without a redeploy by making the test rows inactive (spltpnl → Catalog).
+ */
+export const TEST_SKU_PREFIX = 'test_'
+export const isTestSku = (sku: string): boolean => sku.startsWith(TEST_SKU_PREFIX)
+
+export function testWallets(): Set<string> {
+    return new Set((process.env.SURVIVAL_TEST_WALLETS ?? '').toLowerCase().split(',').map((s) => s.trim()).filter((s) => /^0x[0-9a-f]{40}$/.test(s)))
+}
+export const isTestWallet = (wallet: string): boolean => testWallets().has(wallet.toLowerCase())
+
+/**
+ * The price list as THIS wallet sees it: no test rows for anyone else; for a test wallet each test
+ * row stands in for its real item, keeping the real sku and place (a test row with no real item
+ * is listed under its own sku).
+ */
+export function catalogFor(items: CatalogItem[], wallet: string): CatalogItem[] {
+    const real = items.filter((i) => !isTestSku(i.sku))
+    if (!isTestWallet(wallet)) return real
+    const tests = new Map(items.filter((i) => isTestSku(i.sku)).map((i) => [i.sku, i]))
+    const out = real.map((r) => {
+        const t = tests.get(TEST_SKU_PREFIX + r.sku)
+        if (!t) return r
+        tests.delete(t.sku)
+        return { ...t, sku: r.sku, sort: r.sort }
+    })
+    return [...out, ...tests.values()]
+}
+
+/**
+ * The row an order is made for. A test wallet asking for `run` gets `test_run` while that row is
+ * active; a `test_*` sku is only ever sold to a test wallet.
+ */
+export function resolveItem(items: CatalogItem[], sku: string, wallet: string): CatalogItem | null {
+    const test = isTestWallet(wallet)
+    if (isTestSku(sku)) return test ? items.find((c) => c.sku === sku) ?? null : null
+    if (test) {
+        const stand = items.find((c) => c.sku === TEST_SKU_PREFIX + sku)
+        if (stand) return stand
+    }
+    return items.find((c) => c.sku === sku) ?? null
+}
+
 /** What this wallet pays: the holder discount, rounded to 0.01 APE. */
 export const priceFor = (item: CatalogItem, holder: boolean): number =>
     holder && item.holder_discount_pct > 0 ? Math.round(item.price_ape * (100 - item.holder_discount_pct)) / 100 : item.price_ape
@@ -110,7 +168,7 @@ export function encodePay(player: string, orderId: string, mode: Mode): string {
 
 export type PaidEvent = { player: string; order: string; payer: string; mode: Mode | null; amount: bigint; toPool: bigint; logIndex: number; blockNumber: bigint }
 
-type Log = { address: string; topics: readonly string[]; data: string; logIndex?: number | bigint | null; blockNumber?: bigint | null }
+export type Log = { address: string; topics: readonly string[]; data: string; logIndex?: number | bigint | null; blockNumber?: bigint | null }
 
 /** Every Paid event the cashier emitted in these logs. */
 export function paidEvents(logs: readonly Log[]): PaidEvent[] {
@@ -135,7 +193,39 @@ export function paidEvents(logs: readonly Log[]): PaidEvent[] {
     return out
 }
 
+/** keccak256("FeeCollected(address,address,uint256,uint256)") — the Hub FeeSplitter's receipt of its fee. */
+export const FEE_COLLECTED_TOPIC = '0x205442d60b70af1203d43cab62352c3b69b94f091be32fe683198057282b5c92'
+
+/**
+ * The fee the Hub took on the way to this Paid event, or null when the Hub said nothing about it.
+ *
+ * Why it matters: a payment from the Hub is booked at 90% of the price (its fee is taken before it
+ * forwards), and the payer is the only sign it came through the Hub — but the FeeSplitter's
+ * `execute(target, data, feeBps)` is open to anyone, with any fee from 0. So the fee is read from
+ * the FeeSplitter's own FeeCollected for this call: what the player SENT is what reached the
+ * cashier plus that fee, and that must be the full price. The nearest FeeCollected AFTER the Paid
+ * event is the one of this call (it is emitted when the forward returns; a nested execute's inner
+ * one comes earlier), and it must name the cashier as its target.
+ */
+export function hubFeeFor(logs: readonly Log[], ev: PaidEvent): bigint | null {
+    const cashierTopic = `0x${CASHIER.replace(/^0x/, '').padStart(64, '0')}`
+    const after = logs
+        .filter((l) => Number(l.logIndex ?? -1) > ev.logIndex)
+        .sort((a, b) => Number(a.logIndex ?? 0) - Number(b.logIndex ?? 0))
+    for (const l of after) {
+        if (l.address.toLowerCase() !== HUB_FEE_SPLITTER) continue
+        if ((l.topics[0] ?? '').toLowerCase() !== FEE_COLLECTED_TOPIC) continue
+        if ((l.topics[2] ?? '').toLowerCase() !== cashierTopic) continue
+        const data = l.data.replace(/^0x/, '')
+        if (data.length < 64) return null
+        return BigInt(`0x${data.slice(0, 64)}`)
+    }
+    return null
+}
+
 export function describe(item: CatalogItem, mode: Mode): string {
     const m = mode === 'coop' ? 'co-op' : 'solo'
-    return `Droidz Survival — ${item.title} (${m}) for ${item.price_ape} APE. Half goes to the ${m} season prize pool.`
+    if (isTestSku(item.sku)) return `Droidz Survival — ${item.title} (${m}) for ${item.price_ape} APE. A test purchase: not counted in the prize pool.`
+    // One name for the pool everywhere (the game's poolTitle): the Season 1 prize pool.
+    return `Droidz Survival — ${item.title} (${m}) for ${item.price_ape} APE. Half goes to the Season 1 prize pool (${m}).`
 }

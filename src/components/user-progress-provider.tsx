@@ -133,7 +133,44 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
             // 2. Синхронизация с Блокчейном (Фоновая проверка)
             // Запускаем ТОЛЬКО если это принудительный синк или данных нет
             if (!dbUser || forceSync) {
-                console.log("🔗 Starting blockchain sync...")
+                // 2a. Серверный синк: сервер сам считает NFT-XP и пишет `users`.
+                // Браузер в `users` больше не пишет (anon-запись позволяла
+                // переписать xp/droids_count любому кошельку). Без сессии
+                // (401) или при сбое — только локальный расчёт для экрана ниже.
+                try {
+                    const res = await fetch('/api/user/sync-progress', {
+                        method: 'POST',
+                        credentials: 'include',
+                        cache: 'no-store',
+                        headers: { 'Content-Type': 'application/json' },
+                        // Только для сверки с кукой (403, если сессия от другого кошелька).
+                        body: JSON.stringify({ wallet: address }),
+                    })
+                    if (res.ok) {
+                        const synced = await res.json()
+                        const nftXp = Number(synced.nftXp) || 0
+                        const displayXP = nftXp + s1Xp + s2Xp
+                        const { level, rank, progress } = calculateStats(displayXP)
+                        setState({
+                            xp: displayXP,
+                            nftXp,
+                            s1Xp,
+                            s2Xp,
+                            s2Level,
+                            s2RankTitle,
+                            level, rank, progress,
+                            stats: { droids: Number(synced.droids) || 0, batteries: Number(synced.batteries) || 0 },
+                            username: dbUser?.username || "",
+                            isLoading: false
+                        })
+                        console.log(`✅ User Progress synced by server: NFT XP ${nftXp}, Display XP ${displayXP}`)
+                        return
+                    }
+                } catch (e) {
+                    console.warn("⚠️ Server progress sync failed", e)
+                }
+
+                console.log("🔗 Starting blockchain sync (display only)...")
                 const droidsContract = getContract({ client, chain: apeChain, address: DROID_CONTRACT_ADDRESS })
 
                 let ownedNfts = []
@@ -243,7 +280,7 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
                 const displayXP = totalXP + s1Xp + s2Xp
                 const { level, rank, progress } = calculateStats(displayXP)
 
-                // Only re-sync DB if NFT XP changed (avoid overwriting season XP)
+                // Только отображение: запись в `users` делает сервер (см. 2a).
                 const dbNftXp = dbUser?.xp || 0
                 if (!dbUser || dbNftXp !== totalXP) {
                     setState({
@@ -258,19 +295,6 @@ export const UserProgressProvider = ({ children }: { children: ReactNode }) => {
                         username: dbUser?.username || "",
                         isLoading: false
                     })
-                    const { error: upsertError } = await supabase.from('users').upsert({
-                        wallet_address: address,
-                        xp: totalXP,       // store NFT XP only — season XP lives in season tables
-                        droids_count: droidsCount,
-                        batteries_count: batteriesCount,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'wallet_address' })
-
-                    if (upsertError) {
-                        console.error("❌ Failed to update User Progress in DB:", upsertError)
-                    } else {
-                        console.log(`✅ User Progress Saved: NFT XP ${totalXP}, Display XP ${displayXP}`)
-                    }
                 }
             }
         } catch (e) {

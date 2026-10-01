@@ -6,6 +6,11 @@ import { ACCESS_DURATIONS, DEFAULT_ACCESS_DURATION } from '@/lib/survivalDuratio
 import { CopyWallet, SurvivalPlayers } from './survival-players'
 import { SurvivalPayments } from './survival-payments'
 import { SurvivalAlerts } from './survival-alerts'
+import CATALOG from '@/lib/survivalGameCatalog.json'
+
+/** The game's hero name for a stored id ('volt' → 'Droid', 'goblin' → 'Gob'), as in the Players tab. */
+const HEROES = (CATALOG as unknown as { heroes: Record<string, { name: string }> }).heroes
+const heroName = (id: string | null) => (id ? HEROES[id]?.name ?? id : null)
 
 /**
  * Droidz Survival — the game's own tab in the panel (the owner, 18.09.2026): what is
@@ -29,6 +34,11 @@ type Payload = {
     events: Array<{ id: number; at: string; wallet: string | null; source: string; level: string; kind: string; message: string; data: Record<string, unknown>; run_id: string | null; client_version: string | null }>
     suspicious: Array<{ id: string; wallet: string; status: string; reject_reason: string | null; flags: string[]; score: number; wave: number; kills: number; started_at: string; server_duration_ms: number | null; client_duration_ms: number | null; client_version: string | null; hero: string | null }>
     cheaters: Array<{ wallet: string; rejected: number; last: string; reasons: string[]; banned: boolean; ban_reason: string | null }>
+    review: Array<{
+        id: string; wallet: string; score: number; wave: number; kills: number; pulse_count: number; last_pulse_wave: number | null
+        server_duration_ms: number | null; flags: string[]; client_version: string | null; hero: string | null
+        rank: number | null; pass: boolean; pulsesMissing: number; perKill: number | null; typicalRatio: number; waveCap: number | null; uncovered: number
+    }>
     allowlist: Array<{ wallet: string; status: 'active' | 'expired' | 'revoked'; note: string | null; added_by: string | null; added_at: string; revoked_at: string | null; expires_at: string | null }>
     recentRuns: Array<{ id: string; wallet: string; status: string; reject_reason: string | null; score: number; wave: number; kills: number; started_at: string; hero: string | null; client_version: string | null; server_duration_ms: number | null; client_duration_ms: number | null }>
     profiles: Array<{ wallet: string; coins: number; runs: number; best_score: number; selected_hero: string | null; updated_at: string }>
@@ -330,6 +340,8 @@ function SurvivalOverview() {
                 </Section>
             </div>
 
+            <ReviewRuns rows={data.review ?? []} names={names} onDisqualify={(id, note) => act(id, () => api('/api/admin/survival/runs/disqualify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ runId: id, note }) }))} />
+
             <Section title="Suspicious — rejected runs" hint={`${data.suspicious.length} shown`}>
                 {data.suspicious.length === 0 ? <div className="text-white/30 text-xs">Nothing rejected.</div> : (
                     <div className="overflow-auto max-h-80">
@@ -424,7 +436,7 @@ function SurvivalOverview() {
                             <span className="font-mono text-white/30 w-36 flex-shrink-0">{when(r.started_at)}</span>
                             <W w={r.wallet} names={names} className="w-24 truncate" />
                             <span className={`w-16 font-black uppercase text-[9px] ${r.status === 'finished' ? 'text-emerald-400' : r.status === 'rejected' ? 'text-red-400' : 'text-white/40'}`}>{r.status}</span>
-                            <span className="text-white/60 flex-1 truncate">{r.hero ?? ''} · score {r.score} · wave {r.wave} · {r.kills} kills · {dur(r.server_duration_ms ?? r.client_duration_ms)} {r.reject_reason ? `· ${r.reject_reason}` : ''}</span>
+                            <span className="text-white/60 flex-1 truncate">{heroName(r.hero) ?? ''} · score {r.score} · wave {r.wave} · {r.kills} kills · {dur(r.server_duration_ms ?? r.client_duration_ms)} {r.reject_reason ? `· ${r.reject_reason}` : ''}</span>
                         </div>
                     ))}</div>
                 </Section>
@@ -433,12 +445,54 @@ function SurvivalOverview() {
                         <div key={p.wallet} className="flex items-center gap-3 py-1 text-xs">
                             <W w={p.wallet} names={names} className="w-24 truncate" />
                             <span className="text-[#3b82f6] font-black w-24">{p.coins} mini</span>
-                            <span className="text-white/60">{p.runs} runs · best {p.best_score} · {p.selected_hero ?? '—'}</span>
+                            <span className="text-white/60">{p.runs} runs · best {p.best_score} · {heroName(p.selected_hero) ?? '—'}</span>
                             <span className="font-mono text-white/25 text-[10px] flex-1 text-right">{when(p.updated_at)}</span>
                         </div>
                     ))}{data.profiles.length === 0 && <div className="text-white/30 text-xs">No profiles yet.</div>}</div>
                 </Section>
             </div>
         </div>
+    )
+}
+
+/**
+ * Review — the season's top and its flagged accepted runs, to go through before the pool is paid
+ * (flags never refuse a run; a human does). What gives a forged finish away: pulses far fewer than
+ * waves, a score the last pulse covers little of, a wave over the pace line, points per kill far
+ * above the honest top (≈ 490 in the beta). Disqualify takes that one run off the board.
+ */
+function ReviewRuns({ rows, names, onDisqualify }: { rows: Payload['review']; names: Map<string, string>; onDisqualify: (id: string, note: string) => Promise<unknown> | void }) {
+    const [tab, setTab] = useState<'all' | 'pass'>('all')
+    const shown = tab === 'pass' ? rows.filter((r) => r.pass) : rows
+    return (
+        <Section title="Review — top & flagged runs" hint={`${shown.length} runs · check before any pool payout`}>
+            <div className="flex items-center gap-1 mb-3">
+                {(['all', 'pass'] as const).map((t) => (
+                    <button key={t} onClick={() => setTab(t)} className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${tab === t ? 'border-[#3b82f6] text-white bg-[#3b82f6]/20' : 'border-white/10 text-white/40 hover:text-white'}`}>{t === 'all' ? 'All' : 'Pass'}</button>
+                ))}
+            </div>
+            {shown.length === 0 ? <div className="text-white/30 text-xs">Nothing to review.</div> : (
+                <div className="overflow-auto max-h-96">
+                    <table className="w-full text-xs">
+                        <thead><tr className="text-white/30 text-[9px] uppercase tracking-widest"><th className="text-left py-1">#</th><th className="text-left">Wallet</th><th className="text-right">Score</th><th className="text-right">Wave</th><th className="text-right" title="wave − 1 − pulses">Pulses missing</th><th className="text-right" title="share of the score after the last pulse">Uncovered</th><th className="text-right">Per kill</th><th className="text-right" title="score / typical">Typ.</th><th className="text-right" title="the pace line for the server's clock">Cap</th><th className="text-left">Flags</th><th /></tr></thead>
+                        <tbody>{shown.map((r) => (
+                            <tr key={r.id} className="border-t border-white/5">
+                                <td className="py-1 text-white/40">{r.rank ?? '—'}{r.pass ? <span className="ml-1 text-yellow-400 text-[9px] font-black">PASS</span> : null}</td>
+                                <td><W w={r.wallet} names={names} /> <span className="text-white/30">{heroName(r.hero) ?? ''}</span></td>
+                                <td className="text-right">{r.score.toLocaleString()}</td>
+                                <td className={`text-right ${r.waveCap !== null && r.wave > r.waveCap ? 'text-orange-400' : ''}`}>{r.wave}</td>
+                                <td className={`text-right ${r.pulsesMissing > 2 ? 'text-orange-400' : 'text-white/50'}`}>{r.pulsesMissing}</td>
+                                <td className={`text-right ${r.uncovered > 0.3 ? 'text-orange-400' : 'text-white/50'}`}>{Math.round(r.uncovered * 100)}%</td>
+                                <td className="text-right text-white/50">{r.perKill ?? '—'}</td>
+                                <td className={`text-right ${r.typicalRatio > 1 ? 'text-orange-400' : 'text-white/50'}`}>{r.typicalRatio}</td>
+                                <td className="text-right text-white/50">{r.waveCap ?? '—'}</td>
+                                <td>{r.flags.map((f) => <span key={f} className="mr-1 px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 text-[9px] font-mono">{f}</span>)}</td>
+                                <td className="text-right"><button onClick={() => { const note = window.prompt('Disqualify this run — why? (stays in the journal)'); if (note !== null) void onDisqualify(r.id, note) }} className="text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-red-400">Disqualify</button></td>
+                            </tr>
+                        ))}</tbody>
+                    </table>
+                </div>
+            )}
+        </Section>
     )
 }

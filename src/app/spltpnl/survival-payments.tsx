@@ -25,7 +25,7 @@ type Payload = {
     balances: Record<string, number | null>
     credits: { issued: { solo: number; coop: number }; spent: { solo: number; coop: number } }
     orders: { total: number; pending: number; paid: number; stuck: Stuck[] }
-    payments: Array<{ tx_hash: string; wallet: string; name: string | null; amount_ape: number; to_pool_ape: number | null; mode: string | null; platform: string | null; viaHub: boolean; credits_granted: number; created_at: string }>
+    payments: Array<{ tx_hash: string; wallet: string; name: string | null; amount_ape: number; to_pool_ape: number | null; mode: string | null; platform: string | null; viaHub: boolean; credits_granted: number; created_at: string; test?: boolean }>
     refused: Array<{ at: string; wallet: string | null; kind: string; message: string; data: Record<string, unknown> }>
     problems: string[]
 }
@@ -312,9 +312,9 @@ export function SurvivalPayments() {
                             <tr key={p.tx_hash} className="border-t border-white/5">
                                 <td className="py-1 font-mono text-white/40 whitespace-nowrap">{when(p.created_at)}</td>
                                 <td><CopyWallet wallet={p.wallet} />{p.name ? <span className="text-white/40"> ({p.name})</span> : null}</td>
-                                <td className="text-white/60"><span style={{ color: p.mode === 'coop' ? COOP : SOLO }}>■</span> {p.mode ?? 'solo'} · {p.platform ?? 'site'}{p.viaHub ? ' (Hub)' : ''}</td>
+                                <td className="text-white/60"><span style={{ color: p.mode === 'coop' ? COOP : SOLO }}>■</span> {p.mode ?? 'solo'} · {p.platform ?? 'site'}{p.viaHub ? ' (Hub)' : ''}{p.test ? <span className="ml-1 text-[9px] font-black text-amber-400">TEST</span> : null}</td>
                                 <td className="text-right font-black">{ape(p.amount_ape, 4)}</td>
-                                <td className="text-right text-emerald-400">{ape(p.to_pool_ape, 4)}</td>
+                                <td className="text-right text-emerald-400">{p.test ? <span className="text-white/30" title="Test purchase: kept out of the pool ledger and the totals">—</span> : ape(p.to_pool_ape, 4)}</td>
                                 <td className="text-right">{p.credits_granted}</td>
                                 <td className="pl-3"><a className="font-mono text-sky-400/80 hover:text-sky-300" href={`https://apescan.io/tx/${p.tx_hash}`} target="_blank" rel="noreferrer">{p.tx_hash.slice(0, 12)}…</a></td>
                             </tr>

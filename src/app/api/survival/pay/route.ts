@@ -16,7 +16,9 @@ import { ORDER_COLUMNS, settleByTx, type OrderRow } from '@/lib/survivalSettle'
  * sponsored call has an ERC-4337 `from`, 1.5% is taken off the value), so that path is gone.
  *
  * Replies: { ok: true } · { ok: false, state: 'malformed' | 'no_order' | 'not_found' | 'failed' |
- *          'mismatch' | 'underpaid' | 'wrong_mode' | 'used' }. 'not_found' = not mined yet: ask again shortly.
+ *          'mismatch' | 'underpaid' | 'wrong_mode' | 'used' | 'late' }. 'not_found' = not mined yet: ask again shortly.
+ *          'late' = paid more than an hour after the order was made, below today's price: the money
+ *          is on chain and support settles it by hand (lib/survivalSettle.ts).
  */
 export const dynamic = 'force-dynamic'
 const noStore = { 'cache-control': 'no-store' }
@@ -30,11 +32,13 @@ export async function POST(req: NextRequest) {
     const orderId = typeof body.orderId === 'string' ? body.orderId.toLowerCase() : ''
     if (!/^0x[0-9a-f]{64}$/.test(txHash) || !/^[0-9a-f-]{36}$/.test(orderId)) return NextResponse.json({ ok: false, state: 'malformed' }, { headers: noStore })
 
-    const { data: order } = await supabaseAdmin.from('survival_orders')
+    const { data: order, error } = await supabaseAdmin.from('survival_orders')
         .select(ORDER_COLUMNS).eq('id', orderId).maybeSingle()
+    // A database that did not answer is not «no such order»: the page asks again on no_server.
+    if (error) { console.error('[survival/pay] order', error.message); return noServer('pay.order', error.message) }
     if (!order || (order as OrderRow).wallet !== caller.wallet) return NextResponse.json({ ok: false, state: 'no_order' }, { headers: noStore })
 
     const state = await settleByTx(order as OrderRow, txHash)
-    if (state === 'no_server') return noServer()
+    if (state === 'no_server') return noServer('pay.settle', 'the settle RPC or the chain did not answer')
     return NextResponse.json(state === 'paid' ? { ok: true } : { ok: false, state }, { headers: noStore })
 }

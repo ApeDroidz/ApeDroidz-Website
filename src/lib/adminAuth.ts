@@ -7,12 +7,27 @@
  * Node API routes without conditional imports.
  *
  * Token format (HMAC-SHA256-signed cookie):
- *   <base64url(payload)>.<base64url(HMAC(secret, payload))>
- *   payload = JSON { exp: number(ms) }
+ *   <base64url(payload)>.<base64url(HMAC(adminKey, payload))>
+ *   payload = JSON { typ: 'admin', v: string, iat: number(ms), exp: number(ms) }
+ *
+ * The player cookies (glitch_session, survival_play) have the same
+ * <payload>.<sig> shape and, without ADMIN_SESSION_SECRET, the same base
+ * secret. Two things keep them from ever passing as an admin token:
+ *   - adminKey is not the raw secret but HMAC(secret, 'admin-session-v1'),
+ *     so a player cookie's signature never verifies here;
+ *   - the payload must carry typ:'admin' and the current version.
+ * Still, set a separate ADMIN_SESSION_SECRET (≥32 chars) in production.
+ *
+ * Revoking: the token is stateless and logout only clears the cookie in the
+ * browser. To kill EVERY admin session (e.g. a cookie leaked), change
+ * ADMIN_SESSION_VERSION in Vercel (any new string, default '1') and redeploy.
+ * Players are not logged out by this.
  */
 
 export const ADMIN_COOKIE_NAME = 'ag_admin'
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000 // 12 hours
+const TOKEN_TYPE = 'admin'
+const KEY_CONTEXT = 'admin-session-v1'
 export const ADMIN_COOKIE_MAX_AGE = Math.floor(SESSION_TTL_MS / 1000)
 
 // ── Base64url helpers (Edge-safe — no Buffer) ─────────────────────────────────
@@ -55,10 +70,27 @@ function timingSafeStrEq(a: string, b: string): boolean {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-function getSecret(): string | null {
-    // Reuse the wallet session secret; admins can override with ADMIN_SESSION_SECRET.
+function getBaseSecret(): string | null {
+    // Prefer a dedicated ADMIN_SESSION_SECRET; falls back to the wallet session secret.
     const s = process.env.ADMIN_SESSION_SECRET ?? process.env.WALLET_SESSION_SECRET
     return typeof s === 'string' && s.length >= 32 ? s : null
+}
+
+/**
+ * The key admin tokens are signed with: derived from the base secret, never the
+ * base secret itself, so tokens signed by walletAuth / survivalAccess with the
+ * same WALLET_SESSION_SECRET can't verify as admin.
+ */
+async function getAdminKey(): Promise<string | null> {
+    const base = getBaseSecret()
+    if (!base) return null
+    return hmacSha256(base, KEY_CONTEXT)
+}
+
+/** Bump ADMIN_SESSION_VERSION to invalidate every issued admin cookie. */
+function adminVersion(): string {
+    const v = process.env.ADMIN_SESSION_VERSION
+    return typeof v === 'string' && v.trim() ? v.trim() : '1'
 }
 
 /**
@@ -75,19 +107,28 @@ export function verifyAdminCredentials(username: unknown, password: unknown): bo
 
 /** Mint a signed cookie value. Returns null if the secret is missing. */
 export async function createAdminToken(): Promise<string | null> {
-    const secret = getSecret()
-    if (!secret) return null
-    const payloadJson = JSON.stringify({ exp: Date.now() + SESSION_TTL_MS })
+    const key = await getAdminKey()
+    if (!key) return null
+    const now = Date.now()
+    const payloadJson = JSON.stringify({ typ: TOKEN_TYPE, v: adminVersion(), iat: now, exp: now + SESSION_TTL_MS })
     const payload = bytesToBase64Url(new TextEncoder().encode(payloadJson))
-    const sig = await hmacSha256(secret, payload)
+    const sig = await hmacSha256(key, payload)
     return `${payload}.${sig}`
 }
 
-/** True iff the token is well-formed, signed by our secret, and not expired. */
+/**
+ * True iff the token is well-formed, signed with the admin key, typed as an
+ * admin token of the current version, and not expired.
+ */
 export async function isAdminTokenValid(token: string | null | undefined): Promise<boolean> {
     if (!token || typeof token !== 'string') return false
-    const secret = getSecret()
-    if (!secret) return false
+    let key: string | null
+    try {
+        key = await getAdminKey()
+    } catch {
+        return false
+    }
+    if (!key) return false
 
     const parts = token.split('.')
     if (parts.length !== 2) return false
@@ -96,7 +137,7 @@ export async function isAdminTokenValid(token: string | null | undefined): Promi
 
     let expected: string
     try {
-        expected = await hmacSha256(secret, payload)
+        expected = await hmacSha256(key, payload)
     } catch {
         return false
     }
@@ -104,8 +145,14 @@ export async function isAdminTokenValid(token: string | null | undefined): Promi
 
     try {
         const json = new TextDecoder().decode(base64UrlToBytes(payload))
-        const obj = JSON.parse(json) as { exp?: unknown }
-        return typeof obj.exp === 'number' && obj.exp > Date.now()
+        const obj = JSON.parse(json) as Record<string, unknown> | null
+        if (!obj || typeof obj !== 'object') return false
+        // Player tokens carry a wallet — never an admin.
+        if ('wallet' in obj || 'w' in obj) return false
+        if (obj.typ !== TOKEN_TYPE || obj.v !== adminVersion()) return false
+        const { iat, exp } = obj
+        return typeof iat === 'number' && typeof exp === 'number' &&
+            exp > Date.now() && exp - iat <= SESSION_TTL_MS
     } catch {
         return false
     }

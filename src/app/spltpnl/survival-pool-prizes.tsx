@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { CopyWallet } from './survival-players'
+import { POOL_LEVELS, levelAt } from '@/lib/survivalPoolLevels'
 
 /**
  * NFT prizes of the season's PRIZE POOL (owner, 28.09.2026: «в прайз пул — окошки, куда я добавлю другие
@@ -14,11 +15,13 @@ import { CopyWallet } from './survival-players'
  */
 type Prize = { id: number; season_id: string; place: number; unlock_level: number | null; contract: string; token_id: string; standard: string; name: string | null; image_url: string | null; status: string; winner: string | null; tx_hash: string | null; note: string | null; added_at: string; sent_at: string | null }
 type Season = { id: string; name: string; status?: string }
-type Payload = { liveSeason: Season | null; seasons: Season[]; prizes: Prize[] }
+type Pool = { poolApe: number; poolLevel: number }
+type Payload = { liveSeason: Season | null; seasons: Season[]; prizes: Prize[]; poolApe: number | null; poolLevel: number | null; pools?: Record<string, Pool> }
 type Resolved = { ref: string; ok: boolean; error?: string; contract?: string; tokenId?: string; standard?: string; name?: string; imageUrl?: string; inVault?: boolean }
+const fmtApe = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
 const STATUS: Record<string, string> = { listed: 'text-emerald-400', awarded: 'text-yellow-300', sent: 'text-white/40' }
-/** The pool's levels (game: config/season.ts milestones) — LVL n opens at this many APE. */
-const LEVEL_AT = [0, 10, 30, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000]
+const WALLET = /^0x[0-9a-fA-F]{40}$/
+const TX = /^0x[0-9a-fA-F]{64}$/
 
 export function SurvivalPoolPrizes() {
     const [d, setD] = useState<Payload | null>(null)
@@ -58,10 +61,37 @@ export function SurvivalPoolPrizes() {
         setMsg(`Added ${j.added?.length ?? 0}${j.skipped?.length ? `, skipped ${j.skipped.length}: ${j.skipped.map((x: { ref: string; reason: string }) => `${x.ref.split('/')[1]} (${x.reason})`).join(', ')}` : ''}`)
         setRows([]); setRaw('')
     }
-    const update = (id: number, patch: Record<string, unknown>) => void call({ method: 'POST', body: JSON.stringify({ update: { id, ...patch } }) })
+    const update = (id: number, patch: Record<string, unknown>) => { setMsg(null); void call({ method: 'POST', body: JSON.stringify({ update: { id, ...patch } }) }) }
+    // The level the game shows this prize's season pool at — a prize above it is LOCKED for the players.
+    const lockedBy = (p: Prize): Pool | null => {
+        const pool = d.pools?.[p.season_id]
+        return pool && p.status === 'listed' && p.unlock_level !== null && p.unlock_level > pool.poolLevel ? pool : null
+    }
+    const prizeLabel = (p: Prize) => `«${p.name ?? `#${p.token_id}`}» (place #${p.place}, ${seasonName(p.season_id)})`
+    const award = (p: Prize) => {
+        const locked = lockedBy(p)
+        if (locked && !window.confirm(`This prize is LOCKED: pool LVL ${locked.poolLevel} (${fmtApe(locked.poolApe)} APE), it opens at LVL ${p.unlock_level}. Players see it closed.\n\nAward it anyway?`)) return
+        const raw = window.prompt(`Winner wallet for ${prizeLabel(p)} (0x…)`)
+        if (raw === null) return
+        const w = raw.trim()
+        if (!WALLET.test(w)) { setMsg('winner: 0x + 40 hex'); return }
+        if (!window.confirm(`Award ${prizeLabel(p)} to\n${w.toLowerCase()}?`)) return
+        update(p.id, { status: 'awarded', winner: w, ...(locked ? { force: true } : {}) })
+    }
+    const markSent = (p: Prize) => {
+        const raw = window.prompt(`Transfer tx hash for ${prizeLabel(p)} → ${p.winner ?? '?'} (0x…)`)
+        if (raw === null) return
+        const tx = raw.trim()
+        if (!TX.test(tx)) { setMsg('tx hash: 0x + 64 hex'); return }
+        update(p.id, { status: 'sent', txHash: tx })
+    }
+    const unaward = (p: Prize) => {
+        if (!window.confirm(`Take ${prizeLabel(p)} back from ${p.winner ?? '?'} and list it again?`)) return
+        update(p.id, { status: 'listed' })
+    }
     const input = 'bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#3b82f6]'
     const seasonName = (id: string) => d.seasons.find((s) => s.id === id)?.name ?? id
-    const levelLabel = (l: number) => `LVL ${l} · ${LEVEL_AT[l - 1] ?? '?'} APE`
+    const levelLabel = (l: number) => `LVL ${l} · ${levelAt(l)} APE`
 
     return (
         <div className="space-y-3">
@@ -79,7 +109,7 @@ export function SurvivalPoolPrizes() {
                             <label className="flex-1 text-[9px] uppercase tracking-widest text-white/40">Opens at
                                 <select className={`${input} w-full mt-0.5`} value={level} onChange={(e) => setLevel(e.target.value)}>
                                     <option value="">from the start</option>
-                                    {LEVEL_AT.map((_, i) => <option key={i} value={i + 1}>{levelLabel(i + 1)}</option>)}
+                                    {POOL_LEVELS.map((l) => <option key={l} value={l}>{levelLabel(l)}</option>)}
                                 </select>
                             </label>
                         </div>
@@ -104,6 +134,9 @@ export function SurvivalPoolPrizes() {
                 {msg && <div className="text-xs font-mono text-white/70">{msg}</div>}
             </div>
 
+            <div className="text-[10px] font-black uppercase tracking-widest text-white/60">
+                {d.liveSeason ? `${d.liveSeason.name} pool: ${d.poolApe === null ? '?' : fmtApe(d.poolApe)} APE · LVL ${d.poolLevel ?? '?'}` : 'No live season'}
+            </div>
             {d.prizes.length === 0 ? <div className="text-xs text-white/40">No NFT prizes in any pool yet — the game shows empty slots.</div> : (
                 <div className="divide-y divide-white/5">
                     {d.prizes.map((p) => (
@@ -117,19 +150,21 @@ export function SurvivalPoolPrizes() {
                             </label>
                             <select className={input} value={p.unlock_level ?? ''} disabled={p.status !== 'listed'} onChange={(e) => update(p.id, { unlockLevel: e.target.value === '' ? null : Number(e.target.value) })}>
                                 <option value="">from the start</option>
-                                {LEVEL_AT.map((_, i) => <option key={i} value={i + 1}>{levelLabel(i + 1)}</option>)}
+                                {POOL_LEVELS.map((l) => <option key={l} value={l}>{levelLabel(l)}</option>)}
                             </select>
                             <span className={`w-16 font-black uppercase text-[9px] ${STATUS[p.status] ?? ''}`}>{p.status}</span>
+                            {lockedBy(p) && <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 font-black uppercase text-[9px]" title={`Pool is LVL ${lockedBy(p)!.poolLevel}; players see this prize closed`}>Locked</span>}
                             <span className="flex-1 min-w-[120px] truncate text-white/50">{p.winner ? <CopyWallet wallet={p.winner} /> : null}{p.note ? ` · ${p.note}` : ''}</span>
                             {p.tx_hash && <a className="font-mono text-sky-400/80" href={`https://apescan.io/tx/${p.tx_hash}`} target="_blank" rel="noreferrer">tx</a>}
-                            {p.status === 'listed' && <button onClick={() => { const w = window.prompt('Winner wallet (0x…)'); if (w) update(p.id, { status: 'awarded', winner: w }) }} className="px-2 py-0.5 rounded bg-yellow-500/70 text-[9px] font-black uppercase">Award</button>}
-                            {p.status === 'awarded' && <button onClick={() => { const tx = window.prompt('Transfer tx hash (0x…)') ?? ''; update(p.id, { status: 'sent', txHash: tx }) }} className="px-2 py-0.5 rounded bg-emerald-500/70 text-[9px] font-black uppercase">Mark sent</button>}
+                            {p.status === 'listed' && <button onClick={() => award(p)} className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${lockedBy(p) ? 'bg-white/10 text-white/40' : 'bg-yellow-500/70'}`}>Award</button>}
+                            {p.status === 'awarded' && <button onClick={() => markSent(p)} className="px-2 py-0.5 rounded bg-emerald-500/70 text-[9px] font-black uppercase">Mark sent</button>}
+                            {p.status === 'awarded' && <button onClick={() => unaward(p)} className="px-2 py-0.5 rounded bg-white/10 text-[9px] font-black uppercase text-white/50">Unaward</button>}
                             {p.status === 'listed' && <button onClick={() => void call({ method: 'POST', body: JSON.stringify({ remove: p.id }) })} className="px-2 py-0.5 rounded bg-white/10 text-[9px] font-black uppercase text-white/50">Remove</button>}
                         </div>
                     ))}
                 </div>
             )}
-            <div className="text-[10px] text-white/35">Place = the spot on the season board (among pass holders) that takes the prize. «Opens at» ties it to the pool&apos;s level: the game shows it locked until the pool gets there. Prizes are sent by hand at the season&apos;s end — Award names the winner, Mark sent keeps the tx.</div>
+            <div className="text-[10px] text-white/35">Place = the spot on the season board (among pass holders) that takes the prize. «Opens at» ties it to the pool&apos;s level: the game shows it locked until the pool gets there. Prizes are sent by hand at the season&apos;s end — Award names the winner (a LOCKED prize — above the pool&apos;s level — asks before it goes), Unaward undoes a wrong one, Mark sent keeps the tx and is final.</div>
         </div>
     )
 }

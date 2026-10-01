@@ -22,15 +22,30 @@ export const dynamic = 'force-dynamic'
 
 const round = (n: number) => Math.round(n * 1e6) / 1e6
 
+/** The body as this instance last built it: `?anything` misses the edge cache, not this. */
+let memo: { until: number; body: Promise<Record<string, unknown> | null> } | null = null
+const MEMO_MS = 30_000
+const HEADERS = { 'cache-control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60' }
+
 export async function GET() {
     if (!supabaseAdmin) return new NextResponse(null, { status: 204 })
+    const now = Date.now()
+    if (!memo || memo.until < now) memo = { until: now + MEMO_MS, body: build().catch(() => null) }
+    const body = await memo.body
+    if (!body) { memo = null; return new NextResponse(null, { status: 204 }) }
+    // Shared cache: every menu asks, nobody needs it to the second. At the edge for 30 s, so
+    // however many players sit on the menu, the function runs about twice a minute.
+    return NextResponse.json(body, { headers: HEADERS })
+}
+
+async function build(): Promise<Record<string, unknown> | null> {
     const { data: season, error } = await supabaseAdmin.from('survival_seasons')
         .select('id, name, ends_at, pays_out, payout_pct').eq('status', 'live').limit(1).maybeSingle()
-    if (error || !season) return new NextResponse(null, { status: 204 })
+    if (error || !season) return null
 
     // Counted in the database (survival_pool_stats): one row out, however long the season.
     const { data: st, error: sErr } = await supabaseAdmin.rpc('survival_pool_stats', { p_season: season.id })
-    if (sErr) { console.warn('[survival/pool]', sErr.message); return new NextResponse(null, { status: 204 }) }
+    if (sErr) { console.warn('[survival/pool]', sErr.message); return null }
     const r = ((st as Array<Record<string, number | string>> | null) ?? [])[0] ?? {}
     // The NFT prizes on top of the APE (admin: spltpnl → survival_pool_prizes): which place takes
     // each, and the pool level that opens it (null = open from the start).
@@ -39,7 +54,7 @@ export async function GET() {
         .order('place').order('id')
     const solo = Number(r.solo_ape ?? 0), coop = Number(r.coop_ape ?? 0)
     const players = Number(r.players ?? 0), games = Number(r.games ?? 0)
-    return NextResponse.json({
+    return {
         seasonId: season.id,
         seasonName: season.name,
         endsAt: season.ends_at ? new Date(season.ends_at).getTime() : null,
@@ -55,9 +70,5 @@ export async function GET() {
         payoutApe: round((solo + coop) * Number(season.payout_pct ?? 0.9)),
         prizes: ((nfts as Array<{ place: number; unlock_level: number | null; name: string | null; image_url: string | null; status: string }> | null) ?? [])
             .map((p) => ({ place: p.place, unlockLevel: p.unlock_level, name: p.name, imageUrl: p.image_url, awarded: p.status !== 'listed' })),
-    }, {
-        // Shared cache: every menu asks, nobody needs it to the second. At the edge for 30 s, so
-        // however many players sit on the menu, the function runs about twice a minute.
-        headers: { 'cache-control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60' },
-    })
+    }
 }

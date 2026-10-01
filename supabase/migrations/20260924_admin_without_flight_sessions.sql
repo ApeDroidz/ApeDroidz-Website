@@ -32,3 +32,9 @@ CREATE OR REPLACE FUNCTION public.admin_flight_crash_buckets(p_since timestamp w
 AS $function$
     SELECT NULL::text, NULL::numeric, NULL::bigint, NULL::numeric WHERE false;
 $function$;
+
+-- Supabase gives anon/authenticated EXECUTE on every new public function; these are admin-only.
+REVOKE ALL ON FUNCTION public.admin_lifetime_totals() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_lifetime_totals() TO service_role;
+REVOKE ALL ON FUNCTION public.admin_flight_crash_buckets(timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_flight_crash_buckets(timestamptz) TO service_role;

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { SESSION_COOKIE_NAME } from '@/lib/walletAuth'
+import { PLAY_COOKIE_NAME, PLAY_COOKIE_OPTIONS } from '@/lib/survivalAccess'
 
 /**
  * POST /api/auth/logout
@@ -14,5 +15,8 @@ export async function POST() {
         path: '/',
         maxAge: 0,
     })
+    // The game's play cookie goes with the session: without it the build is not served to a
+    // signed-out browser (the middleware), rather than loading and failing every call with 401.
+    res.cookies.set(PLAY_COOKIE_NAME, '', { ...PLAY_COOKIE_OPTIONS, maxAge: 0 })
     return res
 }

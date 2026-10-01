@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {DroidzCashier} from "../src/DroidzCashier.sol";
 import {DeployCashier} from "../script/DeployCashier.s.sol";
 
@@ -66,6 +66,51 @@ contract DroidzCashierForkTest is Test {
         uint256 s0 = SOLO.balance;
         _viaHub(2 ether, 0, keccak256("o3"), 1000);
         assertEq(SOLO.balance - s0, 0.9 ether, "10% fee: 1.8 net, 0.9 to the pool");
+    }
+
+    bytes32 constant FEE_COLLECTED = keccak256("FeeCollected(address,address,uint256,uint256)");
+
+    /// @dev The FeeCollected the Hub emitted for a call to the cashier, after the Paid event:
+    ///      (found, fee, amount the cashier got, log order was Paid → FeeCollected).
+    function _hubFee(Vm.Log[] memory logs) internal view returns (bool found, uint256 fee, uint256 paidAmount, bool paidFirst) {
+        bool paidSeen;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter == address(cashier) && logs[i].topics[0] == Paid.selector) {
+                (, paidAmount,) = abi.decode(logs[i].data, (uint8, uint256, uint256));
+                paidSeen = true;
+            }
+            if (logs[i].emitter == address(HUB) && logs[i].topics[0] == FEE_COLLECTED
+                && logs[i].topics.length > 2 && logs[i].topics[2] == bytes32(uint256(uint160(address(cashier))))) {
+                (fee,) = abi.decode(logs[i].data, (uint256, uint256));
+                return (true, fee, paidAmount, paidSeen);
+            }
+        }
+    }
+
+    /// @notice The FeeSplitter takes calls from ANYONE with ANY fee, 0 included — which is why the
+    ///         server does not trust «the payer is the Hub» alone (lib/survivalShop.ts hubFeeFor):
+    ///         it reads this FeeCollected and requires cashier amount + fee = the full price.
+    function test_anyoneCanCallTheHubWithZeroFee_andItsFeeCollectedSaysSo() public {
+        vm.recordLogs();
+        _viaHub(0.9 ether, 0, keccak256("zero"), 0);
+        (bool found, uint256 fee, uint256 amount, bool paidFirst) = _hubFee(vm.getRecordedLogs());
+        assertTrue(found, "FeeCollected names the cashier as its target");
+        assertTrue(paidFirst, "Paid comes before the Hub's FeeCollected");
+        assertEq(fee, 0, "fee 0 is accepted by the Hub");
+        assertEq(amount, 0.9 ether, "the cashier got 90%: the server must see 0.9 + 0 < price, underpaid");
+    }
+
+    function test_theHubsFeeCollected_plusTheCashiersAmount_isWhatThePlayerSent() public {
+        vm.recordLogs();
+        _viaHub(2 ether, 0, keccak256("fee150"), 150);
+        (bool found, uint256 fee, uint256 amount,) = _hubFee(vm.getRecordedLogs());
+        assertTrue(found);
+        assertEq(fee, 0.03 ether);
+        assertEq(amount + fee, 2 ether, "150 bps on the full price: paid");
+        vm.recordLogs();
+        _viaHub(2 ether, 0, keccak256("fee1000"), 1000);
+        (, fee, amount,) = _hubFee(vm.getRecordedLogs());
+        assertEq(amount + fee, 2 ether, "1000 bps on the full price: paid");
     }
 
     function test_aRevertInsideTheCashier_revertsTheWholeHubCall_playerKeepsTheMoney() public {

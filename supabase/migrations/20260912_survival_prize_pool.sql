@@ -373,7 +373,11 @@ create policy survival_payouts_read     on survival_payouts     for select to an
 -- envelope_bounds: RLS без политики = отказ всем, кроме service-role.
 -- survival_runs.score недостижим клиенту по построению.
 
-grant select on survival_menu_stats, survival_board to anon, authenticated;
+-- 29.09.2026: no anon grants on the two views. They run as their owner (no security_invoker), and
+-- Supabase's default ACL had given anon every right on them, not just the select granted here —
+-- survival_menu_stats is auto-updatable, so an anon PATCH rewrote the live season's name, end and
+-- pays_out. The site reads both through the service role only (20260929_survival_view_grants.sql).
+revoke all on survival_menu_stats, survival_board from anon, authenticated;
 grant execute on function survival_has_access(text) to anon, authenticated;
 
 -- Пояс поверх подтяжек: Supabase по умолчанию раздаёт anon права на новые
