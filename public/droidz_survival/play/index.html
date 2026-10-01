@@ -68,17 +68,18 @@
        * «Поверни телефон» — чистым CSS, без единой строки скрипта.
        *
        * Игра горизонтальная: в портрете от арены остаётся полоска, а кнопки
-       * управления налезают друг на друга. Подсказка сделана правилом, а не
-       * кодом, намеренно — она должна работать и ДО того, как приехал бандл,
-       * то есть в те самые секунды, когда человек впервые открыл ссылку с
-       * телефона и ещё ничего не понимает.
+       * управления налезают друг на друга. Но просим повернуть только ПОСЛЕ
+       * первого касания (body.played, systems/Mobile.ts installGate): до него игра
+       * грузится и показывает ворота TAP TO PLAY в любом положении телефона
+       * (владелец, 01.10.2026: «сейчас поворот экрана обязательный, а я хотел бы,
+       * чтобы игра прогружалась»).
        *
        * `pointer: coarse` отсекает десктоп: узкое окно на ноутбуке — это не
        * портретный телефон, и закрывать его подсказкой нельзя.
        */
       #rotate { display: none; }
       @media (orientation: portrait) and (pointer: coarse) {
-        #rotate {
+        body.played #rotate {
           position: fixed;
           inset: 0;
           z-index: 50;
@@ -103,10 +104,10 @@
         #rotate .line { font-size: 19px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
         #rotate .sub { font-size: 14px; font-weight: 500; color: #8ba3c7; max-width: 26ch; line-height: 1.5; }
       }
-      /* Панель «в полный экран»: видна, только пока телефон на боку, а игра
-         всё ещё в окне браузера (systems/Mobile.ts вешает класс .on). */
-      #gofull { display: none; }
-      #gofull.on {
+      /* The gate on a phone (systems/Mobile.ts installGate): one big TAP TO PLAY over the loaded
+         menu. The tap is what may open the full screen and wake the sound. */
+      #gate { display: none; }
+      #gate.on {
         position: fixed;
         inset: 0;
         z-index: 40;
@@ -115,38 +116,53 @@
         align-items: center;
         justify-content: center;
         gap: 14px;
-        background: rgba(10, 15, 30, .82);
+        background: rgba(5, 8, 15, .88);
         color: #eaf3ff;
         font-family: Inter, system-ui, sans-serif;
         text-align: center;
-        padding: 24px;
+        padding: 16px;
+        cursor: pointer;
         -webkit-tap-highlight-color: transparent;
       }
-      #gofull .box {
-        border: 3px solid #6fd6ff;
-        border-radius: 14px;
-        padding: 16px 28px;
-        font-size: 20px;
+      #gate .title { font-size: 13px; font-weight: 700; letter-spacing: .3em; color: #ffcf4a; }
+      #gate .box {
+        min-width: min(320px, 80vw);
+        padding: 20px 28px;
+        border: 4px solid #ffcf4a;
+        background: #4a3c12;
+        box-shadow: 0 0 0 4px rgba(255, 207, 74, .18), 0 0 28px rgba(255, 207, 74, .25);
+        font-size: 26px;
         font-weight: 700;
-        letter-spacing: .16em;
-        text-transform: uppercase;
+        letter-spacing: .18em;
+        color: #fff6d8;
+        animation: gatePulse 1.4s ease-in-out infinite;
       }
-      #gofull .sub { font-size: 14px; font-weight: 500; color: #8ba3c7; max-width: 30ch; line-height: 1.5; }
+      #gate .sub { font-size: 13px; font-weight: 500; color: #8ba3c7; max-width: 34ch; line-height: 1.45; }
+      #gate .ios { display: none; font-size: 13px; font-weight: 500; color: #8ba3c7; max-width: 46ch; line-height: 1.45; }
+      #gate.ios .ios { display: block; }
+      #gate.nofs .sub { display: none; }
+      #gate .ios b { color: #eaf3ff; }
+      @keyframes gatePulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.04); }
+      }
 
       @keyframes tip {
         0%, 45% { transform: rotate(0deg); }
         70%, 100% { transform: rotate(-90deg); }
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-AjK1Gzv0.js"></script>
+    <script type="module" crossorigin src="./assets/index-BVpjElNz.js"></script>
   </head>
   <body>
     <div id="game">
       <img id="cover" src="https://assets.apedroidz.com/apedroidz/droidz-survival/v9/assets/img/DS_Beta_cover.jpg" crossorigin="anonymous" alt="" />
     </div>
-    <div id="gofull" aria-hidden="true">
-      <div class="box">Tap to play fullscreen</div>
-      <div class="sub">A browser window in landscape leaves almost no room for the arena.</div>
+    <div id="gate" aria-hidden="true">
+      <div class="title">DROIDZ SURVIVAL</div>
+      <div class="box">TAP TO PLAY</div>
+      <div class="sub">Opens full screen, sideways.</div>
+      <div class="ios">For true fullscreen: <b>Share &rarr; Add to Home Screen</b></div>
     </div>
     <div id="rotate" aria-hidden="true">
       <div class="glyph"></div>

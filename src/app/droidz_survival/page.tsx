@@ -186,7 +186,11 @@ export default function DroidzSurvivalPage() {
     useEffect(() => {
         const onMsg = (e: MessageEvent) => {
             if (e.source !== frameRef.current?.contentWindow || e.origin !== window.location.origin) return
-            if ((e.data as { type?: unknown } | null)?.type === 'ds:fullscreen') setPseudoFs(true)
+            const t = (e.data as { type?: unknown } | null)?.type
+            if (t === 'ds:fullscreen') setPseudoFs(true)
+            // The game's own pause menu (scenes/PauseScene.ts): EXIT FULLSCREEN and QUIT TO SITE.
+            else if (t === 'ds:exitfullscreen') setPseudoFs(false)
+            else if (t === 'ds:quit') { setPseudoFs(false); setPlaying(false) }
         }
         window.addEventListener('message', onMsg)
         return () => window.removeEventListener('message', onMsg)
