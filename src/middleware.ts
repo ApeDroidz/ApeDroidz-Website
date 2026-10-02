@@ -247,7 +247,10 @@ export const config = {
         // Also skipped: public read-only APIs the middleware has nothing to do for (no gate, no
         // limit, maintenance lets /api through) and that the menu polls — every middleware run is
         // a billed invocation, even on a CDN hit. Their routes cache and memoize on their own.
-        '/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|api/survival/(?:pool|board|tickets|clans)(?:/|$)|api/metadata(?:/|$)|.*\\.(?:png|jpg|jpeg|gif|webp|svg|mp4|mp3|MP3|webm|wav|ogg|woff|woff2|ttf|eot|ico|json|txt|map)).*)',
+        '/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|api/survival/(?:pool|board|tickets|clans)(?:/|$)|api/metadata(?:/|$)|.*\\.(?:png|jpg|jpeg|gif|webp|svg|mp4|mp3|MP3|webm|wav|ogg|woff|woff2|ttf|eot|ico|json|webmanifest|txt|map)).*)',
+        // `.webmanifest`: the Droidz Survival home-screen app's manifest (public/droidz_survival/
+        // manifest.webmanifest) — a phone fetches it without any cookie, and under MAINTENANCE_MODE the
+        // gate would answer it with the /coming-soon page instead.
         // The game build is matched separately and WITHOUT the asset-extension escape hatch:
         // its sprite sheets and atlases are .png and .json, and the pattern above would wave
         // every one of them straight past the beta gate.
