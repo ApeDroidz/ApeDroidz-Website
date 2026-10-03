@@ -9,12 +9,12 @@ import { SurvivalLanding, type LandingPrice } from '@/components/survival/landin
  * The price list is read here, on the server, from the live catalog (survival_catalog — the same rows
  * the game sells; a running sale already taken off by loadCatalog) — there is no public price
  * endpoint, and /api/survival/credits needs a signed-in wallet. Test rows (test_*) never show.
- * The page is regenerated at most once a minute (ISR), so a landing view costs no database read:
- * `fetchCache` lets the supabase-js read (no-store by default, lib/supabase.ts) be cached here.
+ * One small catalog read per view (the page is dynamic — see below).
  * The live numbers — the pool and the board — the page fetches on its own from their public routes.
  */
-export const revalidate = 60
-export const fetchCache = 'force-cache'
+// Rendered on each request, not at build time (03.10.2026): the catalog read is no-store (lib/supabase.ts)
+// and a statically generated page that hits it hung `next build` until its 60 s timeout (Vercel failed).
+export const dynamic = 'force-dynamic'
 
 async function loadPrices(): Promise<LandingPrice[]> {
     if (!supabaseAdmin) return []
