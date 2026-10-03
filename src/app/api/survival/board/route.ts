@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fetchAll } from '@/lib/survivalFetchAll'
+import { avatarOf } from '@/lib/survivalNfts'
 
 /**
  * GET /api/survival/board
  *
  * The live season's board for the game's Leaderboard screen: rank, the player's wallet
  * (shortened), their X handle if the site knows one (glitch_users.x_handle), their clan,
- * and the run that put them there. Public and read-only, like the pool endpoint; cached at
+ * and the run that put them there. Since 03.10.2026 also the profile's `nickname` (null until the
+ * player sets one) and `avatar` — the picked NFT's image URL or null (api/survival/me/*); the board
+ * shows them in place of the address, `wallet` stays for older builds. Public and read-only, like the pool endpoint; cached at
  * the edge for a few seconds because every player on the menu asks for it.
  *
  * Rows come from survival_season_best (one per wallet, the trigger keeps it), never from
@@ -18,7 +21,7 @@ export const dynamic = 'force-dynamic'
 const LIMIT = 50
 
 interface BestRow { wallet: string; score: number; wave: number; kills: number; runs_count: number; achieved_at: string; run_id: string | null }
-interface PlayerRow { wallet: string; clan: string | null; banned: boolean }
+interface PlayerRow { wallet: string; clan: string | null; banned: boolean; nickname?: string | null; avatar?: unknown }
 interface XRow { wallet_address: string; x_handle: string | null }
 
 const HEADERS = { 'cache-control': 'public, max-age=10, s-maxage=10, stale-while-revalidate=60' }
@@ -86,7 +89,8 @@ async function build(only: 'pass' | 'all'): Promise<Record<string, unknown> | nu
 
     const wallets = rowsBest.map((b) => b.wallet)
     const players: PlayerRow[] = wallets.length
-        ? ((await supabaseAdmin.from('survival_players').select('wallet, clan, banned').in('wallet', wallets)).data ?? [])
+        // `*`: works before and after the profile migration (nickname / avatar absent before it).
+        ? ((await supabaseAdmin.from('survival_players').select('*').in('wallet', wallets)).data ?? [])
         : []
     // glitch_users stores wallets in their checksummed spelling; match case-insensitively.
     const xs: XRow[] = wallets.length
@@ -125,6 +129,8 @@ async function build(only: 'pass' | 'all'): Promise<Record<string, unknown> | nu
                 rank,
                 wallet: `${b.wallet.slice(0, 6)}…${b.wallet.slice(-4)}`,
                 x: xOf.get(b.wallet) ?? null,
+                nickname: clanOf.get(b.wallet)?.nickname ?? null,
+                avatar: avatarOf(clanOf.get(b.wallet)?.avatar)?.image ?? null,
                 clan: clanOf.get(b.wallet)?.clan ?? null,
                 hero: b.run_id ? heroOf.get(b.run_id) ?? null : null,
                 timeMs: b.run_id ? msOf.get(b.run_id) ?? null : null,

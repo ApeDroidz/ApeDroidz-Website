@@ -19,7 +19,7 @@ import type { NextRequest } from 'next/server'
  *   <base64url(payload)>.<base64url(HMAC_SHA256(payload, secret))>
  *   payload = JSON { wallet, iat, exp }
  *
- * Lifetime: 7 days. On wallet switch / logout, /api/auth/logout clears the cookie.
+ * Lifetime: 30 days (SESSION_TTL_MS). On wallet switch / logout, /api/auth/logout clears the cookie.
  */
 
 /**
@@ -40,8 +40,16 @@ import type { NextRequest } from 'next/server'
  *
  * Цена ровно одна: украденная кука живёт неделю вместо суток. Это общая кука
  * сайта (её же использует Glitch Games), так что срок касается не только игры.
+ *
+ * 03.10.2026 — 30 дней (владелец: «подпись одна, сессия 30 дней»). Всё сказанное
+ * выше остаётся в силе: срок и подпись куки сервер проверяет сам (exp в
+ * подписанном HMAC-пейлоаде, parseSessionToken), кошелёк в сессии — тот, что
+ * подписал nonce со свежей меткой времени (login), бан и отзыв доступа читаются
+ * из базы при каждом перевыпуске play-куки и при каждом старте забега/заказе
+ * (survivalRuns.authCaller recheck), выход стирает обе куки. Удлиняется только
+ * окно, в котором украденная кука полезна вору.
  */
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 export const SESSION_COOKIE_NAME = 'glitch_session'
 
 const apeChain = defineChain(33139)

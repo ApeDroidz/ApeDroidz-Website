@@ -3,7 +3,7 @@
   "name": "Droidz Survival",
   "short_name": "Droidz Survival",
   "description": "Pixel roguelite on ApeChain. Pick a droid, survive the waves, climb the season board.",
-  "start_url": "/droidz_survival?app=1",
+  "start_url": "/droidz_survival/play?app=1",
   "scope": "/droidz_survival",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],

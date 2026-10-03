@@ -5,6 +5,7 @@ import { apeToWei, CASHIER, HUB_FEE_SPLITTER, hubFeeFor, loadCatalog, orderIdFro
 import { isDroidHolder } from '@/lib/droidHolder'
 import { logEvent } from '@/lib/survivalLog'
 import { deliverTicketNfts } from '@/lib/survivalTicketNft'
+import { markFirstPurchase } from '@/lib/survivalFunnelServer'
 
 /**
  * Booking a payment against its order — the one place that decides whether money arrived.
@@ -97,10 +98,13 @@ async function book(order: OrderRow, txHash: string, ev: PaidEvent, logs?: reado
     }, ev.logIndex)
     if (error) { console.error('[survival/settle]', error.message); return 'no_server' }
     const state = data as SettleState
+    // The funnel's «first purchase» (lib/survivalFunnelServer.ts): started now, awaited below.
+    const first = state === 'paid' ? markFirstPurchase(order.wallet, order.sku) : null
     // A lucky ticket (one, or a pack of them) that drew an NFT reserved it for this player: send it
     // now — bounded, so a slow send never costs the payment's own answer; the alert and «Retry
     // send» in the panel pick up whatever is left reserved.
     if (state === 'paid' && order.kind === 'ticket') await within(deliverTicketNfts({ wallet: order.wallet }).catch(() => []), 6000, [])
+    if (first) await within(first, 3000, undefined)
     return say(state)
 }
 

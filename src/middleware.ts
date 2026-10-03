@@ -12,8 +12,9 @@ import { PLAY_COOKIE_NAME, readPlayToken } from '@/lib/survivalAccess'
  *
  *   2. SURVIVAL BETA GATE — /droidz_survival/play/* (the game build itself) needs a valid
  *      `survival_play` cookie, minted by /api/survival/access for an allowlisted wallet that
- *      has signed in. Without it the request is sent back to the landing page, which explains
- *      why. The landing page itself is public — it has to be, or there is nowhere to connect.
+ *      has signed in. Without it the request is sent back to the landing page. The landing
+ *      (/droidz_survival) and the sign-in page (the bare /droidz_survival/play) are public —
+ *      they have to be, or there is nowhere to connect.
  *
  *   3. RATE LIMITER — for /api/flight/*. Financial endpoints (/deposit,
  *      /withdraw) are keyed by wallet address (X-Wallet-Address header) so
@@ -97,6 +98,15 @@ const LIMITS: Record<string, Limit> = {
     '/api/survival/economy':            { max: 60,  windowMs: 60_000 },
     '/api/survival/feedback':           { max: 10,  windowMs: 60_000 },
     '/api/survival/creator-pass':       { max: 10,  windowMs: 60_000 },
+    // The profile (03.10.2026): nickname once, X, NFT avatar (an Insight read + maybe an eth_call per
+    // POST), clan. The landing funnel's beacon: four steps a visitor, once each — the route also caps
+    // an IP per hour in the table.
+    '/api/survival/me/profile':         { max: 30,  windowMs: 60_000 },
+    '/api/survival/me/x':               { max: 10,  windowMs: 60_000 },
+    '/api/survival/me/nfts':            { max: 20,  windowMs: 60_000 },
+    '/api/survival/me/avatar':          { max: 15,  windowMs: 60_000 },
+    '/api/survival/me/clan':            { max: 20,  windowMs: 60_000 },
+    '/api/survival/funnel':             { max: 30,  windowMs: 60_000 },
     '/api/otherside/login':             { max: 20,  windowMs: 60_000 },
     // The panel's password: a handful of tries a minute per IP (400 ms per wrong answer in the
     // route does not stop requests sent in parallel).
@@ -183,6 +193,12 @@ function crossSite(req: NextRequest): NextResponse | null {
  * A malformed escape is treated as the gated path.
  */
 function gatedGamePath(pathname: string): boolean {
+    // The bare /droidz_survival/play is a PAGE (app/droidz_survival/play/page.tsx): the sign-in and
+    // the frame around the game — it is where the play cookie is earned, so it cannot need one. Only
+    // this exact spelling: the build is never at this path (public/droidz_survival/play/ is a folder;
+    // its files are index.html and assets/…), and every other spelling — /droidz_survival/play/,
+    // /droidz_survival/PLAY, %70lay — stays gated (Next sends a trailing slash to the bare path anyway).
+    if (pathname === '/droidz_survival/play') return false
     let p = pathname
     try { p = decodeURIComponent(pathname) } catch { return pathname.toLowerCase().includes('droidz_survival') }
     p = p.toLowerCase()
@@ -216,7 +232,7 @@ export async function middleware(req: NextRequest) {
     }
 
     // ── 2. Droidz Survival beta gate ─────────────────────────────────────────
-    // Only the build under /play is gated; /droidz_survival itself is the door.
+    // Only the build under /play is gated; /droidz_survival (landing) and the bare /droidz_survival/play (sign-in) are open.
     if (gatedGamePath(pathname)) {
         const wallet = await readPlayToken(req.cookies.get(PLAY_COOKIE_NAME)?.value)
         if (!wallet) {

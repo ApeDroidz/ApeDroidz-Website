@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useActiveAccount } from 'thirdweb/react'
+import { useActiveAccount, useActiveWallet } from 'thirdweb/react'
+import { injectedProvider } from 'thirdweb/wallets'
 
 /**
  * Stateful session hook for Glitch Games.
@@ -14,7 +15,17 @@ import { useActiveAccount } from 'thirdweb/react'
  *  - All mutating endpoints just need `credentials: 'include'`.
  *
  * Wallet switch / disconnect → server cookie cleared via /api/auth/logout.
+ *
+ * Auto sign-in (owner, 03.10.2026: «на десктопе подпись запрашивается сама сразу после
+ * подключения»): `ensureLogin({ auto: true })` asks for the signature without a click — but only
+ * where no click is needed for the wallet to show it (`canAutoSign()`), and only once per wallet per
+ * page load, so a refused prompt is not shown again by itself. Everywhere else (a phone talking to
+ * its wallet app over WalletConnect, Coinbase's popup) it returns false at once, touching nothing,
+ * and the page keeps its SIGN IN button: those wallets open from a user gesture or not at all.
  */
+
+/** Wallets that sign inside the page with no hand-off to another app or window. */
+const SILENT_WALLETS = new Set(['inApp', 'embedded', 'smart'])
 
 interface SessionState {
     authedWallet: string | null
@@ -33,6 +44,7 @@ function genNonce(): string {
 
 export function useGlitchSession() {
     const account = useActiveAccount()
+    const wallet = useActiveWallet()
     const [state, setState] = useState<SessionState>(INITIAL)
 
     // Ref mirrors state for synchronous reads inside callbacks.
@@ -45,6 +57,8 @@ export function useGlitchSession() {
     /** Bumped by cancelLogin(): a prompt the person gave up on no longer holds the next one back. */
     const attemptRef = useRef(0)
     const lastCheckedWalletRef = useRef<string | null>(null)
+    /** Wallets (lowercase) the automatic prompt has already been shown to on this page. */
+    const autoTriedRef = useRef<Set<string>>(new Set())
 
     const setSession = useCallback((next: Partial<SessionState>) => {
         setState(prev => {
@@ -111,19 +125,58 @@ export function useGlitchSession() {
     }, [account?.address, refresh, setSession])
 
     /**
+     * Can the signature be asked for WITHOUT a click, right after the wallet connects?
+     *
+     * Yes when the wallet signs in this page: an injected wallet (a desktop extension, or the page
+     * opened inside the wallet app's own browser) or thirdweb's in-app / smart wallet. No for
+     * WalletConnect (the request travels to a phone app by deep link — a phone browser lets that
+     * happen only inside a user gesture, so without one it is dropped silently) and for Coinbase's
+     * SDK popup (a popup without a gesture is blocked). Mobile Safari without an injected wallet is
+     * always one of those two. Client-only; false during the server render.
+     */
+    const canAutoSign = useCallback((): boolean => {
+        if (typeof window === 'undefined' || !wallet) return false
+        const id = String(wallet.id)
+        if (id === 'walletConnect') return false
+        if (SILENT_WALLETS.has(id)) return true
+        try {
+            return !!injectedProvider(wallet.id as Parameters<typeof injectedProvider>[0])
+        } catch {
+            return false
+        }
+    }, [wallet])
+
+    /**
      * Ensure the current wallet has a valid session. Prompts a single signMessage
      * if needed. Concurrent calls are coalesced — only one signature prompt at a time.
+     *
+     * `{ auto: true }` — the call made by the page itself after the wallet connected, not by a
+     * click: it does nothing (false, no error) unless canAutoSign(), and asks each wallet at most
+     * once per page load. A click on SIGN IN calls it without options, as before.
      */
-    const ensureLogin = useCallback(async (): Promise<boolean> => {
+    const ensureLogin = useCallback(async (opts?: { auto?: boolean }): Promise<boolean> => {
+        // `opts` may be a click event when the function is passed straight to onClick.
+        const auto = !!(opts && typeof opts === 'object' && (opts as { auto?: unknown }).auto === true)
         const cur = account?.address
         if (!cur) {
-            setSession({ error: 'Connect your wallet first' })
+            if (!auto) setSession({ error: 'Connect your wallet first' })
             return false
         }
         const lower = cur.toLowerCase()
 
         // Fast path — cookie already valid for this wallet.
         if (stateRef.current.authedWallet === lower) return true
+
+        if (auto) {
+            if (!canAutoSign() || autoTriedRef.current.has(lower)) return false
+            autoTriedRef.current.add(lower)
+            // No gesture to keep alive here: wait for the cookie check, so a returning player with a
+            // valid session (30 days) is never asked to sign again.
+            const fromCookie = stateRef.current.loading ? await refresh() : stateRef.current.authedWallet
+            if (fromCookie === lower) return true
+            if (lastCheckedWalletRef.current !== lower) return false
+            if (signingRef.current) return false
+        }
 
         /**
          * ДО ПОДПИСИ НЕ ДОЛЖНО БЫТЬ НИ ОДНОГО `await` С СЕТЬЮ.
@@ -201,7 +254,7 @@ export function useGlitchSession() {
             // A cancelled attempt has already released the lock; never release a newer one's.
             if (attemptRef.current === attempt) signingRef.current = false
         }
-    }, [account, refresh, setSession])
+    }, [account, canAutoSign, refresh, setSession])
 
     /**
      * Give up on a signature prompt that never reached the wallet (phone: the wallet app opened
@@ -231,6 +284,7 @@ export function useGlitchSession() {
         loading: state.loading,
         error: state.error,
         ensureLogin,
+        canAutoSign,
         cancelLogin,
         lastError,
         refresh,

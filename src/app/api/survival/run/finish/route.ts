@@ -5,6 +5,7 @@ import { checkFinish, type Check } from '@/lib/survivalEnvelope'
 import { logEvent } from '@/lib/survivalLog'
 import { runAlreadyPaid, runReward, type RunReport } from '@/lib/survivalEconomy'
 import { withEcon } from '@/lib/survivalEconomyStore'
+import { markFirstRun } from '@/lib/survivalFunnelServer'
 
 /**
  * POST /api/survival/run/finish  { runId, wave, kills, score, durationMs }
@@ -134,9 +135,13 @@ export async function POST(req: NextRequest) {
             .eq('id', run.id).eq('status', 'started').select('id')
         if (error) { console.error('[survival/run/finish]', error.message); return noServer('run.finish', error.message) }
         if (closed?.length) {
+            // The funnel's «first run» (lib/survivalFunnelServer.ts): this wallet's first run to be
+            // closed by its finish, whatever the verdict — started now, awaited before the reply.
+            const first = markFirstRun(wallet, run.id)
             logCheck(run, check, serverDurationMs, false)
-            if (check.verdict !== 'ok') return refused(check)
-            return accept(run, check, serverDurationMs)
+            const reply = check.verdict !== 'ok' ? refused(check) : await accept(run, check, serverDurationMs)
+            await first
+            return reply
         }
         // Closed between the read and the write — a newer start, or this same finish retried.
         const again = await loadRun(run.id, caller.wallet)

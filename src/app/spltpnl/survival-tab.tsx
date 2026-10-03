@@ -6,6 +6,7 @@ import { ACCESS_DURATIONS, DEFAULT_ACCESS_DURATION } from '@/lib/survivalDuratio
 import { CopyWallet, SurvivalPlayers } from './survival-players'
 import { SurvivalPayments } from './survival-payments'
 import { SurvivalAlerts } from './survival-alerts'
+import { SurvivalFunnel } from './survival-funnel'
 import CATALOG from '@/lib/survivalGameCatalog.json'
 
 /** The game's hero name for a stored id ('volt' → 'Droid', 'goblin' → 'Gob'), as in the Players tab. */
@@ -221,6 +222,8 @@ function SurvivalOverview() {
                 <Stat label="Paid in (confirmed)" value={`${ape(s.payments.ape)} (${ape(s.payments.confirmedApe)})`} accent="text-[#3b82f6]" />
                 <Stat label="Beta rating (reviews)" value={fs.count ? `${fs.avgRating} ★ (${fs.count})` : '—'} accent={fs.count ? 'text-[#ffcf4a]' : 'text-white'} />
             </div>
+
+            <SurvivalFunnel />
 
             {/* Side by side again, each list scrolls in a fixed box (owner, 24.09: «слишком много места
                 стали занимать лидерборд и валлеты — раньше расположение было лучше»). Addresses stay full. */}

@@ -15,6 +15,8 @@ import CATALOG from '@/lib/survivalGameCatalog.json'
 
 type Row = {
     wallet: string; name: string | null; x: string | null; clan: string | null; banned: boolean
+    /** The profile (03.10.2026): nickname set once in the game, the NFT picked as avatar. */
+    nickname?: string | null; avatar?: { contract: string; tokenId: string; name: string; image: string } | null
     firstSeen: string; lastSeen: string; access: 'none' | 'active' | 'expired' | 'revoked'
     coins: number; heroes: string[]; selectedHero: string | null
     resources: { scrap: number; circuit: number; cell: number; core: number }
@@ -122,6 +124,14 @@ function Resources({ res }: { res: Record<string, number | undefined> }) {
 const RARITY: Record<string, string> = { common: 'text-white/60', rare: 'text-sky-400', epic: 'text-fuchsia-400', legendary: 'text-amber-400' }
 const ACCESS: Record<Row['access'], string> = { active: 'text-emerald-400', expired: 'text-amber-400/80', revoked: 'text-white/30 line-through', none: 'text-white/25' }
 const LEVEL: Record<string, string> = { error: 'text-red-400', warn: 'text-orange-400', info: 'text-white/60', debug: 'text-white/30' }
+
+/** The player's NFT avatar, or an empty square. The image is the indexer's URL, any host. */
+function AvatarPic({ avatar, size = 20 }: { avatar?: { image: string; name?: string; contract?: string; tokenId?: string } | null; size?: number }) {
+    if (!avatar?.image) return <span style={{ width: size, height: size }} className="inline-block flex-shrink-0 rounded bg-white/5 align-middle" />
+    return <img src={avatar.image} alt="" width={size} height={size} loading="lazy" referrerPolicy="no-referrer"
+        title={[avatar.name, avatar.contract && avatar.tokenId ? `${avatar.contract} #${avatar.tokenId}` : ''].filter(Boolean).join(' — ')}
+        className="inline-block flex-shrink-0 rounded object-cover align-middle bg-white/5" style={{ width: size, height: size }} />
+}
 
 async function api(url: string) {
     const res = await fetch(url, { credentials: 'include', cache: 'no-store' })
@@ -251,6 +261,7 @@ export function SurvivalPlayers() {
     const shown = useMemo(() => {
         const needle = q.trim().toLowerCase()
         const list = (rows ?? []).filter((r) => !needle || r.wallet.includes(needle) || (r.name ?? '').toLowerCase().includes(needle)
+            || (r.nickname ?? '').toLowerCase().includes(needle)
             || (r.x ?? '').toLowerCase().includes(needle) || (r.clan ?? '').toLowerCase().includes(needle))
         const val = (r: Row) => (sort === 'lastSeen' ? Date.parse(r.lastSeen) : r[sort])
         return [...list].sort((a, b) => val(b) - val(a))
@@ -264,7 +275,7 @@ export function SurvivalPlayers() {
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 <div className="flex-1 flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg px-3 py-2">
                     <Search className="h-3.5 w-3.5 text-white/30" />
-                    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="wallet, name, X handle, clan…" className="flex-1 bg-transparent text-xs outline-none" />
+                    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="wallet, nickname, name, X handle, clan…" className="flex-1 bg-transparent text-xs outline-none" />
                 </div>
                 <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs outline-none">
                     {SORTS.map((s) => <option key={s.key} value={s.key}>Sort: {s.label}</option>)}
@@ -283,7 +294,7 @@ export function SurvivalPlayers() {
                 <div className="overflow-x-auto border border-white/10 rounded-2xl">
                     <table className="w-full text-xs min-w-[1100px]">
                         <thead className="bg-white/[0.03]"><tr className="text-white/30 text-[9px] uppercase tracking-widest">
-                            <th className="text-left px-3 py-2">Wallet</th><th className="text-left">Name · X · clan</th><th className="text-left">Access</th>
+                            <th className="text-left px-3 py-2">Wallet</th><th className="text-left">Nick · name · X · clan</th><th className="text-left">Access</th>
                             <th className="text-right">Runs</th><th className="text-right">Best</th><th className="text-right">Play</th>
                             <th className="text-right">Ape Mini</th><th className="text-right" title="scrap / circuit / cell / core">Resources</th>
                             <th className="text-right">Heroes</th><th className="text-right" title="Tree levels bought, all heroes">Tree</th><th className="text-right">Bag</th>
@@ -293,7 +304,7 @@ export function SurvivalPlayers() {
                         <tbody>{shown.map((r) => (
                             <tr key={r.wallet} onClick={() => setOpen(r.wallet)} className="border-t border-white/5 hover:bg-white/[0.04] cursor-pointer">
                                 <td className="px-3 py-2"><span className={`font-mono ${r.banned ? 'text-red-400 line-through' : ''}`}>{r.wallet}</span></td>
-                                <td className="text-white/60 max-w-[220px] truncate">{r.name ?? '—'}{r.x ? <span className="text-sky-400/80"> · @{r.x.replace(/^@/, '')}</span> : null}{r.clan ? <span className="text-white/35"> · {r.clan}</span> : null}</td>
+                                <td className="text-white/60 max-w-[260px] truncate"><span className="inline-flex items-center gap-1.5 align-middle mr-1"><AvatarPic avatar={r.avatar} size={18} />{r.nickname ? <span className="text-white font-black">{r.nickname}</span> : null}</span>{r.nickname && r.name ? ' · ' : ''}{r.name ?? (r.nickname ? '' : '—')}{r.x ? <span className="text-sky-400/80"> · @{r.x.replace(/^@/, '')}</span> : null}{r.clan ? <span className="text-white/35"> · {r.clan}</span> : null}</td>
                                 <td className={`text-[9px] font-black uppercase tracking-widest ${ACCESS[r.access]}`}>{r.access}</td>
                                 <td className="text-right">{r.serverRuns}{r.rejected ? <span className="text-red-400"> ({r.rejected}✕)</span> : null}</td>
                                 <td className="text-right font-black">{num(r.best)}</td>
@@ -336,13 +347,23 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
     const equipped = new Set<string>(Array.isArray(st.equipped) ? st.equipped : [])
     const tiers: Record<string, number> = st.weaponTiers ?? {}
     const bestiary = Object.entries((st.bestiary ?? {}) as Record<string, number>).sort((a, b) => b[1] - a[1])
-    const player = (d.player ?? {}) as { clan?: string | null; banned?: boolean; ban_reason?: string | null; first_seen?: string; last_seen?: string }
+    const player = (d.player ?? {}) as { clan?: string | null; banned?: boolean; ban_reason?: string | null; first_seen?: string; last_seen?: string
+        nickname?: string | null; nickname_set_at?: string | null; avatar?: { contract: string; tokenId: string; name: string; image: string } | null }
 
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between gap-3">{back}<button onClick={() => void load()} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white"><RefreshCcw className="h-3.5 w-3.5" /> Refresh</button></div>
 
             <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center gap-3">
+                    <AvatarPic avatar={player.avatar} size={48} />
+                    <div className="min-w-0">
+                        <div className="text-base font-black">{player.nickname ?? <span className="text-white/30 font-normal text-xs">no nickname</span>}
+                            {player.nickname_set_at ? <span className="text-[10px] font-mono font-normal text-white/30"> · set {when(player.nickname_set_at)}</span> : null}</div>
+                        <div className="text-[10px] text-white/40">{player.avatar ? <>avatar: {player.avatar.name} · <span className="font-mono">{player.avatar.contract.slice(0, 10)}… #{player.avatar.tokenId.length > 12 ? `${player.avatar.tokenId.slice(0, 8)}…` : player.avatar.tokenId}</span></> : 'no avatar'}
+                            {' · '}X: {d.x ? <a className="text-sky-400" href={`https://x.com/${d.x.replace(/^@/, '')}`} target="_blank" rel="noreferrer">@{d.x.replace(/^@/, '')}</a> : '—'}</div>
+                    </div>
+                </div>
                 <CopyWallet wallet={d.wallet} className="text-sm" />
                 <div className="text-xs text-white/50">
                     {d.access?.note ?? 'no name'}{d.x ? <span className="text-sky-400"> · @{d.x.replace(/^@/, '')}</span> : null}{player.clan ? ` · clan ${player.clan}` : ''}

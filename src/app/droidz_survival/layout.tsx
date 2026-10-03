@@ -13,8 +13,8 @@ const COVER = { url: '/droidz_survival/DS_Beta_cover.jpg', width: 1200, height: 
  * Fullscreen API for anything but video, so a page added to the Home Screen and opened as a web app
  * is the only way to the game without the browser's bars there. What makes the icon open as an app
  * and not as a Safari bookmark: the manifest (public/droidz_survival/manifest.webmanifest, start_url
- * /droidz_survival?app=1, scope /droidz_survival) and Apple's web-app tags below. The page then
- * shows only the door and the game (page.tsx `appMode`).
+ * /droidz_survival/play?app=1, scope /droidz_survival) and Apple's web-app tags below. The play page
+ * (play/page.tsx) is only the door and the game; the landing (page.tsx) is for everyone else.
  *
  * The manifest and the icons are served past the middleware (the .webmanifest/.png escape in its
  * matcher), so neither the maintenance gate nor the beta gate stands in front of them.
@@ -64,12 +64,16 @@ export const viewport: Viewport = {
 
 /**
  * Runs while the HTML is parsed, before any bundle:
- *  - keeps Android's `beforeinstallprompt` for the page's Install button (it can fire before React
- *    has hydrated and is not fired twice), on the game's page only;
+ *  - the home-screen app opens on the play page (manifest start_url /droidz_survival/play?app=1);
+ *    an app added before 03.10.2026 still opens /droidz_survival?app=1 (iOS keeps the URL it was
+ *    added with), so the landing hands it on to /play at once, before anything is drawn (fullscreen
+ *    counts only on a touch screen: a desktop browser on F11 reports display-mode fullscreen too);
+ *  - keeps Android's `beforeinstallprompt` for the Install button (it can fire before React has
+ *    hydrated and is not fired twice), on the landing and the play page only;
  *  - nothing else — the site's chrome is hidden in a home-screen app by the CSS below, which needs
  *    no script and so no flash of the header before hydration.
  */
-const EARLY = `(function(){try{if(location.pathname.replace(/\\/+$/,'')!=='/droidz_survival')return;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__dsInstallPrompt=e;window.dispatchEvent(new Event('ds:installable'))});window.addEventListener('appinstalled',function(){window.__dsInstallPrompt=null;window.__dsInstalled=true;window.dispatchEvent(new Event('ds:installable'))})}catch(e){}})()`
+const EARLY = `(function(){try{var p=location.pathname.replace(/\\/+$/,'');if(p==='/droidz_survival'){var q=new URLSearchParams(location.search).get('app')==='1';var m=function(x){return window.matchMedia&&window.matchMedia(x).matches};if(q||navigator.standalone===true||m('(display-mode: standalone)')||(m('(display-mode: fullscreen)')&&m('(pointer: coarse)'))){location.replace('/droidz_survival/play?app=1');return}}else if(p!=='/droidz_survival/play')return;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__dsInstallPrompt=e;window.dispatchEvent(new Event('ds:installable'))});window.addEventListener('appinstalled',function(){window.__dsInstallPrompt=null;window.__dsInstalled=true;window.dispatchEvent(new Event('ds:installable'))})}catch(e){}})()`
 
 /** Opened from the Home Screen: none of the site's page shows, only what page.tsx draws for the app. */
 const APP_CSS = `@media (display-mode: standalone), (display-mode: fullscreen) { .ds-site-only { display: none !important } html, body { background: #000 } }`

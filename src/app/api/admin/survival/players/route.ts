@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
+import { avatarOf } from '@/lib/survivalNfts'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -23,7 +24,7 @@ const headers = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age
  */
 const ROW_LIMIT = 5_000
 
-type Player = { wallet: string; display_name: string | null; clan: string | null; first_seen: string; last_seen: string; banned: boolean; ban_reason: string | null }
+type Player = { wallet: string; display_name: string | null; clan: string | null; first_seen: string; last_seen: string; banned: boolean; ban_reason: string | null; nickname?: string | null; avatar?: unknown }
 type Profile = { wallet: string; coins: number; runs: number; best_score: number; selected_hero: string | null; client_version: string | null; updated_at: string; state: Record<string, unknown> }
 type RunAgg = { wallet: string; status: string; reject_reason: string | null; score: number | null; server_duration_ms: number | null; started_at: string }
 
@@ -50,7 +51,8 @@ async function list() {
     const problems: string[] = []
     const note = (label: string) => (r: { error: { message: string } | null }) => { if (r.error) problems.push(`${label}: ${r.error.message}`) }
     const [players, profiles, runs, allow, xs, payments] = await Promise.all([
-        db.from('survival_players').select('wallet, display_name, clan, first_seen, last_seen, banned, ban_reason').order('last_seen', { ascending: false }).limit(ROW_LIMIT),
+        // `*`: the profile's nickname / avatar (20261003) without breaking on a database that lacks them.
+        db.from('survival_players').select('*').order('last_seen', { ascending: false }).limit(ROW_LIMIT),
         db.from('survival_profiles').select('wallet, coins, runs, best_score, selected_hero, client_version, updated_at, state').limit(ROW_LIMIT),
         db.from('survival_runs').select('wallet, status, reject_reason, score, server_duration_ms, started_at').order('started_at', { ascending: false }).limit(50_000),
         db.from('survival_allowlist').select('wallet, note, revoked_at, expires_at').limit(ROW_LIMIT),
@@ -94,6 +96,8 @@ async function list() {
         return {
             wallet: p.wallet,
             name: access?.note ?? p.display_name ?? null,
+            nickname: p.nickname ?? null,
+            avatar: avatarOf(p.avatar),
             x: xh.get(p.wallet) ?? null,
             clan: p.clan,
             banned: p.banned,
