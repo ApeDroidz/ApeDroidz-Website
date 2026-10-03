@@ -36,9 +36,36 @@ export const PLAY_PATH = '/'
  * the wallet itself, only the verdict.
  */
 const SEASON_PREVIEW_WALLETS = new Set(['0x3c4e3fdb4a8820561a450430f590ea30e1a04954'])
+
+/**
+ * SURVIVAL_TEST_WALLETS (comma-separated; unset = nobody) — the wallets that may buy the test items
+ * (lib/survivalShop.ts) and that count as the CREATOR below. Parsed here, not in survivalShop, because
+ * this file is imported by the Edge middleware and must stay free of the database client.
+ */
+export function testWalletSet(): Set<string> {
+    return new Set((process.env.SURVIVAL_TEST_WALLETS ?? '').toLowerCase().split(',').map((s) => s.trim()).filter((s) => /^0x[0-9a-f]{40}$/.test(s)))
+}
+
+/**
+ * The CREATOR (owner, 02.10.2026: «бесплатно открыть и посмотреть сезонный пропуск и лестницу
+ * сезона, а для остальных всё закрыто»): a preview wallet or a test wallet. The game opens the
+ * season for the creator as it will be in Season 1 — the ladder, FREE/PASS rewards, LEVEL UP — and
+ * offers a free TEST pass (api/survival/creator-pass) that never counts as a pass in the pool.
+ */
+export function isCreatorWallet(wallet: string): boolean {
+    const w = wallet.toLowerCase()
+    return SEASON_PREVIEW_WALLETS.has(w) || testWalletSet().has(w)
+}
+
+/**
+ * The season is open to EVERYONE: SURVIVAL_SEASON_OPEN=1 (Vercel env + Redeploy; no game rebuild —
+ * the game reads `features.seasonOpen`). Unset or anything else: closed, the creator alone sees it.
+ */
+export const seasonOpenForAll = (): boolean => process.env.SURVIVAL_SEASON_OPEN === '1'
+
 export function seasonVisibleFor(wallet: string): boolean {
-    // SURVIVAL_SEASON_OPEN=1 opens the Season screen (and the pass on sale in it) to everyone.
-    return process.env.SURVIVAL_SEASON_OPEN === '1' || SEASON_PREVIEW_WALLETS.has(wallet.toLowerCase())
+    // SURVIVAL_SEASON_OPEN=1 opens the season (the ladder and the pass on sale) to everyone.
+    return seasonOpenForAll() || isCreatorWallet(wallet)
 }
 
 /**

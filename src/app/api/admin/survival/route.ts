@@ -201,7 +201,7 @@ async function reviewRuns(seasonId: string, problems: string[]) {
     for (const r of [...((byTop.data as ReviewRun[] | null) ?? []), ...((flagged.data as ReviewRun[] | null) ?? [])]) runs.set(r.id, r)
     const wallets = [...new Set([...runs.values()].map((r) => r.wallet))]
     const { data: passRows } = wallets.length
-        ? await db.from('survival_entitlements').select('wallet').eq('kind', 'season_pass').or(`season_id.eq.${seasonId},season_id.is.null`).in('wallet', wallets)
+        ? await db.from('survival_entitlements').select('wallet').eq('kind', 'season_pass').not('sku', 'like', 'test_%').or(`season_id.eq.${seasonId},season_id.is.null`).in('wallet', wallets)
         : { data: [] }
     const pass = new Set(((passRows as Array<{ wallet: string }> | null) ?? []).map((p) => p.wallet))
     const topRank = new Map(topIds.map((id, i) => [id, i + 1]))

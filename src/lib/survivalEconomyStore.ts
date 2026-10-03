@@ -28,6 +28,12 @@ export interface Loaded {
     /** The economy was reset for a new epoch on this read (and must be written back). */
     wiped: boolean
     passOwned: boolean
+    /**
+     * Every pass on record is a TEST one (a test_* sku: the 0.01 APE test pass, or the creator's free
+     * pass, api/survival/creator-pass) — it opens the PASS rewards but shares no pool and gets no PASS
+     * mark on the board. False when there is no pass, or a real one.
+     */
+    passTest: boolean
 }
 
 export async function liveSeasonId(): Promise<string | null> {
@@ -40,7 +46,7 @@ export async function loadEcon(wallet: string, seasonId?: string | null): Promis
     const [prof, ps, pass] = await Promise.all([
         supabaseAdmin.from('survival_profiles').select('state, updated_at').eq('wallet', wallet).maybeSingle(),
         sid ? supabaseAdmin.from('survival_profile_seasons').select('season, daily, updated_at').eq('wallet', wallet).eq('season_id', sid).maybeSingle() : Promise.resolve({ data: null, error: null }),
-        sid ? supabaseAdmin.from('survival_entitlements').select('id').eq('wallet', wallet).eq('kind', 'season_pass').or(`season_id.eq.${sid},season_id.is.null`).limit(1)
+        sid ? supabaseAdmin.from('survival_entitlements').select('id, sku').eq('wallet', wallet).eq('kind', 'season_pass').or(`season_id.eq.${sid},season_id.is.null`).limit(5)
             : Promise.resolve({ data: [], error: null }),
     ])
     if (prof.error) { console.error('[survival/economy] load', prof.error.message); return null }
@@ -69,9 +75,11 @@ export async function loadEcon(wallet: string, seasonId?: string | null): Promis
         daily = dailyOf({})
         wiped = !!stored // a brand-new player has nothing to wipe
     }
-    const passOwned = ((pass.data as unknown[] | null)?.length ?? 0) > 0
+    const passes = (pass.data as Array<{ sku: string | null }> | null) ?? []
+    const passOwned = passes.length > 0
+    const passTest = passOwned && passes.every((p) => (p.sku ?? '').startsWith('test_'))
     if (passOwned) season.pass = true
-    return { econ: { state, season, daily }, stored, updatedAt: row?.updated_at ?? null, seasonId: sid, seasonUpdatedAt: psRow?.updated_at ?? null, wiped, passOwned }
+    return { econ: { state, season, daily }, stored, updatedAt: row?.updated_at ?? null, seasonId: sid, seasonUpdatedAt: psRow?.updated_at ?? null, wiped, passOwned, passTest }
 }
 
 /**

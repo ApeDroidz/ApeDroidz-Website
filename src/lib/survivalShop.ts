@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { testWalletSet } from '@/lib/survivalAccess'
 
 /**
  * Droidz Survival — what can be bought, and how a payment is recognised on chain.
@@ -76,9 +77,7 @@ export async function loadCatalog(activeOnly = true): Promise<CatalogItem[]> {
 export const TEST_SKU_PREFIX = 'test_'
 export const isTestSku = (sku: string): boolean => sku.startsWith(TEST_SKU_PREFIX)
 
-export function testWallets(): Set<string> {
-    return new Set((process.env.SURVIVAL_TEST_WALLETS ?? '').toLowerCase().split(',').map((s) => s.trim()).filter((s) => /^0x[0-9a-f]{40}$/.test(s)))
-}
+export const testWallets = (): Set<string> => testWalletSet()
 export const isTestWallet = (wallet: string): boolean => testWallets().has(wallet.toLowerCase())
 
 /**

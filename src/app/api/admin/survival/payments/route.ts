@@ -116,7 +116,8 @@ export async function GET(request: NextRequest) {
             issued: { solo: C.filter((c) => c.mode === 'solo').length, coop: C.filter((c) => c.mode === 'coop').length },
             spent: { solo: C.filter((c) => c.mode === 'solo' && c.consumed_by_run).length, coop: C.filter((c) => c.mode === 'coop' && c.consumed_by_run).length },
         },
-        orders: { total: O.length, pending: O.filter((o) => o.status === 'pending').length, paid: O.filter((o) => o.status === 'paid').length, stuck },
+        // Test orders (test_* — the 0.01 APE test items, the creator's free pass) out of the counts, like the payments.
+        orders: { total: O.filter((o) => !isTestSku(o.sku)).length, pending: O.filter((o) => o.status === 'pending' && !isTestSku(o.sku)).length, paid: O.filter((o) => o.status === 'paid' && !isTestSku(o.sku)).length, stuck },
         payments: Pall.slice(0, 1000).map((p) => ({ ...p, name: names[p.wallet] ?? null, viaHub: p.payer === HUB, test: isTestPay(p) })),
         refused: events.data ?? [],
         problems,

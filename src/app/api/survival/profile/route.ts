@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer, readBody } from '@/lib/survivalRuns'
 import { logEvent } from '@/lib/survivalLog'
-import { sandboxFor, seasonVisibleFor } from '@/lib/survivalAccess'
+import { isCreatorWallet, sandboxFor, seasonOpenForAll, seasonVisibleFor } from '@/lib/survivalAccess'
 import { mergeClientState, economyOf } from '@/lib/survivalEconomy'
 import { loadEcon, saveEcon } from '@/lib/survivalEconomyStore'
 
 /**
  * The player's progress, on the server.
  *
- *   GET  /api/survival/profile                → { ok, state, season: { seasonId, season, daily } | null,
- *                                                  features: { season, passOnSale, paidRuns, sandbox } — what the game may show this wallet }
+ *   GET  /api/survival/profile                → { ok, state, season: { seasonId, season, daily, passOwned, passTest } | null,
+ *                                                  features: { season, seasonOpen, seasonPublic, creator, passOnSale, paidRuns, sandbox } — what the game may show this wallet }
+ * seasonOpen — the season ladder (tiers, FREE/PASS rewards, LEVEL UP) is open to THIS wallet:
+ * SURVIVAL_SEASON_OPEN=1 for everyone (seasonPublic), else the creator only (lib/survivalAccess.ts
+ * isCreatorWallet — SURVIVAL_TEST_WALLETS or a preview wallet), who also gets the free test pass
+ * (api/survival/creator-pass). passTest — the pass held is a test one (no pool, no PASS mark).
  * The Season screen is open to everyone (25.09.2026: it holds the pool and the leaderboard now); the
  * pass is on sale only where seasonVisibleFor says so (SURVIVAL_SEASON_OPEN=1, or a preview wallet).
  *                                              or { ok: true, state: null } for a wallet with none yet
@@ -49,7 +53,7 @@ export async function GET(req: NextRequest) {
     if (loaded.wiped) await saveEcon(caller.wallet, loaded, loaded.econ)
     const prof = loaded.stored ? { state: loaded.econ.state, updated_at: loaded.updatedAt } : null
     const season = loaded.seasonId
-        ? { seasonId: loaded.seasonId, season: loaded.econ.season, daily: loaded.econ.daily, passOwned: loaded.passOwned }
+        ? { seasonId: loaded.seasonId, season: loaded.econ.season, daily: loaded.econ.daily, passOwned: loaded.passOwned, passTest: loaded.passTest }
         : null
     // Кто спрашивает — для таблицы рекордов: без этого игрок не видит в ней
     // ни себя, ни своего ника с кланом (владелец, 20.09). Кошелёк отдаём уже
@@ -66,7 +70,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(
-        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: true, passOnSale: seasonVisibleFor(caller.wallet), paidRuns: process.env.SURVIVAL_PAID_RUNS === '1', sandbox: sandboxFor(caller.wallet) } },
+        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: true, seasonOpen: seasonVisibleFor(caller.wallet), seasonPublic: seasonOpenForAll(), creator: isCreatorWallet(caller.wallet), passOnSale: seasonVisibleFor(caller.wallet), paidRuns: process.env.SURVIVAL_PAID_RUNS === '1', sandbox: sandboxFor(caller.wallet) } },
         { headers: { 'cache-control': 'no-store' } },
     )
 }

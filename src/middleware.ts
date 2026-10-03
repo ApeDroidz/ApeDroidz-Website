@@ -96,6 +96,7 @@ const LIMITS: Record<string, Limit> = {
     '/api/survival/run/continue':       { max: 20,  windowMs: 60_000 },
     '/api/survival/economy':            { max: 60,  windowMs: 60_000 },
     '/api/survival/feedback':           { max: 10,  windowMs: 60_000 },
+    '/api/survival/creator-pass':       { max: 10,  windowMs: 60_000 },
     '/api/otherside/login':             { max: 20,  windowMs: 60_000 },
     // The panel's password: a handful of tries a minute per IP (400 ms per wrong answer in the
     // route does not stop requests sent in parallel).
