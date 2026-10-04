@@ -10,7 +10,7 @@ import { logEvent } from '@/lib/survivalLog'
  * The player's profile in the game (Settings → PROFILE; owner, 03.10.2026).
  *
  *   GET  /api/survival/me/profile
- *        → { wallet, nickname: string|null, x: string|null, avatar: {contract,tokenId,name,image}|null,
+ *        → { wallet, nickname: string|null, x: string|null, avatar: {kind:'nft',contract,tokenId,name,image}|{kind:'upload',image,path}|null,
  *            clan: string|null, stats: { best, rank: number|null, runs, favHero: string|null } }
  *        best / rank — the live season's board (survival_season_best; rank = place on the whole board,
  *        banned wallets not counted, ties by who got there first — as /api/survival/board orders it);

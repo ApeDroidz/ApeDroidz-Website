@@ -391,6 +391,10 @@ export function act(before: Econ, a: Action, ctx: { now: number; rand?: () => nu
             const t = Math.floor(a.tier)
             if (t < 1 || t > x.season.tier) return fail('not_reached')
             if (pass && !x.season.pass) return fail('no_pass')
+            // One rail per player (owner, 03.10.2026: «нельзя клеймить и FREE, и PASS награды»): a pass
+            // holder takes the PASS reward of a tier, never the FREE one. FREE rewards taken before the
+            // pass stay where they are; from the pass on, only the PASS rail pays.
+            if (!pass && x.season.pass) return fail('pass_holder')
             const list = pass ? x.season.claimedPass : x.season.claimed
             if (list.includes(t)) return fail('already_claimed')
             const def = (ECON.season.tiers as Array<{ tier: number; free: Reward; pass: Reward }>).find((k) => k.tier === t)
@@ -448,7 +452,10 @@ export function runReward(before: Econ, run: { score: number; wave: number; kill
     const charged = cap(rep.charged, kills + 10)
     const breaks = cap(rep.breaks, 6 + mins * 6 + wave * 2)
     const pickups = cap(rep.pickups, breaks * 4 + bosses * 25 + elites * 2 + 10)
-    const picked = cap(rep.picked, kills * 2 + 50)
+    // Ape Mini off the floor: the game pays +1 per `pickupCellsPerApe` energy cells (cells drop on 20% of
+    // kills, three more from a boss or a map event), so an honest run never reaches ⌊kills / that⌋ + 10
+    // (04.10.2026; it was 2 per kill + 50 while every cell was +1).
+    const picked = cap(rep.picked, Math.floor(kills / Math.max(1, ECON.run.pickupCellsPerApe ?? 1)) + 10)
     // Cores (progression pacing 29.09.2026): the game drops them at 2% from a terminal, 5% from a
     // capsule and from the bosses of waves 10, 20, 30… — one per fifteen breaks and one per ten waves,
     // plus one of slack, is more than an honest run reaches.

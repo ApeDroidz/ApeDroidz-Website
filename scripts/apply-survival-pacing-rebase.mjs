@@ -1,10 +1,11 @@
 /**
  * Applies 20260929_survival_pacing_rebase.sql (the beta's savings rebased to the new pacing: Ape Mini
- * × 0.2 up to 6 000 (variant C, 30.09.2026), resources capped 400/100/100/5, everything opened kept, a backup table first).
+ * × 0.1 up to 2 500 (04.10.2026, with the run pay at ×0.1; was × 0.2 up to 6 000), resources capped
+ * 400/100/100/5, everything opened kept, a backup table first).
  *
  * The dry run applies it inside a transaction, prints the ten richest profiles before and after,
  * checks the rules on EVERY profile (coins, caps, untouched fields, rev, backup), and rolls back.
- * Apply it only after the site + game build with the new pacing is live.
+ * Apply it only when the game goes public (owner, 01.10.2026), after the build with the new pacing is live.
  *
  *   node --env-file=.env.local scripts/apply-survival-pacing-rebase.mjs           # dry run
  *   node --env-file=.env.local scripts/apply-survival-pacing-rebase.mjs --commit  # apply
@@ -14,6 +15,8 @@ import { fileURLToPath } from 'node:url'
 
 const MIGRATION = new URL('../supabase/migrations/20260929_survival_pacing_rebase.sql', import.meta.url)
 const CAP = { scrap: 400, circuit: 100, cell: 100, core: 5 }
+/** Ape Mini: × COIN_RATE, rounded down, at most COIN_CAP — the same numbers as the migration. */
+const COIN_RATE = 0.1, COIN_CAP = 2500
 const short = (w) => `${w.slice(0, 6)}…${w.slice(-4)}`
 const res = (s) => ['scrap', 'circuit', 'cell', 'core'].map((k) => s?.resources?.[k] ?? 0).join('/')
 
@@ -38,7 +41,7 @@ export async function run(client, commit) {
             if (wasDone) continue
             changed += 1
             const c0 = typeof b.state?.coins === 'number' ? Math.max(0, b.state.coins) : 0
-            if (a.state.coins !== Math.min(Math.floor(c0 * 0.2), 6000) || a.coins !== a.state.coins) fails.push(`${short(w)} coins ${b.state?.coins} → ${a.state.coins}/${a.coins}`)
+            if (a.state.coins !== Math.min(Math.floor(c0 * COIN_RATE), COIN_CAP) || a.coins !== a.state.coins) fails.push(`${short(w)} coins ${b.state?.coins} → ${a.state.coins}/${a.coins}`)
             for (const [k, cap] of Object.entries(CAP)) {
                 const v0 = typeof b.state?.resources?.[k] === 'number' ? Math.max(0, Math.floor(b.state.resources[k])) : 0
                 if (a.state.resources?.[k] !== Math.min(v0, cap)) fails.push(`${short(w)} ${k} ${b.state?.resources?.[k]} → ${a.state.resources?.[k]}`)

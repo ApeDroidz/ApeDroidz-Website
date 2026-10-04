@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { isTestSku, loadCatalog } from '@/lib/survivalShop'
 import { SurvivalLanding, type LandingPrice } from '@/components/survival/landing'
+import ECON from '@/lib/survivalEconomy.json'
 
 /**
  * /droidz_survival — the landing, for everyone, no sign-in (owner, 03.10.2026: «лендинг для всех в
@@ -37,7 +38,15 @@ async function loadPrices(): Promise<LandingPrice[]> {
     }
 }
 
+/** Hero unlock prices as the server sells them: the game's export, read here so the client bundle
+ *  does not carry the whole economy table, and the landing shows no price of its own (04.10.2026). */
+const heroCosts: Record<string, number> = Object.fromEntries(
+    Object.entries(ECON.heroes as Record<string, { cost: number; sellable?: boolean }>)
+        .filter(([, h]) => h.sellable !== false)
+        .map(([id, h]) => [id, h.cost]),
+)
+
 export default async function DroidzSurvivalLandingPage() {
     const prices = await loadPrices()
-    return <SurvivalLanding prices={prices} />
+    return <SurvivalLanding prices={prices} heroCosts={heroCosts} />
 }

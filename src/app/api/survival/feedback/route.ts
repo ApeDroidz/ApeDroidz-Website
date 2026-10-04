@@ -21,7 +21,9 @@ export const dynamic = 'force-dynamic'
 
 /** Дублируется в игре (systems/Feedback.ts) только как подпись на кнопке; выдаёт всегда база. */
 const MIN_RUNS = 3
-const REWARD = { rating: 200, comment: 800, commentMin: 50 } as const
+// 04.10.2026: 200 + 800 → 50 + 150, вместе с оплатой забега (×0.1). Платит база — константы в
+// survival_submit_feedback меняет миграция 20261004_survival_apemini_rebalance.sql; выкатывать вместе.
+const REWARD = { rating: 50, comment: 150, commentMin: 50 } as const
 const MAX_COMMENT = 2000
 
 interface FeedbackRow {

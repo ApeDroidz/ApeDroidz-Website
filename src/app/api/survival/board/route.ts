@@ -9,7 +9,7 @@ import { avatarOf } from '@/lib/survivalNfts'
  * The live season's board for the game's Leaderboard screen: rank, the player's wallet
  * (shortened), their X handle if the site knows one (glitch_users.x_handle), their clan,
  * and the run that put them there. Since 03.10.2026 also the profile's `nickname` (null until the
- * player sets one) and `avatar` — the picked NFT's image URL or null (api/survival/me/*); the board
+ * player sets one) and `avatar` — the picked NFT's image URL, or the player's own uploaded picture, or null (api/survival/me/*); the board
  * shows them in place of the address, `wallet` stays for older builds. Public and read-only, like the pool endpoint; cached at
  * the edge for a few seconds because every player on the menu asks for it.
  *

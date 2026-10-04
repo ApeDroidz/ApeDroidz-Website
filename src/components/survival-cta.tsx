@@ -20,7 +20,8 @@ const ANNOUNCE_POSTER = 'https://assets.apedroidz.com/apedroidz/droidz-survival/
 // лежит в localStorage навсегда. Номер поднят, чтобы баннер вернулся всем,
 // кто закрыл первую версию.
 // v3 (28.09): open beta — баннер снова показывается всем, кто закрыл «Closed beta».
-const DISMISS_KEY = 'apedroidz.cta-survival.dismissed.v3'
+// v4 (04.10): «Public Beta is Live» — показать снова тем, кто закрыл прошлый.
+const DISMISS_KEY = 'apedroidz.cta-survival.dismissed.v4'
 
 function SurvivalCTAComponent() {
     const [isDismissed, setIsDismissed] = useState(false)
@@ -97,7 +98,7 @@ function SurvivalCTAComponent() {
                             style={{ boxShadow: "inset 0 0 18px rgba(0,0,0,0.55)" }}
                         />
                         <span className="absolute top-1.5 left-1.5 rounded-full border border-white/15 bg-black/60 px-1.5 py-0.5 font-mono text-[7px] sm:text-[8px] uppercase tracking-widest text-white/70">
-                            Open beta
+                            Public beta
                         </span>
                     </div>
                 </div>
@@ -106,8 +107,9 @@ function SurvivalCTAComponent() {
                 <div className="flex flex-col gap-1.5 px-2 pb-2 pt-1.5 sm:gap-2 sm:px-3 sm:pb-3 sm:pt-2">
                     {/* Одной строкой (владелец, 19.09). whitespace-nowrap, чтобы узкая
                         карточка на телефоне не переносила «is Live» обратно вниз. */}
-                    <h3 className="whitespace-nowrap text-[15px] sm:text-[19px] md:text-[22px] font-black text-white leading-none tracking-tight uppercase">
-                        Beta{' '}
+                    <h3 className="whitespace-nowrap text-[12px] sm:text-[15px] md:text-[18px] font-black text-white leading-none tracking-tight uppercase">
+                        {/* «Public beta is live» (owner, 04.10.2026). */}
+                        Public Beta{' '}
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white">
                             is Live
                         </span>

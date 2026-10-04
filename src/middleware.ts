@@ -105,6 +105,8 @@ const LIMITS: Record<string, Limit> = {
     '/api/survival/me/x':               { max: 10,  windowMs: 60_000 },
     '/api/survival/me/nfts':            { max: 20,  windowMs: 60_000 },
     '/api/survival/me/avatar':          { max: 15,  windowMs: 60_000 },
+    // The player's own picture: decoded and re-encoded on every call (sharp) and written to storage.
+    '/api/survival/me/avatar/upload':   { max: 6,   windowMs: 600_000 },
     '/api/survival/me/clan':            { max: 20,  windowMs: 60_000 },
     '/api/survival/funnel':             { max: 30,  windowMs: 60_000 },
     '/api/otherside/login':             { max: 20,  windowMs: 60_000 },
@@ -162,6 +164,13 @@ function rateLimit(req: NextRequest): NextResponse | null {
 // request skips the CORS preflight), is refused here, before any route runs.
 
 const CSRF_GUARDED = /^\/api\/(survival|otherside)(\/|$)/
+/**
+ * The one write whose body is not JSON: the avatar upload sends the picture raw (image/png | jpeg |
+ * webp | gif). Such a Content-Type is not CORS-safelisted, so a cross-site page cannot send it
+ * without a preflight (which nothing here answers) — as safe as JSON; multipart / text/plain stay out.
+ */
+const RAW_IMAGE_PATHS = new Set(['/api/survival/me/avatar/upload'])
+const RAW_IMAGE_TYPE = /^image\/(png|jpeg|webp|gif)(;|$)/
 const OUR_ORIGINS = new Set(['https://www.apedroidz.com', 'https://apedroidz.com'])
 
 function crossSite(req: NextRequest): NextResponse | null {
@@ -182,7 +191,8 @@ function crossSite(req: NextRequest): NextResponse | null {
     if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
         const type = (req.headers.get('content-type') ?? '').toLowerCase()
         const hasBody = Number(req.headers.get('content-length') ?? '0') > 0 || req.headers.has('transfer-encoding')
-        if (type ? !type.startsWith('application/json') : hasBody) return refuse(415, 'json_only')
+        const allowed = type.startsWith('application/json') || (RAW_IMAGE_PATHS.has(pathname) && RAW_IMAGE_TYPE.test(type))
+        if (type ? !allowed : hasBody) return refuse(415, 'json_only')
     }
     return null
 }

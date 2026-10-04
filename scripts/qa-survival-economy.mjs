@@ -118,8 +118,16 @@ const runPay = Math.floor(ECON.run.coins.sqrtScore * Math.sqrt(40_000) + 250 * E
 const expCoins = runPay + 40
 ok('an honest run pays the game\'s formula', honest.paid.coins === expCoins, `${honest.paid.coins} vs ${expCoins}`)
 ok('…its salvage, its discoveries, its season XP', honest.econ.state.resources.scrap === 8 && honest.paid.discovered.length === 2 && honest.econ.season.sxp > 0)
+ok('…and each new species pays the export\'s bounty once, on top of the run', honest.paid.bounty === 2 * ECON.discoveryBounty && honest.econ.state.coins === expCoins + 2 * ECON.discoveryBounty, `${honest.paid.bounty} / ${honest.econ.state.coins}`)
+const again = E.runReward(honest.econ, run, { hero: 'volt', kinds: { robber: 10, gunner: 5 } }, { now: NOW + 60_000 })
+ok('…a species met before pays nothing again', again.paid.discovered.length === 0 && again.paid.bounty === 0)
 const liar = E.runReward(spent(), run, { hero: 'volt', picked: 1e9, salvaged: { core: 1e6, scrap: 1e6 }, bosses: 99, elites: 1e5, breaks: 1e5, pickups: 1e6, kinds: { robber: 1e7, dragon: 5 } }, { now: NOW })
-ok('a made-up report is capped: Ape Mini picked ≤ 2 per kill + 50', liar.paid.coins <= expCoins - 40 + 250 * 2 + 50, String(liar.paid.coins))
+// The floor coin: +1 Ape Mini per `pickupCellsPerApe` energy cells (04.10.2026) — the cap is ⌊kills / that⌋ + 10.
+const pickCap = Math.floor(250 / ECON.run.pickupCellsPerApe) + 10
+ok('the floor coin rate comes from the game\'s export (cells per Ape Mini ≥ 1)', Number.isInteger(ECON.run.pickupCellsPerApe) && ECON.run.pickupCellsPerApe >= 1, String(ECON.run.pickupCellsPerApe))
+ok('a made-up report is capped: Ape Mini picked ≤ ⌊kills / cells per Ape Mini⌋ + 10', liar.paid.coins === runPay + pickCap, `${liar.paid.coins} vs ${runPay + pickCap}`)
+const fair = E.runReward(spent(), run, { hero: 'volt', picked: pickCap }, { now: NOW })
+ok('…while an honest floor (at the cap) is paid in full', fair.paid.coins === runPay + pickCap, String(fair.paid.coins))
 // breaks are capped at 6 + 6·min + 2·wave = 62 here → cores ≤ 1 + ⌊62/15⌋ + ⌊10/10⌋ = 6
 ok('…cores capped: 1 + one per 15 breaks + one per 10 waves', liar.econ.state.resources.core === 6, String(liar.econ.state.resources.core))
 ok('…bestiary kills ≤ the run\'s kills, unknown species ignored', liar.econ.state.bestiary.robber === 250 && !liar.econ.state.bestiary.dragon)
@@ -184,6 +192,31 @@ r = E.act(t1, { type: 'claim_tier', tier: 2 }, { now: NOW })
 ok('a tier not reached pays nothing', !r.ok && r.error === 'not_reached')
 r = E.act(t1, { type: 'claim_pass_tier', tier: 1 }, { now: NOW })
 ok('the PASS rail needs the pass', !r.ok && r.error === 'no_pass')
+// One rail per player (owner, 03.10.2026): with the pass — PASS rewards only; without — FREE only.
+const held = fresh(); held.season.sxp = ECON.season.tierCosts[0] + ECON.season.tierCosts[1]; held.season.tier = 2; held.season.pass = true
+r = E.act(held, { type: 'claim_tier', tier: 1 }, { now: NOW })
+ok('a pass holder cannot claim the FREE reward (pass_holder)', !r.ok && r.error === 'pass_holder', JSON.stringify(r))
+const pt = E.act(held, { type: 'claim_pass_tier', tier: 1 }, { now: NOW })
+const passCoins = ECON.season.tiers[0].pass.kind === 'coins' ? ECON.season.tiers[0].pass.coins : 0
+ok('a pass holder claims the PASS reward', pt.ok && pt.econ.season.claimedPass.includes(1) && pt.econ.state.coins === passCoins && pt.econ.season.claimed.length === 0, JSON.stringify(pt.ok ? pt.econ.season : pt))
+r = pt.ok ? E.act(pt.econ, { type: 'claim_pass_tier', tier: 1 }, { now: NOW }) : { ok: false, error: '' }
+ok('…and the PASS reward only once', !r.ok && r.error === 'already_claimed')
+r = pt.ok ? E.act(pt.econ, { type: 'claim_tier', tier: 1 }, { now: NOW }) : { ok: true }
+ok('a PASS-claimed tier still refuses its FREE reward', !r.ok && r.error === 'pass_holder')
+// FREE taken before the pass: kept (nothing is taken back), and that tier's PASS reward still opens.
+const before = tc.ok ? JSON.parse(JSON.stringify(tc.econ)) : fresh()
+before.season.pass = true
+ok('FREE rewards claimed before the pass stay claimed', before.season.claimed.includes(1))
+const later = E.act(before, { type: 'claim_pass_tier', tier: 1 }, { now: NOW })
+ok('…and the same tier\'s PASS reward can be claimed after buying the pass', later.ok && later.econ.season.claimed.includes(1) && later.econ.season.claimedPass.includes(1), JSON.stringify(later.ok ? later.econ.season : later))
+r = E.act(before, { type: 'claim_tier', tier: 1 }, { now: NOW })
+ok('…but no more FREE claims once the pass is held', !r.ok && r.error === 'pass_holder')
+
+// ── a continue for Ape Mini ───────────────────────────────────────────────────────
+r = E.act(fresh({ coins: ECON.continueMini - 1 }), { type: 'continue_mini' }, { now: NOW })
+ok('a continue you cannot afford is refused', !r.ok && r.error === 'not_enough_coins', JSON.stringify(r))
+r = E.act(fresh({ coins: ECON.continueMini }), { type: 'continue_mini' }, { now: NOW })
+ok('a continue charges the export\'s price', r.ok && r.econ.state.coins === 0 && r.result.spent === ECON.continueMini, JSON.stringify(r.ok && r.result))
 
 // ── the client's save cannot touch the economy ─────────────────────────────────────
 const stored = { ...E.economyOf({}), coins: 500, items: [{ uid: 'i1', kind: 'servo', rarity: 'rare' }], selectedHero: 'volt', settings: { sfxVolume: 50 } }

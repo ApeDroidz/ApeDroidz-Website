@@ -3,13 +3,16 @@
 -- The pacing patch (game config + lib/survivalEconomy.ts) makes a hero's CHASSIS branch 9 600 Ape Mini
 -- instead of 31 800, a tier-4 node's first level core-free, a capstone and MARK IV one core, and adds
 -- the DAILY BONUS. Savings made at the old rates would buy most of the new game on day one, so:
---   • Ape Mini × 0.2 (rounded down), at most 6 000 (variant C, owner 30.09.2026: run pay halved, the
---     chassis at ~0.2 of its old price — without the cap the richest beta save buys every branch at once);
+--   • Ape Mini × 0.1 (rounded down), at most 2 500 (04.10.2026: the run pays ×0.1 of 1.5 / 0.15 / 10,
+--     the beta's purses were earned at that rate or higher, so a tenth is the same number of runs;
+--     2 500 is half a Geez — without the cap the richest beta save buys a hero and its branches at once.
+--     Was × 0.2 up to 6 000 under variant C, 30.09.2026);
 --   • resources capped: scrap 400, circuit 100, cell 100, core 5 (below the cap: untouched);
 --   • everything OPENED stays: heroes, tree levels, weapon tiers, items, cosmetics, bestiary, lifetime,
 --     season XP and claims (the season row is not touched at all).
 --
--- NOT APPLIED. Apply after the site + game build with the new pacing is live (see the rollout order),
+-- NOT APPLIED. The owner (01.10.2026): the beta's savings are cut only when the game goes public — apply
+-- then, after the site + game build with the new pacing is live,
 -- with scripts/apply-survival-pacing-rebase.mjs (dry run by default, --commit to apply).
 --
 -- Reversible: every profile is copied to survival_profiles_pacing_backup BEFORE it is changed
@@ -46,7 +49,7 @@ with todo as (
     from survival_profiles p join todo t on t.wallet = p.wallet
 ), nxt as (
     select wallet, rev0,
-        least(floor(c0 * 0.2), 6000)::bigint as coins,
+        least(floor(c0 * 0.1), 2500)::bigint as coins,
         r0 || jsonb_build_object(
             'scrap',   least(case when jsonb_typeof(r0->'scrap')   = 'number' then greatest(0, floor((r0->>'scrap')::numeric))   else 0 end, 400),
             'circuit', least(case when jsonb_typeof(r0->'circuit') = 'number' then greatest(0, floor((r0->>'circuit')::numeric)) else 0 end, 100),
@@ -74,7 +77,7 @@ update survival_profiles_pacing_backup set rebased_at = now() where rebased_at i
 -- b) Later (players have earned and spent since): give back only what the rebase took, on top of now.
 --      update survival_profiles p
 --      set state = p.state || jsonb_build_object(
---              'coins', coalesce((p.state->>'coins')::numeric, 0) + (coalesce((b.state->>'coins')::numeric, 0) - least(floor(coalesce((b.state->>'coins')::numeric, 0) * 0.2), 6000)),
+--              'coins', coalesce((p.state->>'coins')::numeric, 0) + (coalesce((b.state->>'coins')::numeric, 0) - least(floor(coalesce((b.state->>'coins')::numeric, 0) * 0.1), 2500)),
 --              'resources', coalesce(p.state->'resources', '{}'::jsonb) || jsonb_build_object(
 --                  'scrap',   coalesce((p.state->'resources'->>'scrap')::numeric, 0)   + greatest(0, coalesce((b.state->'resources'->>'scrap')::numeric, 0)   - 400),
 --                  'circuit', coalesce((p.state->'resources'->>'circuit')::numeric, 0) + greatest(0, coalesce((b.state->'resources'->>'circuit')::numeric, 0) - 100),

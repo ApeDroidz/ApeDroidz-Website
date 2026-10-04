@@ -31,12 +31,35 @@ export interface WalletNft {
     collection: string | null
 }
 
-/** What is stored in survival_players.avatar and handed to the game and the board. */
-export interface Avatar {
+/**
+ * What is stored in survival_players.avatar and handed to the game and the board: an NFT of the
+ * wallet (kind 'nft'; rows from before 03.10 have no kind and are NFTs), or the player's own
+ * picture (kind 'upload', lib/survivalAvatars.ts — Supabase Storage).
+ */
+export interface NftAvatar {
+    kind: 'nft'
     contract: string
     tokenId: string
     name: string
     image: string
+}
+export interface UploadAvatar {
+    kind: 'upload'
+    /** The public URL — always built from `path` (uploadUrl), never read back from the row. */
+    image: string
+    path: string
+}
+export type Avatar = NftAvatar | UploadAvatar
+
+/** Supabase Storage bucket of the uploaded pictures (public read, service-role write). */
+export const AVATAR_BUCKET = 'survival-avatars'
+/** avatars/<wallet>/<16 hex of the file's sha256>.webp */
+export const UPLOAD_PATH_RE = /^avatars\/0x[0-9a-f]{40}\/[0-9a-f]{16}\.webp$/
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/+$/, '')
+
+/** The public URL of an uploaded picture. */
+export function uploadUrl(path: string): string {
+    return `${SUPABASE_URL}/storage/v1/object/public/${AVATAR_BUCKET}/${path}`
 }
 
 export const CONTRACT_RE = /^0x[0-9a-f]{40}$/
@@ -219,9 +242,13 @@ export async function findOwnedNft(wallet: string, contract: string, tokenId: st
 export function avatarOf(v: unknown): Avatar | null {
     if (!v || typeof v !== 'object') return null
     const a = v as Record<string, unknown>
+    if (a.kind === 'upload') {
+        const path = typeof a.path === 'string' ? a.path : ''
+        return UPLOAD_PATH_RE.test(path) && SUPABASE_URL ? { kind: 'upload', image: uploadUrl(path), path } : null
+    }
     const contract = typeof a.contract === 'string' ? a.contract.toLowerCase() : ''
     const tokenId = normTokenId(a.tokenId)
     const image = imageUrl(a.image)
     if (!CONTRACT_RE.test(contract) || !tokenId || !image) return null
-    return { contract, tokenId, name: typeof a.name === 'string' ? a.name.slice(0, 80) : '', image }
+    return { kind: 'nft', contract, tokenId, name: typeof a.name === 'string' ? a.name.slice(0, 80) : '', image }
 }

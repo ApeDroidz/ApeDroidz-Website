@@ -16,7 +16,7 @@ import CATALOG from '@/lib/survivalGameCatalog.json'
 type Row = {
     wallet: string; name: string | null; x: string | null; clan: string | null; banned: boolean
     /** The profile (03.10.2026): nickname set once in the game, the NFT picked as avatar. */
-    nickname?: string | null; avatar?: { contract: string; tokenId: string; name: string; image: string } | null
+    nickname?: string | null; avatar?: { kind?: 'nft' | 'upload'; contract?: string; tokenId?: string; name?: string; image: string; path?: string } | null
     firstSeen: string; lastSeen: string; access: 'none' | 'active' | 'expired' | 'revoked'
     coins: number; heroes: string[]; selectedHero: string | null
     resources: { scrap: number; circuit: number; cell: number; core: number }
@@ -125,7 +125,7 @@ const RARITY: Record<string, string> = { common: 'text-white/60', rare: 'text-sk
 const ACCESS: Record<Row['access'], string> = { active: 'text-emerald-400', expired: 'text-amber-400/80', revoked: 'text-white/30 line-through', none: 'text-white/25' }
 const LEVEL: Record<string, string> = { error: 'text-red-400', warn: 'text-orange-400', info: 'text-white/60', debug: 'text-white/30' }
 
-/** The player's NFT avatar, or an empty square. The image is the indexer's URL, any host. */
+/** The player's avatar (an NFT — the indexer's URL, any host — or their own uploaded picture), or an empty square. */
 function AvatarPic({ avatar, size = 20 }: { avatar?: { image: string; name?: string; contract?: string; tokenId?: string } | null; size?: number }) {
     if (!avatar?.image) return <span style={{ width: size, height: size }} className="inline-block flex-shrink-0 rounded bg-white/5 align-middle" />
     return <img src={avatar.image} alt="" width={size} height={size} loading="lazy" referrerPolicy="no-referrer"
@@ -348,7 +348,7 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
     const tiers: Record<string, number> = st.weaponTiers ?? {}
     const bestiary = Object.entries((st.bestiary ?? {}) as Record<string, number>).sort((a, b) => b[1] - a[1])
     const player = (d.player ?? {}) as { clan?: string | null; banned?: boolean; ban_reason?: string | null; first_seen?: string; last_seen?: string
-        nickname?: string | null; nickname_set_at?: string | null; avatar?: { contract: string; tokenId: string; name: string; image: string } | null }
+        nickname?: string | null; nickname_set_at?: string | null; avatar?: { kind?: 'nft' | 'upload'; contract?: string; tokenId?: string; name?: string; image: string; path?: string } | null }
 
     return (
         <div className="space-y-4">
@@ -360,7 +360,8 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
                     <div className="min-w-0">
                         <div className="text-base font-black">{player.nickname ?? <span className="text-white/30 font-normal text-xs">no nickname</span>}
                             {player.nickname_set_at ? <span className="text-[10px] font-mono font-normal text-white/30"> · set {when(player.nickname_set_at)}</span> : null}</div>
-                        <div className="text-[10px] text-white/40">{player.avatar ? <>avatar: {player.avatar.name} · <span className="font-mono">{player.avatar.contract.slice(0, 10)}… #{player.avatar.tokenId.length > 12 ? `${player.avatar.tokenId.slice(0, 8)}…` : player.avatar.tokenId}</span></> : 'no avatar'}
+                        <div className="text-[10px] text-white/40">{player.avatar?.kind === 'upload' ? <>avatar: <a className="text-sky-400" href={player.avatar.image} target="_blank" rel="noreferrer">own picture</a></>
+                            : player.avatar?.contract && player.avatar.tokenId ? <>avatar: {player.avatar.name} · <span className="font-mono">{player.avatar.contract.slice(0, 10)}… #{player.avatar.tokenId.length > 12 ? `${player.avatar.tokenId.slice(0, 8)}…` : player.avatar.tokenId}</span></> : 'no avatar'}
                             {' · '}X: {d.x ? <a className="text-sky-400" href={`https://x.com/${d.x.replace(/^@/, '')}`} target="_blank" rel="noreferrer">@{d.x.replace(/^@/, '')}</a> : '—'}</div>
                     </div>
                 </div>

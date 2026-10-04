@@ -64,7 +64,7 @@ try {
 
     // ── the daily claim, by the server's day ───────────────────────────────────
     r = await act({ type: 'claim_daily' })
-    ok('the daily pays its first-day reward', r.ok === true && r.result?.streak === 1 && r.state?.coins === 50, JSON.stringify(r).slice(0, 200))
+    ok('the daily pays its first-day reward (the export\'s table)', r.ok === true && r.result?.streak === 1 && r.state?.coins === ECON.daily.rewards[0].reward, JSON.stringify(r).slice(0, 200))
     r = await act({ type: 'claim_daily' })
     ok('a second claim today is refused', r.ok === false && r.error === 'already_claimed', JSON.stringify(r))
 
@@ -80,18 +80,21 @@ try {
     // The wallet's first run today: a DAILY BONUS run (x2 on the formula part, 29.09.2026).
     ok('the first run of the day is a DAILY BONUS run, and the answer says so', paid.daily?.applied === true && paid.coinMult === 2 && fin.dailyBonus?.left === ECON.run.dailyBonus.runs - 1, JSON.stringify({ daily: paid.daily, top: fin.dailyBonus }))
     const mult = paid.coinMult ?? 1
-    ok('Ape Mini: the formula (x the bonus) + picked capped at 2 per kill + 50', paid.coins <= formula * mult + 250 * 2 + 50 && paid.coins >= formula * mult, JSON.stringify(paid))
+    // The floor coin: +1 per `pickupCellsPerApe` cells (04.10.2026), so a report is capped at ⌊kills / that⌋ + 10.
+    const pickCap = Math.floor(250 / (ECON.run.pickupCellsPerApe ?? 1)) + 10
+    ok('Ape Mini: the formula (x the bonus) + picked capped at ⌊kills / cells per Ape Mini⌋ + 10', paid.coins === formula * mult + pickCap, `${paid.coins} vs ${formula * mult + pickCap}`)
     ok('cores capped by the run, not a million', (fin.economy?.state?.resources?.core ?? 1e9) <= 30, JSON.stringify(fin.economy?.state?.resources))
     ok('the bestiary counted no more kills than the run had; no dragons', fin.economy?.state?.bestiary?.robber === 250 && !fin.economy?.state?.bestiary?.dragon)
     ok('season XP came with it', (fin.economy?.season?.sxp ?? 0) > 0)
     const coinsAfterRun = fin.economy?.state?.coins ?? 0
     r = await act({ type: 'unlock_hero', hero: 'goblin' })
-    ok('still not enough for Gob after one run (10 000)', r.ok === false && r.error === 'not_enough_coins')
+    ok(`still not enough for Gob after one run (${ECON.heroes.goblin.cost})`, r.ok === false && r.error === 'not_enough_coins')
 
     // ── an honest spend, and the save can't undo it ─────────────────────────────
-    await db.query("update survival_profiles set state = jsonb_set(state, '{coins}', '12000'::jsonb) where wallet = $1", [WALLET])
+    const gob = ECON.heroes.goblin.cost
+    await db.query("update survival_profiles set state = jsonb_set(state, '{coins}', $2::jsonb) where wallet = $1", [WALLET, String(gob + 2000)])
     r = await act({ type: 'unlock_hero', hero: 'goblin' })
-    ok('with the coins (granted server-side), Gob unlocks and costs 10 000', r.ok === true && r.state?.coins === 2000 && r.state.unlockedHeroes.includes('goblin'), JSON.stringify(r).slice(0, 200))
+    ok(`with the coins (granted server-side), Gob unlocks and costs ${gob}`, r.ok === true && r.state?.coins === 2000 && r.state.unlockedHeroes.includes('goblin'), JSON.stringify(r).slice(0, 200))
     const rollback = await call('/api/survival/profile', 'PUT', { state: { ...forged, rev: 1, coins: 12000, unlockedHeroes: ['volt'] }, clientVersion: 'qa-old-tab' })
     ok('an old tab pushing its older save is refused as stale', rollback.ok === false && rollback.state === 'stale', JSON.stringify(rollback))
     void coinsAfterRun
