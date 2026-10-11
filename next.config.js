@@ -59,6 +59,16 @@ const nextConfig = {
   },
 
   // === 5. CORS ЗАГОЛОВКИ ===
+  // Server-side redirects (11.10.2026, Search Console «Redirect error» on /glitch_game): a page that
+  // only calls redirect() was prerendered as a 307 HTML page with no Location header — the browser
+  // followed its script, a crawler had nowhere to go. Here they are real redirects with a Location.
+  async redirects() {
+    return [
+      { source: "/glitch_game", destination: "/glitch_games/cards", permanent: true },
+      // «The one that is open» — may change, so not permanent.
+      { source: "/staking", destination: "/staking/lifetime", permanent: false },
+    ];
+  },
   async headers() {
     // Who may frame the game (24.09.2026). Until now any site could embed any page of ours.
     // The Otherside cabinet (/droidz_survival/otherside) is framed by the Hub; the game build is framed by our
