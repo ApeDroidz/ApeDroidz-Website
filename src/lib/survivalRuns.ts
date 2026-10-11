@@ -266,6 +266,17 @@ export async function payRestoredRun(run: RunRow, at: PulseState): Promise<void>
     }
 }
 
+/**
+ * The run's active time from a pulse or finish body (`activeMs`, the game's own clock — pauses,
+ * picks and hidden tabs excluded), never more than the server's wall clock since the run opened.
+ * Null when the game sent none (an older build) or sent nonsense.
+ */
+export function activeOf(body: Record<string, unknown>, wallMs: number): number | null {
+    const v = body.activeMs
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return null
+    return Math.round(Math.min(v, Math.max(0, wallMs)))
+}
+
 /** Integers from an untrusted JSON body, or null if any is not one. */
 export function ints(body: Record<string, unknown>, keys: string[]): Record<string, number> | null {
     const out: Record<string, number> = {}

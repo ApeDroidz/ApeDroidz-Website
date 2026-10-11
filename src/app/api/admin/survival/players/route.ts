@@ -26,7 +26,7 @@ const ROW_LIMIT = 5_000
 
 type Player = { wallet: string; display_name: string | null; clan: string | null; first_seen: string; last_seen: string; banned: boolean; ban_reason: string | null; nickname?: string | null; avatar?: unknown }
 type Profile = { wallet: string; coins: number; runs: number; best_score: number; selected_hero: string | null; client_version: string | null; updated_at: string; state: Record<string, unknown> }
-type RunAgg = { wallet: string; status: string; reject_reason: string | null; score: number | null; server_duration_ms: number | null; started_at: string }
+type RunAgg = { wallet: string; status: string; reject_reason: string | null; score: number | null; server_duration_ms: number | null; active_ms: number | null; started_at: string }
 
 /** A run the game saw to its Game Over — the only kind the save's own run counter counts. */
 const ended = (r: { status: string; reject_reason: string | null }) =>
@@ -54,7 +54,7 @@ async function list() {
         // `*`: the profile's nickname / avatar (20261003) without breaking on a database that lacks them.
         db.from('survival_players').select('*').order('last_seen', { ascending: false }).limit(ROW_LIMIT),
         db.from('survival_profiles').select('wallet, coins, runs, best_score, selected_hero, client_version, updated_at, state').limit(ROW_LIMIT),
-        db.from('survival_runs').select('wallet, status, reject_reason, score, server_duration_ms, started_at').order('started_at', { ascending: false }).limit(50_000),
+        db.from('survival_runs').select('wallet, status, reject_reason, score, server_duration_ms, active_ms, started_at').order('started_at', { ascending: false }).limit(50_000),
         db.from('survival_allowlist').select('wallet, note, revoked_at, expires_at').limit(ROW_LIMIT),
         db.from('glitch_users').select('wallet_address, x_handle').not('x_handle', 'is', null).limit(ROW_LIMIT),
         db.from('survival_payments').select('wallet, amount_ape, confirmed_at').limit(50_000),
@@ -70,7 +70,7 @@ async function list() {
         if (ended(r)) a.ended++
         if (r.status === 'finished') { a.finished++; a.best = Math.max(a.best, r.score ?? 0) }
         if (r.status === 'rejected') a.rejected++
-        a.playMs += r.server_duration_ms ?? 0
+        a.playMs += r.active_ms ?? r.server_duration_ms ?? 0 // active play (11.10.2026); wall time for older runs
         if (!a.lastRun || r.started_at > a.lastRun) a.lastRun = r.started_at
         agg.set(r.wallet, a)
     }
@@ -139,7 +139,7 @@ async function detail(wallet: string) {
         one('player', db.from('survival_players').select('*').eq('wallet', wallet).maybeSingle()),
         one('profile', db.from('survival_profiles').select('state, coins, runs, best_score, selected_hero, client_version, created_at, updated_at').eq('wallet', wallet).maybeSingle()),
         one('seasons', db.from('survival_profile_seasons').select('season_id, season, daily, sxp, tier, updated_at').eq('wallet', wallet).order('updated_at', { ascending: false })),
-        one('runs', db.from('survival_runs').select('id, season_id, status, reject_reason, flags, score, wave, kills, hero, weapon, started_at, finished_at, server_duration_ms, client_duration_ms, client_version')
+        one('runs', db.from('survival_runs').select('id, season_id, status, reject_reason, flags, score, wave, kills, hero, weapon, started_at, finished_at, server_duration_ms, client_duration_ms, active_ms, client_version')
             .eq('wallet', wallet).order('started_at', { ascending: false }).limit(1000)),
         one('events', db.from('survival_events').select('id, at, level, kind, message, data, client_version').eq('wallet', wallet).order('at', { ascending: false }).limit(100)),
         one('payments', db.from('survival_payments').select('tx_hash, amount_ape, confirmed_at, credits_granted, created_at').eq('wallet', wallet).order('created_at', { ascending: false }).limit(100)),
@@ -156,7 +156,7 @@ async function detail(wallet: string) {
         rejected: runList.filter((r) => r.status === 'rejected').length,
         voided: runList.filter((r) => r.status === 'void').length,
         best: runList.reduce((m, r) => (r.status === 'finished' ? Math.max(m, r.score ?? 0) : m), 0),
-        playMs: runList.reduce((m, r) => m + (r.server_duration_ms ?? 0), 0),
+        playMs: runList.reduce((m, r) => m + ((r as { active_ms?: number | null }).active_ms ?? r.server_duration_ms ?? 0), 0),
         saveRuns: (profile as { runs?: number } | null)?.runs ?? 0,
     }
     return NextResponse.json({

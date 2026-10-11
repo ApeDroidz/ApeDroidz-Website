@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { authCaller, closedLine, flagsOf, ints, loadRun, noServer, readBody } from '@/lib/survivalRuns'
+import { activeOf, authCaller, closedLine, flagsOf, ints, loadRun, noServer, readBody } from '@/lib/survivalRuns'
 import { checkPulse } from '@/lib/survivalEnvelope'
 import { logEvent } from '@/lib/survivalLog'
 
@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
 
     const n = ints(body, ['wave', 'kills', 'score'])
     if (!n) return NextResponse.json({ ok: false, state: 'malformed' })
+    // Active play so far (lib/survivalRuns.ts activeOf): optional, never more than the wall clock.
+    const activeMs = activeOf(body, Date.now() - new Date(run.started_at).getTime())
 
     const prev = run.last_pulse_wave === null ? null
         : { wave: run.last_pulse_wave, kills: run.last_pulse_kills ?? 0, score: run.last_pulse_score ?? 0 }
@@ -66,6 +68,7 @@ export async function POST(req: NextRequest) {
         .update({
             last_pulse_at: new Date().toISOString(), last_pulse_wave: n.wave, last_pulse_kills: n.kills,
             last_pulse_score: n.score, pulse_count: run.pulse_count + 1,
+            ...(activeMs !== null ? { active_ms: activeMs } : {}),
             ...(fresh.length ? { flags: [...had, ...fresh] } : {}),
         })
         .eq('id', run.id).eq('status', 'started').select('id')

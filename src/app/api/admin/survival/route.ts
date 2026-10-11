@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
             .order('updated_at', { ascending: false }).limit(500),
         // Наигранное время — по ВСЕМ забегам, без сезонного среза: это вопрос
         // «сколько вообще наиграли», а не «сколько наиграли в этом сезоне».
-        db.from('survival_runs').select('server_duration_ms, client_duration_ms, wallet')
+        db.from('survival_runs').select('server_duration_ms, client_duration_ms, active_ms, wallet')
             .not('finished_at', 'is', null).order('started_at', { ascending: false }).limit(AGG_LIMIT),
     ])
     note('survival_board')(board); note('survival_events')(events); note('survival_runs.rejected')(rejectedRuns)
@@ -90,8 +90,9 @@ export async function GET(request: NextRequest) {
     // клиента), клиентская — запасной вариант для старых строк, где серверной
     // нет. Заодно самый долгий забег: по бете это был показатель на 4 с лишним
     // часа, и такие цифры видно сразу.
-    const durRows = (durations.data ?? []) as Array<{ server_duration_ms: number | null; client_duration_ms: number | null; wallet: string }>
-    const durOf = (r: { server_duration_ms: number | null; client_duration_ms: number | null }) => Math.max(0, r.server_duration_ms ?? r.client_duration_ms ?? 0)
+    const durRows = (durations.data ?? []) as Array<{ server_duration_ms: number | null; client_duration_ms: number | null; active_ms: number | null; wallet: string }>
+    // Active play first (pauses excluded, 11.10.2026); older runs have only the wall clock.
+    const durOf = (r: { server_duration_ms: number | null; client_duration_ms: number | null; active_ms: number | null }) => Math.max(0, r.active_ms ?? r.server_duration_ms ?? r.client_duration_ms ?? 0)
     const playtimeMs = durRows.reduce((s2, r) => s2 + durOf(r), 0)
     const longestRunMs = durRows.reduce((m, r) => Math.max(m, durOf(r)), 0)
 

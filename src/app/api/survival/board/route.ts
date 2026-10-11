@@ -102,13 +102,15 @@ async function build(only: 'pass' | 'all'): Promise<Record<string, unknown> | nu
     // (survival_season_best.run_id). Владелец, 20.09: колонка HERO в таблице.
     const runIds = rowsBest.map((b) => b.run_id).filter((id): id is string => !!id)
     const heroOf = new Map<string, string>()
-    // How long the best run lasted (the server's own clock), for the TIME column.
+    // How long the best run lasted, for the TIME column: its ACTIVE time (pauses excluded — owner,
+    // 11.10.2026), or the server's wall clock for a run from before active time was recorded.
     const msOf = new Map<string, number>()
     if (runIds.length) {
-        const { data: runs } = await supabaseAdmin.from('survival_runs').select('id, hero, server_duration_ms').in('id', runIds)
-        for (const r of (runs ?? []) as Array<{ id: string; hero: string | null; server_duration_ms: number | null }>) {
+        const { data: runs } = await supabaseAdmin.from('survival_runs').select('id, hero, server_duration_ms, active_ms').in('id', runIds)
+        for (const r of (runs ?? []) as Array<{ id: string; hero: string | null; server_duration_ms: number | null; active_ms: number | null }>) {
             if (r.hero) heroOf.set(r.id, r.hero)
-            if (r.server_duration_ms) msOf.set(r.id, Number(r.server_duration_ms))
+            const ms = r.active_ms ?? r.server_duration_ms
+            if (ms) msOf.set(r.id, Number(ms))
         }
     }
 

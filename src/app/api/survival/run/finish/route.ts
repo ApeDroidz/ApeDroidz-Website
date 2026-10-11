@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { authCaller, closedLine, flagsOf, ints, LATE_FLAG, loadRun, noServer, readBody, REFUNDED_FLAG, RESTORED_FLAG, type RunRow } from '@/lib/survivalRuns'
+import { activeOf, authCaller, closedLine, flagsOf, ints, LATE_FLAG, loadRun, noServer, readBody, REFUNDED_FLAG, RESTORED_FLAG, type RunRow } from '@/lib/survivalRuns'
 import { checkFinish, type Check } from '@/lib/survivalEnvelope'
 import { logEvent } from '@/lib/survivalLog'
 import { runAlreadyPaid, runReward, type RunReport } from '@/lib/survivalEconomy'
@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
     if (run.status !== 'started' && !lateFinishable(run)) return storedVerdict(run, caller.wallet)
 
     const n = ints(body, ['wave', 'kills', 'score', 'durationMs'])
+    /** The run's active time from the finish, capped by the server's clock (lib/survivalRuns.ts activeOf). */
+    const activeCol = (serverMs: number): { active_ms?: number } => { const a = activeOf(body, serverMs); return a !== null ? { active_ms: a } : {} }
     if (!n) return NextResponse.json({ ok: false, state: 'malformed' })
     const claim = n
     const wallet = caller.wallet
@@ -128,6 +130,7 @@ export async function POST(req: NextRequest) {
                 flags: [...new Set([...flagsOf(run), ...check.flags, ...wall])],
                 finished_at: new Date(now).toISOString(), server_duration_ms: serverDurationMs,
                 client_duration_ms: n.durationMs,
+                ...activeCol(serverDurationMs),
                 // The claimed numbers are stored for every verdict — a rejected run is evidence.
                 score: n.score, wave: n.wave, kills: n.kills,
                 verified: check.verdict === 'ok' ? 'envelope' : 'none',
@@ -163,7 +166,7 @@ export async function POST(req: NextRequest) {
     if (check.verdict !== 'ok') return storedVerdict(late, caller.wallet)
     const full = {
         score: n.score, wave: n.wave, kills: n.kills, finished_at: new Date(now).toISOString(),
-        server_duration_ms: serverDurationMs, client_duration_ms: n.durationMs, verified: 'envelope',
+        server_duration_ms: serverDurationMs, client_duration_ms: n.durationMs, verified: 'envelope', ...activeCol(serverDurationMs),
         flags: [...new Set([...flagsOf(late), ...check.flags, LATE_FLAG])],
     }
     if (late.status === 'void') {
