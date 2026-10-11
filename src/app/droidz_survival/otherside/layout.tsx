@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 export const metadata: Metadata = {
     title: 'Droidz Survival — Otherside cabinet',
     robots: { index: false, follow: false },
+    alternates: { canonical: null },
 }
 
 /**

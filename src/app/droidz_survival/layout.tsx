@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
+import { GAME_DESCRIPTION, GAME_TITLE } from '@/lib/seo'
 
 // The page itself is a client component (wallet hooks), so the link preview lives here.
 // The image is the beta cover from the game folder (art/DS_Beta_cover.jpg, 16:9) — the
@@ -20,8 +21,11 @@ const COVER = { url: '/droidz_survival/DS_Beta_cover.jpg', width: 1200, height: 
  * matcher), so neither the maintenance gate nor the beta gate stands in front of them.
  */
 export const metadata: Metadata = {
-    title: TITLE,
-    description: DESCRIPTION,
+    // Search reads the game by what it is (lib/seo.ts); the link preview keeps the beta's call (below).
+    title: GAME_TITLE,
+    description: GAME_DESCRIPTION,
+    alternates: { canonical: '/droidz_survival' },
+    keywords: ['Droidz Survival', 'ApeDroidz', 'roguelite', 'pixel game', 'web3 game', 'ApeChain game', 'play to earn', 'browser game', 'mobile game'],
     applicationName: 'Droidz Survival',
     manifest: '/droidz_survival/manifest.webmanifest',
     appleWebApp: {

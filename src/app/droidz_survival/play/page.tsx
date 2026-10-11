@@ -580,15 +580,19 @@ export default function DroidzSurvivalPlayPage() {
                             Droidz Survival
                         </a>
                     )}
-                    <div className={`relative mx-auto flex w-full max-w-md flex-col items-center justify-center gap-4 py-2 landscape:max-w-4xl landscape:flex-row landscape:gap-8 ${appMode ? 'min-h-full' : 'min-h-[calc(100%-2.5rem)]'}`}>
-                        <div className="shrink-0 text-center landscape:w-[38%]">
+                    {/* One column — the title over the card — everywhere but a phone on its side, which has
+                        no height for that and gets the two side by side. `landscape:` alone also caught every
+                        desktop window, where the 38 % title column was narrower than the title and the card
+                        ran over it (owner, 10.10.2026: «на десктопе экран выглядит странно, пока верифается»). */}
+                    <div className={`relative mx-auto flex w-full max-w-md flex-col items-center justify-center gap-6 py-2 md:max-w-xl md:gap-8 [@media(orientation:landscape)_and_(max-height:520px)]:max-w-4xl [@media(orientation:landscape)_and_(max-height:520px)]:flex-row [@media(orientation:landscape)_and_(max-height:520px)]:gap-8 ${appMode ? 'min-h-full' : 'min-h-[calc(100%-2.5rem)]'}`}>
+                        <div className={`shrink-0 text-center [@media(orientation:landscape)_and_(max-height:520px)]:w-[38%]`}>
                             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/45">Open Beta</p>
                             <h1 className="mt-2 text-3xl font-black uppercase leading-none tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] lg:text-5xl">
                                 <GlitchText text="Droidz Survival" />
                             </h1>
                             <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-white/40">Pixel roguelite · ApeChain</p>
                         </div>
-                        <div className="w-full rounded-2xl border border-white/10 bg-black/60 p-5 backdrop-blur-md landscape:max-w-md [@media(max-height:520px)]:p-4">
+                        <div className={`w-full max-w-md rounded-2xl border border-white/10 bg-black/60 p-5 backdrop-blur-md md:p-7 [@media(max-height:520px)]:p-4`}>
                             {door}
                         </div>
                     </div>

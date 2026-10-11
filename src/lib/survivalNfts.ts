@@ -41,7 +41,12 @@ export interface NftAvatar {
     contract: string
     tokenId: string
     name: string
+    /** What everyone draws: the copy in our bucket when there is one (`path`), else the token's own picture. */
     image: string
+    /** The copy in the bucket (lib/survivalAvatars.ts mirrorNftImage) — 10.10.2026 on. */
+    path?: string
+    /** The token's own picture, kept beside the copy. */
+    source?: string
 }
 export interface UploadAvatar {
     kind: 'upload'
@@ -250,5 +255,12 @@ export function avatarOf(v: unknown): Avatar | null {
     const tokenId = normTokenId(a.tokenId)
     const image = imageUrl(a.image)
     if (!CONTRACT_RE.test(contract) || !tokenId || !image) return null
-    return { kind: 'nft', contract, tokenId, name: typeof a.name === 'string' ? a.name.slice(0, 80) : '', image }
+    const name = typeof a.name === 'string' ? a.name.slice(0, 80) : ''
+    const path = typeof a.path === 'string' ? a.path : ''
+    // The copy, when the row has a valid one: the URL is built from the path, never read back.
+    if (UPLOAD_PATH_RE.test(path) && SUPABASE_URL) {
+        const source = imageUrl(a.source) ?? image
+        return { kind: 'nft', contract, tokenId, name, image: uploadUrl(path), path, source }
+    }
+    return { kind: 'nft', contract, tokenId, name, image }
 }

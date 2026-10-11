@@ -436,7 +436,7 @@ export interface RunReport {
  * The run's pay, from the VERIFIED run (score, wave, kills from the run row) and the capped report.
  * Returns the new state and what was paid. Called once per run, on its finish.
  */
-export function runReward(before: Econ, run: { score: number; wave: number; kills: number; durationMs: number; runId?: string }, rep: RunReport, ctx: { now: number }): { econ: Econ; paid: Record<string, unknown> } {
+export function runReward(before: Econ, run: { score: number; wave: number; kills: number; durationMs: number; runId?: string }, rep: RunReport, ctx: { now: number; noDaily?: boolean }): { econ: Econ; paid: Record<string, unknown> } {
     const x = clone(before)
     x.state = { ...x.state, ...economyOf(x.state) }
     const e = x.state
@@ -473,7 +473,9 @@ export function runReward(before: Econ, run: { score: number; wave: number; kill
     const today = dayKey(ctx.now)
     if (x.daily.runDay !== today) { x.daily.runDay = today; x.daily.runsPaid = 0; x.daily.runSxp = 0 }
     const DB = ECON.run.dailyBonus
-    const bonusRun = x.daily.runsPaid < DB.runs
+    // A run counted from its last pulse (lib/survivalRuns.ts payRestoredRun) is paid days later, maybe:
+    // it neither takes today's x2 nor uses one up (ctx.noDaily).
+    const bonusRun = !ctx.noDaily && x.daily.runsPaid < DB.runs
     const dailyMult = bonusRun ? DB.mult : 1
     if (dailyMult > 1) for (const r of RES) if (bag[r]) bag[r] = (bag[r] as number) * dailyMult
 
@@ -494,7 +496,7 @@ export function runReward(before: Econ, run: { score: number; wave: number; kill
     const room = Math.max(0, SC.perDay - x.daily.runSxp)
     const sxp = SC.enabled ? Math.min(sxpRun, room) + Math.floor(Math.max(0, sxpRun - room) * SC.rateAbove) : sxpRun
     x.daily.runSxp += sxpRun
-    x.daily.runsPaid += 1
+    if (!ctx.noDaily) x.daily.runsPaid += 1
     const daily = { applied: bonusRun, mult: dailyMult, left: Math.max(0, DB.runs - x.daily.runsPaid), runs: DB.runs }
 
     // The bestiary: species the server knows, no more kills than the run had; a first meeting pays.

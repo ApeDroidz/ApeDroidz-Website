@@ -1,5 +1,5 @@
 {
- "base": "https://assets.apedroidz.com/apedroidz/droidz-survival/v9/assets/img/",
+ "base": "https://assets.apedroidz.com/apedroidz/droidz-survival/v10/assets/img/",
  "heroes": {
   "goblin": {
    "name": "Gob",
@@ -526,22 +526,22 @@
    "branch": "EDGE"
   },
   "volt_blink": {
-   "name": "BLINK PROTOCOL",
-   "desc": "Start every run with Blink Cut on [Z].",
-   "file": "st_dash_lt.png",
+   "name": "BLADE PROTOCOL",
+   "desc": "Start every run with Thunder Blade on [Z].",
+   "file": "st_blade_lt.png",
    "max": 1,
    "branch": "EDGE"
   },
   "volt_keen": {
    "name": "KEEN EYE",
-   "desc": "+4% crit chance.",
+   "desc": "+3% crit chance.",
    "file": "st_crit_lt.png",
    "max": 2,
    "branch": "EDGE"
   },
   "volt_executioner": {
    "name": "EXECUTIONER",
-   "desc": "Crits hit +50% harder.",
+   "desc": "Crits hit +30% harder.",
    "file": "st_dmg_lt.png",
    "max": 1,
    "branch": "EDGE"
@@ -625,7 +625,7 @@
   },
   "gob_focus": {
    "name": "FOCUS",
-   "desc": "+5% damage.",
+   "desc": "+5% damage, bolts fly 4% further.",
    "file": "st_dmg_lt.png",
    "max": 3,
    "branch": "HEX"
@@ -667,7 +667,7 @@
   },
   "gob_volatile": {
    "name": "VOLATILE",
-   "desc": "Bolts splash 20 px wider, 10% harder.",
+   "desc": "Bolts splash 15 px wider, 7% harder.",
    "file": "st_glass_lt.png",
    "max": 2,
    "branch": "VENOM"
@@ -681,7 +681,7 @@
   },
   "gob_miasma": {
    "name": "MIASMA",
-   "desc": "Bolts splash 30 px wider.",
+   "desc": "Bolts splash 20 px wider.",
    "file": "st_glass_lt.png",
    "max": 2,
    "branch": "VENOM"

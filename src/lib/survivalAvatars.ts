@@ -107,3 +107,53 @@ export async function pruneUploads(wallet: string, keep: string | null): Promise
 export function isUploadAvatar(v: unknown): boolean {
     return !!v && typeof v === 'object' && (v as { kind?: unknown }).kind === 'upload'
 }
+
+/** How long the NFT's own host gets to hand its picture over, and how much of it is read. */
+const MIRROR_TIMEOUT_MS = 8000
+const MIRROR_MAX_BYTES = 8 * 1024 * 1024
+
+/**
+ * An NFT avatar's picture, copied into the bucket (owner, 10.10.2026: «в лидерборде не отображаются
+ * аватары»). The game draws avatars in WebGL, which takes a picture only when its host answers CORS:
+ * many NFT hosts don't (a Firebase bucket, some IPFS gateways), and those players showed a plate on
+ * every board. Our bucket always answers `Access-Control-Allow-Origin: *`, and the copy is a 256 px
+ * WebP instead of a 2 000 px PNG. Stored under the wallet's folder like an upload, so the same sweep
+ * (pruneUploads) removes it when the avatar changes.
+ *
+ * The URL is the indexer's (the token's metadata), not the player's — but metadata is anyone's to
+ * write, so only a public https host is fetched (no IP literals, no local names), with a timeout and
+ * a size cap, and the bytes must decode as a picture (toAvatarWebp). Null: keep the original URL.
+ */
+export async function mirrorNftImage(wallet: string, url: string): Promise<string | null> {
+    let u: URL
+    try { u = new URL(url) } catch { return null }
+    const host = u.hostname.toLowerCase()
+    if (u.protocol !== 'https:' || !host.includes('.') || /^[\d.]+$/.test(host) || host.includes(':')
+        || /(^|\.)(localhost|local|internal|lan)$/.test(host)) return null
+    const ctl = new AbortController()
+    const timer = setTimeout(() => ctl.abort(), MIRROR_TIMEOUT_MS)
+    try {
+        const res = await fetch(u, { signal: ctl.signal, redirect: 'follow', headers: { accept: 'image/*' } })
+        if (!res.ok || !res.body) return null
+        const declared = Number(res.headers.get('content-length') ?? '0')
+        if (declared > MIRROR_MAX_BYTES) return null
+        const chunks: Uint8Array[] = []
+        let size = 0
+        const reader = res.body.getReader()
+        for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            size += value.byteLength
+            if (size > MIRROR_MAX_BYTES) { void reader.cancel(); return null }
+            chunks.push(value)
+        }
+        const webp = await toAvatarWebp(Buffer.concat(chunks))
+        if (!webp) return null
+        const path = pathFor(wallet, webp)
+        return (await storeAvatar(path, webp)) ? path : null
+    } catch {
+        return null
+    } finally {
+        clearTimeout(timer)
+    }
+}

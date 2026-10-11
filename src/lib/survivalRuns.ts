@@ -6,6 +6,8 @@ import { createPlayToken, PLAY_COOKIE_NAME, PLAY_COOKIE_OPTIONS, readPlayToken }
 import { accessFor } from '@/lib/survivalAllow'
 import { checkFinish, MSG, restoredMessage, whyOf, type PulseState } from '@/lib/survivalEnvelope'
 import { logEvent } from '@/lib/survivalLog'
+import { runAlreadyPaid, runReward, type RunReport } from '@/lib/survivalEconomy'
+import { withEcon } from '@/lib/survivalEconomyStore'
 
 /**
  * Shared plumbing for /api/survival/run/* — who is asking, and the run row they are asking about.
@@ -237,17 +239,31 @@ export async function refundRunCredits(run: RunRow, reason: string): Promise<boo
 }
 
 /**
- * TODO(owner): the pay for a run counted from its last pulse (closeAbandoned). A finished run is
- * paid at its finish (runs/finish → lib/survivalEconomy.ts runReward) from the verified numbers
- * plus the game's report; a restored run has no report and no finish, so for now it is on the
- * board and pays NOTHING (no Ape Mini, salvage, season XP, quests). If its finish still arrives
- * (runs/finish, the late path) it is paid then, as usual. Decide whether a restored run should
- * pay from score/wave/kills alone, and wire it here — it is called once per restored run. If it
- * ever pays, the late finish (runs/finish, `accept`) pays the full run on top: it must then pay
- * only the difference, or a restored run that finishes late is paid twice.
+ * The pay for a run counted from its last pulse (closeAbandoned) — owner, 07.10.2026: «начислить по
+ * формуле» (a 207-wave run was closed from its pulse and paid nothing). The same formula and the same
+ * write as a finish (runs/finish → lib/survivalEconomy.ts runReward) from the verified score, wave
+ * and kills; there is no report, so nothing the report alone tells is paid (Ape Mini picked off the
+ * floor, salvage, bosses, the bestiary). The run id is written with the pay, so a finish that
+ * still arrives late (runs/finish, `accept`) finds it paid and pays nothing on top. Never throws:
+ * a failed pay is logged, the run stays on the board.
  */
 export async function payRestoredRun(run: RunRow, at: PulseState): Promise<void> {
-    void run; void at
+    try {
+        const durationMs = Math.max(0, Date.parse(run.last_pulse_at ?? run.started_at) - Date.parse(run.started_at))
+        const rep: RunReport = run.hero ? { hero: run.hero } : {}
+        const paid = await withEcon(run.wallet, run.season_id, (loaded) => {
+            if (runAlreadyPaid(loaded.econ, run.id)) return null
+            const x = runReward(loaded.econ, { score: at.score, wave: at.wave, kills: at.kills, durationMs, runId: run.id }, rep, { now: Date.now(), noDaily: true })
+            return { next: x.econ, out: x.paid }
+        })
+        if (!paid.ok) {
+            logEvent({ level: 'error', kind: 'economy.run_unpaid', wallet: run.wallet, runId: run.id, message: `restored: ${paid.error}` })
+        } else if (paid.out) {
+            logEvent({ level: 'info', kind: 'economy.run_paid', wallet: run.wallet, runId: run.id, message: `${(paid.out as { coins?: number }).coins ?? 0} mini (restored from the last pulse)`, data: { paid: paid.out, restored: true } })
+        }
+    } catch (e) {
+        logEvent({ level: 'error', kind: 'economy.run_unpaid', wallet: run.wallet, runId: run.id, message: `restored: ${(e as Error).message}` })
+    }
 }
 
 /** Integers from an untrusted JSON body, or null if any is not one. */

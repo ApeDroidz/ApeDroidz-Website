@@ -1,6 +1,9 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ADMIN_COOKIE_NAME, isAdminTokenValid } from '@/lib/adminAuth'
+import { toolMeta } from '@/lib/seo'
+
+export const metadata = { ...toolMeta('Admin'), robots: { index: false, follow: false } }
 
 /**
  * Server-side admin gate for the /spltpnl panel.

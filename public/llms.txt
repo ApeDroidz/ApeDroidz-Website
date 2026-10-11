@@ -1,0 +1,14 @@
+# ApeDroidz
+
+> ApeDroidz is an NFT collection of 3333 glitch-born Droidz on ApeChain. Every Droid starts as pixel art, upgrades into a fully animated version and ships with a 3D body made for Otherside. The project also makes Droidz Survival, a pixel roguelite on ApeChain with a real APE prize pool.
+
+## Main pages
+- [ApeDroidz — the collection](https://www.apedroidz.com/): the collection, honoraries (hand-made 1/1 Droidz), Otherside 3D bodies, holder tools.
+- [Droidz Survival — the game](https://www.apedroidz.com/droidz_survival): pixel roguelite; heroes, how to play, prize pool, season pass, leaderboard, FAQ.
+
+## Elsewhere
+- [ApeDroidz on X](https://x.com/ApeDroidz): announcements.
+- [ApeDroidz on OpenSea](https://opensea.io/collection/apedroidz): the collection on the marketplace.
+
+## Optional
+- [Full facts for assistants](https://www.apedroidz.com/llms-full.txt)

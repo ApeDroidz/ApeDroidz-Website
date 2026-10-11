@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { isTestSku, loadCatalog } from '@/lib/survivalShop'
 import { SurvivalLanding, type LandingPrice } from '@/components/survival/landing'
 import ECON from '@/lib/survivalEconomy.json'
+import { gameJsonLd, jsonLd } from '@/lib/seo'
 
 /**
  * /droidz_survival — the landing, for everyone, no sign-in (owner, 03.10.2026: «лендинг для всех в
@@ -48,5 +49,11 @@ const heroCosts: Record<string, number> = Object.fromEntries(
 
 export default async function DroidzSurvivalLandingPage() {
     const prices = await loadPrices()
-    return <SurvivalLanding prices={prices} heroCosts={heroCosts} />
+    return (
+        <>
+            {/* The game and its FAQ for search and answer engines (lib/seo.ts). */}
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(gameJsonLd()) }} />
+            <SurvivalLanding prices={prices} heroCosts={heroCosts} />
+        </>
+    )
 }

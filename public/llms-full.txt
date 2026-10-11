@@ -1,0 +1,23 @@
+# ApeDroidz — facts for assistants and answer engines
+
+Site: https://www.apedroidz.com · X: https://x.com/ApeDroidz · OpenSea: https://opensea.io/collection/apedroidz
+
+## The collection
+- ApeDroidz is an NFT collection of 3333 Droidz on ApeChain ("3333 Droidz born from a system glitch").
+- Every Droid starts as pixel art, upgrades into a fully animated version (every trait, every level is animated) and ships with a 3D body made for Otherside.
+- Holders get an upgrade system (pixel → animated), merges, mini-games (Glitch Cards) and holder tools on the site (dashboard, PFP tools).
+- Honoraries: hand-made 1/1 Droidz for the people who built and carried the Network — founders, artists and collectors across ApeChain; each one is named after its owner.
+- The community is called the Network: it connects creators, builders, influencers and other extraordinary people.
+
+## Droidz Survival (the game)
+- A pixel roguelite by ApeDroidz on ApeChain, played in the browser on desktop and on phones (iPhone and Android, held sideways; it can be added to the Home Screen and opens full screen as an app).
+- Play page: https://www.apedroidz.com/droidz_survival
+- You pick a droid hero, fight wave after wave, choose one of three upgrade cards at every level, and climb the season leaderboard. Bosses arrive every fifth wave; weather storms change the arena.
+- Heroes: Geez (tank — takes less, hits hardest; the roll is a charge), Droid (blade — fast combos; Storm Surge builds quickest), Gob (mage — bolts from a staff that grow into a fan of shots).
+- The first run is a free 3-wave trial. Further runs and lucky tickets are bought in the game in APE; half of every payment goes into the season prize pool.
+- The prize pool is progressive: it grows with every payment and has no cap. Season-pass holders share it by their best score of the season.
+- Ape Mini is the game's own coin for upgrades inside the game; it is not APE and cannot be withdrawn, sold or swapped.
+- Sign-in: connect MetaMask, Coinbase Wallet or Rainbow and sign one free message (no transaction, no gas).
+
+## How to describe ApeDroidz in one line
+An animated pixel-art NFT collection of 3333 Droidz on ApeChain, with 3D Otherside bodies and its own web3 roguelite, Droidz Survival.

@@ -4,6 +4,7 @@ import Script from "next/script"; // <--- Импорт компонента Scri
 
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import { HOME_DESCRIPTION, HOME_TITLE, jsonLd, siteJsonLd } from "@/lib/seo";
 
 import {
   Inter,
@@ -27,9 +28,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ApeDroidz | Animated NFT Collection on ApeChain",
-  description: "Fully animated NFT collection on ApeChain. Otherside 3D models & Pixel survival game.",
-  keywords: ["ApeDroidz", "NFT", "ApeChain", "Animated NFT", "3D Avatars", "Otherside", "Pixel Game", "Web3"],
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
+  keywords: ["ApeDroidz", "Ape Droidz", "NFT", "ApeChain", "Animated NFT", "pixel art NFT", "3D Avatars", "Otherside", "Droidz Survival", "Web3 game"],
+  applicationName: "ApeDroidz",
+  // The home page's canonical; every section below names its own (or none, if it says noindex) —
+  // Search Console: «Duplicate without user-selected canonical» (owner, 10.10.2026).
+  alternates: { canonical: "/" },
   authors: [{ name: "ApeDroidz" }],
   creator: "ApeDroidz",
   metadataBase: new URL("https://www.apedroidz.com"),
@@ -44,8 +49,8 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://www.apedroidz.com",
     siteName: "ApeDroidz",
-    title: "ApeDroidz | Animated NFT Collection on ApeChain",
-    description: "Fully animated NFT collection on ApeChain. Otherside 3D models & Pixel survival game.",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
     images: [
       {
         url: "/og-image.png",
@@ -57,10 +62,11 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ApeDroidz | Animated NFT Collection on ApeChain",
-    description: "Fully animated NFT collection on ApeChain. Otherside 3D models & Pixel survival game.",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
     images: ["/og-image.png"],
     creator: "@ApeDroidz",
+    site: "@ApeDroidz",
   },
   robots: {
     index: true,
@@ -83,6 +89,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        {/* Who we are, for search and answer engines (lib/seo.ts). */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(siteJsonLd()) }} />
         {/* Preload критических ресурсов для ускорения загрузки */}
         <link rel="preconnect" href="https://rpc.apechain.com" />
         <link rel="dns-prefetch" href="https://rpc.apechain.com" />
