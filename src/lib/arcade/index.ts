@@ -3,7 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { SITE_BASE, MEDIA_BASE } from '@/lib/media'
 import { poolApeOf } from '@/lib/survivalPoolLevels'
 import { ARCADE_MML_TEMPLATE } from './mml.template'
-import { BOARD_LAYOUT, BOARD_BASE_PNG, BOARD_DIGITS_PNG } from './board.assets'
+import { BOARD_LAYOUT, BOARD_BASE_PNG, BOARD_DIGITS_PNG, PRICE_LAYOUT, PRICE_BASE_PNG, PRICE_TILES_PNG } from './board.assets'
+import { loadCatalog } from '@/lib/survivalShop'
 
 /**
  * The Droidz Survival arcade cabinet for Otherside, served by the site.
@@ -15,10 +16,13 @@ import { BOARD_LAYOUT, BOARD_BASE_PNG, BOARD_DIGITS_PNG } from './board.assets'
  *   · the screen video — editable in the admin panel (site_settings.otherside_arcade.video_url),
  *     so a new clip needs no deploy (owner, 11.10.2026).
  *
+ *   · the run price on the deck front — an image of what a run costs NOW (catalog sku `run`, a running
+ *     sale already taken off, with a «-NN%» tag while it lasts): /api/otherside/arcade-price.png.
+ *
  * Modules live under an immutable versioned folder: the asset zone caches for a year and the token
  * cannot purge, so new models go to a new folder (bump ARCADE_ASSET_VERSION), never over the old.
  */
-export const ARCADE_ASSET_VERSION = 'v2'
+export const ARCADE_ASSET_VERSION = 'v3'
 export const ARCADE_ASSET_BASE = `${MEDIA_BASE}/apedroidz/3D-objects/arcade/${ARCADE_ASSET_VERSION}/`
 export const ARCADE_MML_URL = `${SITE_BASE}/api/otherside/arcade.mml`
 const DEFAULT_VIDEO = `${MEDIA_BASE}/apedroidz/droidz-survival/media/beta-announce.mp4`
@@ -77,12 +81,32 @@ export async function getLivePoolApe(): Promise<number | null> {
     return poolMemo.value
 }
 
+export type RunPrice = { price: number; salePct: number }
+let priceMemo: { until: number; value: Promise<RunPrice | null> } | null = null
+
+/** What one solo run costs right now (catalog `run`, sale applied by loadCatalog); null = not on sale. */
+export async function getRunPrice(): Promise<RunPrice | null> {
+    const now = Date.now()
+    if (!priceMemo || priceMemo.until < now) {
+        priceMemo = {
+            until: now + MEMO_MS,
+            value: loadCatalog(true).then((items) => {
+                const run = items.find((i) => i.sku === 'run')
+                return run ? { price: run.price_ape, salePct: run.sale_pct } : null
+            }).catch(() => null),
+        }
+    }
+    return priceMemo.value
+}
+
 const attr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 
 /** The cabinet's MML with the module folder, the board image for this sum and the video. */
-export function buildArcadeMml(pool: number | null, settings: ArcadeSettings): string {
+export function buildArcadeMml(pool: number | null, settings: ArcadeSettings, price: RunPrice | null = null): string {
     const p = pool === null ? 'none' : String(Math.floor(pool))
+    const pr = price === null ? 'none' : `${price.price}-${price.salePct}`
     return ARCADE_MML_TEMPLATE
+        .split('{{PRICE}}').join(attr(`${SITE_BASE}/api/otherside/arcade-price.png?p=${pr}`))
         .split('{{BASE}}').join(ARCADE_ASSET_BASE)
         .split('{{POOL}}').join(attr(`${SITE_BASE}/api/otherside/arcade-pool.png?p=${p}`))
         .split('{{VIDEO}}').join(attr(settings.videoUrl))
@@ -116,4 +140,41 @@ export async function renderPoolBoard(pool: number | null): Promise<Buffer> {
         x += t.adv * k
     }
     return sharp(Buffer.from(BOARD_BASE_PNG, 'base64')).composite(layers).png({ compressionLevel: 9 }).toBuffer()
+}
+
+const fmtPrice = (n: number) => String(Math.round(n * 100) / 100)
+
+/**
+ * The deck's price strip as a PNG: «[coin] 1 RUN = <price> APE», plus a red «-NN%» tag while a sale
+ * runs. The base and the glyph tiles are pre-drawn in the game font (3D/Arcade/scripts/board_assets.py).
+ */
+export async function renderPriceStrip(price: RunPrice | null): Promise<Buffer> {
+    const L = PRICE_LAYOUT
+    const T = L.tiles as unknown as Record<string, { adv: number; w: number; h: number }>
+    const tile = (k: string) => Buffer.from(PRICE_TILES_PNG[k], 'base64')
+    const layers: sharp.OverlayOptions[] = []
+    let x: number = L.x0
+    const mid = L.h / 2
+    const base = mid + L.glyph_h / 2          // the price sits on one baseline (the dot too)
+    const put = (key: string, file: string, cy: number, onBase = false) => {
+        const t = T[key]
+        layers.push({ input: tile(file), left: Math.round(x), top: Math.round(onBase ? base - t.h : cy - t.h / 2) })
+        x += t.adv
+    }
+    if (price) {
+        for (const c of fmtPrice(price.price)) put(c === '.' ? 'dot' : c, c === '.' ? 'dot' : c, mid, true)
+        x += L.gap
+        put('ape', 'ape', mid, true)
+        if (price.salePct > 0) {
+            x += L.gap
+            const label = `-${Math.round(price.salePct)}%`
+            const keys = [...label].map((c) => 's_' + (c === '-' ? 'minus' : c === '%' ? 'pct' : c))
+            const w = keys.reduce((a, k) => a + T[k].adv, 0) + 24
+            const h = Math.max(...keys.map((k) => T[k].h)) + 16
+            layers.push({ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" rx="10" fill="#F92C2C"/></svg>`), left: Math.round(x), top: Math.round(mid - h / 2) })
+            x += 12
+            for (const k of keys) put(k, k, mid)
+        }
+    }
+    return sharp(Buffer.from(PRICE_BASE_PNG, 'base64')).composite(layers).png({ compressionLevel: 9 }).toBuffer()
 }

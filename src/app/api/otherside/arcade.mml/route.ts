@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { buildArcadeMml, getArcadeSettings, getLivePoolApe } from '@/lib/arcade'
+import { buildArcadeMml, getArcadeSettings, getLivePoolApe, getRunPrice } from '@/lib/arcade'
 
 /**
  * GET /api/otherside/arcade.mml — the Droidz Survival arcade cabinet for Otherside (static MML).
- * Rebuilt per request: the board image URL carries the live pool sum, the screen plays the video
+ * Rebuilt per request: the board and price image URLs carry the live pool sum and run price, the screen plays the video
  * set in the admin panel. Same no-store headers as the avatar MML (api/mml/[id]) so Otherside
  * always gets the current document.
  */
@@ -24,6 +24,6 @@ export function OPTIONS() {
 }
 
 export async function GET() {
-    const [pool, settings] = await Promise.all([getLivePoolApe(), getArcadeSettings()])
-    return new NextResponse(buildArcadeMml(pool, settings), { headers })
+    const [pool, settings, price] = await Promise.all([getLivePoolApe(), getArcadeSettings(), getRunPrice()])
+    return new NextResponse(buildArcadeMml(pool, settings, price), { headers })
 }
