@@ -152,29 +152,45 @@ export async function renderPriceStrip(price: RunPrice | null): Promise<Buffer> 
     const L = PRICE_LAYOUT
     const T = L.tiles as unknown as Record<string, { adv: number; w: number; h: number }>
     const tile = (k: string) => Buffer.from(PRICE_TILES_PNG[k], 'base64')
-    const layers: sharp.OverlayOptions[] = []
-    let x: number = L.x0
-    const mid = L.h / 2
+    // 1. the row on a transparent strip, left to right: [coin] 1 RUN = <price> APE [-NN%]
+    const rowH = 100
+    const mid = rowH / 2
     const base = mid + L.glyph_h / 2          // the price sits on one baseline (the dot too)
-    const put = (key: string, file: string, cy: number, onBase = false) => {
+    const layers: sharp.OverlayOptions[] = []
+    let x = 0
+    const put = (key: string, onBase = false) => {
         const t = T[key]
-        layers.push({ input: tile(file), left: Math.round(x), top: Math.round(onBase ? base - t.h : cy - t.h / 2) })
+        layers.push({ input: tile(key), left: Math.round(x), top: Math.round(onBase ? base - t.h : mid - t.h / 2) })
         x += t.adv
     }
+    put('lead')
     if (price) {
-        for (const c of fmtPrice(price.price)) put(c === '.' ? 'dot' : c, c === '.' ? 'dot' : c, mid, true)
         x += L.gap
-        put('ape', 'ape', mid, true)
+        for (const c of fmtPrice(price.price)) put(c === '.' ? 'dot' : c, true)
+        x += L.gap
+        put('ape', true)
         if (price.salePct > 0) {
             x += L.gap
-            const label = `-${Math.round(price.salePct)}%`
-            const keys = [...label].map((c) => 's_' + (c === '-' ? 'minus' : c === '%' ? 'pct' : c))
+            const keys = [...`-${Math.round(price.salePct)}%`].map((c) => 's_' + (c === '-' ? 'minus' : c === '%' ? 'pct' : c))
             const w = keys.reduce((a, k) => a + T[k].adv, 0) + 24
             const h = Math.max(...keys.map((k) => T[k].h)) + 16
             layers.push({ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" rx="10" fill="#F92C2C"/></svg>`), left: Math.round(x), top: Math.round(mid - h / 2) })
             x += 12
-            for (const k of keys) put(k, k, mid)
+            for (const k of keys) put(k)
+            x += 12
         }
     }
-    return sharp(Buffer.from(PRICE_BASE_PNG, 'base64')).composite(layers).png({ compressionLevel: 9 }).toBuffer()
+    const rowW = Math.ceil(x)
+    let row = await sharp({ create: { width: rowW, height: rowH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+        .composite(layers).png().toBuffer()
+    // 2. centred on the frame; a row wider than the frame shrinks to fit
+    const maxW = L.w - 2 * L.margin
+    let w = rowW, h = rowH
+    if (rowW > maxW) {
+        w = maxW; h = Math.round(rowH * maxW / rowW)
+        row = await sharp(row).resize(w, h, { kernel: 'nearest' }).toBuffer()
+    }
+    return sharp(Buffer.from(PRICE_BASE_PNG, 'base64'))
+        .composite([{ input: row, left: Math.round((L.w - w) / 2), top: Math.round((L.h - h) / 2) }])
+        .png({ compressionLevel: 9 }).toBuffer()
 }
