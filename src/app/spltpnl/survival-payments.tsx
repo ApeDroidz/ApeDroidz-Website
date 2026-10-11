@@ -6,6 +6,7 @@ import { CopyWallet } from './survival-players'
 import { SurvivalCatalog } from './survival-catalog'
 import { SurvivalTickets } from './survival-tickets'
 import { SurvivalPoolPrizes } from './survival-pool-prizes'
+import { OthersideArcade } from './otherside-arcade'
 
 /**
  * Droidz Survival → Payments (owner, 24.09.2026): every payment, and what the money did —
@@ -252,6 +253,10 @@ export function SurvivalPayments() {
 
             <Box title="Prize pool — NFT prizes" hint="NFTs on top of the APE: a place on the board, the pool level that opens them">
                 <SurvivalPoolPrizes />
+            </Box>
+
+            <Box title="Otherside arcade" hint="the cabinet's screen video and its MML link for Otherside">
+                <OthersideArcade />
             </Box>
 
             <Box title="APE paid per day" hint="last 30 days, by mode">
