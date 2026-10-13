@@ -63,6 +63,10 @@ function CameraRig({
     // половине рядом с лором. На телефоне он стоит по центру — сдвиг камеры
     // вбок вытолкнул бы его за край кадра.
     const sideOffset = isMobile ? 0 : 1.15
+    // Телефон, акт 1: над дроидом теперь анонс беты (видео, пул, PLAY) — кадр
+    // сдвинут вверх (камера и точка взгляда вместе), дроид стоит ниже кнопок.
+    // К крупному плану сдвиг сходит на нет.
+    const lift = (isMobile ? 0.8 : 0) * (1 - shift)
 
     if (!arrived) {
       target.copy(cam.far)
@@ -71,13 +75,14 @@ function CameraRig({
       // На крупном плане подъезжаем вбок к дроиду, иначе он уходит за край.
       target.x += (droidFocus.x - sideOffset) * shift
     }
+    target.y += lift
 
     camera.position.x = THREE.MathUtils.damp(camera.position.x, target.x, 2.2, delta)
     camera.position.y = THREE.MathUtils.damp(camera.position.y, target.y, 2.2, delta)
     camera.position.z = THREE.MathUtils.damp(camera.position.z, target.z, 2.2, delta)
 
     // Наводка: от центра сцены к груди дроида по мере наезда.
-    lookAt.set((droidFocus.x - sideOffset) * shift, THREE.MathUtils.lerp(0, droidFocus.y, shift), 0)
+    lookAt.set((droidFocus.x - sideOffset) * shift, THREE.MathUtils.lerp(0, droidFocus.y, shift) + lift, 0)
     lookCurrent.x = THREE.MathUtils.damp(lookCurrent.x, lookAt.x, 2.2, delta)
     lookCurrent.y = THREE.MathUtils.damp(lookCurrent.y, lookAt.y, 2.2, delta)
     camera.lookAt(lookCurrent)
