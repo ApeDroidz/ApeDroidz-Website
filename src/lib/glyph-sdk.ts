@@ -93,13 +93,28 @@ export class GlyphSDK {
 
     verifyEnvironment(): { valid: boolean; reason?: string } {
         if (window.parent === window) return { valid: false, reason: 'Not running inside an iframe' }
+        // A page the Hub opened, reloaded in place (the game picking up a new build, 15.10.2026),
+        // carries our own origin as its referrer: accepted only in a tab where the Hub's own
+        // opening already passed. The guard that matters stays as it is — every message goes to
+        // the Hub's origin only and only the Hub's origin is listened to.
+        const KEY = 'glyph.env.ok'
         if (document.referrer) {
             try {
-                if (new URL(document.referrer).origin !== this.hubOrigin) return { valid: false, reason: 'Referrer origin does not match expected Hub origin' }
+                const from = new URL(document.referrer).origin
+                if (from !== this.hubOrigin) {
+                    let seen = false
+                    try { seen = sessionStorage.getItem(KEY) === this.hubOrigin } catch { /* storage off */ }
+                    // Chromium (the Otherside client too) names the frame's ancestors outright: a
+                    // parent that IS the Hub is the real thing, whoever reloaded the page.
+                    const anc = (window.location as Location & { ancestorOrigins?: DOMStringList }).ancestorOrigins
+                    const hubParent = !!anc && anc.length > 0 && anc[0] === this.hubOrigin
+                    if (!(from === window.location.origin && (seen || hubParent))) return { valid: false, reason: 'Referrer origin does not match expected Hub origin' }
+                }
             } catch {
                 return { valid: false, reason: 'Could not parse referrer URL' }
             }
         }
+        try { sessionStorage.setItem(KEY, this.hubOrigin) } catch { /* storage off */ }
         return { valid: true }
     }
 
