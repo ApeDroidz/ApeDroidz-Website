@@ -10,7 +10,8 @@ import { seasonVisibleFor } from '@/lib/survivalAccess'
  * GET /api/survival/credits → { ok, credits: { solo, coop }, booked, paidRuns, shop: { configured, items } }
  * `items` is the live price list (survival_catalog, active rows) — the game shows these prices.
  *
- * How many runs the player has paid for and not yet played. Books any order that was paid but
+ * How many runs the player has paid for and not yet played — a new wallet's three free welcome
+ * runs included (granted here, on its first read). Books any order that was paid but
  * never reported first (lib/survivalSettle.ts settlePending), so a closed tab never costs a run.
  * `paidRuns` says whether starting a run needs a credit right now (SURVIVAL_PAID_RUNS=1).
  */
@@ -35,6 +36,10 @@ export async function GET(req: NextRequest) {
         within(settlePending(caller.wallet).catch(() => 0), 2500, 0),
         needHolder ? within(isDroidHolder(caller.wallet).catch(() => false), 2000, false) : Promise.resolve(false),
     ])
+    // A new player's three free full runs (owner, 15.10.2026), granted on the first read — once per
+    // wallet, never to one that already played (survival_grant_welcome).
+    const welcome = await supabaseAdmin.rpc('survival_grant_welcome', { p_wallet: caller.wallet, p_n: 3 })
+    if (welcome.error) console.warn('[survival/credits] welcome', welcome.error.message)
     const { data, error } = await supabaseAdmin.from('survival_credits').select('mode')
         .eq('wallet', caller.wallet).is('consumed_by_run', null).limit(10_000)
     if (error) { console.error('[survival/credits]', error.message); return noServer('credits', error.message) }
