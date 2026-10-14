@@ -138,7 +138,7 @@ export function HeroSection() {
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
         {/* Слой 1: анонс публичной беты Droidz Survival (владелец, 13.10.2026):
             заголовок, видео-анонс, живой пул и PLAY. Дроид материализуется ПОВЕРХ
-            заголовка, как и раньше; «Check Your Droidz» осталась второй кнопкой. */}
+            заголовка, как и раньше. */}
         <motion.div
           style={{ opacity: headlineOpacity, y: headlineY, display: headlineGone ? "none" : undefined }}
           className="absolute inset-0 z-30 flex flex-col items-center md:items-start justify-start md:justify-center pt-[max(10dvh,80px)] md:pt-[84px] md:pb-[2dvh] px-5 md:pl-[7vw] md:pr-6 text-center md:text-left"
@@ -215,11 +215,10 @@ export function HeroSection() {
               >
                 <Play size={15} fill="currentColor" /> Play
               </a>
-              <Link href="/dashboard" className={`${GHOST_BTN} flex-1 md:flex-none whitespace-nowrap px-5 md:px-7 py-3 md:py-4 text-[11px] md:text-xs`}>
-                {/* На телефоне коротко — полное название переносилось в две строки. */}
-                <span className="md:hidden">My Droidz</span>
-                <span className="hidden md:inline">Check Your Droidz</span>
-                <ArrowUpRight size={15} />
+              {/* Вторая кнопка — подробности об игре на её лендинге (владелец, 14.10.2026;
+                  была «Check Your Droidz»). */}
+              <Link href="/droidz_survival" className={`${GHOST_BTN} flex-1 md:flex-none whitespace-nowrap px-5 md:px-7 py-3 md:py-4 text-[11px] md:text-xs`}>
+                Game Details <ArrowUpRight size={15} />
               </Link>
             </div>
           </motion.div>

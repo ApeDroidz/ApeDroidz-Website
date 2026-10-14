@@ -266,8 +266,6 @@ const LANDING_CSS = `
 .ds-runner { left: var(--lm); }
 @media (min-width: 768px) { .ds-runner { left: var(--ld); } }
 @keyframes ds-sprite { from { background-position: 0 0; } to { background-position: var(--ds-end) 0; } }
-.ds-glint { left: -4rem; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent); animation: ds-glint 2.8s ease-in-out infinite; }
-@keyframes ds-glint { 0% { left: -4rem; } 60%, 100% { left: 100%; } }
 .ds-flow { stroke-dasharray: 4 6; animation: ds-flow 1.2s linear infinite; }
 @keyframes ds-flow { to { stroke-dashoffset: -10; } }
 .ds-pass { animation: ds-pass 6s ease-in-out infinite; transform-style: preserve-3d; }
@@ -275,6 +273,6 @@ const LANDING_CSS = `
 .ds-pass-sweep::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 28%; left: -40%; transform: skewX(-18deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent); animation: ds-sweep 3.2s ease-in-out infinite; }
 @keyframes ds-sweep { 0% { left: -40%; } 45%, 100% { left: 120%; } }
 @media (prefers-reduced-motion: reduce) {
-  .ds-sprite, .ds-glint, .ds-flow, .ds-pass, .ds-pass-sweep::after, .ds-floor, .ds-par { animation: none !important; }
+  .ds-sprite, .ds-flow, .ds-pass, .ds-pass-sweep::after, .ds-floor, .ds-par { animation: none !important; }
 }
 `

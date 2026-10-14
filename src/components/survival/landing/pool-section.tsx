@@ -148,9 +148,8 @@ function PoolBlock({ pool, prices, tickets, now }: { pool: Pool | null | undefin
             {/* The bar to the next level, the levels on the way marked on it. */}
             <div className="mt-9">
                 <div className="relative h-3 rounded-full bg-white/[0.08]" role="progressbar" aria-valuemin={0} aria-valuemax={goal} aria-valuenow={amount} aria-label="Prize pool toward the next level">
-                    <div className="relative h-full overflow-hidden rounded-full" style={{ width: `${Math.max(pct, pool ? 2 : 0)}%`, background: BLUE }}>
-                        <span aria-hidden className="ds-glint absolute inset-y-0 w-16" />
-                    </div>
+                    {/* The batteries mint's bar, exactly (owner, 12.10.2026): its gradient and its running glint (globals.css .progress-pulse). */}
+                    <div className="progress-pulse h-full rounded-full" style={{ width: `${Math.max(pct, pool ? 2 : 0)}%` }} />
                     {ticks.map((m) => (
                         <span key={m} aria-hidden className="absolute top-1/2 h-5 w-px -translate-y-1/2 bg-white/70" style={{ left: `${(m / goal) * 100}%` }} />
                     ))}
