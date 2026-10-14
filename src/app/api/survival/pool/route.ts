@@ -27,8 +27,17 @@ let memo: { until: number; body: Promise<Record<string, unknown> | null> } | nul
 const MEMO_MS = 30_000
 const HEADERS = { 'cache-control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60' }
 
-export async function GET() {
+export async function GET(req: Request) {
     if (!supabaseAdmin) return new NextResponse(null, { status: 204 })
+    // `?fresh=1`: right after a payment the game asks past both caches (15.10.2026: a 1 APE ticket
+    // from the cabinet showed in the pool only a minute later). One rpc, so it is cheap; the answer
+    // is not stored at the edge, and it refreshes this instance's memo for everyone else.
+    if (new URL(req.url).searchParams.get('fresh') === '1') {
+        const body = await build().catch(() => null)
+        if (!body) return new NextResponse(null, { status: 204 })
+        memo = { until: Date.now() + MEMO_MS, body: Promise.resolve(body) }
+        return NextResponse.json(body, { headers: { 'cache-control': 'no-store' } })
+    }
     const now = Date.now()
     if (!memo || memo.until < now) memo = { until: now + MEMO_MS, body: build().catch(() => null) }
     const body = await memo.body

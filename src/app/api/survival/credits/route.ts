@@ -7,7 +7,7 @@ import { isDroidHolder } from '@/lib/droidHolder'
 import { seasonVisibleFor } from '@/lib/survivalAccess'
 
 /**
- * GET /api/survival/credits → { ok, credits: { solo, coop }, booked, paidRuns, shop: { configured, items } }
+ * GET /api/survival/credits → { ok, credits: { solo, coop, free }, booked, paidRuns, shop: { configured, items } }
  * `items` is the live price list (survival_catalog, active rows) — the game shows these prices.
  *
  * How many runs the player has paid for and not yet played — a new wallet's three free welcome
@@ -40,11 +40,15 @@ export async function GET(req: NextRequest) {
     // wallet, never to one that already played (survival_grant_welcome).
     const welcome = await supabaseAdmin.rpc('survival_grant_welcome', { p_wallet: caller.wallet, p_n: 3 })
     if (welcome.error) console.warn('[survival/credits] welcome', welcome.error.message)
-    const { data, error } = await supabaseAdmin.from('survival_credits').select('mode')
+    const { data, error } = await supabaseAdmin.from('survival_credits').select('mode, source')
         .eq('wallet', caller.wallet).is('consumed_by_run', null).limit(10_000)
     if (error) { console.error('[survival/credits]', error.message); return noServer('credits', error.message) }
-    const rows = (data as Array<{ mode: string }> | null) ?? []
-    const credits = { solo: rows.filter((r) => r.mode === 'solo').length, coop: rows.filter((r) => r.mode === 'coop').length }
+    const rows = (data as Array<{ mode: string; source: string }> | null) ?? []
+    // `free`: of the solo runs, the welcome gift still unplayed — the game says «FREE RUNS» for them.
+    const credits = {
+        solo: rows.filter((r) => r.mode === 'solo').length, coop: rows.filter((r) => r.mode === 'coop').length,
+        free: rows.filter((r) => r.mode === 'solo' && r.source === 'welcome').length,
+    }
     const holder = catalog.some((i) => i.holder_discount_pct > 0) && holderNow
     return NextResponse.json({
         ok: true, credits, booked, paidRuns: process.env.SURVIVAL_PAID_RUNS === '1',
