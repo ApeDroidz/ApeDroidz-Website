@@ -1,8 +1,8 @@
 'use client'
 
-import { Gift, Lock, Sparkles, Trophy } from 'lucide-react'
-import { LABEL_CLASS, Reveal } from '@/components/landing/ui'
-import { Ape, ape, POOL_SEASON, POOL_SHARE, Section, type LandingPrice } from './shared'
+import { Gift, Sparkles, Ticket, Trophy } from 'lucide-react'
+import { ACCENT_BTN, LABEL_CLASS, Reveal } from '@/components/landing/ui'
+import { Ape, ape, PlayLink, POOL_SEASON, POOL_SHARE, Section, type LandingPrice } from './shared'
 
 // One short line each (owner, 04.10.2026: «текста слишком много»). From the game: the pool goes to
 // pass holders (config/season.ts), a PASS reward on every tier, four spark colours only the pass gives.
@@ -16,7 +16,8 @@ const PASS_PERKS: Array<{ icon: typeof Trophy; title: string; line: string }> = 
  * The season pass (owner, 03.10.2026: «больше акцента — картинка, что даёт, цена, что 50% цены
  * уходит в пул»). The card is the game's sealed pass (ui/seasonTeaser.ts sealedFace, redrawn to a
  * PNG from the same gold ramp: public/droidz_survival/landing/pass-card.png). The price is the live
- * catalog's; the sale is not open yet («Soon»).
+ * catalog's. Since Season 1 (14.10.2026) the pass is on sale — bought in the game's Season screen,
+ * so the button opens the game.
  */
 export function PassSection({ prices }: { prices: LandingPrice[] }) {
     const pass = prices.find((p) => p.kind === 'season_pass')
@@ -25,7 +26,7 @@ export function PassSection({ prices }: { prices: LandingPrice[] }) {
     return (
         <Section id="pass" label="Season pass" title="The pass is your ticket to the pool">
             <Reveal>
-                {/* The order the eye takes: the card — the price — three perks — «Soon». */}
+                {/* The order the eye takes: the card — the price — three perks — get it. */}
                 <div className="grid items-center gap-10 rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-14">
                     <div className="flex justify-center py-2">
                         <div className="ds-pass relative" style={{ width: 'clamp(160px, 20vw, 220px)', aspectRatio: '168 / 228' }}>
@@ -58,10 +59,10 @@ export function PassSection({ prices }: { prices: LandingPrice[] }) {
                             ))}
                         </ul>
 
-                        <span className="mt-9 inline-flex cursor-not-allowed select-none items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-6 py-4 text-sm font-black uppercase tracking-widest text-[#6a6a6a]">
-                            {/* a solid colour, not opacity: the lock's shackle overlaps its body */}
-                            <Lock size={15} className="text-[#6a6a6a]" /> Soon · opens with Season {POOL_SEASON}
-                        </span>
+                        <PlayLink testId="play-pass" className={`${ACCENT_BTN} mt-9`}>
+                            <Ticket className="h-4 w-4" /> Get the pass
+                        </PlayLink>
+                        <p className="mt-3 text-xs text-white/40">In the game: menu → Season.</p>
                     </div>
                 </div>
             </Reveal>

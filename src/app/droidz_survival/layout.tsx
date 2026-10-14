@@ -5,8 +5,8 @@ import { GAME_DESCRIPTION, GAME_TITLE } from '@/lib/seo'
 // The page itself is a client component (wallet hooks), so the link preview lives here.
 // The image is the beta cover from the game folder (art/DS_Beta_cover.jpg, 16:9) — the
 // owner, 19.09: «когда я скидываю ссылку на дроидз сервайвал, поставить картинку-заглушку».
-const TITLE = 'Droidz Survival — OPEN BETA is LIVE | ApeDroidz'
-const DESCRIPTION = 'Pixel roguelite on ApeChain. Pick a droid, survive the waves, climb the season board. Open beta — connect a wallet and play.'
+const TITLE = 'Droidz Survival — SEASON 1 is LIVE | ApeDroidz'
+const DESCRIPTION = 'Pixel roguelite on ApeChain. Pick a droid, survive the waves, climb the Season 1 board for the APE prize pool — connect a wallet and play.'
 const COVER = { url: '/droidz_survival/DS_Beta_cover.jpg', width: 1200, height: 675, alt: 'Droidz Survival — a droid raising its blade' }
 
 /**

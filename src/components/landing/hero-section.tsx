@@ -184,10 +184,10 @@ export function HeroSection() {
 
             <GlitchReveal play={headlinePlay} durationMs={760} delayMs={240} onComplete={onHeadlineDone}>
               {headlineDone ? (
-                <GlitchText text="Public Beta is Live" className={`font-bold tracking-tight ${isNarrow ? "text-[7.6vw]" : "text-[clamp(1.9rem,4.1vw,4rem)]"}`} />
+                <GlitchText text="Season 1 is Live" className={`font-bold tracking-tight ${isNarrow ? "text-[7.6vw]" : "text-[clamp(1.9rem,4.1vw,4rem)]"}`} />
               ) : (
                 <span className={`block font-bold tracking-tight ${isNarrow ? "text-[7.6vw]" : "text-[clamp(1.9rem,4.1vw,4rem)]"}`}>
-                  Public Beta is Live
+                  Season 1 is Live
                 </span>
               )}
             </GlitchReveal>

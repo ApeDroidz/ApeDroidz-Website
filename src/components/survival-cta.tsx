@@ -21,7 +21,8 @@ const ANNOUNCE_POSTER = 'https://assets.apedroidz.com/apedroidz/droidz-survival/
 // кто закрыл первую версию.
 // v3 (28.09): open beta — баннер снова показывается всем, кто закрыл «Closed beta».
 // v4 (04.10): «Public Beta is Live» — показать снова тем, кто закрыл прошлый.
-const DISMISS_KEY = 'apedroidz.cta-survival.dismissed.v4'
+// v5 (14.10): «Season 1 is Live» — показать снова тем, кто закрыл бету.
+const DISMISS_KEY = 'apedroidz.cta-survival.dismissed.v5'
 
 function SurvivalCTAComponent() {
     const [isDismissed, setIsDismissed] = useState(false)
@@ -90,7 +91,7 @@ function SurvivalCTAComponent() {
                             loop
                             playsInline
                             preload="metadata"
-                            aria-label="Droidz Survival beta announce"
+                            aria-label="Droidz Survival Season 1"
                             className="absolute inset-0 h-full w-full object-cover"
                         />
                         <div
@@ -98,7 +99,7 @@ function SurvivalCTAComponent() {
                             style={{ boxShadow: "inset 0 0 18px rgba(0,0,0,0.55)" }}
                         />
                         <span className="absolute top-1.5 left-1.5 rounded-full border border-white/15 bg-black/60 px-1.5 py-0.5 font-mono text-[7px] sm:text-[8px] uppercase tracking-widest text-white/70">
-                            Public beta
+                            Season 1
                         </span>
                     </div>
                 </div>
@@ -108,8 +109,8 @@ function SurvivalCTAComponent() {
                     {/* Одной строкой (владелец, 19.09). whitespace-nowrap, чтобы узкая
                         карточка на телефоне не переносила «is Live» обратно вниз. */}
                     <h3 className="whitespace-nowrap text-[12px] sm:text-[15px] md:text-[18px] font-black text-white leading-none tracking-tight uppercase">
-                        {/* «Public beta is live» (owner, 04.10.2026). */}
-                        Public Beta{' '}
+                        {/* «Season 1 is live» (14.10.2026; was «Public beta is live»). */}
+                        Season 1{' '}
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-white">
                             is Live
                         </span>

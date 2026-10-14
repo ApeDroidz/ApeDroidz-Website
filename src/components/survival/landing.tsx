@@ -90,7 +90,7 @@ export function SurvivalLanding({ prices, heroCosts = {} }: { prices: LandingPri
                                 {/* Just words and a green «live» dot — the page's only green (owner, 04.10.2026). */}
                                 <span data-testid="season-status" className="inline-flex w-fit items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.25em] text-white/85">
                                     <LiveDot color="#34D399" />
-                                    {seasonLive ? `${pool!.seasonName} · Live` : 'Open beta · Live'}
+                                    {seasonLive ? `${pool!.seasonName} · Live` : `Season ${POOL_SEASON} · Live`}
                                 </span>
                                 {/* The site's glitch on the name, as in the first version — without the glow. */}
                                 <h1 className="mt-4 text-[2.9rem] font-black uppercase leading-[0.9] tracking-tighter text-white sm:text-6xl xl:text-7xl" aria-label="Droidz Survival">
@@ -190,8 +190,9 @@ export function SurvivalLanding({ prices, heroCosts = {} }: { prices: LandingPri
                             {device?.mobile && !device.inWallet && <InstallHint ios={device.ios} className="mt-4" />}
                         </Faq>
                         <Faq q="Who gets the prize pool?">
-                            Season-pass holders, by their best score of the season. The open beta&apos;s pool is paid out in
-                            Season {POOL_SEASON}. The pass is not on sale yet — it opens with Season {POOL_SEASON}.
+                            Season-pass holders, by their best score of the season — the pool is shared when the season
+                            ends. Everything the open beta gathered is in the Season {POOL_SEASON} pool. Get the pass in the
+                            game: menu → Season.
                         </Faq>
                     </div>
                 </Section>

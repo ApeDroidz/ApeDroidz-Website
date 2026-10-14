@@ -57,7 +57,7 @@ function PoolBlock({ pool, prices, tickets, now }: { pool: Pool | null | undefin
     const sources: Array<{ icon: GameIconId; title: string; price: number | null; soon?: boolean }> = [
         { icon: 'run', title: 'A run', price: cur(run) },
         { icon: 'ticket', title: 'A lucky ticket', price: cur(ticketP) },
-        { icon: 'pass', title: 'The season pass', price: pass ? pass.fullPriceApe : null, soon: true },
+        { icon: 'pass', title: 'The season pass', price: pass ? pass.fullPriceApe : null },
     ]
 
     const amount = pool?.poolApe ?? 0
@@ -170,7 +170,7 @@ function PoolBlock({ pool, prices, tickets, now }: { pool: Pool | null | undefin
 
             {/* Who takes it and when, in two short lines. */}
             <p className="mt-6 border-t border-white/[0.07] pt-5 text-sm leading-relaxed text-white/50">
-                Season-pass holders share it by best score{live ? ' when the season ends' : ` when Season ${POOL_SEASON} ends — the open beta is gathering it now`}.
+                Season-pass holders share it by best score{live ? ' when the season ends' : ` when Season ${POOL_SEASON} ends`}.
                 {pool ? <> {pool.reservePct}% is kept to start Season {POOL_SEASON + 1}.</> : null}
             </p>
             {pool && pool.prizes.length > 0 && (

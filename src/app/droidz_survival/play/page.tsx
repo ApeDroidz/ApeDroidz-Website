@@ -586,7 +586,7 @@ export default function DroidzSurvivalPlayPage() {
                         ran over it (owner, 10.10.2026: «на десктопе экран выглядит странно, пока верифается»). */}
                     <div className={`relative mx-auto flex w-full max-w-md flex-col items-center justify-center gap-6 py-2 md:max-w-xl md:gap-8 [@media(orientation:landscape)_and_(max-height:520px)]:max-w-4xl [@media(orientation:landscape)_and_(max-height:520px)]:flex-row [@media(orientation:landscape)_and_(max-height:520px)]:gap-8 ${appMode ? 'min-h-full' : 'min-h-[calc(100%-2.5rem)]'}`}>
                         <div className={`shrink-0 text-center [@media(orientation:landscape)_and_(max-height:520px)]:w-[38%]`}>
-                            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/45">Open Beta</p>
+                            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/45">Season 1</p>
                             <h1 className="mt-2 text-3xl font-black uppercase leading-none tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] lg:text-5xl">
                                 <GlitchText text="Droidz Survival" />
                             </h1>
