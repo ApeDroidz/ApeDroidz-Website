@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArrowLeft, Check, Copy, Loader2, RefreshCcw, Search } from 'lucide-react'
 import CATALOG from '@/lib/survivalGameCatalog.json'
 
@@ -140,11 +140,30 @@ async function api(url: string) {
     return data
 }
 
+/**
+ * Opens a player's card from anywhere in the Survival tab (owner, 15.10.2026: «в логах не могу нажать
+ * на кошелёк, чтобы открыть юзера и начислить ему»). SurvivalTab provides it; null outside the tab.
+ */
+export const OpenPlayer = createContext<((wallet: string) => void) | null>(null)
+
+/** A full wallet that opens its player's card on a click (plain text where nothing can open it). */
+export function WalletLink({ wallet, children, className = '' }: { wallet: string; children?: React.ReactNode; className?: string }) {
+    const open = useContext(OpenPlayer)
+    const full = /^0x[0-9a-f]{40}$/i.test(wallet)
+    if (!open || !full) return <span className={className}>{children ?? wallet}</span>
+    return (
+        <button type="button" title="Open this player" onClick={(e) => { e.stopPropagation(); open(wallet.toLowerCase()) }}
+            className={`text-left underline decoration-dotted decoration-white/30 underline-offset-2 hover:text-[#3b82f6] hover:decoration-[#3b82f6] ${className}`}>
+            {children ?? wallet}
+        </button>
+    )
+}
+
 export function CopyWallet({ wallet, className = '' }: { wallet: string; className?: string }) {
     const [done, setDone] = useState(false)
     return (
         <span className={`inline-flex items-center gap-1.5 ${className}`}>
-            <span className="font-mono select-all break-all">{wallet}</span>
+            <WalletLink wallet={wallet} className="font-mono break-all" />
             <button type="button" title="Copy address" className="text-white/30 hover:text-white flex-shrink-0"
                 onClick={(e) => { e.stopPropagation(); void navigator.clipboard?.writeText(wallet).then(() => { setDone(true); setTimeout(() => setDone(false), 1200) }) }}>
                 {done ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
@@ -244,13 +263,16 @@ function GiveRuns() {
     )
 }
 
-export function SurvivalPlayers() {
+export function SurvivalPlayers({ open: openAsked, onOpen }: { open?: string | null; onOpen?: (w: string | null) => void } = {}) {
     const [rows, setRows] = useState<Row[] | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [q, setQ] = useState('')
     const [sort, setSort] = useState<SortKey>('lastSeen')
-    const [open, setOpen] = useState<string | null>(null)
+    const [openOwn, setOpenOwn] = useState<string | null>(null)
+    // Controlled from the tab when it is given (a wallet clicked anywhere opens here), else its own.
+    const open = onOpen ? (openAsked ?? null) : openOwn
+    const setOpen = onOpen ?? setOpenOwn
 
     const load = useCallback(async () => {
         setLoading(true); setError(null)
@@ -326,6 +348,127 @@ export function SurvivalPlayers() {
     )
 }
 
+const RES_IDS = ['scrap', 'circuit', 'cell', 'core'] as const
+const RARITIES_ALL = ['common', 'rare', 'epic', 'legendary'] as const
+
+/**
+ * Give a player anything (owner, 15.10.2026: «начислить ему что угодно — эйпы, ресурсы и т. д.»):
+ * one form, one press, one write through the server economy (api/admin/survival/grant). Minus
+ * numbers take away (never below zero). Heroes and weapons are picked from what he does not own
+ * yet; a weapon's MARK is set from 1 to 4; items go into his bag. The note lands in the journal.
+ */
+function GrantBox({ wallet, state, onDone }: { wallet: string; state: Record<string, any>; onDone: () => void }) {
+    const [coins, setCoins] = useState('')
+    const [sxp, setSxp] = useState('')
+    const [res, setRes] = useState<Record<string, string>>({})
+    const [heroes, setHeroes] = useState<string[]>([])
+    const [weapons, setWeapons] = useState<string[]>([])
+    const [tiers, setTiers] = useState<Record<string, number>>({})
+    const [items, setItems] = useState<Array<{ kind: string; rarity: string }>>([])
+    const [kind, setKind] = useState(Object.keys(CAT.items)[0] ?? '')
+    const [rarity, setRarity] = useState<string>('rare')
+    const [note, setNote] = useState('')
+    const [busy, setBusy] = useState(false)
+    const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+    const ownedHeroes: string[] = Array.isArray(state.unlockedHeroes) ? state.unlockedHeroes : []
+    const ownedWeapons: string[] = Array.isArray(state.unlockedWeapons) ? state.unlockedWeapons : []
+    const curTiers: Record<string, number> = state.weaponTiers ?? {}
+    const n = (v: string | undefined) => (v && /^-?\d+$/.test(v.trim()) ? Number(v.trim()) : 0)
+    const toggle = (list: string[], set: (v: string[]) => void, id: string) => set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
+    const input = 'h-8 rounded-lg border border-white/10 bg-black/40 px-2 text-xs font-mono text-white outline-none focus:border-[#3b82f6]'
+    const quick = 'h-7 px-2 rounded-lg border border-white/10 bg-white/5 text-[10px] font-black hover:bg-white/10'
+    const give = async () => {
+        const resources: Record<string, number> = {}
+        for (const r of RES_IDS) if (n(res[r])) resources[r] = n(res[r])
+        const tierDiff = Object.fromEntries(Object.entries(tiers).filter(([w, t]) => t !== (curTiers[w] ?? 1)))
+        const body = { wallet, coins: n(coins), sxp: n(sxp), resources, heroes, weapons, tiers: tierDiff, items, note }
+        setBusy(true); setMsg(null)
+        try {
+            const r = await fetch('/api/admin/survival/grant', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            const d = await r.json().catch(() => ({}))
+            if (!r.ok) throw new Error(d?.error || `HTTP ${r.status}`)
+            setMsg({ ok: true, text: `Given. Now: ${num(d.now?.coins)} Ape Mini · ${d.now?.sxp ?? '—'} season XP (tier ${d.now?.tier ?? '—'}) · ${d.now?.items ?? 0} items in the bag. The game sees it at its next reload.` })
+            setCoins(''); setSxp(''); setRes({}); setHeroes([]); setWeapons([]); setTiers({}); setItems([]); setNote('')
+            onDone()
+        } catch (e) { setMsg({ ok: false, text: (e as Error).message }) } finally { setBusy(false) }
+    }
+    return (
+        <div className="space-y-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="w-24 text-[10px] font-black uppercase tracking-widest text-white/40">Ape Mini</span>
+                <input value={coins} onChange={(e) => setCoins(e.target.value.replace(/[^0-9-]/g, ''))} placeholder="±0" className={`${input} w-28`} />
+                {[100, 1000, 5000].map((v) => <button key={v} className={quick} onClick={() => setCoins(String(n(coins) + v))}>+{v}</button>)}
+                <span className="text-white/30">has {num(state.coins)}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="w-24 text-[10px] font-black uppercase tracking-widest text-white/40">Resources</span>
+                {RES_IDS.map((r) => (
+                    <span key={r} className="inline-flex items-center gap-1" title={CAT.resources[r]?.name ?? r}>
+                        <GamePic pic={CAT.resources[r]} size={20} />
+                        <input value={res[r] ?? ''} onChange={(e) => setRes({ ...res, [r]: e.target.value.replace(/[^0-9-]/g, '') })} placeholder={`±0 (${state.resources?.[r] ?? 0})`} className={`${input} w-24`} />
+                    </span>
+                ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="w-24 text-[10px] font-black uppercase tracking-widest text-white/40">Season XP</span>
+                <input value={sxp} onChange={(e) => setSxp(e.target.value.replace(/[^0-9-]/g, ''))} placeholder="±0" className={`${input} w-28`} />
+                {[500, 2000, 10000].map((v) => <button key={v} className={quick} onClick={() => setSxp(String(n(sxp) + v))}>+{v}</button>)}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+                <span className="w-24 text-[10px] font-black uppercase tracking-widest text-white/40">Heroes</span>
+                {Object.keys(CAT.heroes).filter((h) => !ownedHeroes.includes(h)).map((h) => (
+                    <button key={h} onClick={() => toggle(heroes, setHeroes, h)}>
+                        <Chip pic={CAT.heroes[h]} label={CAT.heroes[h]?.name ?? h} className={heroes.includes(h) ? 'border-emerald-400/60 bg-emerald-400/15' : 'border-white/10 bg-white/5 opacity-70'} />
+                    </button>
+                ))}
+                {Object.keys(CAT.heroes).every((h) => ownedHeroes.includes(h)) && <span className="text-white/30">owns every hero</span>}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+                <span className="w-24 text-[10px] font-black uppercase tracking-widest text-white/40">Weapons</span>
+                {Object.keys(CAT.weapons).map((w) => {
+                    const has = ownedWeapons.includes(w)
+                    const t = tiers[w] ?? curTiers[w] ?? 1
+                    return (
+                        <span key={w} className="inline-flex items-center gap-1">
+                            <button onClick={() => { if (!has) toggle(weapons, setWeapons, w) }} disabled={has}>
+                                <Chip pic={CAT.weapons[w]} label={CAT.weapons[w]?.name ?? pretty(w)}
+                                    className={has ? 'border-white/10 bg-white/5' : weapons.includes(w) ? 'border-emerald-400/60 bg-emerald-400/15' : 'border-white/10 bg-white/5 opacity-50'} />
+                            </button>
+                            {(has || weapons.includes(w)) && (
+                                <select value={t} onChange={(e) => setTiers({ ...tiers, [w]: Number(e.target.value) })} className="h-7 rounded-lg border border-white/10 bg-black/40 px-1 text-[10px] font-black outline-none" title="MARK (weapon level)">
+                                    {[1, 2, 3, 4].map((k) => <option key={k} value={k}>MK {k}</option>)}
+                                </select>
+                            )}
+                        </span>
+                    )
+                })}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="w-24 text-[10px] font-black uppercase tracking-widest text-white/40">Items</span>
+                <select value={kind} onChange={(e) => setKind(e.target.value)} className={`${input} w-32`}>
+                    {Object.keys(CAT.items).map((k) => <option key={k} value={k}>{CAT.items[k]?.name ?? k}</option>)}
+                </select>
+                <select value={rarity} onChange={(e) => setRarity(e.target.value)} className={`${input} w-28`}>
+                    {RARITIES_ALL.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <button className={quick} onClick={() => setItems([...items, { kind, rarity }])}>+ ADD</button>
+                {items.map((it, i) => (
+                    <button key={i} title="Remove" onClick={() => setItems(items.filter((_, k) => k !== i))}>
+                        <Chip pic={CAT.items[it.kind]} label={CAT.items[it.kind]?.name ?? it.kind} extra={<span className={`uppercase ${RARITY[it.rarity] ?? ''}`}>{it.rarity} ✕</span>} />
+                    </button>
+                ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+                <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="note for the journal (why)" className={`${input} flex-1 min-w-[200px] font-sans`} />
+                <button onClick={() => void give()} disabled={busy} className="h-8 px-4 rounded-lg bg-[#3b82f6] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#2563eb] disabled:opacity-50">
+                    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Give'}
+                </button>
+            </div>
+            {msg && <div className={`font-mono ${msg.ok ? 'text-emerald-400' : 'text-red-400'}`}>{msg.text}</div>}
+        </div>
+    )
+}
+
 function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }) {
     const [d, setD] = useState<Detail | null>(null)
     const [error, setError] = useState<string | null>(null)
@@ -396,6 +539,10 @@ function PlayerDetail({ wallet, onBack }: { wallet: string; onBack: () => void }
 
             <Box title="Runs in hand">
                 <RunsEditor wallet={d.wallet} />
+            </Box>
+
+            <Box title="Give" hint="Ape Mini · resources · season XP · heroes · weapons · items">
+                <GrantBox wallet={d.wallet} state={st} onDone={() => void load()} />
             </Box>
 
             {!d.profile ? <div className="text-white/30 text-xs">No save on the server for this wallet yet.</div> : (

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Ban, Check, Clock, Loader2, Plus, RefreshCcw, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { ACCESS_DURATIONS, DEFAULT_ACCESS_DURATION } from '@/lib/survivalDurations'
-import { CopyWallet, SurvivalPlayers } from './survival-players'
+import { CopyWallet, OpenPlayer, SurvivalPlayers, WalletLink } from './survival-players'
 import { SurvivalPayments } from './survival-payments'
 import { SurvivalAlerts } from './survival-alerts'
 import { SurvivalFunnel } from './survival-funnel'
@@ -88,9 +88,10 @@ const stars = (n: number) => '★'.repeat(Math.max(0, Math.min(5, n))) + '☆'.r
 function W({ w, names, full = true, className = '' }: { w: string | null | undefined; names: Map<string, string>; full?: boolean; className?: string }) {
     const key = (w ?? '').toLowerCase()
     const name = names.get(key) ?? null
+    // A full address opens the player's card (owner, 15.10.2026: no more copying it into a search).
     return (
         <span className={className} title={w ?? undefined}>
-            <span className="font-mono">{full ? short(w) : (w ?? '—')}</span>
+            {full && w ? <WalletLink wallet={w} className="font-mono">{short(w)}</WalletLink> : <span className="font-mono">{full ? short(w) : (w ?? '—')}</span>}
             {name ? <span className="text-white/40"> ({name})</span> : null}
         </span>
     )
@@ -134,7 +135,11 @@ const LEVEL_FILTERS: Array<{ id: 'all' | 'problems' | 'errors'; label: string; k
 /** Two views: the game at a glance, and every player in full (owner, 24.09.2026). */
 export function SurvivalTab() {
     const [view, setView] = useState<'overview' | 'players' | 'payments'>('overview')
+    // A wallet clicked anywhere in the tab (the journal, the runs, the payments) opens its card.
+    const [player, setPlayer] = useState<string | null>(null)
+    const openPlayer = useCallback((w: string) => { setPlayer(w); setView('players'); window.scrollTo({ top: 0 }) }, [])
     return (
+        <OpenPlayer.Provider value={openPlayer}>
         <div className="space-y-5">
             <SurvivalAlerts />
             <div className="flex gap-1">
@@ -142,8 +147,9 @@ export function SurvivalTab() {
                     <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${view === v ? 'bg-[#3b82f6] text-white' : 'text-white/40 hover:text-white bg-white/5'}`}>{v}</button>
                 ))}
             </div>
-            {view === 'overview' ? <SurvivalOverview /> : view === 'players' ? <SurvivalPlayers /> : <SurvivalPayments />}
+            {view === 'overview' ? <SurvivalOverview /> : view === 'players' ? <SurvivalPlayers open={player} onOpen={setPlayer} /> : <SurvivalPayments />}
         </div>
+        </OpenPlayer.Provider>
     )
 }
 

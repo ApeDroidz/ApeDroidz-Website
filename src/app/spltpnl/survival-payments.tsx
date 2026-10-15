@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, RefreshCcw, Search } from 'lucide-react'
-import { CopyWallet } from './survival-players'
+import { CopyWallet, WalletLink } from './survival-players'
 import { SurvivalCatalog } from './survival-catalog'
 import { SurvivalTickets } from './survival-tickets'
 import { SurvivalPoolPrizes } from './survival-pool-prizes'
@@ -91,6 +91,7 @@ function StuckOrders({ stuck, reload }: { stuck: Stuck[]; reload: () => void }) 
                     <div key={o.id} className={`py-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 ${done ? 'opacity-50' : ''}`}>
                         <span className="font-mono text-white/30 w-20 flex-shrink-0" title={when(o.created_at)}>{ago(o.created_at)}</span>
                         <a className="font-mono text-sky-400/80 hover:text-sky-300" href={`https://apescan.io/address/${o.wallet}`} target="_blank" rel="noreferrer" title="the wallet's transactions on apescan">{short(o.wallet)}</a>
+                        <WalletLink wallet={o.wallet} className="ml-1.5 text-[9px] font-black uppercase tracking-widest text-white/40 no-underline">player</WalletLink>
                         {o.name && <span className="text-white/40">({o.name})</span>}
                         <span className="text-white/60">{o.sku} · {o.price_ape} APE · {o.platform}</span>
                         {o.paidAfter > 0 && <span className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] text-white/40 uppercase tracking-wider" title="this wallet paid another order afterwards">paid later ×{o.paidAfter}</span>}
@@ -299,7 +300,7 @@ export function SurvivalPayments() {
                 <Box title="Refused" hint="attempts the server did not credit">
                     {d.refused.length === 0 ? <div className="text-white/30 text-xs">None.</div> : (
                         <div className="max-h-64 overflow-auto divide-y divide-white/5 text-xs">{d.refused.map((e, i) => (
-                            <div key={i} className="py-1 flex gap-2"><span className="font-mono text-white/30 w-36 flex-shrink-0">{when(e.at)}</span><span className="text-orange-400 w-28 flex-shrink-0">{e.kind.replace('pay.', '')}</span><span className="font-mono text-white/50 truncate" title={JSON.stringify(e.data)}>{e.wallet ? short(e.wallet) : '—'} · {e.message}</span></div>
+                            <div key={i} className="py-1 flex gap-2"><span className="font-mono text-white/30 w-36 flex-shrink-0">{when(e.at)}</span><span className="text-orange-400 w-28 flex-shrink-0">{e.kind.replace('pay.', '')}</span><span className="font-mono text-white/50 truncate" title={JSON.stringify(e.data)}>{e.wallet ? <WalletLink wallet={e.wallet}>{short(e.wallet)}</WalletLink> : '—'} · {e.message}</span></div>
                         ))}</div>
                     )}
                 </Box>
