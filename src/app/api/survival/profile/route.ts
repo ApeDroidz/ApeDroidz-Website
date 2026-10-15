@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { coopFor } from '@/lib/survivalCoop'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer, readBody } from '@/lib/survivalRuns'
 import { logEvent } from '@/lib/survivalLog'
@@ -10,7 +11,7 @@ import { loadEcon, saveEcon } from '@/lib/survivalEconomyStore'
  * The player's progress, on the server.
  *
  *   GET  /api/survival/profile                → { ok, state, season: { seasonId, season, daily, passOwned, passTest } | null,
- *                                                  features: { season, seasonOpen, seasonPublic, creator, passOnSale, paidRuns, sandbox } — what the game may show this wallet }
+ *                                                  features: { season, seasonOpen, seasonPublic, creator, passOnSale, paidRuns, sandbox, coop } — what the game may show this wallet }
  * seasonOpen — the season ladder (tiers, FREE/PASS rewards, LEVEL UP) is open to THIS wallet:
  * SURVIVAL_SEASON_OPEN=1 for everyone (seasonPublic), else the creator only (lib/survivalAccess.ts
  * isCreatorWallet — SURVIVAL_TEST_WALLETS or a preview wallet), who also gets the free test pass
@@ -59,9 +60,11 @@ export async function GET(req: NextRequest) {
     // ни себя, ни своего ника с кланом (владелец, 20.09). Кошелёк отдаём уже
     // сокращённым: полный адрес игре не нужен ни для чего, а на экране он всё
     // равно показывается в коротком виде.
-    const [{ data: player }, { data: xRow }] = await Promise.all([
+    const [{ data: player }, { data: xRow }, coop] = await Promise.all([
         supabaseAdmin.from('survival_players').select('clan').eq('wallet', caller.wallet).maybeSingle(),
         supabaseAdmin.from('glitch_users').select('x_handle').ilike('wallet_address', caller.wallet).maybeSingle(),
+        // CO-OP opens for the beta testers first (lib/survivalCoop.ts coopFor; owner, 15.10.2026).
+        coopFor(caller.wallet),
     ])
     const me = {
         wallet: `${caller.wallet.slice(0, 6)}…${caller.wallet.slice(-4)}`,
@@ -70,7 +73,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(
-        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: true, seasonOpen: seasonVisibleFor(caller.wallet), seasonPublic: seasonOpenForAll(), creator: isCreatorWallet(caller.wallet), passOnSale: seasonVisibleFor(caller.wallet), paidRuns: process.env.SURVIVAL_PAID_RUNS === '1', sandbox: sandboxFor(caller.wallet) } },
+        { ok: true, owner: caller.wallet, state: prof?.state ?? null, updatedAt: prof?.updated_at ?? null, season, me, features: { season: true, seasonOpen: seasonVisibleFor(caller.wallet), seasonPublic: seasonOpenForAll(), creator: isCreatorWallet(caller.wallet), passOnSale: seasonVisibleFor(caller.wallet), paidRuns: process.env.SURVIVAL_PAID_RUNS === '1', sandbox: sandboxFor(caller.wallet), coop } },
         { headers: { 'cache-control': 'no-store' } },
     )
 }

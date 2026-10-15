@@ -1,6 +1,6 @@
 {
  "version": 1,
- "exportedAt": "2026-10-04T15:08:04.940Z",
+ "exportedAt": "2026-10-15T07:39:13.785Z",
  "resources": [
   "scrap",
   "circuit",
@@ -16,10 +16,17 @@
    "sellable": true
   },
   "geez": {
-   "cost": 5000,
+   "cost": 7500,
    "free": false,
    "cls": "tank",
    "defaultWeapon": "fists",
+   "sellable": true
+  },
+  "grillz": {
+   "cost": 5000,
+   "free": false,
+   "cls": "biter",
+   "defaultWeapon": "jaws",
    "sellable": true
   },
   "volt": {
@@ -61,6 +68,12 @@
    "cost": 0,
    "free": true,
    "cls": "tank",
+   "sellable": true
+  },
+  "jaws": {
+   "cost": 0,
+   "free": true,
+   "cls": "biter",
    "sellable": true
   },
   "sword_0": {
@@ -1076,6 +1089,336 @@
    {
     "id": "geez_core_overclock",
     "requires": "geez_core_alloy",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "coins": 260
+     },
+     {
+      "coins": 520
+     },
+     {
+      "coins": 780
+     }
+    ]
+   }
+  ],
+  "grillz": [
+   {
+    "id": "grillz_bite",
+    "requires": "",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 4
+     },
+     {
+      "scrap": 8
+     },
+     {
+      "scrap": 12
+     }
+    ]
+   },
+   {
+    "id": "grillz_sharp",
+    "requires": "grillz_bite",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "grillz_lockjaw",
+    "requires": "grillz_sharp",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "grillz_bleed",
+    "requires": "grillz_lockjaw",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_serrated",
+    "requires": "grillz_bleed",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_mauler",
+    "requires": "grillz_serrated",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_appetite",
+    "requires": "grillz_bite",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_goldrush",
+    "requires": "grillz_appetite",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "grillz_goldfang",
+    "requires": "grillz_goldrush",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 3,
+      "core": 1
+     },
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_mouthful",
+    "requires": "grillz_goldfang",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_gilded",
+    "requires": "grillz_mouthful",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_spring",
+    "requires": "grillz_bite",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "scrap": 6,
+      "circuit": 1
+     },
+     {
+      "scrap": 10,
+      "circuit": 2
+     },
+     {
+      "scrap": 14,
+      "circuit": 3
+     }
+    ]
+   },
+   {
+    "id": "grillz_overwound",
+    "requires": "grillz_spring",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "circuit": 3,
+      "cell": 1
+     },
+     {
+      "circuit": 5,
+      "cell": 2
+     }
+    ]
+   },
+   {
+    "id": "grillz_wound",
+    "requires": "grillz_overwound",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 3,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_longrush",
+    "requires": "grillz_wound",
+    "maxLevel": 2,
+    "costs": [
+     {
+      "cell": 3
+     },
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_frenzy",
+    "requires": "grillz_longrush",
+    "maxLevel": 1,
+    "costs": [
+     {
+      "cell": 4,
+      "core": 1
+     }
+    ]
+   },
+   {
+    "id": "grillz_core_hp",
+    "requires": "grillz_bite",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 50
+     },
+     {
+      "coins": 100
+     },
+     {
+      "coins": 150
+     },
+     {
+      "coins": 200
+     },
+     {
+      "coins": 250
+     }
+    ]
+   },
+   {
+    "id": "grillz_core_power",
+    "requires": "grillz_core_hp",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 80
+     },
+     {
+      "coins": 160
+     },
+     {
+      "coins": 240
+     },
+     {
+      "coins": 320
+     },
+     {
+      "coins": 400
+     }
+    ]
+   },
+   {
+    "id": "grillz_core_yield",
+    "requires": "grillz_core_power",
+    "maxLevel": 5,
+    "costs": [
+     {
+      "coins": 120
+     },
+     {
+      "coins": 240
+     },
+     {
+      "coins": 360
+     },
+     {
+      "coins": 480
+     },
+     {
+      "coins": 600
+     }
+    ]
+   },
+   {
+    "id": "grillz_core_alloy",
+    "requires": "grillz_core_yield",
+    "maxLevel": 3,
+    "costs": [
+     {
+      "coins": 160
+     },
+     {
+      "coins": 320
+     },
+     {
+      "coins": 480
+     }
+    ]
+   },
+   {
+    "id": "grillz_core_overclock",
+    "requires": "grillz_core_alloy",
     "maxLevel": 3,
     "costs": [
      {

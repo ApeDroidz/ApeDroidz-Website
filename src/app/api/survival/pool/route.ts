@@ -6,7 +6,8 @@ import { supabaseAdmin } from '@/lib/supabase'
  * screen. Public and read-only: the numbers the pool panel advertises, nothing behind them.
  *
  *   { seasonId, seasonName, endsAt, paysOut, poolApe, soloApe, coopApe, players, games, soloGames, coopGames,
- *     prizes: [{ place, unlockLevel, name, imageUrl, awarded }] — the NFTs on top of the APE }
+ *     prizes: [{ place, unlockLevel, name, imageUrl, awarded }] — the NFTs on top of the APE,
+ *     live: { url, channel, event } — where the new totals are pushed the moment they are booked }
  *
  * Every figure is summed from the append-only ledger and the runs table at read time — the pool is
  * never a stored number anyone can edit. Each mode has its own pool (owner, 24.09.2026: «чтобы для
@@ -24,8 +25,21 @@ const round = (n: number) => Math.round(n * 1e6) / 1e6
 
 /** The body as this instance last built it: `?anything` misses the edge cache, not this. */
 let memo: { until: number; body: Promise<Record<string, unknown> | null> } | null = null
-const MEMO_MS = 30_000
-const HEADERS = { 'cache-control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60' }
+const MEMO_MS = 5_000
+// Short on purpose (15.10.2026): an open screen gets each new booking pushed live (see `live`), and a
+// screen opened right after one must not be handed the old sum for a minute.
+const HEADERS = { 'cache-control': 'public, max-age=0, s-maxage=5, stale-while-revalidate=10' }
+
+/**
+ * Where an open screen listens for new bookings: the public Realtime channel `survival-pool` the ledger
+ * broadcasts the fresh totals on (migration 20261015d). The anon key is the public one the site's own
+ * pages already ship; the channel carries only these same totals.
+ */
+const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+const SUPA_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+const LIVE = SUPA_URL.startsWith('https://') && SUPA_ANON
+    ? { url: `${SUPA_URL.replace(/^https:/, 'wss:')}/realtime/v1/websocket?apikey=${encodeURIComponent(SUPA_ANON)}&vsn=1.0.0`, channel: 'survival-pool', event: 'pool' }
+    : null
 
 export async function GET(req: Request) {
     if (!supabaseAdmin) return new NextResponse(null, { status: 204 })
@@ -77,6 +91,7 @@ async function build(): Promise<Record<string, unknown> | null> {
         reservePct: Math.round((1 - Number(season.payout_pct ?? 0.9)) * 100),
         reserveApe: round((solo + coop) * (1 - Number(season.payout_pct ?? 0.9))),
         payoutApe: round((solo + coop) * Number(season.payout_pct ?? 0.9)),
+        live: LIVE,
         prizes: ((nfts as Array<{ place: number; unlock_level: number | null; name: string | null; image_url: string | null; status: string }> | null) ?? [])
             .map((p) => ({ place: p.place, unlockLevel: p.unlock_level, name: p.name, imageUrl: p.image_url, awarded: p.status !== 'listed' })),
     }

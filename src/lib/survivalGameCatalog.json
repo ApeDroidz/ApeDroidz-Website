@@ -1,5 +1,5 @@
 {
- "base": "https://assets.apedroidz.com/apedroidz/droidz-survival/v11/assets/img/",
+ "base": "https://assets.apedroidz.com/apedroidz/droidz-survival/v13/assets/img/",
  "heroes": {
   "goblin": {
    "name": "Gob",
@@ -20,6 +20,18 @@
     122,
     70,
     178,
+    164,
+    324,
+    164
+   ]
+  },
+  "grillz": {
+   "name": "Grillz",
+   "file": "grillz_idle_0.png",
+   "box": [
+    120,
+    108,
+    174,
     164,
     324,
     164
@@ -90,6 +102,10 @@
   "fists": {
    "name": "Knuckles",
    "file": "fists_idle_0.png"
+  },
+  "jaws": {
+   "name": "Grillz",
+   "file": "jaws_idle_0.png"
   },
   "sword_0": {
    "name": "Volt Blade",
@@ -904,6 +920,153 @@
    "branch": "CHASSIS"
   },
   "geez_core_overclock": {
+   "name": "OVERCLOCK",
+   "desc": "+4% attack speed and +4% move speed per level.",
+   "file": "st_overclock_lt.png",
+   "max": 3,
+   "branch": "CHASSIS"
+  },
+  "grillz_bite": {
+   "name": "BITE FORCE",
+   "desc": "+4% damage.",
+   "file": "st_dmg_lt.png",
+   "max": 3,
+   "branch": "GRILLZ"
+  },
+  "grillz_sharp": {
+   "name": "SHARP TEETH",
+   "desc": "+5% damage.",
+   "file": "st_dmg_lt.png",
+   "max": 3,
+   "branch": "FANGS"
+  },
+  "grillz_lockjaw": {
+   "name": "LOCKJAW",
+   "desc": "The gold bite holds its prey and bites it again — one more bite per level.",
+   "file": "st_blade_lt.png",
+   "max": 2,
+   "branch": "FANGS"
+  },
+  "grillz_bleed": {
+   "name": "BLEED",
+   "desc": "Bites bleed out 20% more of the bite over 2 s.",
+   "file": "st_crit_lt.png",
+   "max": 2,
+   "branch": "FANGS"
+  },
+  "grillz_serrated": {
+   "name": "SERRATED",
+   "desc": "+5% crit chance.",
+   "file": "st_crit_lt.png",
+   "max": 2,
+   "branch": "FANGS"
+  },
+  "grillz_mauler": {
+   "name": "MAULER",
+   "desc": "Bites bleed out 15% more.",
+   "file": "st_glass_lt.png",
+   "max": 1,
+   "branch": "FANGS"
+  },
+  "grillz_appetite": {
+   "name": "APPETITE",
+   "desc": "Hunger fills one bite sooner.",
+   "file": "st_lifesteal_lt.png",
+   "max": 1,
+   "branch": "GRILLZ"
+  },
+  "grillz_goldrush": {
+   "name": "GOLD RUSH",
+   "desc": "A gold bite on a full Hunger hits 50% harder and always crits.",
+   "file": "st_crit_lt.png",
+   "max": 2,
+   "branch": "GRILLZ"
+  },
+  "grillz_goldfang": {
+   "name": "GOLD FANG",
+   "desc": "The gold bite deals 10% more.",
+   "file": "st_dmg_lt.png",
+   "max": 3,
+   "branch": "GRILLZ"
+  },
+  "grillz_mouthful": {
+   "name": "MOUTHFUL",
+   "desc": "Bites reach 10% further.",
+   "file": "st_blade_lt.png",
+   "max": 2,
+   "branch": "GRILLZ"
+  },
+  "grillz_gilded": {
+   "name": "GILDED",
+   "desc": "Crits deal 25% more.",
+   "file": "st_crit_lt.png",
+   "max": 1,
+   "branch": "GRILLZ"
+  },
+  "grillz_spring": {
+   "name": "TIGHT SPRING",
+   "desc": "+4% move speed.",
+   "file": "st_move_speed_lt.png",
+   "max": 3,
+   "branch": "SPRING"
+  },
+  "grillz_overwound": {
+   "name": "OVERWOUND",
+   "desc": "Wind-Up Rush recharges 10% faster.",
+   "file": "st_dash_lt.png",
+   "max": 2,
+   "branch": "SPRING"
+  },
+  "grillz_wound": {
+   "name": "WOUND UP",
+   "desc": "Start every run with Wind-Up Rush on [Z].",
+   "file": "st_overclock_lt.png",
+   "max": 1,
+   "branch": "SPRING"
+  },
+  "grillz_longrush": {
+   "name": "LONG RUSH",
+   "desc": "Wind-Up Rush runs 20% further.",
+   "file": "st_dash_lt.png",
+   "max": 2,
+   "branch": "SPRING"
+  },
+  "grillz_frenzy": {
+   "name": "FRENZY MODE",
+   "desc": "Mega Chomp ends in a rush across the arena and back.",
+   "file": "st_overclock_lt.png",
+   "max": 1,
+   "branch": "SPRING"
+  },
+  "grillz_core_hp": {
+   "name": "CHASSIS",
+   "desc": "+2 max HP per level.",
+   "file": "st_max_hp_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "grillz_core_power": {
+   "name": "SERVOS",
+   "desc": "+5% damage and +3% attack speed per level.",
+   "file": "st_dmg_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "grillz_core_yield": {
+   "name": "DATA SIPHON",
+   "desc": "+5% XP and +10% Ape Mini per run per level; at level 3 one draft reroll per run.",
+   "file": "st_xp_lt.png",
+   "max": 5,
+   "branch": "CHASSIS"
+  },
+  "grillz_core_alloy": {
+   "name": "ALLOY FRAME",
+   "desc": "+2 max HP and +2% dodge per level.",
+   "file": "st_dodge_lt.png",
+   "max": 3,
+   "branch": "CHASSIS"
+  },
+  "grillz_core_overclock": {
    "name": "OVERCLOCK",
    "desc": "+4% attack speed and +4% move speed per level.",
    "file": "st_overclock_lt.png",

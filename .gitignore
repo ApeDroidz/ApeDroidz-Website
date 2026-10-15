@@ -64,3 +64,6 @@ lock-snapshot.json
 # рабочие исходники 3D-апдейта: сотни мегабайт GLB, живут локально
 /updates */
 /traits.txt
+
+# local previews for the owner (renders, screenshots) — never committed
+previews/

@@ -8,6 +8,7 @@ import { checkFinish, MSG, restoredMessage, whyOf, type PulseState } from '@/lib
 import { logEvent } from '@/lib/survivalLog'
 import { runAlreadyPaid, runReward, type RunReport } from '@/lib/survivalEconomy'
 import { withEcon } from '@/lib/survivalEconomyStore'
+import { settleCoop } from '@/lib/survivalCoop'
 
 /**
  * Shared plumbing for /api/survival/run/* — who is asking, and the run row they are asking about.
@@ -109,9 +110,11 @@ export interface RunRow {
     flags: string[] | null
     /** The hero the run was opened with (checked against the save at runs/start). */
     hero: string | null
+    /** A co-op member's run: its team (survival_coop_runs). Null for a solo run. */
+    coop_id?: string | null
 }
 
-export const RUN_COLUMNS = 'id, wallet, season_id, mode, status, reject_reason, started_at, finished_at, score, wave, kills, credit_id, last_pulse_at, last_pulse_wave, last_pulse_kills, last_pulse_score, pulse_count, flags, hero'
+export const RUN_COLUMNS = 'id, wallet, season_id, mode, status, reject_reason, started_at, finished_at, score, wave, kills, credit_id, last_pulse_at, last_pulse_wave, last_pulse_kills, last_pulse_score, pulse_count, flags, hero, coop_id'
 
 /** The caller's own run, or a reply explaining why there is none. */
 export async function loadRun(runId: unknown, wallet: string): Promise<RunRow | NextResponse> {
@@ -179,6 +182,13 @@ export function closedLine(run: RunRow): { message: string; why?: string } {
 export type CloseOutcome = 'restored' | 'void' | 'refunded' | 'lost_race' | 'error'
 
 export async function closeAbandoned(run: RunRow, reason: 'superseded' | 'expired'): Promise<CloseOutcome> {
+    const out = await closeAbandonedRun(run, reason)
+    // A co-op member's run closed under its team: the team's row follows.
+    if (run.coop_id && (out === 'restored' || out === 'void' || out === 'refunded')) await settleCoop(run.coop_id)
+    return out
+}
+
+async function closeAbandonedRun(run: RunRow, reason: 'superseded' | 'expired'): Promise<CloseOutcome> {
     const flags = flagsOf(run)
     if (run.pulse_count > 0 && run.last_pulse_wave !== null && run.last_pulse_at) {
         const last: PulseState = { wave: run.last_pulse_wave, kills: run.last_pulse_kills ?? 0, score: run.last_pulse_score ?? 0 }
@@ -222,11 +232,13 @@ export async function closeAbandoned(run: RunRow, reason: 'superseded' | 'expire
  * (api/admin/survival/credits). True when the credits are back.
  */
 export async function refundRunCredits(run: RunRow, reason: string): Promise<boolean> {
-    const { data: spent } = await supabaseAdmin.from('survival_credits').select('id').eq('consumed_by_run', run.id)
+    const { data: spent } = await supabaseAdmin.from('survival_credits').select('id, mode').eq('consumed_by_run', run.id)
     // Nothing spent (a free run, or a paid one whose credit was never taken): nothing to give back.
     if (!spent?.length && !run.credit_id) return false
     const count = Math.max(1, spent?.length ?? 0)
-    const rows = Array.from({ length: count }, () => ({ wallet: run.wallet, season_id: run.season_id, source: 'grant', mode: run.mode === 'coop' ? 'coop' : 'solo' }))
+    // Back in the kind it was spent from: a co-op run spends a solo run (20261016_survival_coop.sql).
+    const modes = ((spent ?? []) as { mode?: string }[]).map((c) => (c.mode === 'coop' ? 'coop' : 'solo'))
+    const rows = Array.from({ length: count }, (_, i) => ({ wallet: run.wallet, season_id: run.season_id, source: 'grant', mode: modes[i] ?? 'solo' }))
     const { error } = await supabaseAdmin.from('survival_credits').insert(rows)
     if (error) {
         console.error('[survival/run] refund', error.message)

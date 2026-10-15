@@ -6,6 +6,7 @@ import { logEvent } from '@/lib/survivalLog'
 import { runAlreadyPaid, runReward, type RunReport } from '@/lib/survivalEconomy'
 import { withEcon } from '@/lib/survivalEconomyStore'
 import { markFirstRun } from '@/lib/survivalFunnelServer'
+import { settleCoop } from '@/lib/survivalCoop'
 
 /**
  * POST /api/survival/run/finish  { runId, wave, kills, score, durationMs }
@@ -143,7 +144,8 @@ export async function POST(req: NextRequest) {
             const first = markFirstRun(wallet, run.id)
             logCheck(run, check, serverDurationMs, false)
             const reply = check.verdict !== 'ok' ? refused(check) : await accept(run, check, serverDurationMs)
-            await first
+            // A co-op member: the team's row takes this result in (lib/survivalCoop.ts settleCoop).
+            await Promise.all([first, run.coop_id ? settleCoop(run.coop_id) : null])
             return reply
         }
         // Closed between the read and the write — a newer start, or this same finish retried.
@@ -161,6 +163,7 @@ export async function POST(req: NextRequest) {
         // The run keeps what it had (its checkpoint result, or nothing); the claim is kept for review.
         await supabaseAdmin.from('survival_runs')
             .update({ flags: [...new Set([...flagsOf(late), LATE_FLAG, `late_refused:${check.reason}`])] }).eq('id', late.id)
+        if (late.coop_id) await settleCoop(late.coop_id)
         return refused(check)
     }
     if (check.verdict !== 'ok') return storedVerdict(late, caller.wallet)
@@ -185,12 +188,16 @@ export async function POST(req: NextRequest) {
             .eq('id', late.id).eq('status', 'finished').not('flags', 'cs', JSON.stringify([LATE_FLAG])).select('id')
         if (error) { console.error('[survival/run/finish] late', error.message); return noServer('run.finish.late', error.message) }
         if (!took?.length) return storedVerdict(late, caller.wallet)
-        const { error: bErr } = await supabaseAdmin.from('survival_season_best')
-            .update({ run_id: late.id, score: n.score, wave: n.wave, kills: n.kills, achieved_at: full.finished_at })
-            .eq('season_id', late.season_id).eq('wallet', caller.wallet)
-            .or(`run_id.eq.${late.id},score.lt.${n.score}`)
-        if (bErr) console.error('[survival/run/finish] late best', bErr.message)
+        // The solo board only: a co-op member's run is on the team's row, not on the solo one.
+        if (late.mode !== 'coop') {
+            const { error: bErr } = await supabaseAdmin.from('survival_season_best')
+                .update({ run_id: late.id, score: n.score, wave: n.wave, kills: n.kills, achieved_at: full.finished_at })
+                .eq('season_id', late.season_id).eq('wallet', caller.wallet)
+                .or(`run_id.eq.${late.id},score.lt.${n.score}`)
+            if (bErr) console.error('[survival/run/finish] late best', bErr.message)
+        }
     }
+    if (late.coop_id) await settleCoop(late.coop_id)
     return accept(late, check, serverDurationMs)
 }
 

@@ -6,7 +6,8 @@ import { CAT, Section } from './shared'
 
 /**
  * The heroes, alive (owner, 03.10.2026): their idle loop from the game, and sized by character —
- * Geez the tank the biggest, Droid the swordsman in the middle, Gob the mage the smallest.
+ * Geez the tank the biggest, Droid the swordsman in the middle, Gob the mage the smallest; Grillz
+ * the biter (15.10.2026) at the game's own scale.
  *
  * The strips are the game's idle frames (game/public/assets/img/<set>_idle_<n>.png = R2 v9),
  * cropped to the box the figure and its weapon fill across the loop and laid side by side:
@@ -25,7 +26,11 @@ interface Layer { src: string; fps: number }
 interface HeroDef {
     id: string
     /** heroes.ts cls */
-    cls: 'blade' | 'mage' | 'tank'
+    cls: 'blade' | 'mage' | 'tank' | 'biter'
+    /** The hero's own X account (owner, 15.10.2026). */
+    x: string
+    /** heroes.ts name, for a hero the panel catalog does not list yet. */
+    name?: string
     /** One frame of the strip, in art pixels, and the frame count. */
     fw: number; fh: number; n: number
     /** On top of the shared scale (Gob is drawn smaller — see above). */
@@ -37,32 +42,40 @@ interface HeroDef {
 // ── From the game, word for word (owner, 04.10.2026: «ничего не придумывать, брать из игры») ─────
 // game/src/scenes/HeroSelectScene.ts CLASS_LABEL / CLASS_COLOUR / CLASS_ROLE — the hero screen's
 // class tag, its colour and the line under the name.
-const CLASS_LABEL = { blade: 'BLADE', mage: 'MAGE', tank: 'TANK' } as const
-const CLASS_COLOUR = { blade: '#FF8A5A', mage: '#B98CFF', tank: '#6FD6FF' } as const
+const CLASS_LABEL = { blade: 'BLADE', mage: 'MAGE', tank: 'TANK', biter: 'BITER' } as const
+const CLASS_COLOUR = { blade: '#FF8A5A', mage: '#B98CFF', tank: '#6FD6FF', biter: '#FF6F9A' } as const
 const CLASS_ROLE = {
     blade: 'Fast combos. Storm Surge builds quickest.',
     mage: 'Bolts from a staff. Grows into a fan of shots.',
     tank: 'Takes less, hits hardest. The roll is a charge.',
+    biter: 'Bites in close. Every second bite springs. Hunger heals.',
 } as const
 
 const L = '/droidz_survival/landing/'
 // Under each hero only its name, its class and the class's line (owner, 04.10.2026: «под героем
-// слишком много — оставить имя, тип и короткое описание из игры»). Geez, Droid, Gob (owner, 04.10.2026: «Гиз, дроид, гоб» — the droid in the middle).
+// слишком много — оставить имя, тип и короткое описание из игры»). Geez, Droid, Gob (owner, 04.10.2026: «Гиз, дроид, гоб» — the droid in the middle),
+// then Grillz, the biter (15.10.2026). Each with its X account next to the name (owner, 15.10.2026).
 const HEROES: HeroDef[] = [
     {
-        id: 'geez', cls: 'tank',
+        id: 'geez', cls: 'tank', x: 'https://x.com/GeezOnApe',
         fw: 56, fh: 96, n: 7, size: 1,
         layers: [{ src: `${L}hero-geez.png`, fps: 6 }],
     },
     {
-        id: 'volt', cls: 'blade',
+        id: 'volt', cls: 'blade', x: 'https://x.com/ApeDroidz',
         fw: 68, fh: 70, n: 7, size: 1,
         layers: [{ src: `${L}hero-volt-sword.png`, fps: 6 }, { src: `${L}hero-volt.png`, fps: 6 }], // the blade at the body's rate (04.10.2026)
     },
     {
-        id: 'goblin', cls: 'mage',
+        id: 'goblin', cls: 'mage', x: 'https://x.com/GobsOnApe',
         fw: 44, fh: 70, n: 7, size: 0.8,
         layers: [{ src: `${L}hero-goblin-staff.png`, fps: 6 }, { src: `${L}hero-goblin.png`, fps: 6 }],
+    },
+    {
+        // grillz_idle_<n> at the body's 6 fps; his jaws overlay is empty (the teeth are on the body).
+        id: 'grillz', cls: 'biter', x: 'https://x.com/GrillzGang', name: 'Grillz',
+        fw: 54, fh: 60, n: 7, size: 1,
+        layers: [{ src: `${L}hero-grillz.png`, fps: 6 }],
     },
 ]
 
@@ -86,10 +99,10 @@ export function HeroesSection({ costs = {} }: { costs?: Record<string, number> }
         <Section
             id="heroes"
             label="Heroes"
-            title="Three heroes, three ways to fight"
-            description="The weapon follows the class. Droid is yours from the start; Gob and Geez unlock with Ape Mini, the coin runs pay."
+            title="Four heroes, four ways to fight"
+            description="The weapon follows the class. Droid is yours from the start; Gob, Geez and Grillz unlock with Ape Mini, the coin runs pay."
         >
-            <div ref={grid} data-playing={playing ? '1' : '0'} className="ds-heroes grid gap-4 md:grid-cols-3 md:gap-5">
+            <div ref={grid} data-playing={playing ? '1' : '0'} className="ds-heroes grid gap-4 sm:grid-cols-2 md:gap-5 xl:grid-cols-4">
                 {HEROES.map((h, i) => {
                     // The class colour, used as the hero screen uses it: the panel's edge, the class
                     // tag's text and frame, the line the hero stands on — never a fill.
@@ -108,7 +121,10 @@ export function HeroesSection({ costs = {} }: { costs?: Record<string, number> }
                                 </div>
                                 <div className="flex flex-1 flex-col p-6">
                                     <div className="flex items-center justify-between gap-3">
-                                        <h3 className="text-2xl font-semibold tracking-tight">{CAT.heroes[h.id]?.name ?? h.id}</h3>
+                                        <div className="flex min-w-0 items-center gap-2.5">
+                                            <h3 className="text-2xl font-semibold tracking-tight">{h.name ?? CAT.heroes[h.id]?.name ?? h.id}</h3>
+                                            <XLink href={h.x} name={h.name ?? CAT.heroes[h.id]?.name ?? h.id} />
+                                        </div>
                                         <span className="rounded-md border bg-black/40 px-2.5 py-1 font-mono text-[11px] font-black tracking-[0.2em]" style={{ borderColor: c, color: c }}>{CLASS_LABEL[h.cls]}</span>
                                     </div>
                                     <p className="mt-1.5 text-sm text-white/55">{CLASS_ROLE[h.cls]}</p>
@@ -119,6 +135,24 @@ export function HeroesSection({ costs = {} }: { costs?: Record<string, number> }
                 })}
             </div>
         </Section>
+    )
+}
+
+/** The hero's X account, a small round button next to the name. */
+function XLink({ href, name }: { href: string; name: string }) {
+    return (
+        <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${name} on X`}
+            title={`${name} on X`}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] text-white/70 transition hover:border-white/40 hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+        </a>
     )
 }
 

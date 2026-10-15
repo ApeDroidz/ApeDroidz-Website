@@ -12,6 +12,7 @@ import { trackFunnel } from '@/lib/survivalFunnel'
 import { inWalletBrowser, isIOSDevice, isMobileDevice } from '@/lib/survivalDevice'
 import { Ape, ape, LiveDot, PlayLink, POOL_SEASON, saleOn, Section, TRIAL_WAVES, utc, type BoardRow, type LandingPrice, type Pool, type Tickets } from './landing/shared'
 import { GameplayVideo } from './landing/video'
+import { applyPoolPush, subscribePoolLive } from '@/lib/survivalPoolLive'
 import { PoolSection } from './landing/pool-section'
 import { PassSection } from './landing/pass-section'
 import { BoardSection } from './landing/board-section'
@@ -51,8 +52,8 @@ export function SurvivalLanding({ prices, heroCosts = {} }: { prices: LandingPri
         trackFunnel('landing_view')
     }, [])
 
-    // The live numbers. The pool every minute while the tab is in front (its route is cached at the
-    // edge for 30 s); the board and the ticket price once.
+    // The live numbers. The pool pushed live, and asked again every minute while the tab is in front;
+    // the board and the ticket price once.
     useEffect(() => {
         let alive = true
         const getJson = async <T,>(url: string): Promise<T | null> => {
@@ -66,8 +67,10 @@ export function SurvivalLanding({ prices, heroCosts = {} }: { prices: LandingPri
         void loadPool()
         void getJson<{ rows: BoardRow[] }>('/api/survival/board').then((b) => { if (alive) setBoard(b?.rows ?? null) })
         void getJson<Tickets>('/api/survival/tickets').then((t) => { if (alive) setTickets(t) })
+        // Every new booking is pushed the moment it lands (lib/survivalPoolLive); the minute poll stays as a net.
+        const off = subscribePoolLive((push) => { if (alive) setPool((p) => (p ? applyPoolPush(p, push) : p)) })
         const id = setInterval(() => { if (document.visibilityState === 'visible') { void loadPool(); setNow(Date.now()) } }, 60_000)
-        return () => { alive = false; clearInterval(id) }
+        return () => { alive = false; clearInterval(id); off() }
     }, [])
 
     const runs = prices.filter((p) => p.kind === 'runs')

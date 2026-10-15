@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { SITE_BASE, MEDIA_BASE } from '@/lib/media'
 import { poolApeOf } from '@/lib/survivalPoolLevels'
 import { ARCADE_MML_TEMPLATE } from './mml.template'
-import { BOARD_LAYOUT, BOARD_BASE_PNG, BOARD_DIGITS_PNG, PRICE_LAYOUT, PRICE_BASE_PNG, PRICE_TILES_PNG } from './board.assets'
+import { BOARD_LAYOUT, BOARD_BASE_PNG, BOARD_DIGITS_PNG, BOARD_LED_MASK_PNG, PRICE_LAYOUT, PRICE_BASE_PNG, PRICE_TILES_PNG } from './board.assets'
 import { loadCatalog } from '@/lib/survivalShop'
 
 /**
@@ -22,14 +22,14 @@ import { loadCatalog } from '@/lib/survivalShop'
  * Modules live under an immutable versioned folder: the asset zone caches for a year and the token
  * cannot purge, so new models go to a new folder (bump ARCADE_ASSET_VERSION), never over the old.
  */
-export const ARCADE_ASSET_VERSION = 'v3'
+export const ARCADE_ASSET_VERSION = 'v4'
 export const ARCADE_ASSET_BASE = `${MEDIA_BASE}/apedroidz/3D-objects/arcade/${ARCADE_ASSET_VERSION}/`
 export const ARCADE_MML_URL = `${SITE_BASE}/api/otherside/arcade.mml`
 const DEFAULT_VIDEO = `${MEDIA_BASE}/apedroidz/droidz-survival/media/beta-announce.mp4`
 
 export type ArcadeSettings = { videoUrl: string }
 
-const MEMO_MS = 30_000
+const MEMO_MS = 5_000
 let settingsMemo: { until: number; value: Promise<ArcadeSettings> } | null = null
 let poolMemo: { until: number; value: Promise<number | null> } | null = null
 
@@ -99,6 +99,9 @@ export async function getRunPrice(): Promise<RunPrice | null> {
     return priceMemo.value
 }
 
+/** Bumped with every redraw of the board or the price strip: clients cache the pictures by URL (15.10.2026). */
+const BOARD_DESIGN = 4
+
 const attr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 
 /** The cabinet's MML with the module folder, the board image for this sum and the video. */
@@ -106,9 +109,9 @@ export function buildArcadeMml(pool: number | null, settings: ArcadeSettings, pr
     const p = pool === null ? 'none' : String(Math.floor(pool))
     const pr = price === null ? 'none' : `${price.price}-${price.salePct}`
     return ARCADE_MML_TEMPLATE
-        .split('{{PRICE}}').join(attr(`${SITE_BASE}/api/otherside/arcade-price.png?p=${pr}`))
+        .split('{{PRICE}}').join(attr(`${SITE_BASE}/api/otherside/arcade-price.png?p=${pr}&v=${BOARD_DESIGN}`))
         .split('{{BASE}}').join(ARCADE_ASSET_BASE)
-        .split('{{POOL}}').join(attr(`${SITE_BASE}/api/otherside/arcade-pool.png?p=${p}`))
+        .split('{{POOL}}').join(attr(`${SITE_BASE}/api/otherside/arcade-pool.png?p=${p}&v=${BOARD_DESIGN}`))
         .split('{{VIDEO}}').join(attr(settings.videoUrl))
 }
 
@@ -116,7 +119,7 @@ const fmt = (n: number) => Math.floor(n).toString().replace(/\B(?=(\d{3})+(?!\d)
 
 /**
  * The board as a PNG: the pre-lit board with the sum's digit tiles laid on it (screen blend, so the
- * glows add up). Up to 5 digits share one size; a longer sum shrinks to the board's inner width.
+ * glows add up), then the LED dot grid multiplied over the whole picture. Up to 5 digits share one size; a longer sum shrinks to the board's inner width.
  * No live season → a dash.
  */
 export async function renderPoolBoard(pool: number | null): Promise<Buffer> {
@@ -139,6 +142,8 @@ export async function renderPoolBoard(pool: number | null): Promise<Buffer> {
         }
         x += t.adv * k
     }
+    // last, the screen's LED grid over everything, so the dots line up whatever the sum's length
+    layers.push({ input: Buffer.from(BOARD_LED_MASK_PNG, 'base64'), left: 0, top: 0, blend: 'multiply' })
     return sharp(Buffer.from(BOARD_BASE_PNG, 'base64')).composite(layers).png({ compressionLevel: 9 }).toBuffer()
 }
 
@@ -153,7 +158,7 @@ export async function renderPriceStrip(price: RunPrice | null): Promise<Buffer> 
     const T = L.tiles as unknown as Record<string, { adv: number; w: number; h: number }>
     const tile = (k: string) => Buffer.from(PRICE_TILES_PNG[k], 'base64')
     // 1. the row on a transparent strip, left to right: [coin] 1 RUN = <price> APE [-NN%]
-    const rowH = 100
+    const rowH = 108
     const mid = rowH / 2
     const base = mid + L.glyph_h / 2          // the price sits on one baseline (the dot too)
     const layers: sharp.OverlayOptions[] = []

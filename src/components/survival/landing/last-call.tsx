@@ -13,9 +13,11 @@ const L = '/droidz_survival/landing/'
  * 13 fps — the role's 10 × Player.RUN_ANIM_SCALE 1.3, as in a run. Gob at 0.8 again (Geez > Droid > Gob); in that order, the droid in the middle (04.10.2026).
  */
 const RUNNERS = [
-    { id: 'geez', src: `${L}run-geez.png`, fw: 68, fh: 94, n: 7, size: 1, lm: '30%', left: '37%' },
-    { id: 'volt', src: `${L}run-volt.png`, fw: 72, fh: 76, n: 7, size: 1, lm: '50%', left: '48%' },
-    { id: 'goblin', src: `${L}run-goblin.png`, fw: 74, fh: 84, n: 8, size: 0.8, lm: '70%', left: '58%' },
+    { id: 'geez', src: `${L}run-geez.png`, fw: 68, fh: 94, n: 7, size: 1, lm: '20%', left: '33%' },
+    { id: 'volt', src: `${L}run-volt.png`, fw: 72, fh: 76, n: 7, size: 1, lm: '40%', left: '44%' },
+    { id: 'goblin', src: `${L}run-goblin.png`, fw: 74, fh: 84, n: 8, size: 0.8, lm: '60%', left: '54%' },
+    // Grillz joins the run at the back (15.10.2026): grillz_run_<n>, no overlay (his jaws overlay is empty)
+    { id: 'grillz', src: `${L}run-grillz.png`, fw: 54, fh: 66, n: 7, size: 1, lm: '80%', left: '64%' },
 ]
 
 /**
@@ -37,7 +39,7 @@ const FLOOR_PX_PER_S = 1100 / 7
 
 /**
  * The last call (owner, 04.10.2026: «блок с синим градиентом нравился — сделать интереснее в рамках
- * игры»; 04.10 later: «фон прям как в игре, без свечения и затемнения»): the run's sky and city drifting behind, and the three heroes running along the game's own floor (ground_0) at
+ * игры»; 04.10 later: «фон прям как в игре, без свечения и затемнения»): the run's sky and city drifting behind, and the heroes running along the game's own floor (ground_0) at
  * its foot — the floor scrolls, they run in place. CSS only; it moves only while the block is on
  * screen, and stands still for reduced motion.
  */

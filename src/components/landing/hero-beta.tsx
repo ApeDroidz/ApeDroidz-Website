@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { animate, useReducedMotion } from "framer-motion"
 import { LABEL_CLASS } from "./ui"
 import { POOL_MILESTONES, poolLevel } from "@/lib/survivalPoolLevels"
+import { subscribePoolLive } from "@/lib/survivalPoolLive"
 
 // Анонс публичной беты Droidz Survival в hero главной (владелец, 13.10.2026):
 // видео-анонс + PLAY + слегка показать пул. Видео — тот же плеер, что на
@@ -14,7 +15,7 @@ const nextMilestone = (ape: number) =>
   POOL_MILESTONES.find((m) => m > ape) ?? POOL_MILESTONES[POOL_MILESTONES.length - 1]
 const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 })
 
-/** Сумма пула с /api/survival/pool; раз в минуту, пока вкладка на виду (роут кэшируется на 30 с). */
+/** Сумма пула с /api/survival/pool, дальше — живые пуши каждой новой записи пула (15.10.2026); раз в минуту — на всякий случай. */
 function usePoolApe(): number | null | undefined {
   const [ape, setApe] = useState<number | null | undefined>(undefined)
   useEffect(() => {
@@ -29,8 +30,9 @@ function usePoolApe(): number | null | undefined {
       }
     }
     void load()
+    const off = subscribePoolLive((p) => { if (alive) setApe(Math.round((p.soloApe + p.coopApe) * 1e6) / 1e6) })
     const id = setInterval(() => { if (document.visibilityState === "visible") void load() }, 60_000)
-    return () => { alive = false; clearInterval(id) }
+    return () => { alive = false; clearInterval(id); off() }
   }, [])
   return ape
 }

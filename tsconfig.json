@@ -38,6 +38,7 @@
   "exclude": [
     "node_modules",
     "game-server",
+    "workers",
     "test_query.ts",
     "test_rank.ts"
   ]
