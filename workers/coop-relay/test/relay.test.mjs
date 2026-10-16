@@ -63,15 +63,17 @@ await sleep(150);
 a.ctl({ t: 'start' });
 ok(await waitFor(() => a.ctlOf('startFail').length > 0), 'start refused while one is not ready');
 
-// 5. only the host may kick, and only someone not ready
+// 5. only the host may kick — anyone but himself, READY or not (17.10.2026: everyone is READY on entering)
 b.ctl({ t: 'kick', slot: 2 });
 await sleep(150);
 ok(a.room.members.length === 3, 'a non-host cannot kick');
-a.ctl({ t: 'kick', slot: 1 });
+a.ctl({ t: 'kick', slot: 0 });
 await sleep(150);
-ok(a.room.members.length === 3, 'a READY player cannot be kicked');
+ok(a.room.members.length === 3, 'the host cannot kick himself');
+c.ctl({ t: 'ready', on: true });
+await sleep(150);
 a.ctl({ t: 'kick', slot: 2 });
-ok(await waitFor(() => c.ctlOf('kicked').length > 0 && a.room.members.length === 2), 'host kicks the unready one');
+ok(await waitFor(() => c.ctlOf('kicked').length > 0 && a.room.members.length === 2), 'host kicks a READY player');
 const c2 = client(`0xccc${tag}`, roomId); await c2.open;
 ok(await waitFor(() => c2.ctlOf('refused').some((m) => m.why === 'kicked')), 'a kicked wallet cannot come back');
 
