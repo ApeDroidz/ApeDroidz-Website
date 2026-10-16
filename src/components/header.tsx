@@ -43,8 +43,10 @@ interface NavGroup {
 
 // Единый источник навигации для десктопа и мобильного меню.
 //
-// Порядок здесь — это порядок на экране: Dashboard → Droidz Survival → Glitch Cards → Upgrade → Tools →
-// Links → Staking. Раньше прямые ссылки и группы рисовались двумя отдельными
+// Порядок здесь — это порядок на экране: Droidz Survival → Glitch Cards → For Holders → Socials → Staking.
+// For Holders (владелец, 17.10.2026: «Upgrade заменим на раздел для холдеров — For Holders; туда
+// дашборд первым и Grid Maker последним; пунктов в хэдере меньше и понятнее»; дашборд — «PFPs Styles») собрал Dashboard,
+// Upgrade и Tools в одну папку. Раньше прямые ссылки и группы рисовались двумя отдельными
 // списками, из-за чего порядок нельзя было задать, только подстроить рендер.
 // Игры — отдельными пунктами, без папки Games (владелец, 25.09.2026: «Droidz Survival вытащить
 // в меню отдельно — это важно, и Glitch Cards следом»).
@@ -60,24 +62,19 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    key: "upgrade",
-    label: "Upgrade",
+    key: "holders",
+    label: "For Holders",
     items: [
+      { href: "/dashboard", label: "PFPs Styles" },
       { href: "/upgrade_module", label: "Upgrade Module" },
       { href: "/batteries_mint", label: "Mint Batteries" },
       { href: "/merge_mechanism", label: "Merge Mechanism" },
-    ],
-  },
-  {
-    key: "tools",
-    label: "Tools",
-    items: [
       { href: "/grid", label: "Grid Maker" },
     ],
   },
   {
     key: "links",
-    label: "Links",
+    label: "Socials",
     items: [
       { href: X_URL, label: "X", external: true },
       { href: DISCORD_URL, label: "Discord", external: true },
@@ -88,7 +85,6 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 const DIRECT_LINKS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard" },
   { href: "/droidz_survival", label: "Droidz Survival" },
   { href: "/glitch_games/cards", label: "Glitch Cards" },
 ];
@@ -99,12 +95,10 @@ const byKey = (key: string) => NAV_GROUPS.find((g) => g.key === key)!;
 
 /** The single ordered navigation the user asked for, desktop and mobile alike. */
 const NAV_ORDER: NavEntry[] = [
-  { kind: "link", item: DIRECT_LINKS[0] },          // Dashboard
-  { kind: "link", item: DIRECT_LINKS[1] },          // Droidz Survival
-  { kind: "link", item: DIRECT_LINKS[2] },          // Glitch Cards
-  { kind: "group", group: byKey("upgrade") },       // Upgrade → Module / Batteries / Merge
-  { kind: "group", group: byKey("tools") },         // Tools
-  { kind: "group", group: byKey("links") },         // Links
+  { kind: "link", item: DIRECT_LINKS[0] },          // Droidz Survival
+  { kind: "link", item: DIRECT_LINKS[1] },          // Glitch Cards
+  { kind: "group", group: byKey("holders") },       // For Holders → PFPs Styles (the dashboard) / Upgrade / Batteries / Merge / Grid Maker
+  { kind: "group", group: byKey("links") },         // Socials
   { kind: "group", group: byKey("staking") },       // Staking (Soon) — последним
 ];
 
@@ -182,7 +176,8 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                 <div key={group.key} className="relative">
                   <button
                     onClick={() => setOpenMenu((o) => (o === group.key ? null : group.key))}
-                    className={`${linkClass(groupIsActive(group) || open)} flex items-center gap-1.5`}
+                    // A Soon group is grey but still opens — its pages are listed, greyed (owner, 17.10.2026).
+                    className={`${linkClass(groupIsActive(group) || open)} flex items-center gap-1.5 ${group.soon ? (open ? "!text-white/60" : "!text-white/30 hover:!text-white/55") : ""}`}
                     aria-haspopup="menu"
                     aria-expanded={open}
                   >
@@ -392,7 +387,9 @@ export function Header({ isDashboard = false, onOpenProfile, onOpenLeaderboard }
                       <button
                         onClick={() => setOpenMobileGroup((o) => (o === group.key ? null : group.key))}
                         className={`flex items-center h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors ${
-                          groupIsActive(group) || open ? "bg-white/10 text-white" : "bg-white/5 text-white/70"
+                          group.soon
+                            ? open ? "bg-white/[0.06] text-white/55" : "bg-white/[0.03] text-white/30"
+                            : groupIsActive(group) || open ? "bg-white/10 text-white" : "bg-white/5 text-white/70"
                         }`}
                         aria-expanded={open}
                       >

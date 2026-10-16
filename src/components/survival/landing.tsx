@@ -123,7 +123,7 @@ export function SurvivalLanding({ prices, heroCosts = {} }: { prices: LandingPri
                 <PoolSection pool={pool} prices={prices} tickets={tickets} now={now} />
 
                 {/* ── 3. The pass ─────────────────────────────────────────────────────────────── */}
-                <PassSection prices={prices} />
+                <PassSection prices={prices} pool={pool} />
 
                 {/* ── 4. The beta leaderboard ─────────────────────────────────────────────────── */}
                 <BoardSection board={board} pool={pool} />
@@ -194,8 +194,8 @@ export function SurvivalLanding({ prices, heroCosts = {} }: { prices: LandingPri
                         </Faq>
                         <Faq q="Who gets the prize pool?">
                             Season-pass holders, by their best score of the season — the pool is shared when the season
-                            ends. Everything the open beta gathered is in the Season {POOL_SEASON} pool. Get the pass in the
-                            game: menu → Season.
+                            ends. Everything the open beta gathered is in the Season {POOL_SEASON} pool. The pass is bought
+                            right on this page, in the Season pass block.
                         </Faq>
                     </div>
                 </Section>
@@ -276,7 +276,47 @@ const LANDING_CSS = `
 @keyframes ds-pass { 0%, 100% { transform: perspective(900px) rotateY(-14deg) translateY(0); } 50% { transform: perspective(900px) rotateY(14deg) translateY(-6px); } }
 .ds-pass-sweep::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 28%; left: -40%; transform: skewX(-18deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent); animation: ds-sweep 3.2s ease-in-out infinite; }
 @keyframes ds-sweep { 0% { left: -40%; } 45%, 100% { left: 120%; } }
+/* The Season 1 pass card (landing/pass-parts.tsx PassCard): floats, breathes gold, tilts toward the pointer with the light under it, turns over on a tap. */
+.ds-card-stage { position: relative; aspect-ratio: 168 / 272; perspective: 1100px; }
+.ds-card-glow { position: absolute; inset: -30% -55%; pointer-events: none; background: radial-gradient(closest-side, rgba(255,207,74,0.34), rgba(255,207,74,0.1) 55%, transparent 78%); animation: ds-breathe 3.4s ease-in-out infinite; }
+@keyframes ds-breathe { 0%, 100% { opacity: 0.65; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.04); } }
+.ds-card { position: relative; display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: pointer; transform-style: preserve-3d; animation: ds-float 6s ease-in-out infinite; -webkit-tap-highlight-color: transparent; }
+.ds-card:focus-visible { outline: 2px solid #FFCF4A; outline-offset: 6px; border-radius: 4px; }
+@keyframes ds-float { 0%, 100% { transform: translateY(0) rotateY(-9deg) rotateX(2deg); } 50% { transform: translateY(-8px) rotateY(9deg) rotateX(-2deg); } }
+.ds-card.is-tilt { animation-play-state: paused; }
+.ds-card-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 0.7s cubic-bezier(.2,.8,.2,1); transform: rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--flip, 0deg))); }
+.ds-card.is-tilt .ds-card-inner { transition: transform 0.12s linear; }
+.ds-card-inner.is-flipped { --flip: 180deg; }
+.ds-card-face { position: absolute; inset: 0; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 18px 34px rgba(0,0,0,0.55), 0 0 26px rgba(255,207,74,0.28); }
+.ds-card-face img { width: 100%; height: 100%; image-rendering: pixelated; user-select: none; }
+.ds-card-back { transform: rotateY(180deg); }
+.ds-card-holo { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: overlay; opacity: 0.55; transition: opacity 0.3s;
+  background: radial-gradient(circle at var(--mx, 28%) var(--my, 18%), rgba(255,255,255,0.75), transparent 42%), linear-gradient(115deg, transparent 28%, rgba(255,246,214,0.35) 44%, rgba(190,225,255,0.22) 50%, rgba(255,200,240,0.18) 55%, transparent 70%); background-size: 100% 100%, 260% 260%; animation: ds-holo 5s ease-in-out infinite; }
+.ds-card.is-tilt .ds-card-holo { opacity: 1; }
+@keyframes ds-holo { 0%, 100% { background-position: 0 0, 0% 0%; } 50% { background-position: 0 0, 100% 100%; } }
+.ds-card-sweep::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 22%; left: -40%; transform: skewX(-20deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent); animation: ds-sweep 3.6s ease-in-out infinite; }
+.ds-glint { position: absolute; width: 5px; height: 5px; background: #FFE7A4; box-shadow: 0 0 8px #FFCF4A; opacity: 0; pointer-events: none; animation: ds-glint 3.6s steps(1) infinite; }
+.ds-glint::before, .ds-glint::after { content: ''; position: absolute; background: #FFCF4A; }
+.ds-glint::before { left: -5px; right: -5px; top: 2px; height: 1px; }
+.ds-glint::after { top: -5px; bottom: -5px; left: 2px; width: 1px; }
+@keyframes ds-glint { 0% { opacity: 0; } 8% { opacity: 1; } 16% { opacity: 0.4; } 24%, 100% { opacity: 0; } }
+.ds-podium { transform-origin: bottom; animation: ds-rise 0.9s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes ds-rise { from { transform: scaleY(0); } }
+.ds-track { -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 82%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 82%, transparent); }
+/* Season-pass holders on the board (owner, 17.10.2026): a gold PASS a light crosses now and then, the picture in a gold hairline a short scan of light runs round. */
+.ds-passtag { position: relative; overflow: hidden; color: #FFCF4A; background: rgba(255,207,74,0.12); box-shadow: inset 0 0 0 1px rgba(255,207,74,0.6); text-shadow: 0 0 8px rgba(255,207,74,0.45); }
+.ds-passtag::after { content: ''; position: absolute; top: 0; bottom: 0; width: 45%; left: -70%; transform: skewX(-20deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent); animation: ds-tagsweep 4.2s ease-in-out infinite; animation-delay: var(--ds-shine-delay, 0s); }
+@keyframes ds-tagsweep { 0%, 72% { left: -70%; } 100% { left: 140%; } }
+.ds-passring { position: relative; display: inline-grid; place-items: center; padding: 3px; border-radius: 9999px; }
+.ds-passring::after { content: ''; position: absolute; inset: 0; border-radius: 9999px; box-shadow: inset 0 0 0 1px rgba(255,207,74,0.45); pointer-events: none; }
+.ds-passring::before { content: ''; position: absolute; inset: 0; border-radius: 9999px; pointer-events: none; opacity: 0;
+  background: conic-gradient(from 0deg, transparent 0deg 250deg, rgba(255,207,74,0.9) 340deg, #fff 358deg, transparent 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1.5px));
+  animation: ds-scan 4.2s cubic-bezier(.5,0,.3,1) infinite; animation-delay: var(--ds-shine-delay, 0s); }
+@keyframes ds-scan { 0% { transform: rotate(0deg); opacity: 0; } 4% { opacity: 1; } 34% { opacity: 1; } 40% { transform: rotate(1turn); opacity: 0; } 100% { transform: rotate(1turn); opacity: 0; } }
+.ds-spark > span + span { animation: ds-spark 1.1s steps(3) infinite; }
+@keyframes ds-spark { 0% { opacity: 1; transform: scale(1); } 60% { opacity: 0.5; transform: scale(1.6) translate(1px, -1px); } 100% { opacity: 0; transform: scale(0.6); } }
 @media (prefers-reduced-motion: reduce) {
-  .ds-sprite, .ds-flow, .ds-pass, .ds-pass-sweep::after, .ds-floor, .ds-par { animation: none !important; }
+  .ds-sprite, .ds-flow, .ds-pass, .ds-pass-sweep::after, .ds-spark > span, .ds-passtag::after, .ds-passring::before, .ds-card, .ds-card-glow, .ds-card-holo, .ds-card-sweep::after, .ds-glint, .ds-podium, .ds-floor, .ds-par { animation: none !important; }
 }
 `

@@ -45,6 +45,8 @@ export interface BoardRow {
     wave: number
     kills: number
     runs: number
+    /** The best run's active time, ms (api/survival/board). */
+    timeMs?: number | null
     pass?: boolean
     // The player profile (nickname + NFT avatar) — read under the names it may come by; the wallet
     // stays the fallback.
@@ -155,13 +157,27 @@ export function HeroStill({ id, height, className = '' }: { id: string; height: 
 
 /** The player's picture on the board: their NFT avatar when the API has one, else their hero on fog. */
 export function Avatar({ row, size }: { row: BoardRow; size: number }) {
+    // A pass holder's picture in a gold hairline a scan of light runs round now and then (owner,
+    // 17.10.2026: «футуристичнее, минималистичнее») — the game's board does the same.
+    if (row.pass) {
+        return (
+            <span className="ds-passring shrink-0" style={{ ['--ds-shine-delay' as string]: `${((row.rank * 0.25) % 4.2).toFixed(2)}s` }}>
+                <PlainAvatar row={row} size={size - 6} framed />
+            </span>
+        )
+    }
+    return <PlainAvatar row={row} size={size} />
+}
+
+function PlainAvatar({ row, size, framed = false }: { row: BoardRow; size: number; framed?: boolean }) {
+    const edge = framed ? 'border border-black/60' : 'border border-white/10'
     const url = playerAvatar(row)
     if (url) {
         // eslint-disable-next-line @next/next/no-img-element
-        return <img src={url} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-full border border-white/10 object-cover" style={{ width: size, height: size }} />
+        return <img src={url} alt="" width={size} height={size} loading="lazy" className={`shrink-0 rounded-full ${edge} object-cover`} style={{ width: size, height: size }} />
     }
     return (
-        <span className="grid shrink-0 place-items-end justify-center overflow-hidden rounded-full border border-white/10 bg-gradient-to-b from-[#c3cad6] to-[#8a93a5]" style={{ width: size, height: size }}>
+        <span className={`grid shrink-0 place-items-end justify-center overflow-hidden rounded-full ${edge} bg-gradient-to-b from-[#c3cad6] to-[#8a93a5]`} style={{ width: size, height: size }}>
             {row.hero && CAT.heroes[row.hero] ? <HeroStill id={row.hero} height={Math.round(size * 0.8)} /> : null}
         </span>
     )

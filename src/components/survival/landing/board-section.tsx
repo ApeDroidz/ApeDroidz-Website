@@ -9,7 +9,16 @@ import { Avatar, CAT, int, playerName, type BoardRow, type Pool } from './shared
 const TOP = 10
 /** Gold, silver, bronze for the first three — the game's own (ui/poolDetails.ts PLACE_COLOR); the only colour on the board. */
 const PLACE_COLOR = ['#FFCF4A', '#D8E1F0', '#D99152']
-const COLS = 'grid-cols-[2rem_minmax(0,1fr)_auto] md:grid-cols-[2.25rem_minmax(0,1fr)_4.5rem_7.5rem_3rem_6.5rem]'
+/** Each pass row's light a little behind the one above: it runs down the board (as in the game's board). */
+const shineDelay = (rank: number) => `${((rank * 0.25) % 4.2).toFixed(2)}s`
+/** How long the best run lasted (active time, pauses out) — «4:14», «1:02:09»; the game's TIME column (LeaderboardScene runTime). */
+function runTime(ms: number | null | undefined): string | null {
+    if (!ms || ms <= 0) return null
+    const t = Math.round(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60
+    const two = (n: number) => String(n).padStart(2, '0')
+    return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`
+}
+const COLS = 'grid-cols-[2rem_minmax(0,1fr)_auto] md:grid-cols-[2.25rem_minmax(0,1fr)_4.5rem_7.5rem_3rem_4rem_6.5rem]'
 
 /**
  * The board (owner, 03.10.2026: «Beta Leaderboard; компактнее — плотная таблица ограниченной
@@ -67,7 +76,7 @@ export function BoardSection({ board, pool }: { board: BoardRow[] | null | undef
 function BoardHead() {
     return (
         <div className={`hidden ${COLS} items-center gap-3 border-b border-white/10 px-5 py-3 md:grid ${LABEL_CLASS} text-white/35`}>
-            <span>#</span><span>Player</span><span>Hero</span><span>Clan</span><span className="text-right">Wave</span><span className="text-right">Score</span>
+            <span>#</span><span>Player</span><span>Hero</span><span>Clan</span><span className="text-right">Wave</span><span className="text-right">Time</span><span className="text-right">Score</span>
         </div>
     )
 }
@@ -83,17 +92,18 @@ function BoardLine({ r }: { r: BoardRow }) {
                     <span className="min-w-0">
                         <span className="flex items-center gap-2">
                             <span className={`truncate text-sm ${top ? 'font-semibold text-white' : 'font-medium text-white/85'}`}>{playerName(r)}</span>
-                            {r.pass && <span className="rounded border border-white/25 px-1 font-mono text-[9px] font-black tracking-[0.15em] text-white/80">PASS</span>}
+                            {r.pass && <span className="ds-passtag rounded px-1 font-mono text-[9px] font-black tracking-[0.15em]" style={{ ['--ds-shine-delay' as string]: shineDelay(r.rank) }}>PASS</span>}
                         </span>
                         {/* On a phone the hero, the wave and the clan sit under the name. */}
                         <span className="block truncate font-mono text-[10px] uppercase tracking-wider text-white/40 md:hidden">
-                            {[heroName, `wave ${r.wave}`, r.clan].filter(Boolean).join(' · ')}
+                            {[heroName, `wave ${r.wave}`, runTime(r.timeMs), r.clan].filter(Boolean).join(' · ')}
                         </span>
                     </span>
                 </span>
                 <span className="hidden truncate text-sm text-white/60 md:block">{heroName ?? '—'}</span>
                 <span className="hidden truncate text-sm text-white/45 md:block">{r.clan ?? '—'}</span>
                 <span className="hidden text-right font-mono text-sm tabular-nums text-white/45 md:block">{r.wave}</span>
+                <span className="hidden text-right font-mono text-sm tabular-nums text-white/45 md:block">{runTime(r.timeMs) ?? '—'}</span>
                 <span className={`text-right font-mono tabular-nums ${r.rank === 1 ? 'text-base font-bold' : top ? 'text-sm font-semibold' : 'text-sm text-white/75'}`} style={top ? { color: PLACE_COLOR[r.rank - 1] } : undefined}>{int(r.score)}</span>
         </div>
     )

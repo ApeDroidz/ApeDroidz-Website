@@ -24,18 +24,28 @@ const POLL_FOR_MS = 60_000
 
 export type Order = { ok: true; orderId: string; to: string; valueApe: string; data: string; description?: string }
 
-/** A fresh order for this item, or null (the server said no, or did not answer in 15 s). */
-export async function createOrder(sku: string, platform: 'site' | 'otherside'): Promise<Order | null> {
+/**
+ * A fresh order for this item, or the server's reason for no (api/survival/order: 'owned',
+ * 'pending', 'unknown_item', 'unauthenticated', …; 'no_answer' — nothing came back in 15 s).
+ */
+export async function requestOrder(sku: string, platform: 'site' | 'otherside'): Promise<Order | { ok: false; state: string }> {
     try {
         const r = await fetch('/api/survival/order', {
             method: 'POST', credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(15_000),
             headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sku, platform, mode: 'solo' }),
         })
-        const o = await r.json().catch(() => null)
-        return o?.ok ? (o as Order) : null
+        const o = await r.json().catch(() => null) as { ok?: boolean; state?: unknown } | null
+        if (o?.ok) return o as Order
+        return { ok: false, state: typeof o?.state === 'string' ? o.state : 'no_answer' }
     } catch {
-        return null
+        return { ok: false, state: 'no_answer' }
     }
+}
+
+/** A fresh order for this item, or null (the server said no, or did not answer in 15 s). */
+export async function createOrder(sku: string, platform: 'site' | 'otherside'): Promise<Order | null> {
+    const o = await requestOrder(sku, platform)
+    return o.ok ? o : null
 }
 
 /** The player said no in the wallet (not a network error, after which the payment may still go out). */
