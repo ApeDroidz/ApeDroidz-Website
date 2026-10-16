@@ -25,8 +25,16 @@ const COLS = 'grid-cols-[2rem_minmax(0,1fr)_auto] md:grid-cols-[2.25rem_minmax(0
  * ширины; топ-10 и Show more → поп-ап со всем лидербордом»). Rows from /api/survival/board — one per
  * wallet, rejected or void runs never there.
  */
-export function BoardSection({ board, pool }: { board: BoardRow[] | null | undefined; pool: Pool | null | undefined }) {
+export function BoardSection({ board: all, passBoard, passCount, pool }: {
+    board: BoardRow[] | null | undefined; passBoard: BoardRow[] | null | undefined; passCount: number | null; pool: Pool | null | undefined
+}) {
     const [open, setOpen] = useState(false)
+    /**
+     * Everyone, or only the pass holders ranked among themselves (owner, 17.10.2026: «переключатель —
+     * отдельный лидерборд тех, у кого пропуск: именно они борются за призовой пул»).
+     */
+    const [only, setOnly] = useState<'all' | 'pass'>('all')
+    const board = only === 'pass' ? passBoard : all
     const title = pool?.paysOut ? `${pool.seasonName} Leaderboard` : 'Beta Leaderboard'
     // Two columns on a wide screen (owner, 04.10.2026: «почему всё влево, а справа пустота»): the
     // heading, its line and «Show all» on the left; the table filling the right. Stacked on a phone.
@@ -37,8 +45,25 @@ export function BoardSection({ board, pool }: { board: BoardRow[] | null | undef
                     <div className={`${LABEL_CLASS} mb-4 text-white/40`}>Leaderboard</div>
                     <h2 className="text-3xl font-semibold leading-[1.02] tracking-tight md:text-5xl">{title}</h2>
                     <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/55 md:text-base">
-                        Each player&apos;s best run of the season. Rejected or void runs never make it here.
+                        {only === 'pass'
+                            ? 'Pass holders only, ranked among themselves — the race for the prize pool.'
+                            : 'Each player\'s best run of the season. Rejected or void runs never make it here.'}
                     </p>
+                    <div role="tablist" aria-label="Which board" className="mt-6 inline-flex rounded-full border border-white/10 bg-white/[0.04] p-1">
+                        {([['all', 'All players', null], ['pass', 'Pass holders', passCount]] as const).map(([k, label, n]) => (
+                            <button
+                                key={k}
+                                role="tab"
+                                aria-selected={only === k}
+                                data-testid={`board-${k}`}
+                                onClick={() => setOnly(k)}
+                                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest transition-colors ${only === k ? (k === 'pass' ? 'bg-[#FFCF4A] text-black' : 'bg-white text-black') : 'text-white/55 hover:text-white'}`}
+                            >
+                                {label}
+                                {n != null && <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] tabular-nums ${only === k ? 'bg-black/15' : 'bg-white/10 text-white/70'}`}>{n}</span>}
+                            </button>
+                        ))}
+                    </div>
                     {board && board.length > TOP && (
                         <button
                             data-testid="board-more"
@@ -54,7 +79,7 @@ export function BoardSection({ board, pool }: { board: BoardRow[] | null | undef
                         <BoardHead />
                         {board === undefined && <div className="space-y-2 p-4">{Array.from({ length: 6 }, (_, i) => <div key={i} className="h-11 animate-pulse rounded-xl bg-white/[0.04]" />)}</div>}
                         {board === null && <p className="p-6 text-sm text-white/45">The board shows here when a season is live.</p>}
-                        {board && board.length === 0 && <p className="p-6 text-sm text-white/45">No runs on the board yet — be the first.</p>}
+                        {board && board.length === 0 && <p className="p-6 text-sm text-white/45">{only === 'pass' ? 'No pass holder has a run on the board yet — the first one leads the race for the pool.' : 'No runs on the board yet — be the first.'}</p>}
                         {board && board.slice(0, TOP).map((r) => <BoardLine key={r.rank} r={r} />)}
                     </div>
                     {board && board.length > TOP && (

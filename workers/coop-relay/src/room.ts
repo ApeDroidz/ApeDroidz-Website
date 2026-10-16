@@ -194,8 +194,9 @@ export class Room extends DurableObject<Env> {
       case 'kick': {
         if (room.status !== 'open' || a.slot !== room.host) return;
         const target = room.members.find((x) => x.slot === m.slot);
-        // Only someone not READY (owner, 15.10.2026: the host waits for everyone and may send away who is not ready).
-        if (!target || target.slot === room.host || target.ready) return;
+        // Anyone but the host (owner, 17.10.2026: everyone is READY the moment they are in, so «only
+        // who is not ready» — the rule of 15.10 — would leave the host no one to send away).
+        if (!target || target.slot === room.host) return;
         room.kicked.push(target.w);
         room.members = room.members.filter((x) => x !== target);
         const s = this.socketOf(target.slot);

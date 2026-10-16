@@ -14,23 +14,22 @@ import { CAT } from './shared'
 // ── The card ─────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * The game's Season 1 pass (ui/seasonTeaser.ts seasonFace: SEASON 1, the fighter with his blade
- * swung out, PASS; its back the lattice and S1), drawn 1:1 to PNG at 2× (public/droidz_survival/
- * landing/pass-s1*.png). It floats and breathes; under the pointer it tilts toward it and the light
- * follows; a tap turns it over. Styles: .ds-card* in landing.tsx LandingStyles.
+ * The card under a mouse: it tilts toward the pointer and the light (--mx/--my, .ds-card-holo)
+ * follows it; let go, it settles. Touch is left alone (a tap turns the card over). Shared by the
+ * landing's card and the one in the purchase celebration (owner, 17.10.2026: «чтобы когда водишь
+ * по нему — интерактивный, как на лендосике»).
  */
-export function PassCard({ width, hint = false }: { width: string; hint?: boolean }) {
+export function usePassTilt() {
     const ref = useRef<HTMLButtonElement>(null)
-    const [flipped, setFlipped] = useState(false)
     const move = (e: PointerEvent<HTMLButtonElement>) => {
         if (e.pointerType !== 'mouse' || !ref.current) return
         const r = ref.current.getBoundingClientRect()
         const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height
-        const s = ref.current.style
-        s.setProperty('--rx', `${((0.5 - y) * 18).toFixed(2)}deg`)
-        s.setProperty('--ry', `${((x - 0.5) * 22).toFixed(2)}deg`)
-        s.setProperty('--mx', `${(x * 100).toFixed(1)}%`)
-        s.setProperty('--my', `${(y * 100).toFixed(1)}%`)
+        const st = ref.current.style
+        st.setProperty('--rx', `${((0.5 - y) * 18).toFixed(2)}deg`)
+        st.setProperty('--ry', `${((x - 0.5) * 22).toFixed(2)}deg`)
+        st.setProperty('--mx', `${(x * 100).toFixed(1)}%`)
+        st.setProperty('--my', `${(y * 100).toFixed(1)}%`)
         ref.current.classList.add('is-tilt')
     }
     const leave = () => {
@@ -39,6 +38,18 @@ export function PassCard({ width, hint = false }: { width: string; hint?: boolea
         for (const k of ['--rx', '--ry', '--mx', '--my']) el.style.removeProperty(k)
         el.classList.remove('is-tilt')
     }
+    return { ref, move, leave }
+}
+
+/**
+ * The game's Season 1 pass (ui/seasonTeaser.ts seasonFace: SEASON 1, the fighter with his blade
+ * swung out, PASS; its back the lattice and S1), drawn 1:1 to PNG at 2× (public/droidz_survival/
+ * landing/pass-s1*.png). It floats and breathes; under the pointer it tilts toward it and the light
+ * follows; a tap turns it over. Styles: .ds-card* in landing.tsx LandingStyles.
+ */
+export function PassCard({ width, hint = false }: { width: string; hint?: boolean }) {
+    const { ref, move, leave } = usePassTilt()
+    const [flipped, setFlipped] = useState(false)
     return (
         <div className="flex flex-col items-center">
             <div className="ds-card-stage" style={{ width }}>

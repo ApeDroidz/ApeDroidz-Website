@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowUpRight, Gift, Sparkles, Trophy } from 'lucide-react'
 import { LABEL_CLASS, Reveal } from '@/components/landing/ui'
 import { Ape, ape, POOL_SEASON, POOL_SHARE, Section, type LandingPrice, type Pool } from './shared'
 import { PassBuyButton, PassModal, usePassBuy } from './pass-buy'
 import { PassCard } from './pass-parts'
+import { PassCelebration, type CelebrationBg } from './pass-celebrate'
 
 // One short line each (owner, 04.10.2026: «текста слишком много»). From the game: the pool goes to
 // pass holders (config/season.ts), the PASS reward on every tier, four spark colours only the pass gives.
@@ -24,13 +25,28 @@ const PASS_PERKS: Array<{ icon: typeof Trophy; title: string; line: string }> = 
  * right here (landing/pass-buy.tsx; owner, 16.10.2026); «What's inside» opens the window with the
  * pool, the PASS track and the sparks — the details live there, not here.
  */
-export function PassSection({ prices, pool }: { prices: LandingPrice[]; pool: Pool | null | undefined }) {
+export function PassSection({ prices, pool, onPurchased }: { prices: LandingPrice[]; pool: Pool | null | undefined; onPurchased?: () => void }) {
     const pass = prices.find((p) => p.kind === 'season_pass')
     const price = pass?.fullPriceApe ?? null
     const holderPct = pass?.holderDiscountPct ?? 0
     const holderPrice = price != null && holderPct > 0 ? price * (1 - holderPct / 100) : null
     const buy = usePassBuy(pass?.sku ?? null)
     const [open, setOpen] = useState(false)
+    // Paid: the celebration (landing/pass-celebrate.tsx), and the page reads the board and the pool
+    // again so the buyer sees the PASS by their name at once (owner, 17.10.2026).
+    const [party, setParty] = useState(false)
+    const [fxBg, setFxBg] = useState<CelebrationBg>('grid')
+    useEffect(() => {
+        if (buy.step !== 'done') return
+        setParty(true)
+        onPurchased?.()
+    }, [buy.step]) // eslint-disable-line react-hooks/exhaustive-deps
+    // `next dev` only: ?pass_fx=1 plays the celebration without a purchase, to look at it.
+    useEffect(() => {
+        if (process.env.NODE_ENV !== 'development') return
+        const q = new URLSearchParams(window.location.search)
+        if (q.has('pass_fx')) { setFxBg((q.get('bg') as CelebrationBg | null) ?? 'grid'); setParty(true) }
+    }, [])
     return (
         <Section id="pass" label="Season pass" title="The pass is your ticket to the pool">
             <Reveal>
@@ -72,6 +88,7 @@ export function PassSection({ prices, pool }: { prices: LandingPrice[]; pool: Po
                 </div>
             </Reveal>
             {open && <PassModal onClose={() => setOpen(false)} buy={buy} price={price} holderPrice={holderPrice} pool={pool} />}
+            {party && <PassCelebration bg={fxBg} onClose={() => { setParty(false); setOpen(false) }} />}
         </Section>
     )
 }
