@@ -3,7 +3,7 @@ import { eth_blockNumber } from 'thirdweb/rpc'
 import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer, readBody } from '@/lib/survivalRuns'
 import { apeToWei, CASHIER, describe, encodePay, isMode, isTestSku, loadCatalog, modeOpen, priceFor, resolveItem } from '@/lib/survivalShop'
-import { isDroidHolder } from '@/lib/droidHolder'
+import { anyDroidHolder } from '@/lib/droidHolder'
 import { seasonVisibleFor } from '@/lib/survivalAccess'
 import { rpc, settlePending, within } from '@/lib/survivalSettle'
 import { logEvent } from '@/lib/survivalLog'
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     // Where to look for the Paid event later if the client never returns with the hash.
     // An ApeDroidz holder pays the discounted price (the season pass: −30%). Checked here, on the
     // server, and copied into the order — settlement then holds the payment to exactly this price.
-    const price = item.holder_discount_pct > 0 ? priceFor(item, await isDroidHolder(caller.wallet)) : item.price_ape
+    const price = item.holder_discount_pct > 0 ? priceFor(item, await anyDroidHolder(caller.wallets)) : item.price_ape
     // Bounded: a slow public RPC must not hold the purchase. Without it the pending scan looks back
     // one span from the head (lib/survivalSettle.ts settlePending), so the order is still found.
     const fromBlock = await within(eth_blockNumber(rpc()).then((b) => Number(b)).catch(() => null), 1500, null)

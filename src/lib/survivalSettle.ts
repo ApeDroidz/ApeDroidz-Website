@@ -2,7 +2,8 @@ import { eth_blockNumber, eth_getBlockByNumber, eth_getLogs, eth_getTransactionR
 import { supabaseAdmin } from '@/lib/supabase'
 import { apeChainServer, createServerThirdwebClient } from '@/lib/apechain'
 import { apeToWei, CASHIER, HUB_FEE_SPLITTER, hubFeeFor, loadCatalog, orderIdFromRef, orderRef, PAID_TOPIC, paidEvents, priceFor, type Log, type PaidEvent } from '@/lib/survivalShop'
-import { isDroidHolder } from '@/lib/droidHolder'
+import { anyDroidHolder } from '@/lib/droidHolder'
+import { walletsOf } from '@/lib/survivalAccount'
 import { logEvent } from '@/lib/survivalLog'
 import { deliverTicketNfts } from '@/lib/survivalTicketNft'
 import { markFirstPurchase } from '@/lib/survivalFunnelServer'
@@ -49,7 +50,7 @@ async function blockTime(block: bigint): Promise<number | null> {
 async function priceToday(order: OrderRow): Promise<bigint | null> {
     const item = (await loadCatalog(true)).find((c) => c.sku === order.sku)
     if (!item) return null
-    const price = item.holder_discount_pct > 0 ? priceFor(item, await isDroidHolder(order.wallet).catch(() => false)) : item.price_ape
+    const price = item.holder_discount_pct > 0 ? priceFor(item, await anyDroidHolder((await walletsOf(order.wallet).catch(() => null))?.wallets ?? [order.wallet])) : item.price_ape
     return apeToWei(price)
 }
 

@@ -19,7 +19,10 @@ export const maxDuration = 30
 export async function GET(req: NextRequest) {
     const caller = await authCaller(req)
     if (caller instanceof NextResponse) return caller
-    const nfts = await listWalletNfts(caller.wallet)
+    // Every wallet of the account (lib/survivalAccount.ts): the droid on the MetaMask is a picture for
+    // the player signed in with Glyph too. One indexer failure among several still shows the rest.
+    const lists = await Promise.all(caller.wallets.map((w) => listWalletNfts(w)))
+    const nfts = lists.every((l) => l === null) ? null : lists.flatMap((l) => l ?? [])
     if (nfts === null) return NextResponse.json({ error: 'indexer', nfts: [] }, { status: 502, headers: { 'cache-control': 'no-store' } })
     return NextResponse.json({ nfts: nfts.slice(0, MAX_NFTS), count: nfts.length }, { headers: { 'cache-control': 'private, max-age=60' } })
 }

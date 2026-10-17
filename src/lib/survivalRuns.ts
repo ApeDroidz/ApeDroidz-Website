@@ -4,6 +4,7 @@ import { readSessionFromRequest } from '@/lib/walletAuth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createPlayToken, PLAY_COOKIE_NAME, PLAY_COOKIE_OPTIONS, readPlayToken } from '@/lib/survivalAccess'
 import { accessFor } from '@/lib/survivalAllow'
+import { accountOf } from '@/lib/survivalAccount'
 import { checkFinish, MSG, restoredMessage, whyOf, type PulseState } from '@/lib/survivalEnvelope'
 import { logEvent } from '@/lib/survivalLog'
 import { runAlreadyPaid, runReward, type RunReport } from '@/lib/survivalEconomy'
@@ -25,7 +26,29 @@ import { settleCoop } from '@/lib/survivalCoop'
  * game can render a state rather than parse an error.
  */
 
-export interface Caller { wallet: string }
+/**
+ * `wallet` is the ACCOUNT (lib/survivalAccount.ts): the main wallet when the signed one is linked to
+ * it, the signed one otherwise — every table the game writes is keyed by it. `session` is the wallet
+ * that actually signed; `wallets` every wallet of the account (whose NFTs count, whose droids give
+ * the holder price).
+ */
+export interface Caller { wallet: string; session: string; wallets: string[] }
+
+/**
+ * The account behind a signed wallet. If the lookup fails (no database, or the links table not
+ * migrated yet) the signed wallet stands alone — exactly the behaviour before accounts existed.
+ */
+async function asAccount(session: string, recheck: boolean): Promise<Caller | NextResponse> {
+    const acc = await accountOf(session)
+    if (!acc) return { wallet: session, session, wallets: [session] }
+    // A ban on the account closes every wallet of it — checked when something starts (recheck),
+    // like the signed wallet's own gate above.
+    if (recheck && acc.account !== session) {
+        const access = await accessFor(acc.account)
+        if (!access.error && !access.allowed) return NextResponse.json({ ok: false, state: 'no_access' }, { status: 401 })
+    }
+    return { wallet: acc.account, session, wallets: acc.wallets }
+}
 
 /**
  * The play cookie lives PLAY_TTL (6 h) and was minted only when the page loaded, so a long
@@ -50,7 +73,7 @@ export async function authCaller(req: NextRequest, opts: { recheck?: boolean } =
     const session = readSessionFromRequest(req)
     if (!session) return NextResponse.json({ ok: false, state: 'unauthenticated' }, { status: 401 })
     const play = await readPlayToken(req.cookies.get(PLAY_COOKIE_NAME)?.value)
-    if (play && play === session.wallet && !opts.recheck) return { wallet: session.wallet }
+    if (play && play === session.wallet && !opts.recheck) return asAccount(session.wallet, false)
 
     const access = await accessFor(session.wallet)
     if (access.error) { console.error('[survival] access recheck', access.error); return noServer() }
@@ -60,12 +83,12 @@ export async function authCaller(req: NextRequest, opts: { recheck?: boolean } =
         return res
     }
     // A good cookie that was only rechecked stays as it is.
-    if (play && play === session.wallet) return { wallet: session.wallet }
+    if (play && play === session.wallet) return asAccount(session.wallet, true)
     const token = await createPlayToken(session.wallet, access.until)
     if (token) {
         try { cookies().set(PLAY_COOKIE_NAME, token, PLAY_COOKIE_OPTIONS) } catch { /* not in a request scope */ }
     }
-    return { wallet: session.wallet }
+    return asAccount(session.wallet, !!opts.recheck)
 }
 
 /** One journal line per kind per minute at most: a database that is down must not flood it. */

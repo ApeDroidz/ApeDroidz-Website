@@ -40,7 +40,13 @@ export async function POST(req: NextRequest) {
         const contract = typeof body.contract === 'string' ? body.contract.trim().toLowerCase() : ''
         const tokenId = normTokenId(body.tokenId)
         if (!CONTRACT_RE.test(contract) || !tokenId) return NextResponse.json({ error: 'invalid' }, { status: 400, headers: NO_STORE })
-        const found = await findOwnedNft(wallet, contract, tokenId)
+        // Owned by any wallet of the account (lib/survivalAccount.ts) — the first that has it answers.
+        let found: Awaited<ReturnType<typeof findOwnedNft>> = null
+        for (const w of caller.wallets) {
+            const f = await findOwnedNft(w, contract, tokenId)
+            if (f?.owned) { found = f; break }
+            if (f) found = f
+        }
         if (found === null) return noServer('me.avatar', 'indexer and chain did not answer')
         if (!found.owned) return NextResponse.json({ error: 'not_owner' }, { status: 403, headers: NO_STORE })
         if (!found.nft) return NextResponse.json({ error: 'no_image' }, { status: 422, headers: NO_STORE })

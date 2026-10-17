@@ -110,6 +110,13 @@ const LIMITS: Record<string, Limit> = {
     '/api/survival/me/clan':            { max: 20,  windowMs: 60_000 },
     '/api/survival/funnel':             { max: 30,  windowMs: 60_000 },
     '/api/otherside/login':             { max: 20,  windowMs: 60_000 },
+    // One account, several wallets (17.10.2026): a code is 8 of 32 characters and lives 10 minutes,
+    // and a redeem is capped per IP here and per wallet in the route — guessing one is not a plan.
+    // The game polls its code every 3 s while the card is up (GET on the same path).
+    '/api/survival/link/code':          { max: 40,  windowMs: 60_000 },
+    '/api/survival/link/preview':       { max: 12,  windowMs: 60_000 },
+    '/api/survival/link/redeem':        { max: 8,   windowMs: 60_000 },
+    '/api/survival/link/unlink':        { max: 10,  windowMs: 60_000 },
     // The panel's password: a handful of tries a minute per IP (400 ms per wrong answer in the
     // route does not stop requests sent in parallel).
     '/api/admin/login':                 { max: 5,   windowMs: 60_000 },
@@ -209,6 +216,10 @@ function gatedGamePath(pathname: string): boolean {
     // its files are index.html and assets/…), and every other spelling — /droidz_survival/play/,
     // /droidz_survival/PLAY, %70lay — stays gated (Next sends a trailing slash to the bare path anyway).
     if (pathname === '/droidz_survival/play') return false
+    // The build's warm-up list (the game's vite.config bootPreload): media URLs on R2 and the
+    // bundle's name, nothing else — the Otherside cabinet reads it before the wallet is in, to start
+    // the downloads early. The exact spelling only, like the page above.
+    if (pathname === '/droidz_survival/play/warm.json') return false
     let p = pathname
     try { p = decodeURIComponent(pathname) } catch { return pathname.toLowerCase().includes('droidz_survival') }
     p = p.toLowerCase()

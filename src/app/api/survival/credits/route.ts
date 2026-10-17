@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { authCaller, noServer } from '@/lib/survivalRuns'
 import { CASHIER, catalogFor, loadCatalog, publicCatalog } from '@/lib/survivalShop'
 import { settlePending, within } from '@/lib/survivalSettle'
-import { isDroidHolder } from '@/lib/droidHolder'
+import { anyDroidHolder } from '@/lib/droidHolder'
 import { seasonVisibleFor } from '@/lib/survivalAccess'
 
 /**
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     const needHolder = catalog.some((i) => i.holder_discount_pct > 0 && (i.kind !== 'season_pass' || seasonVisibleFor(caller.wallet)))
     const [booked, holderNow] = await Promise.all([
         within(settlePending(caller.wallet).catch(() => 0), 2500, 0),
-        needHolder ? within(isDroidHolder(caller.wallet).catch(() => false), 2000, false) : Promise.resolve(false),
+        needHolder ? within(anyDroidHolder(caller.wallets), 2000, false) : Promise.resolve(false),
     ])
     // A new player's three free full runs (owner, 15.10.2026), granted on the first read — once per
     // wallet, never to one that already played (survival_grant_welcome).

@@ -44,3 +44,7 @@ export async function droidCount(wallet: string): Promise<number | null> {
 }
 
 export const isDroidHolder = async (wallet: string): Promise<boolean> => ((await droidCount(wallet)) ?? 0) > 0
+
+/** Any wallet of an account holds a droid (lib/survivalAccount.ts: the account's NFTs are all of its wallets'). */
+export const anyDroidHolder = async (wallets: string[]): Promise<boolean> =>
+    (await Promise.all(wallets.map((w) => isDroidHolder(w).catch(() => false)))).some(Boolean)
