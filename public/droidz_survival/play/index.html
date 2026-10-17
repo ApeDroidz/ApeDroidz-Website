@@ -63,6 +63,71 @@
         object-position: center bottom;
         pointer-events: none;
       }
+      /* The page's own preloader (owner, 18.10.2026: «добавить прелоадер при загрузке игры и надпись
+         LOADING вернуть»). Boot draws LOADING and its bar on the canvas — but only once the bundle has
+         come down and Phaser has started, and on a slow line that was ten seconds and more of a bare
+         poster that looked frozen. This is the same caption, the same line under it and the same bar
+         in the same place (over the lettering painted into the poster: cover px × s, s = the poster's
+         cover scale), up with the poster at once; a light runs along the bar while the bundle loads.
+         Boot removes it the moment its own cover is on the canvas (BootScene.preload). The face is
+         the system sans: Inter is font-display: block and would hide the words while it loads. */
+      #preload {
+        --s: max(calc(100vw / 1920), calc(100vh / 1080));
+        position: absolute;
+        left: 50%;
+        /* Anchored by the bar's foot (the bar's middle at 218 cover px over the poster's bottom, as
+           BootScene's): when RELOAD appears the block grows upward and the bar stays where it was. */
+        bottom: calc(var(--s) * 209);
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        pointer-events: none;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        color: #fff;
+        text-shadow: 0 2px 6px #000;
+      }
+      #preload .cap { font-size: clamp(22px, 4.6vh, 40px); font-weight: 700; letter-spacing: 0.02em; line-height: 1; }
+      #preload .note { margin-top: 10px; font-size: clamp(13px, 2.3vh, 20px); font-weight: 500; color: #d7e2f2; }
+      #preload .bar {
+        position: relative;
+        margin-top: calc(var(--s) * 14 + 6px);
+        width: calc(var(--s) * 1080);
+        max-width: 92vw;
+        height: max(10px, calc(var(--s) * 18));
+        box-sizing: border-box;
+        border: max(1px, calc(var(--s) * 2)) solid rgba(255, 255, 255, 0.95);
+        background: rgba(5, 8, 15, 0.85);
+        overflow: hidden;
+      }
+      #preload .bar::after {
+        content: '';
+        position: absolute;
+        top: 2px; bottom: 2px;
+        width: 26%;
+        left: -26%;
+        background: #fff;
+        animation: preloadRun 1.4s ease-in-out infinite;
+      }
+      @keyframes preloadRun { 0% { left: -26%; } 100% { left: 100%; } }
+      @media (prefers-reduced-motion: reduce) { #preload .bar::after { animation: none; left: 0; width: 8%; } }
+      /* The bundle failed or the boot never came: say so, and a way out (a bare poster said nothing). */
+      #preload .reload {
+        display: none;
+        order: -1;
+        margin-bottom: 18px;
+        padding: 12px 34px;
+        border: 2px solid #fff;
+        background: rgba(5, 8, 15, 0.85);
+        color: #fff;
+        font: 700 16px "Helvetica Neue", Arial, sans-serif;
+        letter-spacing: 0.12em;
+        cursor: pointer;
+        pointer-events: auto;
+      }
+      #preload.failed .reload { display: block; }
+      #preload.failed .bar::after { animation: none; left: 0; width: 100%; background: #ff5a6a; }
+      #preload.failed .note { color: #ffd2d7; }
       #game canvas {
         display: block;
         position: relative;
@@ -157,11 +222,38 @@
         70%, 100% { transform: rotate(-90deg); }
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-BBt7Uo3A.js"></script>
+    <script type="module" crossorigin src="./assets/index-BDWSrs4a.js"></script>
   </head>
   <body>
+    <script>
+      // The page's preloader says what went wrong instead of standing still (18.10.2026): the game's
+      // file did not come (a 404 after a new build, a dropped line), or the boot has not taken over
+      // in 40 s. BootScene removes #preload when it starts, which ends both.
+      (function () {
+        function fail(msg, hard) {
+          var p = document.getElementById('preload');
+          if (!p) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { fail(msg, hard); }); return; }
+          p.classList.add('failed');
+          var c = p.querySelector('.cap');
+          if (c && hard) c.textContent = "COULDN'T LOAD";
+          var n = p.querySelector('.note');
+          if (n) n.textContent = msg;
+        }
+        window.addEventListener('error', function (e) {
+          var t = e.target;
+          if (t && t.tagName === 'SCRIPT' && /assets\//.test(t.src || '')) fail("The game didn't load. Reload the page.", true);
+        }, true);
+        setTimeout(function () { fail('Taking too long - reload the page or check your connection.'); }, 40000);
+      })();
+    </script>
     <div id="game">
       <img id="cover" src="https://assets.apedroidz.com/apedroidz/droidz-survival/v13/assets/img/DS_Beta_cover.jpg" crossorigin="anonymous" alt="" />
+      <div id="preload" aria-live="polite">
+        <div class="cap">LOADING</div>
+        <div class="note">First load may take a little longer</div>
+        <div class="bar"></div>
+        <button class="reload" type="button" onclick="location.reload()">RELOAD</button>
+      </div>
     </div>
     <div id="gate" aria-hidden="true">
       <div class="title">DROIDZ SURVIVAL</div>
