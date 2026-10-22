@@ -93,6 +93,19 @@ async function build(): Promise<Record<string, unknown> | null> {
         payoutApe: round((solo + coop) * Number(season.payout_pct ?? 0.9)),
         live: LIVE,
         prizes: ((nfts as Array<{ place: number; unlock_level: number | null; name: string | null; image_url: string | null; status: string }> | null) ?? [])
-            .map((p) => ({ place: p.place, unlockLevel: p.unlock_level, name: p.name, imageUrl: p.image_url, awarded: p.status !== 'listed' })),
+            .map((p) => ({ place: p.place, unlockLevel: p.unlock_level, name: p.name, imageUrl: prizeThumb(p.image_url), awarded: p.status !== 'listed' })),
     }
+}
+
+/**
+ * A prize's picture as the game and the landing draw it — small (owner, 22.10.2026: «у приза очень
+ * долго картинка грузится»). The panel stores the full 3D bust (3D-media/3D-PFP/<kind>/<id>.jpg,
+ * 2048 px, ~1.7 MB, not cached at the edge: ~2.4 s every time) and it is shown at ~200 px; the same
+ * bust's 512 px WebP preview sits beside it on R2 (3D-media/3D-PFP-512/<kind>/<id>.webp, ~15 KB).
+ * Any other picture goes as it is.
+ */
+function prizeThumb(url: string | null): string | null {
+    if (!url) return url
+    const m = /^(https:\/\/assets\.apedroidz\.com\/apedroidz\/3D-media)\/3D-PFP\/([\w-]+)\/(\d+)\.(?:jpe?g|png)(?:\?.*)?$/i.exec(url)
+    return m ? `${m[1]}/3D-PFP-512/${m[2]}/${m[3]}.webp` : url
 }
