@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GlyphSDK, OTHERSIDE_HUB_ORIGIN, pickHubOrigin, type GlyphReadyPayload } from '@/lib/glyph-sdk'
 import { othersideLoginMessage } from '@/lib/othersideMessage'
+import { noteServerClock, serverNow } from '@/lib/serverClock'
 import { DISCORD_URL } from '@/lib/socials'
 import { cancelOrder, createOrder, isUserRejection, reportPayment, singleFlight } from '@/lib/survivalHostPay'
 
@@ -61,8 +62,10 @@ export default function OthersideCabinet() {
             setHubUser(ready)
             const wallet = ready.walletAddress.toLowerCase()
             try {
+                const sentAt = Date.now()
                 const r = await fetch('/api/otherside/login', { credentials: 'include', cache: 'no-store' })
                 const d = await r.json().catch(() => ({}))
+                noteServerClock(r, d, sentAt)
                 if (d.wallet === wallet && d.state === 'allowed') { setPhase({ k: 'playing', wallet }); return }
                 if (d.wallet === wallet && d.state === 'denied') { setPhase({ k: 'denied', wallet }); return }
             } catch { /* fall through to signing */ }
@@ -84,14 +87,17 @@ export default function OthersideCabinet() {
         if (!sdk || !wallet) return
         setPhase({ k: 'sign', busy: true })
         try {
-            const nonce = `${Date.now()}.${crypto.randomUUID()}`
+            // Stamped with the server's clock, not the PC's (lib/serverClock).
+            const nonce = `${Math.round(serverNow())}.${crypto.randomUUID()}`
             const signature = await sdk.signMessage(othersideLoginMessage(wallet, nonce))
+            const sentAt = Date.now()
             const r = await fetch('/api/otherside/login', {
                 method: 'POST', credentials: 'include', cache: 'no-store',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ wallet, nonce, signature }),
             })
             const d = await r.json().catch(() => ({}))
+            noteServerClock(r, d, sentAt)
             if (!r.ok) { setPhase({ k: 'sign', busy: false, error: d?.error ?? `Sign-in failed (${r.status})` }); return }
             setPhase(d.state === 'allowed' ? { k: 'playing', wallet } : { k: 'denied', wallet })
         } catch (e) {
@@ -141,8 +147,10 @@ export default function OthersideCabinet() {
         let alive = true
         const renew = async () => {
             try {
+                const sentAt = Date.now()
                 const r = await fetch('/api/otherside/login', { credentials: 'include', cache: 'no-store' })
                 const d = await r.json().catch(() => ({}))
+                noteServerClock(r, d, sentAt)
                 if (alive && r.ok && d.state === 'denied' && d.wallet === playingWallet) setPhase({ k: 'denied', wallet: playingWallet })
             } catch { /* offline for a moment — the next tick asks again */ }
         }

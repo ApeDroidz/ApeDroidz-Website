@@ -264,17 +264,35 @@ export function loginMessage(wallet: string, nonce: string): string {
 }
 
 /**
- * Validate a "{ts}.{rand}" nonce: timestamp within ±5min of now,
- * total length capped to prevent abuse.
+ * Validate a "{ts}.{rand}" nonce: timestamp within 10 min in the past / 60 s in the future of the
+ * server's clock, total length capped to prevent abuse.
+ *
+ * The browser stamps the nonce with the SERVER's time (lib/serverClock, the offset comes with
+ * /api/auth/me and with every refusal below), so a PC whose clock is off still signs in — at the
+ * latest on the second click. 10 min (was 5) covers a desktop wallet prompt that popped up by
+ * itself while the player was away.
  */
-export function isFreshNonce(nonce: unknown): boolean {
-    if (typeof nonce !== 'string' || nonce.length === 0 || nonce.length > 200) return false
+export function nonceProblem(nonce: unknown): null | 'invalid' | 'expired' {
+    if (typeof nonce !== 'string' || nonce.length === 0 || nonce.length > 200) return 'invalid'
     const tsStr = nonce.split('.')[0]
     const ts = parseInt(tsStr, 10)
-    if (!Number.isFinite(ts)) return false
+    if (!Number.isFinite(ts)) return 'invalid'
     const now = Date.now()
-    // Reject nonces older than 5 minutes or more than 60s in the future.
-    if (now - ts > 5 * 60 * 1000) return false
-    if (ts - now > 60 * 1000) return false
-    return true
+    if (now - ts > 10 * 60 * 1000) return 'expired'
+    if (ts - now > 60 * 1000) return 'expired'
+    return null
+}
+
+export function isFreshNonce(nonce: unknown): boolean {
+    return nonceProblem(nonce) === null
+}
+
+/** The refusal of a stale nonce: plain words, and the server's time so the browser fixes its stamp. */
+export function nonceRefusal(problem: 'invalid' | 'expired') {
+    return {
+        error: problem === 'expired'
+            ? 'The sign-in request expired — please sign again'
+            : 'Invalid sign-in request — please sign again',
+        now: Date.now(),
+    }
 }

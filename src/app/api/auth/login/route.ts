@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
     isValidWallet,
-    isFreshNonce,
+    nonceProblem,
+    nonceRefusal,
     loginMessage,
     verifyWalletSignature,
     createSessionToken,
@@ -24,8 +25,9 @@ export async function POST(req: NextRequest) {
     if (!isValidWallet(wallet)) {
         return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
     }
-    if (!isFreshNonce(nonce)) {
-        return NextResponse.json({ error: 'Invalid or expired nonce' }, { status: 400 })
+    const stale = nonceProblem(nonce)
+    if (stale) {
+        return NextResponse.json(nonceRefusal(stale), { status: 400 })
     }
     if (typeof signature !== 'string' || signature.length === 0 || signature.length > 1024) {
         return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })

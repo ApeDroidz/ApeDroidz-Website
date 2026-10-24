@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useActiveAccount, useActiveWallet } from 'thirdweb/react'
 import { injectedProvider } from 'thirdweb/wallets'
+import { noteServerClock, serverNow } from '@/lib/serverClock'
 
 /**
  * Stateful session hook for Glitch Games.
@@ -39,7 +40,8 @@ function genNonce(): string {
     const arr = new Uint8Array(16)
     crypto.getRandomValues(arr)
     const hex = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('')
-    return `${Date.now()}.${hex}`
+    // The server's clock, not the PC's: a clock a few minutes off failed every sign-in (lib/serverClock).
+    return `${Math.round(serverNow())}.${hex}`
 }
 
 export function useGlitchSession() {
@@ -80,11 +82,13 @@ export function useGlitchSession() {
         }
         checkingRef.current = true
         try {
+            const sentAt = Date.now()
             const res = await fetch('/api/auth/me', {
                 credentials: 'include',
                 cache: 'no-store',
             })
             const data = await res.json().catch(() => ({}))
+            noteServerClock(res, data, sentAt)
             const cookieWallet = data?.authenticated
                 ? String(data.wallet ?? '').toLowerCase()
                 : null
@@ -229,6 +233,7 @@ export function useGlitchSession() {
             setSession({ loading: true, error: null })
             const signature = await signing
 
+            const sentAt = Date.now()
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 credentials: 'include',
@@ -236,6 +241,8 @@ export function useGlitchSession() {
                 body: JSON.stringify({ wallet: cur, nonce, signature }),
             })
             const data = await res.json().catch(() => ({}))
+            // A refused stale nonce carries the server's time: the next click is stamped right.
+            noteServerClock(res, data, sentAt)
             if (!res.ok || !data?.ok) {
                 setSession({ loading: false, error: data?.error || 'Login failed' })
                 return false

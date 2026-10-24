@@ -85,7 +85,15 @@ const nextConfig = {
         // The game's JS chunks are content-hashed by Vite: safe to cache for a year, and it
         // keeps the beta-gate middleware from running on every revisit. index.html keeps
         // the default (revalidate), so a new build is picked up on the next load.
+        //
+        // ONLY with the play cookie (24.10.2026). Without it the gate answers the same URL with a
+        // 307 to the landing — and this header went out on that redirect too: the browser kept
+        // «the bundle is the landing page» for a year. The Otherside cabinet warms the bundle
+        // before it has reissued the 6-hour play cookie, so every player back after 6 h got that
+        // redirect cached under otherside.xyz and the game said COULDN'T LOAD there for good (the
+        // site, with no warm-up, kept working). The gate's redirect is no-store besides (middleware).
         source: "/droidz_survival/play/assets/:path*",
+        has: [{ type: "cookie", key: "survival_play" }],
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
       {

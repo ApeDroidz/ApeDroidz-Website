@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSessionToken, isFreshNonce, isValidWallet, readSessionFromRequest, SESSION_COOKIE_NAME, verifyWalletSignature } from '@/lib/walletAuth'
+import { createSessionToken, isValidWallet, nonceProblem, nonceRefusal, readSessionFromRequest, SESSION_COOKIE_NAME, verifyWalletSignature } from '@/lib/walletAuth'
 import { createPlayToken, PLAY_COOKIE_NAME, PLAY_PATH } from '@/lib/survivalAccess'
 import { accessFor } from '@/lib/survivalAllow'
 import { logEvent } from '@/lib/survivalLog'
@@ -47,7 +47,7 @@ async function withAccess(wallet: string, res: (body: Record<string, unknown>) =
 
 export async function GET(req: NextRequest) {
     const session = readSessionFromRequest(req)
-    if (!session) return NextResponse.json({ state: 'unverified' }, { headers: noStore })
+    if (!session) return NextResponse.json({ state: 'unverified', now: Date.now() }, { headers: noStore })
     return withAccess(session.wallet, (body) => NextResponse.json(body, { headers: noStore }))
 }
 
@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
     const wallet = typeof body.wallet === 'string' ? body.wallet.toLowerCase() : ''
     const { nonce, signature } = body
     if (!isValidWallet(wallet)) return NextResponse.json({ error: 'Invalid wallet' }, { status: 400, headers: noStore })
-    if (!isFreshNonce(nonce)) return NextResponse.json({ error: 'Invalid or expired nonce' }, { status: 400, headers: noStore })
+    const stale = nonceProblem(nonce)
+    if (stale) return NextResponse.json(nonceRefusal(stale), { status: 400, headers: noStore })
     if (typeof signature !== 'string' || signature.length === 0 || signature.length > 4096) {
         return NextResponse.json({ error: 'Invalid signature' }, { status: 400, headers: noStore })
     }

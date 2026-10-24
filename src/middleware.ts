@@ -262,7 +262,11 @@ export async function middleware(req: NextRequest) {
             url.search = ''
             // Redirect, not rewrite: the game loads its own assets by relative path, and a
             // rewrite would leave the browser thinking it is still inside /play.
-            return NextResponse.redirect(url)
+            // Never cached: it stands at the URL of a file that IS there for a player with the
+            // cookie, and a kept redirect broke the game in Otherside for a year (next.config.js).
+            const res = NextResponse.redirect(url)
+            res.headers.set('Cache-Control', 'no-store')
+            return res
         }
     }
 
