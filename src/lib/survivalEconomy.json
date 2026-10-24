@@ -1,6 +1,6 @@
 {
  "version": 1,
- "exportedAt": "2026-10-15T07:39:13.785Z",
+ "exportedAt": "2026-10-24T04:13:58.885Z",
  "resources": [
   "scrap",
   "circuit",
@@ -50,6 +50,10 @@
    "defaultWeapon": "bow",
    "sellable": false
   }
+ },
+ "heroSale": {
+  "pct": 30,
+  "until": "2026-10-26T00:00:00Z"
  },
  "weapons": {
   "staff": {

@@ -24,7 +24,17 @@ const ok = (m) => console.log(`  ok    ${m}`)
 const bad = (m) => { failed++; console.log(`  FAIL  ${m}`) }
 const skip = (m) => console.log(`  skip  ${m}`)
 const check = (cond, m) => (cond ? ok(m) : bad(m))
-const get = (url, opts = {}) => fetch(url, { redirect: 'manual', cache: 'no-store', ...opts })
+/** fetch, retried twice on a network error (a flaky line is not a broken release); still failing → a FAIL line, not a crash. */
+async function net(url, opts) {
+    for (let i = 0; ; i++) {
+        try { return await fetch(url, opts) } catch (e) {
+            if (i < 2) { await new Promise((r) => setTimeout(r, 1500)); continue }
+            bad(`${url} — network: ${e.cause?.code || e.message}`)
+            return new Response(null, { status: 599 })
+        }
+    }
+}
+const get = (url, opts = {}) => net(url, { redirect: 'manual', cache: 'no-store', ...opts })
 
 /** A response the browser may keep: a gate answer at a real file's URL must never be one. */
 function cacheable(res) {
@@ -74,7 +84,7 @@ let warm = null
 }
 if (warm?.bundle) {
     for (const u of warm.assets || []) {
-        const r = await fetch(u, { method: 'HEAD', headers: { origin: BASE } })
+        const r = await net(u, { method: 'HEAD', headers: { origin: BASE } })
         check(r.status === 200 && !!r.headers.get('access-control-allow-origin'), `R2 ${u.split('/').slice(-2).join('/')} → ${r.status}, CORS ${r.headers.get('access-control-allow-origin') ? 'yes' : 'NO'}`)
     }
 

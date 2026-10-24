@@ -276,6 +276,19 @@ const clone = (e: Econ): Econ => JSON.parse(JSON.stringify(e)) as Econ
  * affordable, open, not maxed — and returns the new state, or why not. Nothing the client sends
  * sets a number: it only names what it wants.
  */
+/**
+ * A hero's price at `now`, the game's sale in (config/heroes.ts HERO_SALE → survivalEconomy.json
+ * `heroSale`; owner, 24.10.2026: −30% on every hero for the weekend). The SERVER's clock decides —
+ * the game's own sticker can be off by a PC clock, the charge cannot. Rounded as the game rounds.
+ */
+export function heroPrice(cost: number, now: number): number {
+    const sale = (ECON as { heroSale?: { pct?: number; until?: string } }).heroSale
+    const pct = Number(sale?.pct ?? 0)
+    const until = sale?.until ? Date.parse(sale.until) : NaN
+    if (!(pct > 0 && pct < 100) || !Number.isFinite(until) || now >= until) return cost
+    return Math.round(cost * (1 - pct / 100))
+}
+
 export function act(before: Econ, a: Action, ctx: { now: number; rand?: () => number }): ActResult {
     const rand = ctx.rand ?? serverRand
     const x = clone(before)
@@ -287,10 +300,11 @@ export function act(before: Econ, a: Action, ctx: { now: number; rand?: () => nu
             const h = (ECON.heroes as Record<string, { cost: number; free: boolean }>)[a.hero]
             if (!h || RETIRED_HEROES.includes(a.hero)) return fail('unknown_hero')
             if ((e.unlockedHeroes as string[]).includes(a.hero)) return fail('already_owned')
-            if ((e.coins as number) < h.cost) return fail('not_enough_coins')
-            e.coins = (e.coins as number) - h.cost;
+            const cost = heroPrice(h.cost, ctx.now)
+            if ((e.coins as number) < cost) return fail('not_enough_coins')
+            e.coins = (e.coins as number) - cost;
             (e.unlockedHeroes as string[]).push(a.hero)
-            return { ok: true, econ: x, result: { hero: a.hero, spent: h.cost } }
+            return { ok: true, econ: x, result: { hero: a.hero, spent: cost } }
         }
         case 'unlock_weapon': {
             const w = (ECON.weapons as Record<string, { cost: number }>)[a.weapon]
