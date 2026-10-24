@@ -110,7 +110,9 @@ else {
     } else {
         ok('index.html → 200')
         const html = await r.text()
-        const src = html.match(/<script type="module"[^>]*src="\.\/([^"]+)"/)?.[1]
+        // The entry: a module tag, or (since 24.10.2026) the build's byte-counting loader's window.__BOOT.
+        let src = html.match(/<script type="module"[^>]*src="\.\/([^"]+)"/)?.[1]
+        if (!src) { try { src = JSON.parse(html.match(/window\.__BOOT=(\{[^}]*\})/)?.[1] ?? 'null')?.entry?.replace(/^\.\//, '') } catch { src = undefined } }
         check(!!src, `module script: ${src}`)
         check(src === warm?.bundle, `warm.json bundle matches index.html (${warm?.bundle})`)
         const seen = new Set()

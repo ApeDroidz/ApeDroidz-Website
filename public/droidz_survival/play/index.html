@@ -100,13 +100,23 @@
         background: rgba(5, 8, 15, 0.85);
         overflow: hidden;
       }
+      /* The fill is the real progress: bytes of the bundle and the image pack, counted by the build's
+         loader (vite.config bootLoader) — 24.10.2026, the bar used to stand empty under a running
+         light for seconds. The light stays, faint, to say the line is alive. */
+      #preload .bar .fill {
+        position: absolute;
+        left: 0; top: 2px; bottom: 2px;
+        width: 0;
+        background: #fff;
+        transition: width 0.25s linear;
+      }
       #preload .bar::after {
         content: '';
         position: absolute;
         top: 2px; bottom: 2px;
         width: 26%;
         left: -26%;
-        background: #fff;
+        background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.28), rgba(255,255,255,0));
         animation: preloadRun 1.4s ease-in-out infinite;
       }
       @keyframes preloadRun { 0% { left: -26%; } 100% { left: 100%; } }
@@ -127,6 +137,7 @@
       }
       #preload.failed .reload { display: block; }
       #preload.failed .bar::after { animation: none; left: 0; width: 100%; background: #ff5a6a; }
+      #preload.failed .bar .fill { display: none; }
       #preload.failed .note { color: #ffd2d7; }
       #game canvas {
         display: block;
@@ -222,7 +233,7 @@
         70%, 100% { transform: rotate(-90deg); }
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-t8etRzx6.js"></script>
+    <script>window.__BOOT={"entry":"./assets/index-C5uElmTm.js","entryBytes":2437984,"pack":"https://assets.apedroidz.com/apedroidz/droidz-survival/v13/assets/pack/img-27dbee3e8e.bin","packBytes":1307584,"share":0.5};(function(B){var got={},total=0,reached=0;window.__bootPage={reached:0};function draw(){var d=0;for(var k in got)d+=got[k];var f=total?Math.min(1,d/total):0;reached=Math.max(reached,B.share*f);window.__bootPage.reached=reached;var el=document.querySelector('#preload .fill');if(el)el.style.width=(reached*100).toFixed(2)+'%';}function pull(u,n,o){total+=n;got[u]=0;var done=function(){got[u]=n;draw();};return fetch(u,o).then(function(r){if(!r.ok||!r.body){done();return;}var rd=r.body.getReader();var step=function(){return rd.read().then(function(x){if(x.done){done();return;}got[u]=Math.min(n,got[u]+x.value.length);draw();return step();});};return step();}).catch(done);}if(B.pack)pull(B.pack,B.packBytes,{mode:'cors',credentials:'same-origin'});pull(B.entry,B.entryBytes,{credentials:'same-origin'}).then(function(){var s=document.createElement('script');s.type='module';s.crossOrigin='anonymous';s.src=B.entry;document.head.appendChild(s);});document.addEventListener('DOMContentLoaded',draw);})(window.__BOOT);</script>
   </head>
   <body>
     <script>
@@ -251,7 +262,7 @@
       <div id="preload" aria-live="polite">
         <div class="cap">LOADING</div>
         <div class="note">First load may take a little longer</div>
-        <div class="bar"></div>
+        <div class="bar"><div class="fill"></div></div>
         <button class="reload" type="button" onclick="location.reload()">RELOAD</button>
       </div>
     </div>
