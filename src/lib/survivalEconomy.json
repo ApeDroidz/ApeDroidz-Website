@@ -1,6 +1,6 @@
 {
  "version": 1,
- "exportedAt": "2026-10-24T04:13:58.885Z",
+ "exportedAt": "2026-10-24T04:39:28.482Z",
  "resources": [
   "scrap",
   "circuit",
@@ -2450,7 +2450,8 @@
    "enabled": false,
    "perDay": 5000,
    "rateAbove": 0.3333333333333333
-  }
+  },
+  "shareBonusPct": 20
  },
  "discoveryBounty": 10,
  "enemies": [

@@ -18,7 +18,7 @@ import { logEvent } from '@/lib/survivalLog'
  */
 export const dynamic = 'force-dynamic'
 
-const TYPES = new Set(['unlock_hero', 'unlock_weapon', 'upgrade_weapon', 'tree_level', 'craft', 'dismantle', 'merge',
+const TYPES = new Set(['share_bonus', 'unlock_hero', 'unlock_weapon', 'upgrade_weapon', 'tree_level', 'craft', 'dismantle', 'merge',
     'claim_daily', 'claim_quest', 'claim_tier', 'claim_pass_tier', 'continue_mini'])
 /** Claims recorded in the live season's row (survival_profile_seasons) — refused without one. */
 const SEASON_CLAIMS = new Set(['claim_daily', 'claim_quest', 'claim_tier', 'claim_pass_tier'])
@@ -30,6 +30,7 @@ function parseAction(raw: unknown): Action | null {
     const s = (k: string) => (typeof a[k] === 'string' && (a[k] as string).length <= 64 ? (a[k] as string) : null)
     const type = typeof a.type === 'string' && TYPES.has(a.type) ? a.type : null
     switch (type) {
+        case 'share_bonus': return s('runId') ? { type, runId: s('runId')! } : null
         case 'unlock_hero': return s('hero') ? { type, hero: s('hero')! } : null
         case 'unlock_weapon': return s('weapon') ? { type, weapon: s('weapon')! } : null
         case 'upgrade_weapon': return s('weapon') ? { type, weapon: s('weapon')! } : null

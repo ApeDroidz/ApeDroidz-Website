@@ -46,7 +46,7 @@ const RARITIES = ECON.items.rarities as Rarity[]
 /** The fields only the server writes. Everything else in the save is the client's (mergeClientState). */
 export const ECONOMY_FIELDS = [
     'coins', 'resources', 'items', 'unlockedHeroes', 'unlockedWeapons', 'weaponTiers', 'heroTrees', 'lab',
-    'boosts', 'bestiary', 'lifetime', 'appliedPurchases', 'cosmetics', 'epoch', 'paidRuns',
+    'boosts', 'bestiary', 'lifetime', 'appliedPurchases', 'cosmetics', 'epoch', 'paidRuns', 'runPay', 'sharedRuns',
 ] as const
 
 /**
@@ -102,6 +102,10 @@ export function economyOf(state: SaveState): SaveState {
         cosmetics: [...new Set(['spark_white', ...strArr(state.cosmetics)])],
         epoch: typeof state.epoch === 'string' ? state.epoch : '',
         paidRuns: strArr(state.paidRuns).slice(-PAID_RUNS_KEEP),
+        // The Ape Mini each of the last paid runs brought, and the runs already shared on X — what
+        // share_bonus reads (24.10.2026). Kept as short as paidRuns.
+        runPay: Object.fromEntries(Object.entries(numMap(state.runPay)).slice(-PAID_RUNS_KEEP)),
+        sharedRuns: strArr(state.sharedRuns).slice(-PAID_RUNS_KEEP),
     }
 }
 
@@ -255,6 +259,7 @@ function todaysQuests(d: DailyPart, day: string): Quest[] {
 
 export type Action =
     | { type: 'unlock_hero'; hero: string }
+    | { type: 'share_bonus'; runId: string }
     | { type: 'unlock_weapon'; weapon: string }
     | { type: 'upgrade_weapon'; weapon: string }
     | { type: 'tree_level'; hero: string; node: string }
@@ -296,6 +301,20 @@ export function act(before: Econ, a: Action, ctx: { now: number; rand?: () => nu
     const e = x.state
     const fail = (error: string): ActResult => ({ ok: false, error })
     switch (a.type) {
+        case 'share_bonus': {
+            // Shared on X (owner, 24.10.2026: «за шеринг в X давать дополнительно 20% Ape Mini от
+            // забега»): once per run, a share of what THIS server paid for it (runReward's runPay) —
+            // never a number the client sends. X has no way to confirm a post, so the press counts.
+            const pct = Number((ECON.run as { shareBonusPct?: number }).shareBonusPct ?? 0)
+            if (!(pct > 0)) return fail('closed')
+            const pay = (e.runPay as Record<string, number>)[a.runId]
+            if (pay === undefined) return fail('run_unknown')
+            if ((e.sharedRuns as string[]).includes(a.runId)) return fail('already_claimed')
+            const bonus = Math.floor(pay * pct / 100)
+            e.coins = (e.coins as number) + bonus
+            e.sharedRuns = [...(e.sharedRuns as string[]), a.runId].slice(-PAID_RUNS_KEEP)
+            return { ok: true, econ: x, result: { bonus, pct } }
+        }
         case 'unlock_hero': {
             const h = (ECON.heroes as Record<string, { cost: number; free: boolean }>)[a.hero]
             if (!h || RETIRED_HEROES.includes(a.hero)) return fail('unknown_hero')
@@ -526,6 +545,13 @@ export function runReward(before: Econ, run: { score: number; wave: number; kill
     discovered = discovered.slice(0, 12)
 
     e.coins = (e.coins as number) + coins + discovered.length * ECON.discoveryBounty
+    // What this run brought, for its share bonus (share_bonus) — the run's Ape Mini, not the bounty.
+    if (run.runId) {
+        const rp = { ...(e.runPay as Record<string, number>) }
+        delete rp[run.runId]
+        rp[run.runId] = coins
+        e.runPay = Object.fromEntries(Object.entries(rp).slice(-PAID_RUNS_KEEP))
+    }
     addBag(e, bag)
     addSxp(x, sxp)
     const life = e.lifetime as { runs: number; bestScore: number; kills: number }
